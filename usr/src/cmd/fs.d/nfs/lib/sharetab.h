@@ -22,6 +22,8 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
  */
 /*
  * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
@@ -65,6 +67,7 @@ extern "C" {
 #define	SHOPT_NOACLFAB	"noaclfab"
 #define	SHOPT_UIDMAP	"uidmap"
 #define	SHOPT_GIDMAP	"gidmap"
+#define	SHOPT_NOHIDE	"nohide"
 
 /* XXX The following are added for testing volatile fh's purposes only */
 #ifdef VOLATILE_FH_TEST

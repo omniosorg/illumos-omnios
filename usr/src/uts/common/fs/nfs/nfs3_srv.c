@@ -480,6 +480,12 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	if (name != args->what.name)
 		kmem_free(name, MAXPATHLEN + 1);
 
+	if (error == 0 && vn_ismntpt(vp)) {
+		error = rfs_cross_mnt(&vp, &exi);
+		if (error)
+			VN_RELE(vp);
+	}
+
 	if (is_system_labeled() && error == 0) {
 		bslabel_t *clabel = req->rq_label;
 
@@ -3609,13 +3615,18 @@ good:
 		if (vn_is_nfs_reparse(nvp, cr))
 			nvap->va_type = VLNK;
 
-		vattr_to_post_op_attr(nvap, &infop[i].attr);
-
-		error = makefh3(&infop[i].fh.handle, nvp, exi);
-		if (!error)
-			infop[i].fh.handle_follows = TRUE;
-		else
+		if (vn_ismntpt(nvp)) {
+			infop[i].attr.attributes = FALSE;
 			infop[i].fh.handle_follows = FALSE;
+		} else {
+			vattr_to_post_op_attr(nvap, &infop[i].attr);
+
+			error = makefh3(&infop[i].fh.handle, nvp, exi);
+			if (!error)
+				infop[i].fh.handle_follows = TRUE;
+			else
+				infop[i].fh.handle_follows = FALSE;
+		}
 
 		VN_RELE(nvp);
 		dp = nextdp(dp);
