@@ -20,8 +20,8 @@
  */
 
 /*
- * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright 2016 Jason King.
  */
 
@@ -189,6 +189,7 @@ struct exportdata32 {
 #define	EX_NOACLFAB	0x2000	/* If set, NFSv2 and v3 servers won't */
 				/* fabricate an aclent_t ACL on file systems */
 				/* that don't support aclent_t ACLs */
+#define	EX_NOHIDE	0x4000	/* traversable from exported parent */
 
 #ifdef	_KERNEL
 
