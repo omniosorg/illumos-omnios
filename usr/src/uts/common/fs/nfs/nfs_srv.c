@@ -329,6 +329,52 @@ rfs_setattr_getfh(struct nfssaargs *args)
 	return (&args->saa_fh);
 }
 
+/* Change and release @exip and @vpp only in success */
+int
+rfs_cross_mnt(vnode_t **vpp, struct exportinfo **exip)
+{
+	struct exportinfo *exi;
+	vnode_t *vp;
+	fid_t fid;
+	int error;
+
+	vp = *vpp;
+
+	/* traverse() releases argument in success */
+	VN_HOLD(*vpp);
+
+	if ((error = traverse(&vp)) != 0) {
+		VN_RELE(*vpp);
+		return (error);
+	}
+
+	bzero(&fid, sizeof (fid));
+	fid.fid_len = MAXFIDSZ;
+	error = VOP_FID(vp, &fid, NULL);
+	if (error) {
+		VN_RELE(vp);
+		return (error);
+	}
+
+	exi = checkexport(&vp->v_vfsp->vfs_fsid, &fid);
+	if (exi == NULL ||
+	    (exi->exi_export.ex_flags & EX_NOHIDE) == 0) {
+		/*
+		 * It is not error, just subdir is not exported
+		 * or "nohide" is not set
+		 */
+		VN_RELE(vp);
+	} else {
+		/* go to submount */
+		exi_rele(*exip);
+		*exip = exi;
+
+		VN_RELE(*vpp);
+		*vpp = vp;
+	}
+	return (0);
+}
+
 /*
  * Directory lookup.
  * Returns an fhandle and file attributes for file name in a directory.
@@ -426,6 +472,11 @@ rfs_lookup(struct nfsdiropargs *da, struct nfsdiropres *dr,
 	if (name != da->da_name)
 		kmem_free(name, MAXPATHLEN);
 
+	if (error == 0 && vn_ismntpt(vp)) {
+		error = rfs_cross_mnt(&vp, &exi);
+		if (error)
+			VN_RELE(vp);
+	}
 
 	if (!error) {
 		va.va_mask = AT_ALL;	/* we want everything */
