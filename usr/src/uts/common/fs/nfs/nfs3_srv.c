@@ -383,6 +383,13 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	dvap = NULL;
 
 	/*
+	 * The passed argument exportinfo is released by the
+	 * caller, common_dispatch
+	 */
+	if (exi != NULL)
+		exi_hold(exi);
+
+	/*
 	 * Allow lookups from the root - the default
 	 * location of the public filehandle.
 	 */
@@ -420,8 +427,19 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	fhp = &args->what.dir;
 	if (strcmp(args->what.name, "..") == 0 &&
 	    EQFID(&exi->exi_fid, FH3TOFIDP(fhp))) {
-		resp->status = NFS3ERR_NOENT;
-		goto out1;
+		if ((exi->exi_export.ex_flags & EX_NOHIDE) &&
+		    (dvp->v_flag & VROOT)) {
+			/*
+			 * special case for ".." and 'nohide'exported root
+			 */
+			if (rfs_climb_crossmnt(&dvp, &exi, cr) != 0) {
+				resp->status = NFS3ERR_ACCES;
+				goto out1;
+			}
+		} else {
+			resp->status = NFS3ERR_NOENT;
+			goto out1;
+		}
 	}
 
 	ca = (struct sockaddr *)svc_getrpccaller(req->rq_xprt)->buf;
@@ -562,6 +580,9 @@ out:
 	} else
 		resp->status = puterrno3(error);
 out1:
+	if (exi != NULL)
+		exi_rele(exi);
+
 	DTRACE_NFSV3_4(op__lookup__done, struct svc_req *, req,
 	    cred_t *, cr, vnode_t *, dvp, LOOKUP3res *, resp);
 
