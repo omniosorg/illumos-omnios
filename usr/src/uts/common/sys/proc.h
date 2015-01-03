@@ -756,6 +756,10 @@ extern	kthread_t *thread_unpin(void);
 extern	void	thread_init(void);
 extern	void	thread_load(kthread_t *, void (*)(), caddr_t, size_t);
 
+extern	void	thread_splitstack(void (*)(void *), void *, size_t);
+extern	void	thread_splitstack_run(caddr_t, void (*)(void *), void *);
+extern	void	thread_splitstack_cleanup(void);
+
 extern	void	tsd_create(uint_t *, void (*)(void *));
 extern	void	tsd_destroy(uint_t *);
 extern	void	*tsd_getcreate(uint_t *, void (*)(void *), void *(*)(void));

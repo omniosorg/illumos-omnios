@@ -904,3 +904,14 @@ void
 do_hotinlines(struct module *mp __unused)
 {
 }
+
+void
+thread_splitstack_run(caddr_t addr, void (*func)(void *), void *)
+{
+	panic("thread_splitstack() not supported on SPARC");
+}
+
+void
+thread_splitstack_cleanup(void)
+{
+}
