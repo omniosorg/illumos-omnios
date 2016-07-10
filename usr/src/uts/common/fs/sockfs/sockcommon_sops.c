@@ -25,6 +25,7 @@
 
 /*
  * Copyright (c) 2014, Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  */
 
 #include <sys/types.h>
@@ -37,6 +38,7 @@
 #include <sys/stropts.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
+#include <sys/fcntl.h>
 
 #define	_SUN_TPI_VERSION	2
 #include <sys/tihdr.h>
@@ -357,6 +359,8 @@ so_accept(struct sonode *so, int fflag, struct cred *cr, struct sonode **nsop)
 			socket_destroy(nso);
 		} else {
 			*nsop = nso;
+			if (!(curproc->p_flag & SSYS))
+				sonode_insert_pid(nso, curproc->p_pidp->pid_id);
 		}
 	}
 
@@ -1548,6 +1552,43 @@ so_closed(sock_upper_handle_t sock_handle)
 	VN_RELE(SOTOV(so));
 }
 
+mblk_t *
+so_get_sock_pid_mblk(sock_upper_handle_t sock_handle)
+{
+	ulong_t sz, n;
+	mblk_t *mblk;
+	pid_node_t *pn;
+	pid_t *pids;
+	conn_pid_info_t *cpi;
+	struct sonode *so = (struct sonode *)sock_handle;
+
+	mutex_enter(&so->so_pid_tree_lock);
+
+	n = avl_numnodes(&so->so_pid_tree);
+	sz = sizeof (conn_pid_info_t);
+	sz += (n > 1) ? ((n - 1) * sizeof (pid_t)) : 0;
+	if ((mblk = allocb(sz, BPRI_HI)) == NULL) {
+		mutex_exit(&so->so_pid_tree_lock);
+		return (NULL);
+	}
+	mblk->b_wptr += sz;
+	cpi = (conn_pid_info_t *)mblk->b_datap->db_base;
+
+	cpi->cpi_contents = CONN_PID_INFO_SOC;
+	cpi->cpi_pids_cnt = n;
+	cpi->cpi_tot_size = sz;
+	cpi->cpi_pids[0] = 0;
+
+	if (cpi->cpi_pids_cnt > 0) {
+		pids = cpi->cpi_pids;
+		for (pn = avl_first(&so->so_pid_tree); pn != NULL;
+		    pids++, pn = AVL_NEXT(&so->so_pid_tree, pn))
+			*pids = pn->pn_pid;
+	}
+	mutex_exit(&so->so_pid_tree_lock);
+	return (mblk);
+}
+
 void
 so_zcopy_notify(sock_upper_handle_t sock_handle)
 {
@@ -1948,5 +1989,6 @@ sock_upcalls_t so_upcalls = {
 	so_signal_oob,
 	so_zcopy_notify,
 	so_set_error,
-	so_closed
+	so_closed,
+	so_get_sock_pid_mblk
 };

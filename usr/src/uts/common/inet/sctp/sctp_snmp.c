@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  */
 
 #include <sys/types.h>
@@ -528,6 +529,9 @@ sctp_snmp_get_mib2(queue_t *q, mblk_t *mpctl, sctp_stack_t *sctps)
 	mblk_t			*mp_conn_ctl = NULL;
 	mblk_t			*mp_conn_data;
 	mblk_t			*mp_conn_tail = NULL;
+	mblk_t			*mp_pidnode_ctl = NULL;
+	mblk_t			*mp_pidnode_data;
+	mblk_t			*mp_pidnode_tail = NULL;
 	mblk_t			*mp_local_ctl = NULL;
 	mblk_t			*mp_local_data;
 	mblk_t			*mp_local_tail = NULL;
@@ -560,23 +564,27 @@ sctp_snmp_get_mib2(queue_t *q, mblk_t *mpctl, sctp_stack_t *sctps)
 	 */
 	mp_ret = copymsg(mpctl);
 	mp_conn_ctl = copymsg(mpctl);
+	mp_pidnode_ctl = copymsg(mpctl);
 	mp_local_ctl = copymsg(mpctl);
 	mp_rem_ctl = copymsg(mpctl);
 	mp_attr_ctl = copymsg(mpctl);
 
 	mpdata = mpctl->b_cont;
 
-	if (mp_conn_ctl == NULL || mp_local_ctl == NULL ||
-	    mp_rem_ctl == NULL || mp_attr_ctl == NULL || mpdata == NULL) {
+	if (mp_conn_ctl == NULL || mp_pidnode_ctl == NULL ||
+	    mp_local_ctl == NULL || mp_rem_ctl == NULL || mp_attr_ctl == NULL ||
+	    mpdata == NULL) {
 		freemsg(mp_attr_ctl);
 		freemsg(mp_rem_ctl);
 		freemsg(mp_local_ctl);
+		freemsg(mp_pidnode_ctl);
 		freemsg(mp_conn_ctl);
 		freemsg(mp_ret);
 		freemsg(mpctl);
 		return (NULL);
 	}
 	mp_conn_data = mp_conn_ctl->b_cont;
+	mp_pidnode_data = mp_pidnode_ctl->b_cont;
 	mp_local_data = mp_local_ctl->b_cont;
 	mp_rem_data = mp_rem_ctl->b_cont;
 	mp_attr_data = mp_attr_ctl->b_cont;
@@ -803,6 +811,13 @@ done:
 		sce.sctpConnEntryInfo.ce_mss = sctp->sctp_mss;
 		(void) snmp_append_data2(mp_conn_data, &mp_conn_tail,
 		    (char *)&sce, sizeof (sce));
+
+		(void) snmp_append_data2(mp_pidnode_data, &mp_pidnode_tail,
+		    (char *)&sce, sizeof (sce));
+
+		(void) snmp_append_mblk2(mp_pidnode_data, &mp_pidnode_tail,
+		    conn_get_pid_mblk(connp));
+
 		mlp.tme_connidx = idx++;
 		if (needattr)
 			(void) snmp_append_data2(mp_attr_ctl->b_cont,
@@ -832,6 +847,14 @@ next_sctp:
 	optp->name = MIB2_SCTP_CONN;
 	optp->len = msgdsize(mp_conn_data);
 	qreply(q, mp_conn_ctl);
+
+	/* table of EXPER_XPORT_PROC_INFO */
+	optp = (struct opthdr *)&mp_pidnode_ctl->b_rptr[
+	    sizeof (struct T_optmgmt_ack)];
+	optp->level = MIB2_SCTP;
+	optp->name = EXPER_XPORT_PROC_INFO;
+	optp->len = msgdsize(mp_pidnode_data);
+	qreply(q, mp_pidnode_ctl);
 
 	/* assoc local address table */
 	optp = (struct opthdr *)&mp_local_ctl->b_rptr[

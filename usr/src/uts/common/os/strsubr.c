@@ -25,6 +25,7 @@
 /*
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
@@ -652,11 +653,14 @@ stream_head_constructor(void *buf, void *cdrarg, int kmflags)
 	mutex_init(&stp->sd_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&stp->sd_reflock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&stp->sd_qlock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&stp->sd_pid_tree_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&stp->sd_monitor, NULL, CV_DEFAULT, NULL);
 	cv_init(&stp->sd_iocmonitor, NULL, CV_DEFAULT, NULL);
 	cv_init(&stp->sd_refmonitor, NULL, CV_DEFAULT, NULL);
 	cv_init(&stp->sd_qcv, NULL, CV_DEFAULT, NULL);
 	cv_init(&stp->sd_zcopy_wait, NULL, CV_DEFAULT, NULL);
+	avl_create(&stp->sd_pid_tree, pid_node_comparator, sizeof (pid_node_t),
+	    offsetof(pid_node_t, pn_ref_link));
 	stp->sd_wrq = NULL;
 
 	return (0);
@@ -671,11 +675,13 @@ stream_head_destructor(void *buf, void *cdrarg)
 	mutex_destroy(&stp->sd_lock);
 	mutex_destroy(&stp->sd_reflock);
 	mutex_destroy(&stp->sd_qlock);
+	mutex_destroy(&stp->sd_pid_tree_lock);
 	cv_destroy(&stp->sd_monitor);
 	cv_destroy(&stp->sd_iocmonitor);
 	cv_destroy(&stp->sd_refmonitor);
 	cv_destroy(&stp->sd_qcv);
 	cv_destroy(&stp->sd_zcopy_wait);
+	avl_destroy(&stp->sd_pid_tree);
 }
 
 /*
@@ -950,7 +956,7 @@ str_sendsig(vnode_t *vp, int event, uchar_t band, int error)
  */
 static void
 dosendsig(proc_t *proc, int events, int sevent, k_siginfo_t *info,
-	uchar_t band, int error)
+    uchar_t band, int error)
 {
 	ASSERT(MUTEX_HELD(&proc->p_lock));
 
@@ -2350,7 +2356,7 @@ mux_rmvedge(stdata_t *upstp, int muxid, str_stack_t *ss)
  */
 int
 devflg_to_qflag(struct streamtab *stp, uint32_t devflag, uint32_t *qflagp,
-	uint32_t *sqtypep)
+    uint32_t *sqtypep)
 {
 	uint32_t qflag = 0;
 	uint32_t sqtype = 0;
@@ -3317,6 +3323,8 @@ shalloc(queue_t *qp)
 void
 shfree(stdata_t *stp)
 {
+	pid_node_t *pn;
+
 	ASSERT(MUTEX_NOT_HELD(&stp->sd_lock));
 
 	stp->sd_wrq = NULL;
@@ -3340,7 +3348,91 @@ shfree(stdata_t *stp)
 	ASSERT(stp->sd_qhead == NULL);
 	ASSERT(stp->sd_qtail == NULL);
 	ASSERT(stp->sd_nqueues == 0);
+
+	mutex_enter(&stp->sd_pid_tree_lock);
+	while ((pn = avl_first(&stp->sd_pid_tree)) != NULL) {
+		avl_remove(&stp->sd_pid_tree, pn);
+		kmem_free(pn, sizeof (*pn));
+	}
+	mutex_exit(&stp->sd_pid_tree_lock);
+
 	kmem_cache_free(stream_head_cache, stp);
+}
+
+void
+sh_insert_pid(struct stdata *stp, pid_t pid)
+{
+	pid_node_t *pn, lookup_pn;
+	avl_index_t idx_pn;
+
+	lookup_pn.pn_pid = pid;
+	mutex_enter(&stp->sd_pid_tree_lock);
+	pn = avl_find(&stp->sd_pid_tree, &lookup_pn, &idx_pn);
+
+	if (pn != NULL) {
+		pn->pn_count++;
+	} else {
+		pn = kmem_zalloc(sizeof (*pn), KM_SLEEP);
+		pn->pn_pid = pid;
+		pn->pn_count = 1;
+		avl_insert(&stp->sd_pid_tree, pn, idx_pn);
+	}
+	mutex_exit(&stp->sd_pid_tree_lock);
+}
+
+void
+sh_remove_pid(struct stdata *stp, pid_t pid)
+{
+	pid_node_t *pn, lookup_pn;
+
+	lookup_pn.pn_pid = pid;
+	mutex_enter(&stp->sd_pid_tree_lock);
+	pn = avl_find(&stp->sd_pid_tree, &lookup_pn, NULL);
+
+	if (pn != NULL) {
+		if (pn->pn_count > 1) {
+			pn->pn_count--;
+		} else {
+			avl_remove(&stp->sd_pid_tree, pn);
+			kmem_free(pn, sizeof (*pn));
+		}
+	}
+	mutex_exit(&stp->sd_pid_tree_lock);
+}
+
+mblk_t *
+sh_get_pid_mblk(struct stdata *stp)
+{
+	mblk_t *mblk;
+	ulong_t sz, n;
+	pid_t *pids;
+	pid_node_t *pn;
+	conn_pid_info_t *cpi;
+
+	mutex_enter(&stp->sd_pid_tree_lock);
+
+	n = avl_numnodes(&stp->sd_pid_tree);
+	sz = sizeof (conn_pid_info_t);
+	sz += (n > 1) ? ((n - 1) * sizeof (pid_t)) : 0;
+	if ((mblk = allocb(sz, BPRI_HI)) == NULL) {
+		mutex_exit(&stp->sd_pid_tree_lock);
+		return (NULL);
+	}
+	mblk->b_wptr += sz;
+	cpi = (conn_pid_info_t *)mblk->b_datap->db_base;
+	cpi->cpi_contents = CONN_PID_INFO_XTI;
+	cpi->cpi_pids_cnt = n;
+	cpi->cpi_tot_size = sz;
+	cpi->cpi_pids[0] = 0;
+
+	if (cpi->cpi_pids_cnt > 0) {
+		pids = cpi->cpi_pids;
+		for (pn = avl_first(&stp->sd_pid_tree); pn != NULL;
+		    pids++, pn = AVL_NEXT(&stp->sd_pid_tree, pn))
+			*pids = pn->pn_pid;
+	}
+	mutex_exit(&stp->sd_pid_tree_lock);
+	return (mblk);
 }
 
 /*
@@ -8086,8 +8178,8 @@ strflushrq(vnode_t *vp, int flag)
 }
 
 void
-strsetrputhooks(vnode_t *vp, uint_t flags,
-		msgfunc_t protofunc, msgfunc_t miscfunc)
+strsetrputhooks(vnode_t *vp, uint_t flags, msgfunc_t protofunc,
+    msgfunc_t miscfunc)
 {
 	struct stdata *stp = vp->v_stream;
 

@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright 2017 Sebastian Wiedenroth
  */
 
@@ -478,6 +479,8 @@ sonode_constructor(void *buf, void *cdrarg, int kmflags)
 	    offsetof(struct sonode, so_acceptq_node));
 	list_create(&so->so_acceptq_defer, sizeof (struct sonode),
 	    offsetof(struct sonode, so_acceptq_node));
+	avl_create(&so->so_pid_tree, pid_node_comparator, sizeof (pid_node_t),
+	    offsetof(pid_node_t, pn_ref_link));
 	list_link_init(&so->so_acceptq_node);
 	so->so_acceptq_len	= 0;
 	so->so_backlog		= 0;
@@ -493,6 +496,7 @@ sonode_constructor(void *buf, void *cdrarg, int kmflags)
 
 	mutex_init(&so->so_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&so->so_acceptq_lock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&so->so_pid_tree_lock, NULL, MUTEX_DEFAULT, NULL);
 	rw_init(&so->so_fallback_rwlock, NULL, RW_DEFAULT, NULL);
 	cv_init(&so->so_state_cv, NULL, CV_DEFAULT, NULL);
 	cv_init(&so->so_single_cv, NULL, CV_DEFAULT, NULL);
@@ -523,6 +527,7 @@ sonode_destructor(void *buf, void *cdrarg)
 
 	list_destroy(&so->so_acceptq_list);
 	list_destroy(&so->so_acceptq_defer);
+	avl_destroy(&so->so_pid_tree);
 	ASSERT(!list_link_active(&so->so_acceptq_node));
 	ASSERT(so->so_listener == NULL);
 
@@ -538,6 +543,7 @@ sonode_destructor(void *buf, void *cdrarg)
 
 	mutex_destroy(&so->so_lock);
 	mutex_destroy(&so->so_acceptq_lock);
+	mutex_destroy(&so->so_pid_tree_lock);
 	rw_destroy(&so->so_fallback_rwlock);
 
 	cv_destroy(&so->so_state_cv);
@@ -629,6 +635,7 @@ void
 sonode_fini(struct sonode *so)
 {
 	vnode_t *vp;
+	pid_node_t *pn;
 
 	ASSERT(so->so_count == 0);
 
@@ -657,6 +664,13 @@ sonode_fini(struct sonode *so)
 	if (so->so_filter_top != NULL)
 		sof_sonode_cleanup(so);
 
+	mutex_enter(&so->so_pid_tree_lock);
+	while ((pn = avl_first(&so->so_pid_tree)) != NULL) {
+		avl_remove(&so->so_pid_tree, pn);
+		kmem_free(pn, sizeof (*pn));
+	}
+	mutex_exit(&so->so_pid_tree_lock);
+
 	ASSERT(list_is_empty(&so->so_acceptq_list));
 	ASSERT(list_is_empty(&so->so_acceptq_defer));
 	ASSERT(!list_link_active(&so->so_acceptq_node));
@@ -666,4 +680,45 @@ sonode_fini(struct sonode *so)
 	ASSERT(so->so_rcv_q_last_head == NULL);
 	ASSERT(so->so_rcv_head == NULL);
 	ASSERT(so->so_rcv_last_head == NULL);
+}
+
+void
+sonode_insert_pid(struct sonode *so, pid_t pid)
+{
+	pid_node_t	*pn, lookup_pn;
+	avl_index_t	idx_pn;
+
+	lookup_pn.pn_pid = pid;
+	mutex_enter(&so->so_pid_tree_lock);
+	pn = avl_find(&so->so_pid_tree, &lookup_pn, &idx_pn);
+
+	if (pn != NULL) {
+		pn->pn_count++;
+	} else {
+		pn = kmem_zalloc(sizeof (*pn), KM_SLEEP);
+		pn->pn_pid = pid;
+		pn->pn_count = 1;
+		avl_insert(&so->so_pid_tree, pn, idx_pn);
+	}
+	mutex_exit(&so->so_pid_tree_lock);
+}
+
+void
+sonode_remove_pid(struct sonode *so, pid_t pid)
+{
+	pid_node_t *pn, lookup_pn;
+
+	lookup_pn.pn_pid = pid;
+	mutex_enter(&so->so_pid_tree_lock);
+	pn = avl_find(&so->so_pid_tree, &lookup_pn, NULL);
+
+	if (pn != NULL) {
+		if (pn->pn_count > 1) {
+				pn->pn_count--;
+		} else {
+			avl_remove(&so->so_pid_tree, pn);
+			kmem_free(pn, sizeof (*pn));
+		}
+	}
+	mutex_exit(&so->so_pid_tree_lock);
 }

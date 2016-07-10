@@ -22,6 +22,7 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2015 Joyent, Inc.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  */
 
 #ifndef	_INET_IPCLASSIFIER_H
@@ -731,6 +732,7 @@ extern int ip_create_helper_stream(conn_t *, ldi_ident_t);
 extern void ip_free_helper_stream(conn_t *);
 extern int	ip_helper_stream_setup(queue_t *, dev_t *, int, int,
     cred_t *, boolean_t);
+extern mblk_t *conn_get_pid_mblk(conn_t *);
 
 #ifdef	__cplusplus
 }

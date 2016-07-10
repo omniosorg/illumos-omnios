@@ -24,6 +24,7 @@
 
 /*
  * Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright 2017 Joyent, Inc.
  */
 
@@ -79,6 +80,7 @@
 #include <sys/zone.h>
 #include <sys/limits.h>
 #include <c2/audit.h>
+#include <sys/fcntl.h>
 
 /*
  * This define helps improve the readability of streams code while
@@ -144,6 +146,7 @@ static void putback(struct stdata *, queue_t *, mblk_t *, int);
 static void strcleanall(struct vnode *);
 static int strwsrv(queue_t *);
 static int strdocmd(struct stdata *, struct strcmd *, cred_t *);
+static boolean_t is_xti_str(const struct stdata *);
 
 /*
  * qinit and module_info structures for stream head read and write queues
@@ -398,6 +401,14 @@ ckreturn:
 	STREAM(qp) = STREAM(_WR(qp)) = stp;
 	vp->v_stream = stp;
 	mutex_exit(&vp->v_lock);
+
+	/*
+	 * If this is not a system process, then add it to
+	 * the list associated with the stream head.
+	 */
+	if (!(curproc->p_flag & SSYS) && is_xti_str(stp))
+		sh_insert_pid(stp, curproc->p_pidp->pid_id);
+
 	if (vp->v_type == VFIFO) {
 		stp->sd_flag |= OLDNDELAY;
 		/*
@@ -5721,6 +5732,22 @@ strioctl(struct vnode *vp, int cmd, intptr_t arg, int flag, int copyflag,
 	case FIONBIO:
 	case FIOASYNC:
 		return (0);	/* handled by the upper layer */
+	case F_ASSOCI_PID:
+	{
+		if (crp != kcred)
+			return (EPERM);
+		if (is_xti_str(stp))
+			sh_insert_pid(stp, (pid_t)arg);
+		return (0);
+	}
+	case F_DASSOC_PID:
+	{
+		if (crp != kcred)
+			return (EPERM);
+		if (is_xti_str(stp))
+			sh_remove_pid(stp, (pid_t)arg);
+		return (0);
+	}
 	}
 }
 
@@ -8660,5 +8687,35 @@ msghasdata(mblk_t *bp)
 			if (bp->b_wptr > bp->b_rptr)
 				return (B_TRUE);
 		}
+	return (B_FALSE);
+}
+
+/*
+ * Check whether a stream is an XTI stream or not.
+ */
+static boolean_t
+is_xti_str(const struct stdata *stp)
+{
+	struct devnames *dnp;
+	vnode_t *vn;
+	major_t major;
+	if ((vn = stp->sd_vnode) != NULL && vn->v_type == VCHR &&
+	    vn->v_rdev != 0) {
+		major = getmajor(vn->v_rdev);
+		dnp = (major != DDI_MAJOR_T_NONE && major >= 0 &&
+		    major < devcnt) ? &devnamesp[major] : NULL;
+		if (dnp != NULL && dnp->dn_name != NULL &&
+		    (strcmp(dnp->dn_name, "ip") == 0 ||
+		    strcmp(dnp->dn_name, "tcp") == 0 ||
+		    strcmp(dnp->dn_name, "udp") == 0 ||
+		    strcmp(dnp->dn_name, "icmp") == 0 ||
+		    strcmp(dnp->dn_name, "tl") == 0 ||
+		    strcmp(dnp->dn_name, "ip6") == 0 ||
+		    strcmp(dnp->dn_name, "tcp6") == 0 ||
+		    strcmp(dnp->dn_name, "udp6") == 0 ||
+		    strcmp(dnp->dn_name, "icmp6") == 0)) {
+			return (B_TRUE);
+		}
+	}
 	return (B_FALSE);
 }

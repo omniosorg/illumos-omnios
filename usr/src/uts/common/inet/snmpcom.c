@@ -24,6 +24,10 @@
 /* Copyright (c) 1990 Mentat Inc. */
 
 /*
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
+ */
+
+/*
  * This file contains common code for handling Options Management requests
  * for SNMP/MIB.
  */
@@ -107,6 +111,17 @@ snmp_append_data(mblk_t *mpdata, char *blob, int len)
 	return (1);
 }
 
+int
+snmp_append_mblk(mblk_t *mpdata, mblk_t *mblk)
+{
+	if (!mpdata || !mblk)
+		return (0);
+	while (mpdata->b_cont)
+		mpdata = mpdata->b_cont;
+	mpdata->b_cont = mblk;
+	return (1);
+}
+
 /*
  * Need a form which avoids O(n^2) behavior locating the end of the
  * chain every time.  This is it.
@@ -130,6 +145,21 @@ snmp_append_data2(mblk_t *mpdata, mblk_t **last_mpp, char *blob, int len)
 	}
 	bcopy(blob, (char *)(*last_mpp)->b_wptr, len);
 	(*last_mpp)->b_wptr += len;
+	return (1);
+}
+
+int
+snmp_append_mblk2(mblk_t *mpdata, mblk_t **last_mpp, mblk_t *mblk)
+{
+	if (!mpdata || !mblk)
+		return (0);
+	if (*last_mpp == NULL) {
+		while (mpdata->b_cont)
+			mpdata = mpdata->b_cont;
+		*last_mpp = mpdata;
+	}
+	(*last_mpp)->b_cont = mblk;
+	*last_mpp = (*last_mpp)->b_cont;
 	return (1);
 }
 

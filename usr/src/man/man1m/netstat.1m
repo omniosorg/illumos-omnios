@@ -1,15 +1,16 @@
 '\" te
 .\" Copyright 2018, Joyent, Inc.
+.\" Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
 .\" Copyright (C) 2002, Sun Microsystems, Inc. All Rights Reserved
 .\" Copyright 1989 AT&T
 .\" Copyright (c) 1983 Regents of the University of California. All rights reserved. The Berkeley software License Agreement specifies the terms and conditions for redistribution.
-.TH NETSTAT 1M "Sep 02, 2015"
+.TH NETSTAT 1M "Jul 12, 2016"
 .SH NAME
 netstat \- show network status
 .SH SYNOPSIS
 .LP
 .nf
-\fBnetstat\fR [\fB-anvR\fR] [\fB-f\fR \fIaddress_family\fR] [\fB-P\fR \fIprotocol\fR]
+\fBnetstat\fR [\fB-anuvR\fR] [\fB-f\fR \fIaddress_family\fR] [\fB-P\fR \fIprotocol\fR]
 .fi
 
 .LP
@@ -348,6 +349,18 @@ Display a time stamp.
 Specify \fBu\fR for a printed representation of the internal representation of
 time. See \fBtime\fR(2). Specify \fBd\fR for standard date format. See
 \fBdate\fR(1).
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fB-u\fR\fR
+.ad
+.sp .6
+.RS 4n
+For each network endpoint show the list of processes which currently have an
+open file descriptor pointing to that endpoint. For each process in that list,
+also show the username, process ID and associated program.
 .RE
 
 .sp

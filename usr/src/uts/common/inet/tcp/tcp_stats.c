@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, Joyent Inc. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  */
 
 #include <sys/types.h>
@@ -29,6 +30,13 @@
 #include <sys/policy.h>
 #include <sys/tsol/tnet.h>
 #include <sys/kstat.h>
+
+#include <sys/strsun.h>
+#include <sys/stropts.h>
+#include <sys/strsubr.h>
+#include <sys/socket.h>
+#include <sys/socketvar.h>
+#include <sys/uio.h>
 
 #include <inet/common.h>
 #include <inet/ip.h>
@@ -97,10 +105,14 @@ tcp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 	mblk_t			*mp_conn_tail;
 	mblk_t			*mp_attr_ctl = NULL;
 	mblk_t			*mp_attr_tail;
+	mblk_t			*mp_pidnode_ctl = NULL;
+	mblk_t			*mp_pidnode_tail;
 	mblk_t			*mp6_conn_ctl = NULL;
 	mblk_t			*mp6_conn_tail;
 	mblk_t			*mp6_attr_ctl = NULL;
 	mblk_t			*mp6_attr_tail;
+	mblk_t			*mp6_pidnode_ctl = NULL;
+	mblk_t			*mp6_pidnode_tail;
 	struct opthdr		*optp;
 	mib2_tcpConnEntry_t	tce;
 	mib2_tcp6ConnEntry_t	tce6;
@@ -127,12 +139,16 @@ tcp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 	    (mpdata = mpctl->b_cont) == NULL ||
 	    (mp_conn_ctl = copymsg(mpctl)) == NULL ||
 	    (mp_attr_ctl = copymsg(mpctl)) == NULL ||
+	    (mp_pidnode_ctl = copymsg(mpctl)) == NULL ||
 	    (mp6_conn_ctl = copymsg(mpctl)) == NULL ||
-	    (mp6_attr_ctl = copymsg(mpctl)) == NULL) {
+	    (mp6_attr_ctl = copymsg(mpctl)) == NULL ||
+	    (mp6_pidnode_ctl = copymsg(mpctl)) == NULL) {
 		freemsg(mp_conn_ctl);
 		freemsg(mp_attr_ctl);
+		freemsg(mp_pidnode_ctl);
 		freemsg(mp6_conn_ctl);
 		freemsg(mp6_attr_ctl);
+		freemsg(mp6_pidnode_ctl);
 		freemsg(mpctl);
 		freemsg(mp2ctl);
 		return (NULL);
@@ -166,6 +182,7 @@ tcp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 
 	v4_conn_idx = v6_conn_idx = 0;
 	mp_conn_tail = mp_attr_tail = mp6_conn_tail = mp6_attr_tail = NULL;
+	mp_pidnode_tail = mp6_pidnode_tail = NULL;
 
 	for (i = 0; i < CONN_G_HASH_SIZE; i++) {
 		ipst = tcps->tcps_netstack->netstack_ip;
@@ -281,6 +298,12 @@ tcp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 			(void) snmp_append_data2(mp6_conn_ctl->b_cont,
 			    &mp6_conn_tail, (char *)&tce6, tce6_size);
 
+			(void) snmp_append_data2(mp6_pidnode_ctl->b_cont,
+			    &mp6_pidnode_tail, (char *)&tce6, tce6_size);
+
+			(void) snmp_append_mblk2(mp6_pidnode_ctl->b_cont,
+			    &mp6_pidnode_tail, conn_get_pid_mblk(connp));
+
 			mlp.tme_connidx = v6_conn_idx++;
 			if (needattr)
 				(void) snmp_append_data2(mp6_attr_ctl->b_cont,
@@ -347,6 +370,12 @@ tcp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 
 				(void) snmp_append_data2(mp_conn_ctl->b_cont,
 				    &mp_conn_tail, (char *)&tce, tce_size);
+
+				(void) snmp_append_data2(mp_pidnode_ctl->b_cont,
+				    &mp_pidnode_tail, (char *)&tce, tce_size);
+
+				(void) snmp_append_mblk2(mp_pidnode_ctl->b_cont,
+				    &mp_pidnode_tail, conn_get_pid_mblk(connp));
 
 				mlp.tme_connidx = v4_conn_idx++;
 				if (needattr)
@@ -417,6 +446,29 @@ tcp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 		freemsg(mp6_attr_ctl);
 	else
 		qreply(q, mp6_attr_ctl);
+
+	/* table of EXPER_XPORT_PROC_INFO  ipv4 */
+	optp = (struct opthdr *)&mp_pidnode_ctl->b_rptr[
+	    sizeof (struct T_optmgmt_ack)];
+	optp->level = MIB2_TCP;
+	optp->name = EXPER_XPORT_PROC_INFO;
+	optp->len = msgdsize(mp_pidnode_ctl->b_cont);
+	if (optp->len == 0)
+		freemsg(mp_pidnode_ctl);
+	else
+		qreply(q, mp_pidnode_ctl);
+
+	/* table of EXPER_XPORT_PROC_INFO  ipv6 */
+	optp = (struct opthdr *)&mp6_pidnode_ctl->b_rptr[
+	    sizeof (struct T_optmgmt_ack)];
+	optp->level = MIB2_TCP6;
+	optp->name = EXPER_XPORT_PROC_INFO;
+	optp->len = msgdsize(mp6_pidnode_ctl->b_cont);
+	if (optp->len == 0)
+		freemsg(mp6_pidnode_ctl);
+	else
+		qreply(q, mp6_pidnode_ctl);
+
 	return (mp2ctl);
 }
 

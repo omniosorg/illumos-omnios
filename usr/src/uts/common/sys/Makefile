@@ -28,6 +28,7 @@
 # Copyright 2015, Joyent, Inc. All rights reserved.
 # Copyright 2016 Nexenta Systems, Inc.
 # Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
+# Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
 #
 
 include $(SRC)/uts/Makefile.uts
@@ -143,6 +144,7 @@ CHKHDRS=			\
 	crc32.h			\
 	cred.h			\
 	cred_impl.h		\
+	pidnode.h		\
 	crtctl.h		\
 	cryptmod.h		\
 	csiioctl.h		\

@@ -24,6 +24,7 @@
  * Use is subject to license terms.
  */
 /*
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
@@ -126,6 +127,9 @@ socket_vop_open(struct vnode **vpp, int flag, struct cred *cr,
 	so->so_count++;
 	mutex_exit(&so->so_lock);
 
+	if (!(curproc->p_flag & SSYS))
+		sonode_insert_pid(so, curproc->p_pidp->pid_id);
+
 	ASSERT(so->so_count != 0);	/* wraparound */
 	ASSERT(vp->v_type == VSOCK);
 
@@ -211,6 +215,22 @@ socket_vop_ioctl(struct vnode *vp, int cmd, intptr_t arg, int mode,
 	struct sonode *so = VTOSO(vp);
 
 	ASSERT(vp->v_type == VSOCK);
+
+	switch (cmd) {
+	case F_ASSOCI_PID:
+		if (cr != kcred)
+			return (EPERM);
+		if (!(curproc->p_flag & SSYS))
+			sonode_insert_pid(so, (pid_t)arg);
+		return (0);
+
+	case F_DASSOC_PID:
+		if (cr != kcred)
+			return (EPERM);
+		if (!(curproc->p_flag & SSYS))
+			sonode_remove_pid(so, (pid_t)arg);
+		return (0);
+	}
 
 	return (socket_ioctl(so, cmd, arg, mode, cr, rvalp));
 }

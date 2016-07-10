@@ -37,6 +37,7 @@
  */
 /*
  * Copyright 2015 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  */
 
 #ifndef _SYS_SOCKETVAR_H
@@ -46,6 +47,7 @@
 #include <sys/stream.h>
 #include <sys/t_lock.h>
 #include <sys/cred.h>
+#include <sys/pidnode.h>
 #include <sys/vnode.h>
 #include <sys/file.h>
 #include <sys/param.h>
@@ -244,6 +246,10 @@ struct sonode {
 	struct sof_instance	*so_filter_top;		/* top of stack */
 	struct sof_instance	*so_filter_bottom;	/* bottom of stack */
 	clock_t			so_filter_defertime;	/* time when deferred */
+
+	/* pid tree */
+	avl_tree_t		so_pid_tree;
+	kmutex_t		so_pid_tree_lock;
 };
 
 #define	SO_HAVE_DATA(so)						\
@@ -972,8 +978,14 @@ extern int	so_copyout(const void *, void *, size_t, int);
 /*
  * Internal structure for obtaining sonode information from the socklist.
  * These types match those corresponding in the sonode structure.
- * This is not a published interface, and may change at any time.
+ * This is not a published interface, and may change at any time. It is
+ * used for passing information back up to the kstat consumers. By converting
+ * kernel addresses to strings, we should be able to pass information from
+ * the kernel to userland regardless of n-bit kernel we are using.
  */
+
+#define	ADRSTRLEN (2 * sizeof (uint64_t) + 1)
+
 struct sockinfo {
 	uint_t		si_size;		/* real length of this struct */
 	short		si_family;
@@ -991,6 +1003,11 @@ struct sockinfo {
 	char		si_faddr_sun_path[MAXPATHLEN + 1];
 	boolean_t	si_faddr_noxlate;
 	zoneid_t	si_szoneid;
+	char		si_son_straddr[ADRSTRLEN];
+	char		si_lvn_straddr[ADRSTRLEN];
+	char		si_fvn_straddr[ADRSTRLEN];
+	uint_t		si_pn_cnt;
+	pid_t		si_pids[1];
 };
 
 /*

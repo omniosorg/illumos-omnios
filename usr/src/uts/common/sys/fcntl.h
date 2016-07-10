@@ -36,8 +36,11 @@
  * contributors.
  */
 
-/* Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved. */
-/* Copyright 2015, Joyent, Inc. */
+/*
+ * Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved.
+ * Copyright 2015, Joyent, Inc.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
+ */
 
 #ifndef	_SYS_FCNTL_H
 #define	_SYS_FCNTL_H
@@ -180,6 +183,9 @@ extern "C" {
 #define	F_FLOCKW	56	/* private - set flock owned by file and wait */
 #endif	/* _STRICT_SYMBOLS */
 #endif /* _LP64 || _FILE_OFFSET_BITS == 32 */
+
+#define	F_ASSOCI_PID	(USHRT_MAX)
+#define	F_DASSOC_PID	(USHRT_MAX - 1)
 
 #if 	defined(_LARGEFILE64_SOURCE)
 

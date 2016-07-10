@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright 2016, Joyent, Inc.
  */
 
@@ -1240,7 +1241,7 @@ getproc(proc_t **cpp, pid_t pid, uint_t flags)
 	 */
 	uarea = PTOU(cp);
 	bcopy(PTOU(pp), uarea, sizeof (*uarea));
-	flist_fork(P_FINFO(pp), P_FINFO(cp));
+	flist_fork(pp, cp);
 
 	gethrestime(&uarea->u_start);
 	uarea->u_ticks = ddi_get_lbolt();

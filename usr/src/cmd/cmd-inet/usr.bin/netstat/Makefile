@@ -23,12 +23,13 @@
 # Use is subject to license terms.
 #
 # Copyright (c) 1990 Mentat Inc.
+# Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
 #
 # cmd/cmd-inet/usr.bin/netstat/Makefile
 
 PROG=		netstat
 
-LOCALOBJS=	netstat.o unix.o
+LOCALOBJS=	netstat.o
 COMMONOBJS=	compat.o
 
 include ../../../Makefile.cmd
@@ -45,6 +46,9 @@ STAT_COMMON_SRCS = $(STAT_COMMON_OBJS:%.o=$(STATCOMMONDIR)/%.c)
 OBJS=		$(LOCALOBJS) $(COMMONOBJS) $(STAT_COMMON_OBJS)
 SRCS=		$(LOCALSRCS) $(COMMONSRCS) $(STAT_COMMON_SRCS)
 
+CSTD=		$(CSTD_GNU99)
+C99LMODE=	-Xc99=%all
+
 CPPFLAGS += -DNDEBUG -I$(CMDINETCOMMONDIR) -I$(STATCOMMONDIR)
 CERRWARN += -_gcc=-Wno-uninitialized
 CERRWARN += -_gcc=-Wno-parentheses
@@ -52,7 +56,7 @@ LDLIBS += -ldhcpagent -lsocket -lnsl -lkstat -ltsnet -ltsol
 
 .KEEP_STATE:
 
-all: $(PROG) $(NPROG) 
+all: $(PROG) $(NPROG)
 
 ROOTPROG=   $(PROG:%=$(ROOTBIN)/%)
 
@@ -64,7 +68,7 @@ $(PROG): $(OBJS)
 	$(COMPILE.c) -o $@ $<
 	$(POST_PROCESS_O)
 
-install: all $(ROOTPROG) 
+install: all $(ROOTPROG)
 
 clean:
 	$(RM) $(OBJS)

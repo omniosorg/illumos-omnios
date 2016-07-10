@@ -26,8 +26,11 @@
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
 /*	  All Rights Reserved	*/
 
-/* Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved. */
-/* Copyright 2017 Joyent, Inc. */
+/*
+ * Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
+ * Copyright 2017 Joyent, Inc.
+ */
 
 #ifndef _SYS_FILE_H
 #define	_SYS_FILE_H
@@ -200,7 +203,7 @@ extern void areleasef(int, uf_info_t *);
 #ifndef	_BOOT
 extern void closeall(uf_info_t *);
 #endif
-extern void flist_fork(uf_info_t *, uf_info_t *);
+extern void flist_fork(proc_t *, proc_t *);
 extern int closef(file_t *);
 extern int closeandsetf(int, file_t *);
 extern int ufalloc_file(int, file_t *);

@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright 2017, Joyent Inc.
  */
 
@@ -848,10 +849,13 @@ areleasef(int fd, uf_info_t *fip)
  * Duplicate all file descriptors across a fork.
  */
 void
-flist_fork(uf_info_t *pfip, uf_info_t *cfip)
+flist_fork(proc_t *pp, proc_t *cp)
 {
 	int fd, nfiles;
 	uf_entry_t *pufp, *cufp;
+
+	uf_info_t *pfip = P_FINFO(pp);
+	uf_info_t *cfip = P_FINFO(cp);
 
 	mutex_init(&cfip->fi_lock, NULL, MUTEX_DEFAULT, NULL);
 	cfip->fi_rlist = NULL;
@@ -871,6 +875,12 @@ flist_fork(uf_info_t *pfip, uf_info_t *cfip)
 		cufp->uf_flag = pufp->uf_flag;
 		cufp->uf_busy = pufp->uf_busy;
 		cufp->uf_gen = pufp->uf_gen;
+
+		if (cufp->uf_file != NULL && cufp->uf_file->f_vnode != NULL)
+			(void) VOP_IOCTL(cufp->uf_file->f_vnode, F_ASSOCI_PID,
+			    (intptr_t)cp->p_pidp->pid_id, FKIOCTL, kcred,
+			    NULL, NULL);
+
 		if (pufp->uf_file == NULL) {
 			ASSERT(pufp->uf_flag == 0);
 			if (pufp->uf_busy) {
@@ -956,6 +966,10 @@ closef(file_t *fp)
 	offset = fp->f_offset;
 
 	vp = fp->f_vnode;
+	if (vp != NULL)
+		(void) VOP_IOCTL(vp, F_DASSOC_PID,
+		    (intptr_t)(ttoproc(curthread)->p_pidp->pid_id), FKIOCTL,
+		    kcred, NULL, NULL);
 
 	error = VOP_CLOSE(vp, flag, count, offset, fp->f_cred, NULL);
 

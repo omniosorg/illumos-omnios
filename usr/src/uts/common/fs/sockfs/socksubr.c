@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 1995, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2015, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -114,17 +115,6 @@ extern void sendfile_init();
 extern void nl7c_init(void);
 
 extern int modrootloaded;
-
-#define	ADRSTRLEN (2 * sizeof (void *) + 1)
-/*
- * kernel structure for passing the sockinfo data back up to the user.
- * the strings array allows us to convert AF_UNIX addresses into strings
- * with a common method regardless of which n-bit kernel we're running.
- */
-struct k_sockinfo {
-	struct sockinfo	ks_si;
-	char		ks_straddr[3][ADRSTRLEN];
-};
 
 /*
  * Translate from a device pathname (e.g. "/dev/tcp") to a vnode.
@@ -773,6 +763,16 @@ fdbuf_extract(struct fdbuf *fdbuf, void *rights, int rightslen)
 		mutex_exit(&fp->f_tlock);
 		setf(fd, fp);
 		*rp++ = fd;
+
+		/*
+		 * Add the current pid to the list associated with this
+		 * descriptor.
+		 */
+		if (fp->f_vnode != NULL)
+			(void) VOP_IOCTL(fp->f_vnode, F_ASSOCI_PID,
+			    (intptr_t)curproc->p_pidp->pid_id, FKIOCTL, kcred,
+			    NULL, NULL);
+
 		if (AU_AUDITING())
 			audit_fdrecv(fd, fp);
 		dprint(1, ("fdbuf_extract: [%d] = %d, %p refcnt %d\n",
@@ -1753,7 +1753,8 @@ sock_kstat_fini(zoneid_t zoneid, void *arg)
 static int
 sockfs_update(kstat_t *ksp, int rw)
 {
-	uint_t	nactive = 0;		/* # of active AF_UNIX sockets	*/
+	uint_t	n, nactive = 0;		/* # of active AF_UNIX sockets	*/
+	uint_t	tsze  = 0;
 	struct sonode	*so;		/* current sonode on socklist	*/
 	zoneid_t	myzoneid = (zoneid_t)(uintptr_t)ksp->ks_private;
 
@@ -1765,11 +1766,19 @@ sockfs_update(kstat_t *ksp, int rw)
 
 	for (so = socklist.sl_list; so != NULL; so = SOTOTPI(so)->sti_next_so) {
 		if (so->so_count != 0 && so->so_zoneid == myzoneid) {
+
 			nactive++;
+
+			mutex_enter(&so->so_pid_tree_lock);
+			n = avl_numnodes(&so->so_pid_tree);
+			mutex_exit(&so->so_pid_tree_lock);
+
+			tsze += sizeof (struct sockinfo);
+			tsze += (n > 1) ? ((n - 1) * sizeof (pid_t)) : 0;
 		}
 	}
 	ksp->ks_ndata = nactive;
-	ksp->ks_data_size = nactive * sizeof (struct k_sockinfo);
+	ksp->ks_data_size = tsze;
 
 	return (0);
 }
@@ -1779,10 +1788,14 @@ sockfs_snapshot(kstat_t *ksp, void *buf, int rw)
 {
 	int			ns;	/* # of sonodes we've copied	*/
 	struct sonode		*so;	/* current sonode on socklist	*/
-	struct k_sockinfo	*pksi;	/* where we put sockinfo data	*/
+	struct sockinfo		*psi;	/* where we put sockinfo data	*/
 	t_uscalar_t		sn_len;	/* soa_len			*/
 	zoneid_t		myzoneid = (zoneid_t)(uintptr_t)ksp->ks_private;
 	sotpi_info_t 		*sti;
+
+	uint_t				sze;
+	mblk_t				*mblk;
+	conn_pid_info_t			*cpi;
 
 	ASSERT((zoneid_t)(uintptr_t)ksp->ks_private == getzoneid());
 
@@ -1796,7 +1809,7 @@ sockfs_snapshot(kstat_t *ksp, void *buf, int rw)
 	 * for each sonode on the socklist, we massage the important
 	 * info into buf, in k_sockinfo format.
 	 */
-	pksi = (struct k_sockinfo *)buf;
+	psi = (struct sockinfo *)buf;
 	ns = 0;
 	for (so = socklist.sl_list; so != NULL; so = SOTOTPI(so)->sti_next_so) {
 		/* only stuff active sonodes and the same zone:		*/
@@ -1804,30 +1817,47 @@ sockfs_snapshot(kstat_t *ksp, void *buf, int rw)
 			continue;
 		}
 
+		mblk = so_get_sock_pid_mblk((sock_upper_handle_t)so);
+		if (mblk == NULL)
+			continue;
+		cpi = (conn_pid_info_t *)mblk->b_datap->db_base;
+		sze = sizeof (struct sockinfo);
+		sze += (cpi->cpi_pids_cnt > 1) ?
+		    ((cpi->cpi_pids_cnt - 1) * sizeof (pid_t)) : 0;
+
 		/*
 		 * If the sonode was activated between the update and the
-		 * snapshot, we're done - as this is only a snapshot.
+		 * snapshot, we're done - as this is only a snapshot. We need
+		 * to make sure that we have space for this sockinfo. In the
+		 * time window between the update and the snapshot, the size of
+		 * sockinfo may change, as new pids are added/removed to/from
+		 * the list. We have to take that into consideration and only
+		 * include the sockinfo if we have enough space. That means the
+		 * number of entries we return by snapshot might not equal the
+		 * the number of entries calculated by update.
 		 */
-		if ((caddr_t)(pksi) >= (caddr_t)buf + ksp->ks_data_size) {
+		if (((caddr_t)(psi) + sze) >
+		    ((caddr_t)buf + ksp->ks_data_size)) {
 			break;
 		}
 
 		sti = SOTOTPI(so);
 		/* copy important info into buf:			*/
-		pksi->ks_si.si_size = sizeof (struct k_sockinfo);
-		pksi->ks_si.si_family = so->so_family;
-		pksi->ks_si.si_type = so->so_type;
-		pksi->ks_si.si_flag = so->so_flag;
-		pksi->ks_si.si_state = so->so_state;
-		pksi->ks_si.si_serv_type = sti->sti_serv_type;
-		pksi->ks_si.si_ux_laddr_sou_magic =
+		psi->si_size = sze;
+		psi->si_family = so->so_family;
+		psi->si_type = so->so_type;
+		psi->si_flag = so->so_flag;
+		psi->si_state = so->so_state;
+		psi->si_serv_type = sti->sti_serv_type;
+		psi->si_ux_laddr_sou_magic =
 		    sti->sti_ux_laddr.soua_magic;
-		pksi->ks_si.si_ux_faddr_sou_magic =
+		psi->si_ux_faddr_sou_magic =
 		    sti->sti_ux_faddr.soua_magic;
-		pksi->ks_si.si_laddr_soa_len = sti->sti_laddr.soa_len;
-		pksi->ks_si.si_faddr_soa_len = sti->sti_faddr.soa_len;
-		pksi->ks_si.si_szoneid = so->so_zoneid;
-		pksi->ks_si.si_faddr_noxlate = sti->sti_faddr_noxlate;
+		psi->si_laddr_soa_len = sti->sti_laddr.soa_len;
+		psi->si_faddr_soa_len = sti->sti_faddr.soa_len;
+		psi->si_szoneid = so->so_zoneid;
+		psi->si_faddr_noxlate = sti->sti_faddr_noxlate;
+
 
 		mutex_enter(&so->so_lock);
 
@@ -1835,47 +1865,54 @@ sockfs_snapshot(kstat_t *ksp, void *buf, int rw)
 			ASSERT(sti->sti_laddr_sa->sa_data != NULL);
 			sn_len = sti->sti_laddr_len;
 			ASSERT(sn_len <= sizeof (short) +
-			    sizeof (pksi->ks_si.si_laddr_sun_path));
+			    sizeof (psi->si_laddr_sun_path));
 
-			pksi->ks_si.si_laddr_family =
+			psi->si_laddr_family =
 			    sti->sti_laddr_sa->sa_family;
 			if (sn_len != 0) {
 				/* AF_UNIX socket names are NULL terminated */
-				(void) strncpy(pksi->ks_si.si_laddr_sun_path,
+				(void) strncpy(psi->si_laddr_sun_path,
 				    sti->sti_laddr_sa->sa_data,
-				    sizeof (pksi->ks_si.si_laddr_sun_path));
-				sn_len = strlen(pksi->ks_si.si_laddr_sun_path);
+				    sizeof (psi->si_laddr_sun_path));
+				sn_len = strlen(psi->si_laddr_sun_path);
 			}
-			pksi->ks_si.si_laddr_sun_path[sn_len] = 0;
+			psi->si_laddr_sun_path[sn_len] = 0;
 		}
 
 		if (sti->sti_faddr_sa != NULL) {
 			ASSERT(sti->sti_faddr_sa->sa_data != NULL);
 			sn_len = sti->sti_faddr_len;
 			ASSERT(sn_len <= sizeof (short) +
-			    sizeof (pksi->ks_si.si_faddr_sun_path));
+			    sizeof (psi->si_faddr_sun_path));
 
-			pksi->ks_si.si_faddr_family =
+			psi->si_faddr_family =
 			    sti->sti_faddr_sa->sa_family;
 			if (sn_len != 0) {
-				(void) strncpy(pksi->ks_si.si_faddr_sun_path,
+				(void) strncpy(psi->si_faddr_sun_path,
 				    sti->sti_faddr_sa->sa_data,
-				    sizeof (pksi->ks_si.si_faddr_sun_path));
-				sn_len = strlen(pksi->ks_si.si_faddr_sun_path);
+				    sizeof (psi->si_faddr_sun_path));
+				sn_len = strlen(psi->si_faddr_sun_path);
 			}
-			pksi->ks_si.si_faddr_sun_path[sn_len] = 0;
+			psi->si_faddr_sun_path[sn_len] = 0;
 		}
 
 		mutex_exit(&so->so_lock);
 
-		(void) sprintf(pksi->ks_straddr[0], "%p", (void *)so);
-		(void) sprintf(pksi->ks_straddr[1], "%p",
+		(void) sprintf(psi->si_son_straddr, "%p", (void *)so);
+		(void) sprintf(psi->si_lvn_straddr, "%p",
 		    (void *)sti->sti_ux_laddr.soua_vp);
-		(void) sprintf(pksi->ks_straddr[2], "%p",
+		(void) sprintf(psi->si_fvn_straddr, "%p",
 		    (void *)sti->sti_ux_faddr.soua_vp);
 
+		psi->si_pids[0] = 0;
+		if ((psi->si_pn_cnt = cpi->cpi_pids_cnt) > 0)
+			(void) memcpy(psi->si_pids, cpi->cpi_pids,
+			    psi->si_pn_cnt * sizeof (pid_t));
+
+		freemsg(mblk);
+
+		psi = (struct sockinfo *)((caddr_t)psi + psi->si_size);
 		ns++;
-		pksi++;
 	}
 
 	ksp->ks_ndata = ns;
