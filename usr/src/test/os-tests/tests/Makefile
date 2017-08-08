@@ -11,10 +11,10 @@
 
 #
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
-# Copyright 2016 Joyent, Inc.
+# Copyright 2017 Joyent, Inc.
 #
 
 SUBDIRS = poll secflags sigqueue spoof-ras sdevfs sockfs stress timer \
-	file-locking
+	file-locking pf_key
 
 include $(SRC)/test/Makefile.com
