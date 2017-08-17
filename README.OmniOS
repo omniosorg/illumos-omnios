@@ -1,6 +1,17 @@
 
+=======================================================================
+
 The following commits are merged into this branch but not yet published
 to the IPS repository.
+
+This file is used to track packages that need to be published as part
+of the next reboot-required update for this branch. Archives that fix
+specific problems or are generally useful will be advertised on the
+web page and other mediums so users are no expected to monitor this
+file. However, some brief notes on how to install a package archive
+are included at the end of this file.
+
+=======================================================================
 
 ## https://github.com/omniosorg/illumos-omnios/pull/30
 
@@ -18,6 +29,8 @@ Packages:
 
 Archive:
  > https://downloads.omniosce.org/pkg/ipsec-backport.p5p
+
+=======================================================================
 
 =============================
 Installing a package archive.
