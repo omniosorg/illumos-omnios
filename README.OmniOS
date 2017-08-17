@@ -19,3 +19,21 @@ Packages:
 Archive:
  > https://downloads.omniosce.org/pkg/ipsec-backport.p5p
 
+=============================
+Installing a package archive.
+=============================
+
+Unpublished updates are provided for download as an IPS package archive (.p5p)
+which can be added to the existing publisher as follows:
+
+# pkg set-publisher -g /path/to/downloaded.p5p omnios
+
+and then can be installed/upgraded in the usual way:
+
+# pkg list -u
+# pkg update
+
+and removed afterwards:
+
+# pkg set-publisher -G /path/to/downloaded.p5p omnios
+
