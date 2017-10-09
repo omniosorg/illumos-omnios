@@ -250,5 +250,5 @@ ONLY_LINT_DEFS=-I${SPRO_ROOT}/sunstudio12.1/prod/include/lint; export ONLY_LINT_
 # To build IPS packages for the version you wish to update, ONNV_BUILDNUM must
 # match the version you're on.  Find this in /etc/release, and lose the 'r'.
 
-# Current bloody is r151023, so use '151023'.
-export ONNV_BUILDNUM=151023
+# Current release is r151024, so use '151024'.
+export ONNV_BUILDNUM=151024
