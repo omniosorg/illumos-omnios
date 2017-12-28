@@ -34,5 +34,6 @@
 #ifndef _PATHNAMES_H
 #define	_PATHNAMES_H
 #define	_PATH_MAILERCONF	"/etc/mailer.conf"
-#define	_PATH_DEFAULTMTA	"/usr/lib/smtp/sendmail/sendmail"
+/* OmniOS ships The DragonFly Mail Agent (dma) as default MTA */
+#define	_PATH_DEFAULTMTA	"/usr/lib/smtp/dma/dma"
 #endif /* _PATHNAMES_H */

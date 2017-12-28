@@ -53,6 +53,7 @@
 		name='start'
 		exec='/usr/lib/pfexecd'
 		timeout_seconds='60'>
+		<method_context security_flags='aslr' />
 	</exec_method>
 
 	<exec_method

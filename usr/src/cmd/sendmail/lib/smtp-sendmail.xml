@@ -149,7 +149,9 @@
 			type='method'
 			name='start'
 			exec='/lib/svc/method/smtp-sendmail start'
-			timeout_seconds='120' />
+			timeout_seconds='120'>
+			<method_context security_flags='aslr' />
+		</exec_method>
 
 		<exec_method
 			type='method'

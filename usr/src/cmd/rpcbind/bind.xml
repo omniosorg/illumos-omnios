@@ -82,7 +82,7 @@
 		name='start'
 		exec='/lib/svc/method/rpc-bind %m'
 		timeout_seconds='60'>
-		<method_context>
+		<method_context security_flags='aslr'>
 			<method_credential
 				user='root'
 				group='root'

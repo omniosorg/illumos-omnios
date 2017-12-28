@@ -42,4 +42,6 @@ link path=usr/sbin/newaliases mediator=mta mediator-implementation=mailwrapper \
     target=../lib/mailwrapper
 link path=usr/sbin/sendmail mediator=mta mediator-implementation=mailwrapper \
     target=../lib/mailwrapper
-depend fmri=service/network/smtp/sendmail type=optional
+
+# OmniOS ships The DragonFly Mail Agent (dma) as default MTA
+#depend fmri=service/network/smtp/sendmail type=optional

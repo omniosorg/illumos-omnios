@@ -1872,4 +1872,6 @@ depend fmri=system/data/zoneinfo type=require
 #
 # The mailx binary calls /usr/lib/sendmail provided by mailwrapper
 #
-depend fmri=system/network/mailwrapper type=require
+# OmniOS ships The DragonFly Mail Agent (dma) as default MTA
+# which provides a mediated symlink to /usr/lib/sendmail
+#depend fmri=system/network/mailwrapper type=require

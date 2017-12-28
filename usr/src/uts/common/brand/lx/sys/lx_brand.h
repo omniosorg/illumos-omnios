@@ -94,8 +94,8 @@ extern "C" {
 #define	B_GET_CURRENT_CONTEXT	129
 #define	B_EMULATION_DONE	130
 #define	B_START_NFS_LOCKD	131
-/* formerly B_SET_AFFINITY_MASK	132 */
-/* formerly B_GET_AFFINITY_MASK	133 */
+#define	B_BLOCK_ALL_SIGS	132
+#define	B_UNBLOCK_ALL_SIGS	133
 #define	B_PTRACE_CLONE_BEGIN	134
 #define	B_PTRACE_STOP_FOR_OPT	135
 #define	B_UNSUPPORTED		136
@@ -311,6 +311,15 @@ typedef struct {
 #define	LX_CLGRP_FS	0
 #define	LX_CLGRP_MAX	1
 
+/* See explanation in lx_mem.c about lx_mremap */
+#define	LX_REMAP_ANONCACHE_NENTRIES	4
+typedef struct lx_segmap {
+	uintptr_t lxsm_vaddr;	/* virtual address of mapping */
+	size_t	lxsm_size;	/* size of mapping in bytes */
+	uint64_t lxsm_lru;	/* LRU field for cache */
+	uint_t	lxsm_flags;	/* protection and attribute flags */
+} lx_segmap_t;
+
 typedef struct lx_proc_data {
 	uintptr_t l_handler;	/* address of user-space handler */
 	pid_t l_ppid;		/* pid of originating parent proc */
@@ -348,6 +357,14 @@ typedef struct lx_proc_data {
 
 	/* VDSO location */
 	uintptr_t l_vdso;
+
+	/* mremap anon cache */
+	kmutex_t l_remap_anoncache_lock;
+	uint64_t l_remap_anoncache_generation;
+	lx_segmap_t l_remap_anoncache[LX_REMAP_ANONCACHE_NENTRIES];
+
+	/* Block all signals to all threads; used during vfork */
+	uint_t	 l_block_all_signals;
 } lx_proc_data_t;
 
 #endif	/* _KERNEL */

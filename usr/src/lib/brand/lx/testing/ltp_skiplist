@@ -56,13 +56,10 @@ move_pages08
 move_pages09
 move_pages10
 move_pages11
-mremap01
-mremap02
-mremap03
-mremap04
-mremap05
+mremap04		# we don't yet support remapping shm
 open01
 open11
+open12			# needs a device
 ptrace04
 quotactl01
 quotactl02
@@ -132,6 +129,7 @@ clone09
 crash02
 dirtyc0w
 fallocate04		# needs SEEK_HOLE
+fallocate05		# needs to mount a filesystem
 fanotify01
 fanotify02
 fanotify03
@@ -157,6 +155,7 @@ fork05
 fork09
 fork13
 fork14
+fsync01
 ftruncate04
 ftruncate04_64
 futex_wake04		# OS-4471
@@ -238,6 +237,7 @@ setpgid02
 setregid02
 setregid02_16
 setrlimit01
+setsockopt02
 setxattr01
 setxattr02
 setxattr03

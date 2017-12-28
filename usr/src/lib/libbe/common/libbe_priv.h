@@ -74,7 +74,7 @@ extern "C" {
 
 #define	BE_ZONE_PARENTBE_PROPERTY	"org.opensolaris.libbe:parentbe"
 #define	BE_ZONE_ACTIVE_PROPERTY		"org.opensolaris.libbe:active"
-#define	BE_ZONE_SUPPORTED_BRANDS	"ipkg labeled lipkg"
+#define	BE_ZONE_SUPPORTED_BRANDS	"ipkg labeled lipkg sparse vm"
 #define	BE_ZONE_SUPPORTED_BRANDS_DELIM	" "
 
 /* Maximum length for the BE name. */

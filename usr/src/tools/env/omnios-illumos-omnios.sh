@@ -243,12 +243,12 @@ ONLY_LINT_DEFS=-I${SPRO_ROOT}/sunstudio12.1/prod/include/lint; export ONLY_LINT_
 # If your distro uses certain versions of Perl, make sure either
 # Makefile.master contains your new defaults OR your .env file sets them.
 # The OmniOS illumos version has these set already.
-#export PERL_VERSION=5.24.1
+#export PERL_VERSION=5.26
 #export PERL_ARCH=i86pc-solaris-thread-multi-64int
 #export PERL_PKGVERS=
 
 # To build IPS packages for the version you wish to update, ONNV_BUILDNUM must
 # match the version you're on.  Find this in /etc/release, and lose the 'r'.
 
-# Current bloody is r151023, so use '151023'.
-export ONNV_BUILDNUM=151023
+# Current bloody is r151025, so use '151025'.
+export ONNV_BUILDNUM=151025
