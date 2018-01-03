@@ -95,7 +95,7 @@ newline='
 IFS=$newline
 
 # For C locale, don't need to call gettext(1)
-loc_messages=`$LOCALE | $GREP LC_MESSAGES | $AWK -F"=" '{print $2}`
+loc_messages=`$LOCALE | $GREP LC_MESSAGES | $AWK -F"=" '{print $2}'`
 if [ "$loc_messages" = "\"C\""  -o "$loc_messages" = "C" ]; then
 	is_C=1
 else
