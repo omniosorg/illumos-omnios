@@ -22,6 +22,7 @@
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  *
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2018 by Delphix. All rights reserved.
  */
 
 #ifndef	_SBD_IMPL_H
@@ -227,12 +228,13 @@ typedef struct sbd_cmd {
 #define	SBD_CMD_SCSI_PR_OUT	0x05
 
 typedef struct sbd_it_data {
-	struct sbd_it_data	*sbd_it_next;
-	uint64_t		sbd_it_session_id;
-	uint8_t			sbd_it_lun[8];
-	uint8_t			sbd_it_ua_conditions;
-	uint8_t			sbd_it_flags;
-	sbd_pgr_key_t		*pgr_key_ptr;
+	struct sbd_it_data		*sbd_it_next;
+	uint64_t			sbd_it_session_id;
+	uint8_t				sbd_it_lun[8];
+	uint8_t				sbd_it_ua_conditions;
+	uint8_t				sbd_it_flags;
+	sbd_pgr_key_t			*pgr_key_ptr;
+	struct stmf_scsi_session	*sbd_it_session;
 } sbd_it_data_t;
 
 typedef struct sbd_create_standby_lu {

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2018 by Delphix. All rights reserved.
  */
 #ifndef	_LPIF_H
 #define	_LPIF_H
@@ -110,6 +110,7 @@ typedef struct stmf_lu {
 #define	STMF_ITL_REASON_DEREG_REQUEST	0x1
 #define	STMF_ITL_REASON_USER_REQUEST	0x2
 #define	STMF_ITL_REASON_IT_NEXUS_LOSS	0x3
+#define	STMF_ITL_REASON_TASK_FREE	0x4
 
 typedef struct stmf_lu_provider {
 	void			*lp_stmf_private;

@@ -3049,12 +3049,14 @@ sbd_new_task(struct scsi_task *task, struct stmf_data_buf *initial_dbuf)
 			return;
 		}
 		it->sbd_it_session_id = task->task_session->ss_session_id;
+		it->sbd_it_session = task->task_session;
 		bcopy(task->task_lun_no, it->sbd_it_lun, 8);
 		it->sbd_it_next = sl->sl_it_list;
 		sl->sl_it_list = it;
 		mutex_exit(&sl->sl_lock);
 
-		DTRACE_PROBE1(itl__nexus__start, scsi_task *, task);
+		DTRACE_PROBE2(itl__nexus__start, scsi_task *, task,
+		    sbd_it_data_t *, it);
 
 		sbd_pgr_initialize_it(task, it);
 		if (stmf_register_itl_handle(task->task_lu, task->task_lun_no,
@@ -3547,6 +3549,8 @@ sbd_abort(struct stmf_lu *lu, int abort_cmd, void *arg, uint32_t flags)
 	if (abort_cmd == STMF_LU_ITL_HANDLE_REMOVED) {
 		sbd_check_and_clear_scsi2_reservation(sl, (sbd_it_data_t *)arg);
 		sbd_remove_it_handle(sl, (sbd_it_data_t *)arg);
+		DTRACE_PROBE3(itl__nexus__end__abort, sbd_lu_t *, sl,
+		    sbd_it_data_t *, (sbd_it_data_t *)arg, uint32_t, flags);
 		return (STMF_SUCCESS);
 	}
 

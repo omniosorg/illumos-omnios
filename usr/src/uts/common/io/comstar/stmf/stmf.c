@@ -23,7 +23,7 @@
  */
 /*
  * Copyright 2012, Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2018 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  */
 
@@ -4407,6 +4407,8 @@ stmf_task_free(scsi_task_t *task)
 	if (itask->itask_itl_datap) {
 		if (atomic_dec_32_nv(&itask->itask_itl_datap->itl_counter) ==
 		    0) {
+			itask->itask_itl_datap->itl_hdlrm_reason =
+			    STMF_ITL_REASON_TASK_FREE;
 			stmf_release_itl_handle(task->task_lu,
 			    itask->itask_itl_datap);
 		}
@@ -7802,7 +7804,8 @@ stmf_scsilib_tptid_validate(scsi_transport_id_t *tptid, uint32_t total_sz,
 }
 
 boolean_t
-stmf_scsilib_tptid_compare(scsi_transport_id_t *tpd1, scsi_transport_id_t *tpd2)
+stmf_scsilib_tptid_compare(scsi_transport_id_t *tpd1,
+				scsi_transport_id_t *tpd2)
 {
 	if ((tpd1->protocol_id != tpd2->protocol_id) ||
 	    (tpd1->format_code != tpd2->format_code))

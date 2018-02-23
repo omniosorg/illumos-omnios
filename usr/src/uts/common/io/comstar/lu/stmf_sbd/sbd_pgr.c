@@ -20,6 +20,8 @@
  */
 /*
  * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ *
+ * Copyright (c) 2018 by Delphix. All rights reserved.
  */
 
 #include <sys/atomic.h>
@@ -27,6 +29,7 @@
 #include <sys/byteorder.h>
 #include <sys/scsi/scsi_types.h>
 #include <sys/scsi/generic/persist.h>
+#include <sys/sdt.h>
 
 #include <sys/lpif.h>
 #include <sys/stmf.h>
@@ -513,7 +516,7 @@ sbd_pgr_meta_write(sbd_lu_t *slu)
 
 static sbd_pgr_key_t *
 sbd_pgr_key_alloc(scsi_devid_desc_t *lptid, scsi_transport_id_t *rptid,
-					int16_t lpt_len, int16_t rpt_len)
+    int16_t lpt_len, int16_t rpt_len)
 {
 	sbd_pgr_key_t *key;
 
@@ -630,7 +633,7 @@ sbd_pgr_remove_key(sbd_lu_t *slu, sbd_pgr_key_t *key)
  */
 static uint32_t
 sbd_pgr_remove_keys(sbd_lu_t *slu, sbd_it_data_t *my_it, sbd_pgr_key_t *my_key,
-				uint64_t svc_key, boolean_t match)
+    uint64_t svc_key, boolean_t match)
 {
 	sbd_pgr_t	*pgr  = slu->sl_pgr;
 	sbd_it_data_t	*it;
@@ -694,7 +697,9 @@ sbd_pgr_set_pgr_check_flag(sbd_lu_t *slu, boolean_t registered)
 	PGR_CLEAR_FLAG(slu->sl_pgr->pgr_flags, SBD_PGR_ALL_KEYS_HAS_IT);
 	mutex_enter(&slu->sl_lock);
 	for (it = slu->sl_it_list; it != NULL; it = it->sbd_it_next) {
-		if (it->pgr_key_ptr) {
+		volatile sbd_pgr_key_t *key =
+		    (volatile sbd_pgr_key_t *)it->pgr_key_ptr;
+		if (key != NULL) {
 			if (registered == B_TRUE)  {
 				it->sbd_it_flags |=  SBD_IT_PGR_CHECK_FLAG;
 			}
@@ -708,7 +713,7 @@ sbd_pgr_set_pgr_check_flag(sbd_lu_t *slu, boolean_t registered)
 
 static boolean_t
 sbd_pgr_key_compare(sbd_pgr_key_t *key, scsi_devid_desc_t *lpt,
-					stmf_remote_port_t *rpt)
+    stmf_remote_port_t *rpt)
 {
 	scsi_devid_desc_t *id;
 
@@ -732,7 +737,7 @@ sbd_pgr_key_compare(sbd_pgr_key_t *key, scsi_devid_desc_t *lpt,
 
 sbd_pgr_key_t *
 sbd_pgr_key_registered(sbd_pgr_t *pgr, scsi_devid_desc_t *lpt,
-					stmf_remote_port_t *rpt)
+    stmf_remote_port_t *rpt)
 {
 	sbd_pgr_key_t *key;
 
@@ -754,55 +759,72 @@ sbd_pgr_initialize_it(scsi_task_t *task, sbd_it_data_t *it)
 	scsi_devid_desc_t	*lpt, *id;
 	stmf_remote_port_t	*rpt;
 
-	if (pgr->pgr_flags & SBD_PGR_ALL_KEYS_HAS_IT)
-		return;
-
 	rpt = ses->ss_rport;
 	lpt = ses->ss_lport->lport_id;
 
 	rw_enter(&pgr->pgr_lock, RW_WRITER);
 	PGR_SET_FLAG(pgr->pgr_flags,  SBD_PGR_ALL_KEYS_HAS_IT);
 	for (key = pgr->pgr_keylist; key != NULL; key = key->pgr_key_next) {
+		boolean_t all_tg_pt =
+		    ((key->pgr_key_flags & SBD_PGR_KEY_ALL_TG_PT) != 0);
+		boolean_t match = sbd_pgr_key_compare(key, lpt, rpt);
 
-		if ((!(key->pgr_key_flags & SBD_PGR_KEY_ALL_TG_PT)) &&
-		    key->pgr_key_it != NULL)
-			continue;
-		/*
-		 * SBD_PGR_ALL_KEYS_HAS_IT is set only if no single key
-		 * in the list has SBD_PGR_KEY_ALL_TG_PT flag set and
-		 * pgr_key_it all keys points to some IT
-		 */
-		PGR_CLEAR_FLAG(pgr->pgr_flags, SBD_PGR_ALL_KEYS_HAS_IT);
-
-		/* Check if key matches with given lpt rpt combination */
-		if (sbd_pgr_key_compare(key, lpt, rpt) == B_FALSE)
-			continue;
-
-		/* IT nexus devid information matches with this key */
-		if (key->pgr_key_flags & SBD_PGR_KEY_ALL_TG_PT) {
-			/*
-			 * If ALL_TG_PT is set, pgr_key_it will point to NULL,
-			 * unless pgr->pgr_rsvholder pointing to this key.
-			 * In that case, pgr_key_it should point to the IT
-			 * which initiated that reservation.
-			 */
-			if (pgr->pgr_rsvholder == key) {
-				id = key->pgr_key_lpt_id;
-				if (lpt->ident_length == id->ident_length) {
-					if (memcmp(id->ident, lpt->ident,
-					    id->ident_length) == 0)
-						key->pgr_key_it = it;
-				}
+		if ((pgr->pgr_rsvholder == key) && (match == B_TRUE)) {
+			key->pgr_key_it = it;
+			if (all_tg_pt == B_TRUE) {
+				PGR_CLEAR_FLAG(pgr->pgr_flags,
+				    SBD_PGR_ALL_KEYS_HAS_IT);
+			}
+		} else {
+			if ((all_tg_pt == B_FALSE) &&
+			    (key->pgr_key_it != NULL) &&
+			    (it == key->pgr_key_it)) {
+				continue;
 			}
 
-		} else {
-			key->pgr_key_it = it;
+			/*
+			 * SBD_PGR_ALL_KEYS_HAS_IT is set only if no single key
+			 * in the list has SBD_PGR_KEY_ALL_TG_PT flag set and
+			 * pgr_key_it all keys points to some IT
+			 */
+			PGR_CLEAR_FLAG(pgr->pgr_flags, SBD_PGR_ALL_KEYS_HAS_IT);
+
+			/*
+			 * Check if key matches with given lpt rpt combination
+			 */
+			if (match == B_FALSE)
+				continue;
+
+			/* IT nexus devid information matches with this key */
+			if (all_tg_pt == B_TRUE) {
+				/*
+				 * If ALL_TG_PT is set, pgr_key_it will point
+				 * to NULL, unless pgr->pgr_rsvholder pointing
+				 * to this key.
+				 * In that case, pgr_key_it should point to
+				 * the IT which initiated that reservation.
+				 */
+				if (pgr->pgr_rsvholder == key) {
+					id = key->pgr_key_lpt_id;
+					if (lpt->ident_length ==
+					    id->ident_length) {
+						if (memcmp(id->ident,
+						    lpt->ident,
+						    id->ident_length) == 0)
+							key->pgr_key_it = it;
+					}
+				}
+			} else {
+				key->pgr_key_it = it;
+			}
 		}
 
 		mutex_enter(&slu->sl_lock);
 		it->pgr_key_ptr = key;
 		mutex_exit(&slu->sl_lock);
 		rw_exit(&pgr->pgr_lock);
+		DTRACE_PROBE3(sbd__pgr__init, sbd_lu_t *, slu,
+		    sbd_it_data_t *, it, sbd_pgr_key_t *, key);
 		return;
 	}
 	rw_exit(&pgr->pgr_lock);
@@ -817,15 +839,20 @@ sbd_pgr_reservation_conflict(scsi_task_t *task)
 	sbd_lu_t	*slu = (sbd_lu_t *)task->task_lu->lu_provider_private;
 	sbd_pgr_t	*pgr = slu->sl_pgr;
 	sbd_it_data_t	*it  = (sbd_it_data_t *)task->task_lu_itl_handle;
+	stmf_scsi_session_t	*ses = task->task_session;
+	scsi_devid_desc_t	*lpt;
+	stmf_remote_port_t	*rpt;
+
+	rpt = ses->ss_rport;
+	lpt = ses->ss_lport->lport_id;
 
 	/* If Registered */
 	if (pgr->pgr_flags & SBD_PGR_RSVD_ALL_REGISTRANTS && it->pgr_key_ptr)
 			return (0);
 
 	/* If you are registered */
+	rw_enter(&pgr->pgr_lock, RW_READER);
 	if (pgr->pgr_flags & SBD_PGR_RSVD_ONE) {
-		rw_enter(&pgr->pgr_lock, RW_READER);
-
 		/*
 		 * Note: it->pgr_key_ptr is protected by sl_lock. Also,
 		 *    it is expected to change its value only with pgr_lock
@@ -835,10 +862,12 @@ sbd_pgr_reservation_conflict(scsi_task_t *task)
 		 *    Since this funtion is in performance path, we may want
 		 *    to avoid grabbing sl_lock.
 		 */
-		if ((volatile sbd_pgr_key_t *)it->pgr_key_ptr) {
+		volatile sbd_pgr_key_t *key =
+		    (volatile sbd_pgr_key_t *)it->pgr_key_ptr;
+		if (key != NULL) {
 			/* If you are the reservation holder */
-			if (pgr->pgr_rsvholder == it->pgr_key_ptr &&
-			    it->pgr_key_ptr->pgr_key_it == it) {
+			if (pgr->pgr_rsvholder == key &&
+			    key->pgr_key_it == it) {
 				rw_exit(&pgr->pgr_lock);
 				return (0);
 			}
@@ -864,9 +893,20 @@ sbd_pgr_reservation_conflict(scsi_task_t *task)
 				rw_exit(&pgr->pgr_lock);
 				return (0);
 			}
+		} else {
+			/*
+			 * If you are the reservation holder
+			 * according to LU's PGR metadata
+			 */
+			if ((pgr->pgr_rsvholder != NULL) &&
+			    (sbd_pgr_key_compare(pgr->pgr_rsvholder,
+			    lpt, rpt) == B_TRUE)) {
+				rw_exit(&pgr->pgr_lock);
+				return (0);
+			}
 		}
-		rw_exit(&pgr->pgr_lock);
 	}
+	rw_exit(&pgr->pgr_lock);
 
 	/* For any case, allow these commands */
 	if (PGR_CONFLICT_FREE_CMDS(task->task_cdb)) {
@@ -1129,7 +1169,7 @@ sbd_pgr_in_read_reservation(scsi_task_t *task, stmf_data_buf_t *initial_dbuf)
 
 static void
 sbd_pgr_in_report_capabilities(scsi_task_t *task,
-				stmf_data_buf_t *initial_dbuf)
+    stmf_data_buf_t *initial_dbuf)
 {
 	sbd_lu_t	*slu   = (sbd_lu_t *)task->task_lu->lu_provider_private;
 	sbd_pgr_t	*pgr   =  slu->sl_pgr;
@@ -1167,7 +1207,7 @@ sbd_pgr_in_report_capabilities(scsi_task_t *task,
 
 static void
 sbd_pgr_in_read_full_status(scsi_task_t *task,
-				stmf_data_buf_t *initial_dbuf)
+    stmf_data_buf_t *initial_dbuf)
 {
 	sbd_lu_t	*slu   = (sbd_lu_t *)task->task_lu->lu_provider_private;
 	sbd_pgr_t	*pgr   = slu->sl_pgr;
@@ -1405,7 +1445,7 @@ sbd_pgr_reg_done:
 
 static sbd_pgr_key_t *
 sbd_pgr_do_register(sbd_lu_t *slu, sbd_it_data_t *it, scsi_devid_desc_t *lpt,
-		stmf_remote_port_t *rpt, uint8_t keyflag, uint64_t svc_key)
+    stmf_remote_port_t *rpt, uint8_t keyflag, uint64_t svc_key)
 {
 	sbd_pgr_t		*pgr = slu->sl_pgr;
 	sbd_pgr_key_t		*key;
@@ -1430,6 +1470,7 @@ sbd_pgr_do_register(sbd_lu_t *slu, sbd_it_data_t *it, scsi_devid_desc_t *lpt,
 		mutex_enter(&slu->sl_lock);
 		it->pgr_key_ptr = key;
 		mutex_exit(&slu->sl_lock);
+		sbd_pgr_set_pgr_check_flag(slu, B_TRUE);
 	} else {
 		sbd_pgr_set_pgr_check_flag(slu, B_FALSE);
 	}
@@ -1505,7 +1546,7 @@ sbd_pgr_out_reserve(scsi_task_t *task)
 
 static void
 sbd_pgr_do_reserve(sbd_pgr_t *pgr, sbd_pgr_key_t *key, sbd_it_data_t *it,
-			stmf_scsi_session_t *ses, scsi_cdb_prout_t *pr_out)
+    stmf_scsi_session_t *ses, scsi_cdb_prout_t *pr_out)
 {
 	scsi_devid_desc_t	*lpt;
 	uint16_t		lpt_len;
@@ -1850,19 +1891,24 @@ sbd_pgr_out_register_and_move(scsi_task_t *task, stmf_data_buf_t *dbuf)
 }
 
 void
-sbd_pgr_remove_it_handle(sbd_lu_t *sl, sbd_it_data_t *my_it) {
+sbd_pgr_remove_it_handle(sbd_lu_t *sl, sbd_it_data_t *my_it)
+{
 	sbd_it_data_t *it;
 
 	rw_enter(&sl->sl_pgr->pgr_lock, RW_WRITER);
 	mutex_enter(&sl->sl_lock);
 	for (it = sl->sl_it_list; it != NULL; it = it->sbd_it_next) {
 		if (it == my_it) {
-			if (it->pgr_key_ptr) {
-				sbd_pgr_key_t *key = it->pgr_key_ptr;
+			volatile sbd_pgr_key_t *key =
+			    (volatile sbd_pgr_key_t *)it->pgr_key_ptr;
+			if (key != NULL) {
 				if (key->pgr_key_it == it) {
 					key->pgr_key_it = NULL;
-					sl->sl_pgr->pgr_flags &=
-					    ~SBD_PGR_ALL_KEYS_HAS_IT;
+					PGR_CLEAR_FLAG(sl->sl_pgr->pgr_flags,
+					    SBD_PGR_ALL_KEYS_HAS_IT);
+					DTRACE_PROBE3(sbd__pgr__remove,
+					    sbd_lu_t *, sl, sbd_it_data_t *,
+					    it, sbd_pgr_key_t *, key);
 				}
 			}
 			break;
