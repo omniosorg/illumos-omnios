@@ -20,13 +20,14 @@
  */
 
 /*
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2018 Nexenta Systems, Inc.
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /* Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T */
 /* All Rights Reserved */
+
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -68,12 +69,17 @@
 #include <inet/ip6.h>
 
 /*
+ * Zone global variables of NFSv3 server
+ */
+typedef struct nfs3_srv {
+	writeverf3	write3verf;
+} nfs3_srv_t;
+
+/*
  * These are the interface routines for the server side of the
  * Network File System.  See the NFS version 3 protocol specification
  * for a description of this interface.
  */
-
-static writeverf3 write3verf;
 
 static int	sattr3_to_vattr(sattr3 *, struct vattr *);
 static int	vattr_to_fattr3(struct vattr *, fattr3 *);
@@ -85,6 +91,7 @@ static int	rdma_setup_read_data3(READ3args *, READ3resok *);
 extern int nfs_loaned_buffers;
 
 u_longlong_t nfs3_srv_caller_id;
+static zone_key_t rfs3_zone_key;
 
 /* ARGSUSED */
 void
@@ -390,7 +397,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	 * location of the public filehandle.
 	 */
 	if (exi != NULL && (exi->exi_export.ex_flags & EX_PUBLIC)) {
-		dvp = rootdir;
+		dvp = ZONE_ROOTVP();
 		VN_HOLD(dvp);
 
 		DTRACE_NFSV3_4(op__lookup__start, struct svc_req *, req,
@@ -1268,6 +1275,7 @@ void
 rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
     struct svc_req *req, cred_t *cr, bool_t ro)
 {
+	nfs3_srv_t *ns;
 	int error;
 	vnode_t *vp;
 	struct vattr *bvap = NULL;
@@ -1296,6 +1304,7 @@ rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
 		goto err;
 	}
 
+	ns = zone_getspecific(rfs3_zone_key, curzone);
 	if (is_system_labeled()) {
 		bslabel_t *clabel = req->rq_label;
 
@@ -1383,7 +1392,7 @@ rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
 		vattr_to_wcc_data(bvap, avap, &resp->resok.file_wcc);
 		resp->resok.count = 0;
 		resp->resok.committed = args->stable;
-		resp->resok.verf = write3verf;
+		resp->resok.verf = ns->write3verf;
 		goto out;
 	}
 
@@ -1485,7 +1494,7 @@ rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
 	vattr_to_wcc_data(bvap, avap, &resp->resok.file_wcc);
 	resp->resok.count = args->count - uio.uio_resid;
 	resp->resok.committed = args->stable;
-	resp->resok.verf = write3verf;
+	resp->resok.verf = ns->write3verf;
 	goto out;
 
 err:
@@ -2618,7 +2627,7 @@ rfs3_rmdir(RMDIR3args *args, RMDIR3res *resp, struct exportinfo *exi,
 		goto err1;
 	}
 
-	error = VOP_RMDIR(vp, name, rootdir, cr, NULL, 0);
+	error = VOP_RMDIR(vp, name, ZONE_ROOTVP(), cr, NULL, 0);
 
 	if (name != args->object.name)
 		kmem_free(name, MAXPATHLEN + 1);
@@ -2820,10 +2829,10 @@ rfs3_rename(RENAME3args *args, RENAME3res *resp, struct exportinfo *exi,
 	}
 
 	/*
-	 * Check for renaming over a delegated file.  Check rfs4_deleg_policy
+	 * Check for renaming over a delegated file.  Check nfs4_deleg_policy
 	 * first to avoid VOP_LOOKUP if possible.
 	 */
-	if (rfs4_deleg_policy != SRV_NEVER_DELEGATE &&
+	if (nfs4_get_deleg_policy() != SRV_NEVER_DELEGATE &&
 	    VOP_LOOKUP(tvp, toname, &targvp, NULL, 0, NULL, cr,
 	    NULL, NULL, NULL) == 0) {
 
@@ -4036,6 +4045,7 @@ void
 rfs3_commit(COMMIT3args *args, COMMIT3res *resp, struct exportinfo *exi,
     struct svc_req *req, cred_t *cr, bool_t ro)
 {
+	nfs3_srv_t *ns;
 	int error;
 	vnode_t *vp;
 	struct vattr *bvap;
@@ -4056,6 +4066,7 @@ rfs3_commit(COMMIT3args *args, COMMIT3res *resp, struct exportinfo *exi,
 		goto out;
 	}
 
+	ns = zone_getspecific(rfs3_zone_key, curzone);
 	bva.va_mask = AT_ALL;
 	error = VOP_GETATTR(vp, &bva, 0, cr, NULL);
 
@@ -4108,7 +4119,7 @@ rfs3_commit(COMMIT3args *args, COMMIT3res *resp, struct exportinfo *exi,
 
 	resp->status = NFS3_OK;
 	vattr_to_wcc_data(bvap, avap, &resp->resok.file_wcc);
-	resp->resok.verf = write3verf;
+	resp->resok.verf = ns->write3verf;
 
 	DTRACE_NFSV3_4(op__commit__done, struct svc_req *, req,
 	    cred_t *, cr, vnode_t *, vp, COMMIT3res *, resp);
@@ -4203,7 +4214,7 @@ sattr3_to_vattr(sattr3 *sap, struct vattr *vap)
 	return (0);
 }
 
-static ftype3 vt_to_nf3[] = {
+static const ftype3 vt_to_nf3[] = {
 	0, NF3REG, NF3DIR, NF3BLK, NF3CHR, NF3LNK, NF3FIFO, 0, 0, NF3SOCK, 0
 };
 
@@ -4285,19 +4296,39 @@ vattr_to_post_op_attr(struct vattr *vap, post_op_attr *poap)
 static void
 vattr_to_wcc_data(struct vattr *bvap, struct vattr *avap, wcc_data *wccp)
 {
-
 	vattr_to_pre_op_attr(bvap, &wccp->before);
 	vattr_to_post_op_attr(avap, &wccp->after);
 }
 
-void
-rfs3_srvrinit(void)
+static int
+rdma_setup_read_data3(READ3args *args, READ3resok *rok)
 {
+	struct clist	*wcl;
+	int		wlist_len;
+	count3		count = rok->count;
+
+	wcl = args->wlist;
+	if (rdma_setup_read_chunks(wcl, count, &wlist_len) == FALSE)
+		return (FALSE);
+
+	wcl = args->wlist;
+	rok->wlist_len = wlist_len;
+	rok->wlist = wcl;
+	return (TRUE);
+}
+
+/* ARGSUSED */
+static void *
+rfs3_zone_init(zoneid_t zoneid)
+{
+	nfs3_srv_t *ns;
 	struct rfs3_verf_overlay {
 		uint_t id; /* a "unique" identifier */
 		int ts; /* a unique timestamp */
 	} *verfp;
 	timestruc_t now;
+
+	ns = kmem_zalloc(sizeof (*ns), KM_SLEEP);
 
 	/*
 	 * The following algorithm attempts to find a unique verifier
@@ -4322,37 +4353,34 @@ rfs3_srvrinit(void)
 	 * We ASSERT that this constant logic expression is
 	 * always true because in the past, it wasn't.
 	 */
-	ASSERT(sizeof (*verfp) <= sizeof (write3verf));
+	ASSERT(sizeof (*verfp) <= sizeof (ns->write3verf));
 #endif
 
 	gethrestime(&now);
-	verfp = (struct rfs3_verf_overlay *)&write3verf;
+	verfp = (struct rfs3_verf_overlay *)&ns->write3verf;
 	verfp->ts = (int)now.tv_sec;
 	verfp->id = zone_get_hostid(NULL);
 
 	if (verfp->id == 0)
 		verfp->id = (uint_t)now.tv_nsec;
 
-	nfs3_srv_caller_id = fs_new_caller_id();
-
+	return (ns);
 }
 
-static int
-rdma_setup_read_data3(READ3args *args, READ3resok *rok)
+/* ARGSUSED */
+static void
+rfs3_zone_fini(zoneid_t zoneid, void *data)
 {
-	struct clist	*wcl;
-	int		wlist_len;
-	count3		count = rok->count;
+	nfs3_srv_t *ns = data;
 
-	wcl = args->wlist;
-	if (rdma_setup_read_chunks(wcl, count, &wlist_len) == FALSE) {
-		return (FALSE);
-	}
+	kmem_free(ns, sizeof (*ns));
+}
 
-	wcl = args->wlist;
-	rok->wlist_len = wlist_len;
-	rok->wlist = wcl;
-	return (TRUE);
+void
+rfs3_srvrinit(void)
+{
+	nfs3_srv_caller_id = fs_new_caller_id();
+	zone_key_create(&rfs3_zone_key, rfs3_zone_init, NULL, rfs3_zone_fini);
 }
 
 void
