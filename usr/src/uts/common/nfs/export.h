@@ -23,6 +23,7 @@
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright 2016 Jason King.
+ * Copyright 2018 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -37,6 +38,10 @@
 #include <nfs/nfs4.h>
 #include <sys/kiconv.h>
 #include <sys/avl.h>
+
+#ifdef _KERNEL
+#include <sys/pkp_hash.h> /* for PKP_HASH_SIZE */
+#endif /* _KERNEL */
 
 #ifdef	__cplusplus
 extern "C" {
@@ -477,9 +482,6 @@ typedef struct treenode {
 #define	TREE_EXPORTED(t) \
 	((t)->tree_exi && !PSEUDO((t)->tree_exi))
 
-/* Root of nfs pseudo namespace */
-extern treenode_t *ns_root;
-
 #define	EXPTABLESIZE   256
 
 struct exp_hash {
@@ -525,6 +527,9 @@ struct exportinfo {
 	struct charset_cache	*exi_charset;
 	unsigned		exi_volatile_dev:1;
 	unsigned		exi_moved:1;
+	int			exi_id;
+	avl_node_t		exi_id_link;
+	zoneid_t		exi_zoneid;
 #ifdef VOLATILE_FH_TEST
 	uint32_t		exi_volatile_id;
 	struct ex_vol_rename	*exi_vol_rename;
@@ -608,7 +613,7 @@ extern int	nfsauth4_secinfo_access(struct exportinfo *,
     struct svc_req *, int, int, cred_t *);
 extern int	nfsauth_cache_clnt_compar(const void *, const void *);
 extern int	nfs_fhbcmp(char *, char *, int);
-extern int	nfs_exportinit(void);
+extern void	nfs_exportinit(void);
 extern void	nfs_exportfini(void);
 extern int	chk_clnt_sec(struct exportinfo *, struct svc_req *);
 extern int	makefh(fhandle_t *, struct vnode *, struct exportinfo *);
@@ -625,32 +630,57 @@ extern struct exportinfo *nfs_vptoexi(vnode_t *, vnode_t *, cred_t *, int *,
     int *, bool_t);
 extern int	nfs_check_vpexi(vnode_t *, vnode_t *, cred_t *,
 			struct exportinfo **);
-extern void	export_link(struct exportinfo *);
-extern void	export_unlink(struct exportinfo *);
 extern vnode_t *untraverse(vnode_t *);
 extern int	vn_is_nfs_reparse(vnode_t *, cred_t *);
 extern int	client_is_downrev(struct svc_req *);
 extern char    *build_symlink(vnode_t *, cred_t *, size_t *);
+
+extern fhandle_t nullfh2;	/* for comparing V2 filehandles */
+
+typedef struct nfs_export {
+	/* Root of nfs pseudo namespace */
+	treenode_t *ns_root;
+
+	struct exportinfo *exptable_path_hash[PKP_HASH_SIZE];
+	struct exportinfo *exptable[EXPTABLESIZE];
+
+	/*
+	 * Read/Write lock that protects the exportinfo list.  This lock
+	 * must be held when searching or modifiying the exportinfo list.
+	 */
+	krwlock_t exported_lock;
+
+	/* "public" and default (root) location for public filehandle */
+	struct exportinfo *exi_public, *exi_root;
+	/* For checking default public file handle */
+	fid_t exi_rootfid;
+	/* For comparing V2 filehandles */
+	fhandle_t nullfh2;
+
+	/* The change attribute value of the root of nfs pseudo namespace */
+	timespec_t ns_root_change;
+} nfs_export_t;
 
 /*
  * Functions that handle the NFSv4 server namespace
  */
 extern exportinfo_t *vis2exi(treenode_t *);
 extern int	treeclimb_export(struct exportinfo *);
-extern void	treeclimb_unexport(struct exportinfo *);
+extern void	treeclimb_unexport(nfs_export_t *, struct exportinfo *);
 extern int	nfs_visible(struct exportinfo *, vnode_t *, int *);
 extern int	nfs_visible_inode(struct exportinfo *, ino64_t,
-    struct exp_visible **);
+		    struct exp_visible **);
 extern int	has_visible(struct exportinfo *, vnode_t *);
 extern void	free_visible(struct exp_visible *);
 extern int	nfs_exported(struct exportinfo *, vnode_t *);
-extern struct exportinfo *pseudo_exportfs(vnode_t *, fid_t *,
-    struct exp_visible *, struct exportdata *);
+extern struct exportinfo *pseudo_exportfs(nfs_export_t *, vnode_t *, fid_t *,
+		    struct exp_visible *, struct exportdata *);
 extern int	vop_fid_pseudo(vnode_t *, fid_t *);
 extern int	nfs4_vget_pseudo(struct exportinfo *, vnode_t **, fid_t *);
 extern bool_t	nfs_visible_change(struct exportinfo *, vnode_t *,
-    timespec_t *);
-extern void	tree_update_change(treenode_t *, timespec_t *);
+		    timespec_t *);
+extern void	tree_update_change(nfs_export_t *, treenode_t *, timespec_t *);
+
 /*
  * Functions that handle the NFSv4 server namespace security flavors
  * information.
@@ -658,13 +688,16 @@ extern void	tree_update_change(treenode_t *, timespec_t *);
 extern void	srv_secinfo_exp2pseu(struct exportdata *, struct exportdata *);
 extern void	srv_secinfo_list_free(struct secinfo *, int);
 
+extern nfs_export_t *nfs_get_export();
+extern void	export_link(nfs_export_t *, struct exportinfo *);
+extern void	export_unlink(nfs_export_t *, struct exportinfo *);
+
 /*
- * "public" and default (root) location for public filehandle
+ * exi_id support
  */
-extern struct exportinfo *exi_public, *exi_root;
-extern fhandle_t nullfh2;	/* for comparing V2 filehandles */
-extern krwlock_t exported_lock;
-extern struct exportinfo *exptable[];
+extern krwlock_t  nfs_exi_id_lock;
+extern avl_tree_t exi_id_tree;
+extern int exi_id_get_next(void);
 
 /*
  * Two macros for identifying public filehandles.

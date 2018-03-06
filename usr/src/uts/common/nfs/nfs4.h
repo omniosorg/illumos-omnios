@@ -20,12 +20,12 @@
  */
 
 /*
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
+ * Use is subject to license terms.
  */
 
 /*
- * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright 2018 Nexenta Systems, Inc.
  */
 
 #ifndef _NFS4_H
@@ -39,6 +39,7 @@
 
 #ifdef _KERNEL
 #include <nfs/nfs4_kprot.h>
+#include <nfs/nfs4_drc.h>
 #include <sys/nvpair.h>
 #else
 #include <rpcsvc/nfs4_prot.h>
@@ -368,12 +369,6 @@ typedef struct rfs4_dss_path {
 /* array of paths passed-in from nfsd command-line; stored in nvlist */
 char		**rfs4_dss_newpaths;
 uint_t		rfs4_dss_numnewpaths;
-
-/*
- * Circular doubly-linked list of paths for currently-served RGs.
- * No locking required: only changed on warmstart. Managed with insque/remque.
- */
-rfs4_dss_path_t	*rfs4_dss_pathlist;
 
 /* nvlists of all DSS paths: current, and before last warmstart */
 nvlist_t *rfs4_dss_paths, *rfs4_dss_oldpaths;
@@ -740,26 +735,8 @@ typedef struct rfs4_file {
 	krwlock_t	rf_file_rwlock;
 } rfs4_file_t;
 
-extern int	rfs4_seen_first_compound;	/* set first time we see one */
-
-extern rfs4_servinst_t	*rfs4_cur_servinst;	/* current server instance */
-extern kmutex_t		rfs4_servinst_lock;	/* protects linked list */
-extern void		rfs4_servinst_create(int, int, char **);
-extern void		rfs4_servinst_destroy_all(void);
-extern void		rfs4_servinst_assign(rfs4_client_t *,
-			    rfs4_servinst_t *);
-extern rfs4_servinst_t	*rfs4_servinst(rfs4_client_t *);
-extern int		rfs4_clnt_in_grace(rfs4_client_t *);
-extern int		rfs4_servinst_in_grace(rfs4_servinst_t *);
-extern int		rfs4_servinst_grace_new(rfs4_servinst_t *);
-extern void		rfs4_grace_start(rfs4_servinst_t *);
-extern void		rfs4_grace_start_new(void);
-extern void		rfs4_grace_reset_all(void);
-extern void		rfs4_ss_oldstate(rfs4_oldstate_t *, char *, char *);
-extern void		rfs4_dss_readstate(int, char **);
-
 /*
- * rfs4_deleg_policy is used to signify the server's global delegation
+ * nfs4_deleg_policy is used to signify the server's global delegation
  * policy.  The default is to NEVER delegate files and the
  * administrator must configure the server to enable delegations.
  *
@@ -771,8 +748,6 @@ typedef enum {
 	SRV_NORMAL_DELEGATE = 1
 } srv_deleg_policy_t;
 
-extern srv_deleg_policy_t rfs4_deleg_policy;
-extern kmutex_t rfs4_deleg_lock;
 extern void rfs4_disable_delegation(void), rfs4_enable_delegation(void);
 
 /*
@@ -788,6 +763,52 @@ typedef enum {
 } delegreq_t;
 
 #define	NFS4_DELEG4TYPE2REQTYPE(x) (delegreq_t)(x)
+
+/*
+ * Zone global variables of NFSv4 server
+ */
+typedef struct nfs4_srv {
+	/* Unique write verifier */
+	verifier4	write4verf;
+	/* Delegation lock */
+	kmutex_t	deleg_lock;
+	/* Used to manage access to server instance linked list */
+	kmutex_t	servinst_lock;
+	rfs4_servinst_t *nfs4_cur_servinst;
+	/* Used to manage access to nfs4_deleg_policy */
+	krwlock_t	deleg_policy_lock;
+	srv_deleg_policy_t nfs4_deleg_policy;
+	/* Set first time we see one */
+	int		seen_first_compound;
+	/*
+	 * Circular double-linked list of paths for currently-served RGs.
+	 * No locking required -- only changed on warmstart.
+	 * Managed with insque/remque.
+	 */
+	rfs4_dss_path_t	*dss_pathlist;
+	/* Duplicate request cache */
+	rfs4_drc_t	*nfs4_drc;
+	/* nfsv4 server start time */
+	time_t rfs4_start_time;
+	/* CPR callback id -- not related to v4 callbacks */
+	callb_id_t cpr_id;
+} nfs4_srv_t;
+
+extern srv_deleg_policy_t nfs4_get_deleg_policy();
+
+extern void		rfs4_servinst_create(nfs4_srv_t *, int, int, char **);
+extern void		rfs4_servinst_destroy_all(nfs4_srv_t *);
+extern void		rfs4_servinst_assign(nfs4_srv_t *, rfs4_client_t *,
+			    rfs4_servinst_t *);
+extern rfs4_servinst_t	*rfs4_servinst(rfs4_client_t *);
+extern int		rfs4_clnt_in_grace(rfs4_client_t *);
+extern int		rfs4_servinst_in_grace(rfs4_servinst_t *);
+extern int		rfs4_servinst_grace_new(rfs4_servinst_t *);
+extern void		rfs4_grace_start(rfs4_servinst_t *);
+extern void		rfs4_grace_start_new(nfs4_srv_t *);
+extern void		rfs4_grace_reset_all(nfs4_srv_t *);
+extern void		rfs4_ss_oldstate(rfs4_oldstate_t *, char *, char *);
+extern void		rfs4_dss_readstate(nfs4_srv_t *, int, char **);
 
 /*
  * Various interfaces to manipulate the state structures introduced
@@ -946,7 +967,10 @@ extern fem_t	*deleg_wrops;
 
 extern int rfs4_share(rfs4_state_t *, uint32_t, uint32_t);
 extern int rfs4_unshare(rfs4_state_t *);
-extern	void		rfs4_set_deleg_policy(srv_deleg_policy_t);
+extern void rfs4_set_deleg_policy(nfs4_srv_t *, srv_deleg_policy_t);
+extern void rfs4_hold_deleg_policy(nfs4_srv_t *);
+extern void rfs4_rele_deleg_policy(nfs4_srv_t *);
+
 #ifdef DEBUG
 #define	NFS4_DEBUG(var, args) if (var) cmn_err args
 
@@ -1377,15 +1401,18 @@ extern stateid4 clnt_special1;
  * The NFS Version 4 service procedures.
  */
 
+extern void	rfs4_do_server_start(int, int, int);
 extern void	rfs4_compound(COMPOUND4args *, COMPOUND4res *,
 			struct exportinfo *, struct svc_req *, cred_t *, int *);
 extern void	rfs4_compound_free(COMPOUND4res *);
 extern void	rfs4_compound_flagproc(COMPOUND4args *, int *);
 
-extern int	rfs4_srvrinit(void);
+extern void	rfs4_srvrinit(void);
 extern void	rfs4_srvrfini(void);
-extern void	rfs4_state_init(void);
-extern void	rfs4_state_fini(void);
+extern void	rfs4_state_g_init(void);
+extern void	rfs4_state_zone_init(nfs4_srv_t *);
+extern void	rfs4_state_g_fini(void);
+extern void	rfs4_state_zone_fini(void);
 
 #endif
 #ifdef	__cplusplus

@@ -22,10 +22,11 @@
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
  */
+
 /*
- * Copyright 2012 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  * Copyright 2017 RackTop Systems.
+ * Copyright 2018 Nexenta Systems, Inc.
  */
 
 #include <stdio.h>
@@ -33,6 +34,7 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
+#include <zone.h>
 #include <libshare.h>
 #include "libshare_impl.h"
 #include <libintl.h>
@@ -238,6 +240,7 @@ get_legacy_mountpoint(const char *path, char *dataset, size_t dlen,
 {
 	FILE *fp;
 	struct mnttab entry;
+	int rc = 1;
 
 	if ((fp = fopen(MNTTAB, "r")) == NULL) {
 		return (1);
@@ -256,11 +259,12 @@ get_legacy_mountpoint(const char *path, char *dataset, size_t dlen,
 			if (dlen > 0)
 				(void) strlcpy(dataset, entry.mnt_special,
 				    dlen);
+			rc = 0;
 			break;
 		}
 	}
 	(void) fclose(fp);
-	return (1);
+	return (rc);
 }
 
 
@@ -815,6 +819,13 @@ sa_get_zfs_share_common(sa_handle_t handle, zfs_handle_t *fs_handle, char *path,
 	 */
 
 	if (!zfs_is_mounted(fs_handle, NULL))
+		return (SA_SYSTEM_ERR);
+
+	/*
+	 * Ignore "zoned" datasets in global zone.
+	 */
+	if (getzoneid() == GLOBAL_ZONEID &&
+	    zfs_prop_get_int(fs_handle, ZFS_PROP_ZONED))
 		return (SA_SYSTEM_ERR);
 
 	nfs = nfs_inherited = B_FALSE;

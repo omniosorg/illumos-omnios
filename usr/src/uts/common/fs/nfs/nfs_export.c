@@ -20,7 +20,6 @@
  */
 
 /*
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1990, 2010, Oracle and/or its affiliates. All rights reserved.
  */
 
@@ -29,6 +28,9 @@
  *		All rights reserved.
  */
 
+/*
+ * Copyright 2018 Nexenta Systems, Inc.
+ */
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -65,14 +67,27 @@
 #include <nfs/nfs_log.h>
 #include <nfs/lm.h>
 #include <sys/sunddi.h>
-#include <sys/pkp_hash.h>
 
-treenode_t *ns_root;
+static zone_key_t nfs_export_key;
 
-struct exportinfo *exptable_path_hash[PKP_HASH_SIZE];
-struct exportinfo *exptable[EXPTABLESIZE];
+/*
+ * exi_id support
+ *
+ * exi_id_next		The next exi_id available.
+ * exi_id_overflow	The exi_id_next already overflowed, so we should
+ *			thoroughly check for duplicates.
+ * exi_id_tree		AVL tree indexed by exi_id.
+ * nfs_exi_id_lock	Lock to protect the export ID list
+ *
+ * All exi_id_next, exi_id_overflow, and exi_id_tree are protected by
+ * nfs_exi_id_lock.
+ */
+static int exi_id_next;
+static bool_t exi_id_overflow;
+avl_tree_t exi_id_tree;
+krwlock_t nfs_exi_id_lock;
 
-static int	unexport(exportinfo_t *);
+static int	unexport(nfs_export_t *, exportinfo_t *);
 static void	exportfree(exportinfo_t *);
 static int	loadindex(exportdata_t *);
 
@@ -80,30 +95,17 @@ extern void	nfsauth_cache_free(exportinfo_t *);
 extern int	sec_svc_loadrootnames(int, int, caddr_t **, model_t);
 extern void	sec_svc_freerootnames(int, int, caddr_t *);
 
-static int build_seclist_nodups(exportdata_t *, secinfo_t *, int);
-static void srv_secinfo_add(secinfo_t **, int *, secinfo_t *, int, int);
-static void srv_secinfo_remove(secinfo_t **, int *, secinfo_t *, int);
-static void srv_secinfo_treeclimb(exportinfo_t *, secinfo_t *, int, bool_t);
+static int	build_seclist_nodups(exportdata_t *, secinfo_t *, int);
+static void	srv_secinfo_add(secinfo_t **, int *, secinfo_t *, int, int);
+static void	srv_secinfo_remove(secinfo_t **, int *, secinfo_t *, int);
+static void	srv_secinfo_treeclimb(nfs_export_t *, exportinfo_t *,
+		    secinfo_t *, int, bool_t);
 
 #ifdef VOLATILE_FH_TEST
 static struct ex_vol_rename *find_volrnm_fh(exportinfo_t *, nfs_fh4 *);
 static uint32_t find_volrnm_fh_id(exportinfo_t *, nfs_fh4 *);
-static void free_volrnm_list(exportinfo_t *);
+static void	free_volrnm_list(exportinfo_t *);
 #endif /* VOLATILE_FH_TEST */
-
-/*
- * exported_lock	Read/Write lock that protects the exportinfo list.
- *			This lock must be held when searching or modifiying
- *			the exportinfo list.
- */
-krwlock_t exported_lock;
-
-/*
- * "public" and default (root) location for public filehandle
- */
-struct exportinfo *exi_public, *exi_root;
-
-fid_t exi_rootfid;	/* for checking the default public file handle */
 
 fhandle_t nullfh2;	/* for comparing V2 filehandles */
 
@@ -116,6 +118,12 @@ fhandle_t nullfh2;	/* for comparing V2 filehandles */
 
 
 #define	exptablehash(fsid, fid) (nfs_fhhash((fsid), (fid)) & (EXPTABLESIZE - 1))
+
+extern nfs_export_t *
+nfs_get_export(void)
+{
+	return (zone_getspecific(nfs_export_key, curzone));
+}
 
 static uint8_t
 xor_hash(uint8_t *data, int len)
@@ -703,12 +711,12 @@ vis2exi(treenode_t *tnode)
  * given exportinfo from its ancestors upto the system root.
  */
 void
-srv_secinfo_treeclimb(exportinfo_t *exip, secinfo_t *sec, int seccnt,
-    bool_t isadd)
+srv_secinfo_treeclimb(nfs_export_t *ne, exportinfo_t *exip, secinfo_t *sec,
+    int seccnt, bool_t isadd)
 {
 	treenode_t *tnode = exip->exi_tree;
 
-	ASSERT(RW_WRITE_HELD(&exported_lock));
+	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
 	ASSERT(tnode != NULL);
 
 	if (seccnt == 0)
@@ -782,108 +790,207 @@ srv_secinfo_treeclimb(exportinfo_t *exip, secinfo_t *sec, int seccnt,
 	*(bucket) = (exi);
 
 void
-export_link(exportinfo_t *exi)
+export_link(nfs_export_t *ne, exportinfo_t *exi)
 {
 	exportinfo_t **bckt;
 
-	bckt = &exptable[exptablehash(&exi->exi_fsid, &exi->exi_fid)];
+	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
+
+	bckt = &ne->exptable[exptablehash(&exi->exi_fsid, &exi->exi_fid)];
 	exp_hash_link(exi, fid_hash, bckt);
 
-	bckt = &exptable_path_hash[pkp_tab_hash(exi->exi_export.ex_path,
+	bckt = &ne->exptable_path_hash[pkp_tab_hash(exi->exi_export.ex_path,
 	    strlen(exi->exi_export.ex_path))];
 	exp_hash_link(exi, path_hash, bckt);
 }
 
 /*
- * Initialization routine for export routines. Should only be called once.
+ * Helper functions for exi_id handling
  */
-int
-nfs_exportinit(void)
+static int
+exi_id_compar(const void *v1, const void *v2)
 {
-	int error;
-	int i;
+	const struct exportinfo *e1 = v1;
+	const struct exportinfo *e2 = v2;
 
-	rw_init(&exported_lock, NULL, RW_DEFAULT, NULL);
+	if (e1->exi_id < e2->exi_id)
+		return (-1);
+	if (e1->exi_id > e2->exi_id)
+		return (1);
+
+	return (0);
+}
+
+int
+exi_id_get_next()
+{
+	struct exportinfo e;
+	int ret = exi_id_next;
+
+	ASSERT(RW_LOCK_HELD(&nfs_exi_id_lock));
+
+	do {
+		exi_id_next++;
+		if (exi_id_next == 0)
+			exi_id_overflow = TRUE;
+
+		if (!exi_id_overflow)
+			break;
+
+		if (exi_id_next == ret)
+			cmn_err(CE_PANIC, "exi_id exhausted");
+
+		e.exi_id = exi_id_next;
+	} while (avl_find(&exi_id_tree, &e, NULL) != NULL);
+
+	return (ret);
+}
+
+/*ARGSUSED*/
+static void *
+nfs_export_zone_init(zoneid_t zoneid)
+{
+	int i;
+	nfs_export_t *ne;
+
+	ne = kmem_zalloc(sizeof (*ne), KM_SLEEP);
+
+	rw_init(&ne->exported_lock, NULL, RW_DEFAULT, NULL);
 
 	/*
 	 * Allocate the place holder for the public file handle, which
 	 * is all zeroes. It is initially set to the root filesystem.
 	 */
-	exi_root = kmem_zalloc(sizeof (*exi_root), KM_SLEEP);
-	exi_public = exi_root;
+	ne->exi_root = kmem_zalloc(sizeof (*ne->exi_root), KM_SLEEP);
+	ne->exi_public = ne->exi_root;
 
-	exi_root->exi_export.ex_flags = EX_PUBLIC;
-	exi_root->exi_export.ex_pathlen = 1;	/* length of "/" */
-	exi_root->exi_export.ex_path =
-	    kmem_alloc(exi_root->exi_export.ex_pathlen + 1, KM_SLEEP);
-	exi_root->exi_export.ex_path[0] = '/';
-	exi_root->exi_export.ex_path[1] = '\0';
+	ne->exi_root->exi_export.ex_flags = EX_PUBLIC;
+	ne->exi_root->exi_export.ex_pathlen = 1;	/* length of "/" */
+	ne->exi_root->exi_export.ex_path =
+	    kmem_alloc(ne->exi_root->exi_export.ex_pathlen + 1, KM_SLEEP);
+	ne->exi_root->exi_export.ex_path[0] = '/';
+	ne->exi_root->exi_export.ex_path[1] = '\0';
 
-	exi_root->exi_count = 1;
-	mutex_init(&exi_root->exi_lock, NULL, MUTEX_DEFAULT, NULL);
+	ne->exi_root->exi_count = 1;
+	mutex_init(&ne->exi_root->exi_lock, NULL, MUTEX_DEFAULT, NULL);
 
-	exi_root->exi_vp = rootdir;
-	exi_rootfid.fid_len = MAXFIDSZ;
-	error = vop_fid_pseudo(exi_root->exi_vp, &exi_rootfid);
-	if (error) {
-		mutex_destroy(&exi_root->exi_lock);
-		kmem_free(exi_root, sizeof (*exi_root));
-		return (error);
+	ne->exi_root->exi_vp = ZONE_ROOTVP();
+	ne->exi_rootfid.fid_len = MAXFIDSZ;
+	if (vop_fid_pseudo(ne->exi_root->exi_vp, &ne->exi_rootfid) != 0) {
+		mutex_destroy(&ne->exi_root->exi_lock);
+		kmem_free(ne->exi_root->exi_export.ex_path,
+		    ne->exi_root->exi_export.ex_pathlen + 1);
+		kmem_free(ne->exi_root, sizeof (*ne->exi_root));
+		return (NULL);
 	}
 
-	/*
-	 * Initialize auth cache and auth cache lock
-	 */
+	/* Initialize auth cache and auth cache lock */
 	for (i = 0; i < AUTH_TABLESIZE; i++) {
-		exi_root->exi_cache[i] = kmem_alloc(sizeof (avl_tree_t),
+		ne->exi_root->exi_cache[i] = kmem_alloc(sizeof (avl_tree_t),
 		    KM_SLEEP);
-		avl_create(exi_root->exi_cache[i], nfsauth_cache_clnt_compar,
-		    sizeof (struct auth_cache_clnt),
+		avl_create(ne->exi_root->exi_cache[i],
+		    nfsauth_cache_clnt_compar, sizeof (struct auth_cache_clnt),
 		    offsetof(struct auth_cache_clnt, authc_link));
 	}
-	rw_init(&exi_root->exi_cache_lock, NULL, RW_DEFAULT, NULL);
+	rw_init(&ne->exi_root->exi_cache_lock, NULL, RW_DEFAULT, NULL);
 
-	/* setup the fhandle template */
-	exi_root->exi_fh.fh_fsid = rootdir->v_vfsp->vfs_fsid;
-	exi_root->exi_fh.fh_xlen = exi_rootfid.fid_len;
-	bcopy(exi_rootfid.fid_data, exi_root->exi_fh.fh_xdata,
-	    exi_rootfid.fid_len);
-	exi_root->exi_fh.fh_len = sizeof (exi_root->exi_fh.fh_data);
+	/* Setup the fhandle template */
+	ne->exi_root->exi_fh.fh_fsid = rootdir->v_vfsp->vfs_fsid;
+	ne->exi_root->exi_fh.fh_xlen = ne->exi_rootfid.fid_len;
+	bcopy(ne->exi_rootfid.fid_data, ne->exi_root->exi_fh.fh_xdata,
+	    ne->exi_rootfid.fid_len);
+	ne->exi_root->exi_fh.fh_len = sizeof (ne->exi_root->exi_fh.fh_data);
 
-	/*
-	 * Publish the exportinfo in the hash table
-	 */
-	export_link(exi_root);
+	rw_enter(&ne->exported_lock, RW_WRITER);
 
-	nfslog_init();
-	ns_root = NULL;
+	/* Publish the exportinfo in the hash table */
+	export_link(ne, ne->exi_root);
 
-	return (0);
+	/* Initialize exi_id and exi_kstats */
+	rw_enter(&nfs_exi_id_lock, RW_WRITER);
+	ne->exi_root->exi_id = exi_id_get_next();
+	avl_add(&exi_id_tree, ne->exi_root);
+	rw_exit(&nfs_exi_id_lock);
+
+	rw_exit(&ne->exported_lock);
+	ne->ns_root = NULL;
+
+	return (ne);
+}
+
+/*ARGSUSED*/
+static void
+nfs_export_zone_fini(zoneid_t zoneid, void *data)
+{
+	int i;
+	nfs_export_t *ne = data;
+	struct exportinfo *exi;
+
+	rw_enter(&ne->exported_lock, RW_WRITER);
+	rw_enter(&nfs_exi_id_lock, RW_WRITER);
+	avl_remove(&exi_id_tree, ne->exi_root);
+	export_unlink(ne, ne->exi_root);
+
+	rw_exit(&nfs_exi_id_lock);
+	rw_exit(&ne->exported_lock);
+
+	/* Deallocate the place holder for the public file handle */
+	srv_secinfo_list_free(ne->exi_root->exi_export.ex_secinfo,
+	    ne->exi_root->exi_export.ex_seccnt);
+	mutex_destroy(&ne->exi_root->exi_lock);
+
+	rw_destroy(&ne->exi_root->exi_cache_lock);
+	for (i = 0; i < AUTH_TABLESIZE; i++) {
+		avl_destroy(ne->exi_root->exi_cache[i]);
+		kmem_free(ne->exi_root->exi_cache[i], sizeof (avl_tree_t));
+	}
+
+	kmem_free(ne->exi_root->exi_export.ex_path,
+	    ne->exi_root->exi_export.ex_pathlen + 1);
+	kmem_free(ne->exi_root, sizeof (*ne->exi_root));
+
+	exi = avl_first(&exi_id_tree);
+	while (exi != NULL) {
+		struct exportinfo *nexi = AVL_NEXT(&exi_id_tree, exi);
+		if (zoneid == exi->exi_zoneid)
+			(void) unexport(ne, exi);
+		exi = nexi;
+	}
+
+	rw_destroy(&ne->exported_lock);
+	kmem_free(ne, sizeof (*ne));
 }
 
 /*
- * Finalization routine for export routines. Called to cleanup previously
- * initialization work when the NFS server module could not be loaded correctly.
+ * Initialization routine for export routines.
+ * Should only be called once.
+ */
+void
+nfs_exportinit(void)
+{
+	rw_init(&nfs_exi_id_lock, NULL, RW_DEFAULT, NULL);
+
+	/* exi_id handling initialization */
+	exi_id_next = 0;
+	exi_id_overflow = FALSE;
+	avl_create(&exi_id_tree, exi_id_compar, sizeof (struct exportinfo),
+	    offsetof(struct exportinfo, exi_id_link));
+
+	zone_key_create(&nfs_export_key, nfs_export_zone_init,
+	    NULL, nfs_export_zone_fini);
+
+	nfslog_init();
+}
+
+/*
+ * Finalization routine for export routines.
  */
 void
 nfs_exportfini(void)
 {
-	int i;
-
-	/*
-	 * Deallocate the place holder for the public file handle.
-	 */
-	srv_secinfo_list_free(exi_root->exi_export.ex_secinfo,
-	    exi_root->exi_export.ex_seccnt);
-	mutex_destroy(&exi_root->exi_lock);
-	rw_destroy(&exi_root->exi_cache_lock);
-	for (i = 0; i < AUTH_TABLESIZE; i++) {
-		avl_destroy(exi_root->exi_cache[i]);
-		kmem_free(exi_root->exi_cache[i], sizeof (avl_tree_t));
-	}
-	kmem_free(exi_root, sizeof (*exi_root));
-
-	rw_destroy(&exported_lock);
+	(void) zone_key_delete(nfs_export_key);
+	avl_destroy(&exi_id_tree);
+	rw_destroy(&nfs_exi_id_lock);
 }
 
 /*
@@ -922,6 +1029,7 @@ rfs_gsscallback(struct svc_req *req, gss_cred_id_t deleg, void *gss_context,
 	int i, j;
 	rpc_gss_rawcred_t *raw_cred;
 	struct exportinfo *exi;
+	nfs_export_t *ne = nfs_get_export();
 
 	/*
 	 * We don't deal with delegated credentials.
@@ -932,9 +1040,10 @@ rfs_gsscallback(struct svc_req *req, gss_cred_id_t deleg, void *gss_context,
 	raw_cred = lock->raw_cred;
 	*cookie = NULL;
 
-	rw_enter(&exported_lock, RW_READER);
+	rw_enter(&ne->exported_lock, RW_READER);
+
 	for (i = 0; i < EXPTABLESIZE; i++) {
-		exi = exptable[i];
+		exi = ne->exptable[i];
 		while (exi) {
 			if (exi->exi_export.ex_seccnt > 0) {
 				struct secinfo *secp;
@@ -974,7 +1083,7 @@ rfs_gsscallback(struct svc_req *req, gss_cred_id_t deleg, void *gss_context,
 		}
 	}
 done:
-	rw_exit(&exported_lock);
+	rw_exit(&ne->exported_lock);
 
 	/*
 	 * If no nfs pseudo number mapping can be found in the export
@@ -1041,6 +1150,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	int oldcnt;
 	int i;
 	struct pathname lookpn;
+	nfs_export_t *ne = nfs_get_export();
 
 	STRUCT_SET_HANDLE(uap, model, args);
 
@@ -1049,25 +1159,25 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 		return (error);
 
 	/* Walk the export list looking for that pathname */
-	rw_enter(&exported_lock, RW_READER);
+	rw_enter(&ne->exported_lock, RW_READER);
 	DTRACE_PROBE(nfss__i__exported_lock1_start);
-	for (ex1 = exptable_path_hash[pkp_tab_hash(lookpn.pn_path,
+	for (ex1 = ne->exptable_path_hash[pkp_tab_hash(lookpn.pn_path,
 	    strlen(lookpn.pn_path))]; ex1; ex1 = ex1->path_hash.next) {
-		if (ex1 != exi_root && 0 ==
+		if (ex1 != ne->exi_root && 0 ==
 		    strcmp(ex1->exi_export.ex_path, lookpn.pn_path)) {
 			exi_hold(ex1);
 			break;
 		}
 	}
 	DTRACE_PROBE(nfss__i__exported_lock1_stop);
-	rw_exit(&exported_lock);
+	rw_exit(&ne->exported_lock);
 
 	/* Is this an unshare? */
 	if (STRUCT_FGETP(uap, uex) == NULL) {
 		pn_free(&lookpn);
 		if (ex1 == NULL)
 			return (EINVAL);
-		error = unexport(ex1);
+		error = unexport(ne, ex1);
 		exi_rele(ex1);
 		return (error);
 	}
@@ -1163,15 +1273,15 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	 * Do not allow re-sharing a shared vnode under a different path
 	 * PSEUDO export has ex_path fabricated, e.g. "/tmp (pseudo)", skip it.
 	 */
-	rw_enter(&exported_lock, RW_READER);
+	rw_enter(&ne->exported_lock, RW_READER);
 	DTRACE_PROBE(nfss__i__exported_lock2_start);
-	for (ex2 = exptable[exptablehash(&fsid, &fid)]; ex2;
+	for (ex2 = ne->exptable[exptablehash(&fsid, &fid)]; ex2;
 	    ex2 = ex2->fid_hash.next) {
-		if (ex2 != exi_root && !PSEUDO(ex2) &&
+		if (ex2 != ne->exi_root && !PSEUDO(ex2) &&
 		    VN_CMP(ex2->exi_vp, vp) &&
 		    strcmp(ex2->exi_export.ex_path, lookpn.pn_path) != 0) {
 			DTRACE_PROBE(nfss__i__exported_lock2_stop);
-			rw_exit(&exported_lock);
+			rw_exit(&ne->exported_lock);
 			VN_RELE(vp);
 			if (dvp != NULL)
 				VN_RELE(dvp);
@@ -1180,7 +1290,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 		}
 	}
 	DTRACE_PROBE(nfss__i__exported_lock2_stop);
-	rw_exit(&exported_lock);
+	rw_exit(&ne->exported_lock);
 	pn_free(&lookpn);
 
 	exi = kmem_zalloc(sizeof (*exi), KM_SLEEP);
@@ -1188,6 +1298,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	exi->exi_fid = fid;
 	exi->exi_vp = vp;
 	exi->exi_count = 1;
+	exi->exi_zoneid = crgetzoneid(cr);
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -1461,10 +1572,10 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	/*
 	 * Insert the new entry at the front of the export list
 	 */
-	rw_enter(&exported_lock, RW_WRITER);
+	rw_enter(&ne->exported_lock, RW_WRITER);
 	DTRACE_PROBE(nfss__i__exported_lock3_start);
 
-	export_link(exi);
+	export_link(ne, exi);
 
 	/*
 	 * Check the rest of the list for an old entry for the fs.
@@ -1472,8 +1583,11 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	 * only reference and then free it.
 	 */
 	for (ex = exi->fid_hash.next; ex != NULL; ex = ex->fid_hash.next) {
-		if (ex != exi_root && VN_CMP(ex->exi_vp, vp)) {
-			export_unlink(ex);
+		if (ex != ne->exi_root && VN_CMP(ex->exi_vp, vp)) {
+			rw_enter(&nfs_exi_id_lock, RW_WRITER);
+			avl_remove(&exi_id_tree, ex);
+			rw_exit(&nfs_exi_id_lock);
+			export_unlink(ne, ex);
 			break;
 		}
 	}
@@ -1482,8 +1596,8 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	 * If the public filehandle is pointing at the
 	 * old entry, then point it back at the root.
 	 */
-	if (ex != NULL && ex == exi_public)
-		exi_public = exi_root;
+	if (ex != NULL && ex == ne->exi_public)
+		ne->exi_public = ne->exi_root;
 
 	/*
 	 * If the public flag is on, make the global exi_public
@@ -1491,7 +1605,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	 * we can distinguish it from the place holder export.
 	 */
 	if (kex->ex_flags & EX_PUBLIC) {
-		exi_public = exi;
+		ne->exi_public = exi;
 		kex->ex_flags &= ~EX_PUBLIC;
 	}
 
@@ -1523,7 +1637,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 		exi->exi_tree->tree_exi = exi;
 
 		/* Update the change timestamp */
-		tree_update_change(exi->exi_tree, NULL);
+		tree_update_change(ne, exi->exi_tree, NULL);
 	}
 
 	/*
@@ -1533,7 +1647,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	 */
 	newcnt = build_seclist_nodups(&exi->exi_export, newsec, FALSE);
 
-	srv_secinfo_treeclimb(exi, newsec, newcnt, TRUE);
+	srv_secinfo_treeclimb(ne, exi, newsec, newcnt, TRUE);
 
 	/*
 	 * If re-sharing an old export entry, update the secinfo data
@@ -1558,7 +1672,7 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 			 * Remove old flavor refs last.
 			 */
 			srv_secinfo_exp2exp(&exi->exi_export, oldsec, oldcnt);
-			srv_secinfo_treeclimb(ex, oldsec, oldcnt, FALSE);
+			srv_secinfo_treeclimb(ne, ex, oldsec, oldcnt, FALSE);
 		}
 	}
 
@@ -1571,10 +1685,24 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 		ex->exi_visible = NULL;
 	}
 
-	DTRACE_PROBE(nfss__i__exported_lock3_stop);
-	rw_exit(&exported_lock);
+	/*
+	 * Initialize exi_id and exi_kstats
+	 */
+	if (ex != NULL) {
+		exi->exi_id = ex->exi_id;
+	} else {
+		rw_enter(&nfs_exi_id_lock, RW_READER);
+		exi->exi_id = exi_id_get_next();
+		rw_exit(&nfs_exi_id_lock);
+	}
+	rw_enter(&nfs_exi_id_lock, RW_WRITER);
+	avl_add(&exi_id_tree, exi);
+	rw_exit(&nfs_exi_id_lock);
 
-	if (exi_public == exi || kex->ex_flags & EX_LOG) {
+	DTRACE_PROBE(nfss__i__exported_lock3_stop);
+	rw_exit(&ne->exported_lock);
+
+	if (ne->exi_public == exi || kex->ex_flags & EX_LOG) {
 		/*
 		 * Log share operation to this buffer only.
 		 */
@@ -1588,9 +1716,9 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 
 out7:
 	/* Unlink the new export in exptable. */
-	export_unlink(exi);
+	export_unlink(ne, exi);
 	DTRACE_PROBE(nfss__i__exported_lock3_stop);
-	rw_exit(&exported_lock);
+	rw_exit(&ne->exported_lock);
 out6:
 	if (kex->ex_flags & EX_INDEX)
 		kmem_free(kex->ex_index, strlen(kex->ex_index) + 1);
@@ -1634,9 +1762,9 @@ out1:
  * Remove the exportinfo from the export list
  */
 void
-export_unlink(struct exportinfo *exi)
+export_unlink(nfs_export_t *ne, struct exportinfo *exi)
 {
-	ASSERT(RW_WRITE_HELD(&exported_lock));
+	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
 
 	exp_hash_unlink(exi, fid_hash);
 	exp_hash_unlink(exi, path_hash);
@@ -1646,28 +1774,27 @@ export_unlink(struct exportinfo *exi)
  * Unexport an exported filesystem
  */
 static int
-unexport(struct exportinfo *exi)
+unexport(nfs_export_t *ne, struct exportinfo *exi)
 {
 	struct secinfo cursec[MAX_FLAVORS];
 	int curcnt;
 
-	rw_enter(&exported_lock, RW_WRITER);
+	rw_enter(&ne->exported_lock, RW_WRITER);
 
 	/* Check if exi is still linked in the export table */
 	if (!EXP_LINKED(exi) || PSEUDO(exi)) {
-		rw_exit(&exported_lock);
+		rw_exit(&ne->exported_lock);
 		return (EINVAL);
 	}
 
-	export_unlink(exi);
+	export_unlink(ne, exi);
 
 	/*
 	 * Remove security flavors before treeclimb_unexport() is called
 	 * because srv_secinfo_treeclimb needs the namespace tree
 	 */
 	curcnt = build_seclist_nodups(&exi->exi_export, cursec, TRUE);
-
-	srv_secinfo_treeclimb(exi, cursec, curcnt, FALSE);
+	srv_secinfo_treeclimb(ne, exi, cursec, curcnt, FALSE);
 
 	/*
 	 * If there's a visible list, then need to leave
@@ -1677,7 +1804,7 @@ unexport(struct exportinfo *exi)
 	if (exi->exi_visible != NULL) {
 		struct exportinfo *newexi;
 
-		newexi = pseudo_exportfs(exi->exi_vp, &exi->exi_fid,
+		newexi = pseudo_exportfs(ne, exi->exi_vp, &exi->exi_fid,
 		    exi->exi_visible, &exi->exi_export);
 		exi->exi_visible = NULL;
 
@@ -1686,12 +1813,12 @@ unexport(struct exportinfo *exi)
 		newexi->exi_tree->tree_exi = newexi;
 
 		/* Update the change timestamp */
-		tree_update_change(exi->exi_tree, NULL);
+		tree_update_change(ne, exi->exi_tree, NULL);
 	} else {
-		treeclimb_unexport(exi);
+		treeclimb_unexport(ne, exi);
 	}
 
-	rw_exit(&exported_lock);
+	rw_exit(&ne->exported_lock);
 
 	/*
 	 * Need to call into the NFSv4 server and release all data
@@ -1711,15 +1838,14 @@ unexport(struct exportinfo *exi)
 	 * If this was a public export, restore
 	 * the public filehandle to the root.
 	 */
-	if (exi == exi_public) {
-		exi_public = exi_root;
+	if (exi == ne->exi_public) {
+		ne->exi_public = ne->exi_root;
 
-		nfslog_share_record(exi_public, CRED());
+		nfslog_share_record(ne->exi_public, CRED());
 	}
 
-	if (exi->exi_export.ex_flags & EX_LOG) {
+	if (exi->exi_export.ex_flags & EX_LOG)
 		nfslog_unshare_record(exi, CRED());
-	}
 
 	exi_rele(exi);
 	return (0);
@@ -2446,9 +2572,10 @@ struct exportinfo *
 checkexport(fsid_t *fsid, fid_t *fid)
 {
 	struct exportinfo *exi;
+	nfs_export_t *ne = nfs_get_export();
 
-	rw_enter(&exported_lock, RW_READER);
-	for (exi = exptable[exptablehash(fsid, fid)];
+	rw_enter(&ne->exported_lock, RW_READER);
+	for (exi = ne->exptable[exptablehash(fsid, fid)];
 	    exi != NULL;
 	    exi = exi->fid_hash.next) {
 		if (exportmatch(exi, fsid, fid)) {
@@ -2459,15 +2586,15 @@ checkexport(fsid_t *fsid, fid_t *fid)
 			 * handle.
 			 */
 			if (exi->exi_export.ex_flags & EX_PUBLIC) {
-				exi = exi_public;
+				exi = ne->exi_public;
 			}
 
 			exi_hold(exi);
-			rw_exit(&exported_lock);
+			rw_exit(&ne->exported_lock);
 			return (exi);
 		}
 	}
-	rw_exit(&exported_lock);
+	rw_exit(&ne->exported_lock);
 	return (NULL);
 }
 
@@ -2483,10 +2610,11 @@ struct exportinfo *
 checkexport4(fsid_t *fsid, fid_t *fid, vnode_t *vp)
 {
 	struct exportinfo *exi;
+	nfs_export_t *ne = nfs_get_export();
 
-	ASSERT(RW_LOCK_HELD(&exported_lock));
+	ASSERT(RW_LOCK_HELD(&ne->exported_lock));
 
-	for (exi = exptable[exptablehash(fsid, fid)];
+	for (exi = ne->exptable[exptablehash(fsid, fid)];
 	    exi != NULL;
 	    exi = exi->fid_hash.next) {
 		if (exportmatch(exi, fsid, fid)) {
@@ -2497,7 +2625,7 @@ checkexport4(fsid_t *fsid, fid_t *fid, vnode_t *vp)
 			 * handle.
 			 */
 			if (exi->exi_export.ex_flags & EX_PUBLIC) {
-				exi = exi_public;
+				exi = ne->exi_public;
 			}
 
 			/*
