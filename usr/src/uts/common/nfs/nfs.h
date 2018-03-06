@@ -20,18 +20,19 @@
  */
 
 /*
- * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
 /*	  All Rights Reserved	*/
 
+/*
+ * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
 #ifndef	_NFS_NFS_H
 #define	_NFS_NFS_H
-
-/*	nfs.h 2.38 88/08/19 SMI 	*/
 
 #include <sys/isa_defs.h>
 #include <sys/vfs.h>
@@ -72,8 +73,34 @@ extern "C" {
 #define	NFS_VERSMIN_DEFAULT	((rpcvers_t)2)
 #define	NFS_VERSMAX_DEFAULT	((rpcvers_t)4)
 
-extern rpcvers_t nfs_versmin;
-extern rpcvers_t nfs_versmax;
+/*
+ * Used to track the state of the server so that initialization
+ * can be done properly.
+ */
+typedef enum {
+	NFS_SERVER_STOPPED,	/* server state destroyed */
+	NFS_SERVER_STOPPING,	/* server state being destroyed */
+	NFS_SERVER_RUNNING,
+	NFS_SERVER_QUIESCED,	/* server state preserved */
+	NFS_SERVER_OFFLINE	/* server pool offline */
+} nfs_server_running_t;
+
+/*
+ * Zone globals variables of NFS server
+ */
+typedef struct nfs_globals {
+	rpcvers_t		nfs_versmin;
+	rpcvers_t		nfs_versmax;
+
+	/* NFS server locks and state */
+	nfs_server_running_t	nfs_server_upordown;
+	kmutex_t		nfs_server_upordown_lock;
+	kcondvar_t		nfs_server_upordown_cv;
+
+	/* RDMA wait variables */
+	kcondvar_t		rdma_wait_cv;
+	kmutex_t		rdma_wait_mutex;
+} nfs_globals_t;
 
 /*
  * Default delegation setting for the server ==> "on"
@@ -904,7 +931,7 @@ extern int	nfs_async_stop_sig(struct vfs *);
 extern int	nfs_clntinit(void);
 extern void	nfs_clntfini(void);
 extern int	nfstsize(void);
-extern int	nfs_srvinit(void);
+extern void	nfs_srvinit(void);
 extern void	nfs_srvfini(void);
 extern int	vattr_to_sattr(struct vattr *, struct nfssattr *);
 extern void	setdiropargs(struct nfsdiropargs *, char *, vnode_t *);
@@ -957,6 +984,8 @@ extern nvlist_t	*rfs4_dss_paths, *rfs4_dss_oldpaths;
 
 extern kstat_named_t	*global_svstat_ptr[];
 
+extern zone_key_t	rfs4_zone_key;
+extern zone_key_t	nfssrv_zone_key;
 extern krwlock_t	rroklock;
 extern vtype_t		nf_to_vt[];
 extern kstat_named_t	*rfsproccnt_v2_ptr;
@@ -2312,10 +2341,10 @@ extern bool_t	rfs4_check_delegated(int mode, vnode_t *, bool_t trunc);
  * if no delegation is present.
  */
 extern int	rfs4_delegated_getattr(vnode_t *, vattr_t *, int, cred_t *);
-extern void	rfs4_hold_deleg_policy(void);
-extern void	rfs4_rele_deleg_policy(void);
 
 extern int	do_xattr_exists_check(vnode_t *, ulong_t *, cred_t *);
+
+extern int	protect_zfs_mntpt(vnode_t *);
 
 extern ts_label_t *nfs_getflabel(vnode_t *, struct exportinfo *);
 extern boolean_t do_rfs_label_check(bslabel_t *, vnode_t *, int,
