@@ -20,9 +20,12 @@
  */
 
 /*
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2014, 2017 by Delphix. All rights reserved.
+ */
+
+/*
+ * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
  * Copyright 2017 Joyent, Inc.
  * Copyright 2017 RackTop Systems.
@@ -879,15 +882,6 @@ zfs_share_proto(zfs_handle_t *zhp, zfs_share_proto_t *proto)
 			    _sa_errorstr(ret) : "");
 			return (-1);
 		}
-
-		/*
-		 * If the 'zoned' property is set, then zfs_is_mountable()
-		 * will have already bailed out if we are in the global zone.
-		 * But local zones cannot be NFS servers, so we ignore it for
-		 * local zones as well.
-		 */
-		if (zfs_prop_get_int(zhp, ZFS_PROP_ZONED))
-			continue;
 
 		share = zfs_sa_find_share(hdl->libzfs_sharehdl, mountpoint);
 		if (share == NULL) {

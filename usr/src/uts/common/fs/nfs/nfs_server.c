@@ -32,6 +32,13 @@
  *	Use is subject to license terms.
  */
 
+/*
+ * Copyright (c) 2011 Bayard G. Bell. All rights reserved.
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright (c) 2017 Joyent Inc
+ */
+
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/systm.h>
@@ -83,7 +90,6 @@
 #include <nfs/nfs_clnt.h>
 #include <nfs/nfs_acl.h>
 #include <nfs/nfs_log.h>
-#include <nfs/nfs_cmd.h>
 #include <nfs/lm.h>
 #include <nfs/nfs_dispatch.h>
 #include <nfs/nfs4_drc.h>
@@ -109,6 +115,7 @@ static struct modlinkage modlinkage = {
 	MODREV_1, (void *)&modlmisc, NULL
 };
 
+zone_key_t nfssrv_zone_key;
 kmem_cache_t *nfs_xuio_cache;
 int nfs_loaned_buffers = 0;
 
@@ -117,10 +124,7 @@ _init(void)
 {
 	int status;
 
-	if ((status = nfs_srvinit()) != 0) {
-		cmn_err(CE_WARN, "_init: nfs_srvinit failed");
-		return (status);
-	}
+	nfs_srvinit();
 
 	status = mod_install((struct modlinkage *)&modlinkage);
 	if (status != 0) {
@@ -177,27 +181,28 @@ _info(struct modinfo *modinfop)
  * supports RPC_PUBLICFH_OK, and if the filesystem is explicitly exported
  * public (i.e., not the placeholder).
  */
-#define	PUBLICFH_CHECK(disp, exi, fsid, xfid) \
+#define	PUBLICFH_CHECK(ne, disp, exi, fsid, xfid) \
 		((disp->dis_flags & RPC_PUBLICFH_OK) && \
 		((exi->exi_export.ex_flags & EX_PUBLIC) || \
-		(exi == exi_public && exportmatch(exi_root, \
+		(exi == ne->exi_public && exportmatch(ne->exi_root, \
 		fsid, xfid))))
 
 static void	nfs_srv_shutdown_all(int);
-static void	rfs4_server_start(int);
+static void	rfs4_server_start(nfs_globals_t *, int);
 static void	nullfree(void);
 static void	rfs_dispatch(struct svc_req *, SVCXPRT *);
 static void	acl_dispatch(struct svc_req *, SVCXPRT *);
 static void	common_dispatch(struct svc_req *, SVCXPRT *,
 		rpcvers_t, rpcvers_t, char *,
 		struct rpc_disptable *);
-static void	hanfsv4_failover(void);
 static	int	checkauth(struct exportinfo *, struct svc_req *, cred_t *, int,
 		bool_t, bool_t *);
 static char	*client_name(struct svc_req *req);
 static char	*client_addr(struct svc_req *req, char *buf);
 extern	int	sec_svc_getcred(struct svc_req *, cred_t *cr, char **, int *);
 extern	bool_t	sec_svc_inrootlist(int, caddr_t, int, caddr_t *);
+static void	*nfs_srv_zone_init(zoneid_t);
+static void	nfs_srv_zone_fini(zoneid_t, void *);
 
 #define	NFSLOG_COPY_NETBUF(exi, xprt, nb)	{		\
 	(nb)->maxlen = (xprt)->xp_rtaddr.maxlen;		\
@@ -248,24 +253,6 @@ static SVC_CALLOUT __nfs_sc_rdma[] = {
 static SVC_CALLOUT_TABLE nfs_sct_rdma = {
 	sizeof (__nfs_sc_rdma) / sizeof (__nfs_sc_rdma[0]), FALSE, __nfs_sc_rdma
 };
-rpcvers_t nfs_versmin = NFS_VERSMIN_DEFAULT;
-rpcvers_t nfs_versmax = NFS_VERSMAX_DEFAULT;
-
-/*
- * Used to track the state of the server so that initialization
- * can be done properly.
- */
-typedef enum {
-	NFS_SERVER_STOPPED,	/* server state destroyed */
-	NFS_SERVER_STOPPING,	/* server state being destroyed */
-	NFS_SERVER_RUNNING,
-	NFS_SERVER_QUIESCED,	/* server state preserved */
-	NFS_SERVER_OFFLINE	/* server pool offline */
-} nfs_server_running_t;
-
-static nfs_server_running_t nfs_server_upordown;
-static kmutex_t nfs_server_upordown_lock;
-static	kcondvar_t nfs_server_upordown_cv;
 
 /*
  * DSS: distributed stable storage
@@ -277,12 +264,6 @@ int rfs4_dispatch(struct rpcdisp *, struct svc_req *, SVCXPRT *, char *);
 bool_t rfs4_minorvers_mismatch(struct svc_req *, SVCXPRT *, void *);
 
 /*
- * RDMA wait variables.
- */
-static kcondvar_t rdma_wait_cv;
-static kmutex_t rdma_wait_mutex;
-
-/*
  * Will be called at the point the server pool is being unregistered
  * from the pool list. From that point onwards, the pool is waiting
  * to be drained and as such the server state is stale and pertains
@@ -291,11 +272,15 @@ static kmutex_t rdma_wait_mutex;
 void
 nfs_srv_offline(void)
 {
-	mutex_enter(&nfs_server_upordown_lock);
-	if (nfs_server_upordown == NFS_SERVER_RUNNING) {
-		nfs_server_upordown = NFS_SERVER_OFFLINE;
+	nfs_globals_t *ng;
+
+	ng = zone_getspecific(nfssrv_zone_key, curzone);
+
+	mutex_enter(&ng->nfs_server_upordown_lock);
+	if (ng->nfs_server_upordown == NFS_SERVER_RUNNING) {
+		ng->nfs_server_upordown = NFS_SERVER_OFFLINE;
 	}
-	mutex_exit(&nfs_server_upordown_lock);
+	mutex_exit(&ng->nfs_server_upordown_lock);
 }
 
 /*
@@ -324,13 +309,16 @@ nfs_srv_quiesce_all(void)
 }
 
 static void
-nfs_srv_shutdown_all(int quiesce) {
-	mutex_enter(&nfs_server_upordown_lock);
+nfs_srv_shutdown_all(int quiesce)
+{
+	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+
+	mutex_enter(&ng->nfs_server_upordown_lock);
 	if (quiesce) {
-		if (nfs_server_upordown == NFS_SERVER_RUNNING ||
-			nfs_server_upordown == NFS_SERVER_OFFLINE) {
-			nfs_server_upordown = NFS_SERVER_QUIESCED;
-			cv_signal(&nfs_server_upordown_cv);
+		if (ng->nfs_server_upordown == NFS_SERVER_RUNNING ||
+		    ng->nfs_server_upordown == NFS_SERVER_OFFLINE) {
+			ng->nfs_server_upordown = NFS_SERVER_QUIESCED;
+			cv_signal(&ng->nfs_server_upordown_cv);
 
 			/* reset DSS state, for subsequent warm restart */
 			rfs4_dss_numnewpaths = 0;
@@ -340,22 +328,22 @@ nfs_srv_shutdown_all(int quiesce) {
 			    "NFSv4 state has been preserved");
 		}
 	} else {
-		if (nfs_server_upordown == NFS_SERVER_OFFLINE) {
-			nfs_server_upordown = NFS_SERVER_STOPPING;
-			mutex_exit(&nfs_server_upordown_lock);
-			rfs4_state_fini();
-			rfs4_fini_drc(nfs4_drc);
-			mutex_enter(&nfs_server_upordown_lock);
-			nfs_server_upordown = NFS_SERVER_STOPPED;
-			cv_signal(&nfs_server_upordown_cv);
+		if (ng->nfs_server_upordown == NFS_SERVER_OFFLINE) {
+			ng->nfs_server_upordown = NFS_SERVER_STOPPING;
+			mutex_exit(&ng->nfs_server_upordown_lock);
+			rfs4_state_zone_fini();
+			rfs4_fini_drc();
+			mutex_enter(&ng->nfs_server_upordown_lock);
+			ng->nfs_server_upordown = NFS_SERVER_STOPPED;
+			cv_signal(&ng->nfs_server_upordown_cv);
 		}
 	}
-	mutex_exit(&nfs_server_upordown_lock);
+	mutex_exit(&ng->nfs_server_upordown_lock);
 }
 
 static int
 nfs_srv_set_sc_versions(struct file *fp, SVC_CALLOUT_TABLE **sctpp,
-			rpcvers_t versmin, rpcvers_t versmax)
+    rpcvers_t versmin, rpcvers_t versmax)
 {
 	struct strioctl strioc;
 	struct T_info_ack tinfo;
@@ -418,6 +406,7 @@ nfs_srv_set_sc_versions(struct file *fp, SVC_CALLOUT_TABLE **sctpp,
 int
 nfs_svc(struct nfs_svc_args *arg, model_t model)
 {
+	nfs_globals_t *ng;
 	file_t *fp;
 	SVCMASTERXPRT *xprt;
 	int error;
@@ -432,6 +421,7 @@ nfs_svc(struct nfs_svc_args *arg, model_t model)
 	model = model;		/* STRUCT macros don't always refer to it */
 #endif
 
+	ng = zone_getspecific(nfssrv_zone_key, curzone);
 	STRUCT_SET_HANDLE(uap, model, arg);
 
 	/* Check privileges in nfssys() */
@@ -465,27 +455,27 @@ nfs_svc(struct nfs_svc_args *arg, model_t model)
 		return (error);
 	}
 
-	nfs_versmin = STRUCT_FGET(uap, versmin);
-	nfs_versmax = STRUCT_FGET(uap, versmax);
+	ng->nfs_versmin = STRUCT_FGET(uap, versmin);
+	ng->nfs_versmax = STRUCT_FGET(uap, versmax);
 
 	/* Double check the vers min/max ranges */
-	if ((nfs_versmin > nfs_versmax) ||
-	    (nfs_versmin < NFS_VERSMIN) ||
-	    (nfs_versmax > NFS_VERSMAX)) {
-		nfs_versmin = NFS_VERSMIN_DEFAULT;
-		nfs_versmax = NFS_VERSMAX_DEFAULT;
+	if ((ng->nfs_versmin > ng->nfs_versmax) ||
+	    (ng->nfs_versmin < NFS_VERSMIN) ||
+	    (ng->nfs_versmax > NFS_VERSMAX)) {
+		ng->nfs_versmin = NFS_VERSMIN_DEFAULT;
+		ng->nfs_versmax = NFS_VERSMAX_DEFAULT;
 	}
 
-	if (error =
-	    nfs_srv_set_sc_versions(fp, &sctp, nfs_versmin, nfs_versmax)) {
+	if (error = nfs_srv_set_sc_versions(fp, &sctp, ng->nfs_versmin,
+	    ng->nfs_versmax)) {
 		releasef(STRUCT_FGET(uap, fd));
 		kmem_free(addrmask.buf, addrmask.maxlen);
 		return (error);
 	}
 
 	/* Initialize nfsv4 server */
-	if (nfs_versmax == (rpcvers_t)NFS_V4)
-		rfs4_server_start(STRUCT_FGET(uap, delegation));
+	if (ng->nfs_versmax == (rpcvers_t)NFS_V4)
+		rfs4_server_start(ng, STRUCT_FGET(uap, delegation));
 
 	/* Create a transport handle. */
 	error = svc_tli_kcreate(fp, readsize, buf, &addrmask, &xprt,
@@ -504,59 +494,36 @@ nfs_svc(struct nfs_svc_args *arg, model_t model)
 }
 
 static void
-rfs4_server_start(int nfs4_srv_delegation)
+rfs4_server_start(nfs_globals_t *ng, int nfs4_srv_delegation)
 {
 	/*
 	 * Determine if the server has previously been "started" and
 	 * if not, do the per instance initialization
 	 */
-	mutex_enter(&nfs_server_upordown_lock);
+	mutex_enter(&ng->nfs_server_upordown_lock);
 
-	if (nfs_server_upordown != NFS_SERVER_RUNNING) {
+	if (ng->nfs_server_upordown != NFS_SERVER_RUNNING) {
 		/* Do we need to stop and wait on the previous server? */
-		while (nfs_server_upordown == NFS_SERVER_STOPPING ||
-		    nfs_server_upordown == NFS_SERVER_OFFLINE)
-			cv_wait(&nfs_server_upordown_cv,
-			    &nfs_server_upordown_lock);
+		while (ng->nfs_server_upordown == NFS_SERVER_STOPPING ||
+		    ng->nfs_server_upordown == NFS_SERVER_OFFLINE)
+			cv_wait(&ng->nfs_server_upordown_cv,
+			    &ng->nfs_server_upordown_lock);
 
-		if (nfs_server_upordown != NFS_SERVER_RUNNING) {
+		if (ng->nfs_server_upordown != NFS_SERVER_RUNNING) {
 			(void) svc_pool_control(NFS_SVCPOOL_ID,
 			    SVCPSET_UNREGISTER_PROC, (void *)&nfs_srv_offline);
 			(void) svc_pool_control(NFS_SVCPOOL_ID,
 			    SVCPSET_SHUTDOWN_PROC, (void *)&nfs_srv_stop_all);
 
-			/* is this an nfsd warm start? */
-			if (nfs_server_upordown == NFS_SERVER_QUIESCED) {
-				cmn_err(CE_NOTE, "nfs_server: "
-				    "server was previously quiesced; "
-				    "existing NFSv4 state will be re-used");
+			rfs4_do_server_start(ng->nfs_server_upordown,
+			    nfs4_srv_delegation,
+			    cluster_bootflags & CLUSTER_BOOTED);
 
-				/*
-				 * HA-NFSv4: this is also the signal
-				 * that a Resource Group failover has
-				 * occurred.
-				 */
-				if (cluster_bootflags & CLUSTER_BOOTED)
-					hanfsv4_failover();
-			} else {
-				/* cold start */
-				rfs4_state_init();
-				nfs4_drc = rfs4_init_drc(nfs4_drc_max,
-				    nfs4_drc_hash);
-			}
-
-			/*
-			 * Check to see if delegation is to be
-			 * enabled at the server
-			 */
-			if (nfs4_srv_delegation != FALSE)
-				rfs4_set_deleg_policy(SRV_NORMAL_DELEGATE);
-
-			nfs_server_upordown = NFS_SERVER_RUNNING;
+			ng->nfs_server_upordown = NFS_SERVER_RUNNING;
 		}
-		cv_signal(&nfs_server_upordown_cv);
+		cv_signal(&ng->nfs_server_upordown_cv);
 	}
-	mutex_exit(&nfs_server_upordown_lock);
+	mutex_exit(&ng->nfs_server_upordown_lock);
 }
 
 /*
@@ -566,6 +533,7 @@ rfs4_server_start(int nfs4_srv_delegation)
 int
 rdma_start(struct rdma_svc_args *rsa)
 {
+	nfs_globals_t *ng;
 	int error;
 	rdma_xprt_group_t started_rdma_xprts;
 	rdma_stat stat;
@@ -578,8 +546,10 @@ rdma_start(struct rdma_svc_args *rsa)
 		rsa->nfs_versmin = NFS_VERSMIN_DEFAULT;
 		rsa->nfs_versmax = NFS_VERSMAX_DEFAULT;
 	}
-	nfs_versmin = rsa->nfs_versmin;
-	nfs_versmax = rsa->nfs_versmax;
+
+	ng = zone_getspecific(nfssrv_zone_key, curzone);
+	ng->nfs_versmin = rsa->nfs_versmin;
+	ng->nfs_versmax = rsa->nfs_versmax;
 
 	/* Set the versions in the callout table */
 	__nfs_sc_rdma[0].sc_versmin = rsa->nfs_versmin;
@@ -593,7 +563,7 @@ rdma_start(struct rdma_svc_args *rsa)
 
 	/* Initialize nfsv4 server */
 	if (rsa->nfs_versmax == (rpcvers_t)NFS_V4)
-		rfs4_server_start(rsa->delegation);
+		rfs4_server_start(ng, rsa->delegation);
 
 	started_rdma_xprts.rtg_count = 0;
 	started_rdma_xprts.rtg_listhead = NULL;
@@ -610,7 +580,7 @@ restart:
 		/*
 		 * wait till either interrupted by a signal on
 		 * nfs service stop/restart or signalled by a
-		 * rdma plugin attach/detatch.
+		 * rdma attach/detatch.
 		 */
 
 		stat = rdma_kwait();
@@ -1367,7 +1337,6 @@ static int cred_hits = 0;
 static int cred_misses = 0;
 #endif
 
-
 #ifdef DEBUG
 /*
  * Debug code to allow disabling of rfs_dispatch() use of
@@ -1474,8 +1443,7 @@ auth_tooweak(struct svc_req *req, char *res)
 
 static void
 common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
-		rpcvers_t max_vers, char *pgmname,
-		struct rpc_disptable *disptable)
+    rpcvers_t max_vers, char *pgmname, struct rpc_disptable *disptable)
 {
 	int which;
 	rpcvers_t vers;
@@ -1508,6 +1476,7 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 	char **procnames;
 	char cbuf[INET6_ADDRSTRLEN];	/* to hold both IPv4 and IPv6 addr */
 	bool_t ro = FALSE;
+	nfs_export_t *ne = nfs_get_export();
 
 	vers = req->rq_vers;
 
@@ -1632,13 +1601,15 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 		cr = xprt->xp_cred;
 		ASSERT(cr != NULL);
 #ifdef DEBUG
-		if (crgetref(cr) != 1) {
-			crfree(cr);
-			cr = crget();
-			xprt->xp_cred = cr;
-			cred_misses++;
-		} else
-			cred_hits++;
+		{
+			if (crgetref(cr) != 1) {
+				crfree(cr);
+				cr = crget();
+				xprt->xp_cred = cr;
+				cred_misses++;
+			} else
+				cred_hits++;
+		}
 #else
 		if (crgetref(cr) != 1) {
 			crfree(cr);
@@ -1650,7 +1621,7 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 		exi = checkexport(fsid, xfid);
 
 		if (exi != NULL) {
-			publicfh_ok = PUBLICFH_CHECK(disp, exi, fsid, xfid);
+			publicfh_ok = PUBLICFH_CHECK(ne, disp, exi, fsid, xfid);
 
 			/*
 			 * Don't allow non-V4 clients access
@@ -1763,7 +1734,7 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 	 * file system.
 	 */
 	if (nfslog_buffer_list != NULL) {
-		nfslog_exi = nfslog_get_exi(exi, req, res, &nfslog_rec_id);
+		nfslog_exi = nfslog_get_exi(ne, exi, req, res, &nfslog_rec_id);
 		/*
 		 * Is logging enabled?
 		 */
@@ -2568,31 +2539,18 @@ client_addr(struct svc_req *req, char *buf)
  *	- Initialize all locks
  *	- initialize the version 3 write verifier
  */
-int
+void
 nfs_srvinit(void)
 {
-	int error;
+	/* NFS server zone-specific global variables */
+	zone_key_create(&nfssrv_zone_key, nfs_srv_zone_init,
+	    NULL, nfs_srv_zone_fini);
 
-	error = nfs_exportinit();
-	if (error != 0)
-		return (error);
-	error = rfs4_srvrinit();
-	if (error != 0) {
-		nfs_exportfini();
-		return (error);
-	}
+	nfs_exportinit();
 	rfs_srvrinit();
 	rfs3_srvrinit();
+	rfs4_srvrinit();
 	nfsauth_init();
-
-	/* Init the stuff to control start/stop */
-	nfs_server_upordown = NFS_SERVER_STOPPED;
-	mutex_init(&nfs_server_upordown_lock, NULL, MUTEX_DEFAULT, NULL);
-	cv_init(&nfs_server_upordown_cv, NULL, CV_DEFAULT, NULL);
-	mutex_init(&rdma_wait_mutex, NULL, MUTEX_DEFAULT, NULL);
-	cv_init(&rdma_wait_cv, NULL, CV_DEFAULT, NULL);
-
-	return (0);
 }
 
 /*
@@ -2604,20 +2562,53 @@ void
 nfs_srvfini(void)
 {
 	nfsauth_fini();
+	rfs4_srvrfini();
 	rfs3_srvrfini();
 	rfs_srvrfini();
 	nfs_exportfini();
 
-	mutex_destroy(&nfs_server_upordown_lock);
-	cv_destroy(&nfs_server_upordown_cv);
-	mutex_destroy(&rdma_wait_mutex);
-	cv_destroy(&rdma_wait_cv);
+	(void) zone_key_delete(nfssrv_zone_key);
+}
+
+/* ARGSUSED */
+static void *
+nfs_srv_zone_init(zoneid_t zoneid)
+{
+	nfs_globals_t *ng;
+
+	ng = kmem_zalloc(sizeof (*ng), KM_SLEEP);
+
+	ng->nfs_versmin = NFS_VERSMIN_DEFAULT;
+	ng->nfs_versmax = NFS_VERSMAX_DEFAULT;
+
+	/* Init the stuff to control start/stop */
+	ng->nfs_server_upordown = NFS_SERVER_STOPPED;
+	mutex_init(&ng->nfs_server_upordown_lock, NULL, MUTEX_DEFAULT, NULL);
+	cv_init(&ng->nfs_server_upordown_cv, NULL, CV_DEFAULT, NULL);
+	mutex_init(&ng->rdma_wait_mutex, NULL, MUTEX_DEFAULT, NULL);
+	cv_init(&ng->rdma_wait_cv, NULL, CV_DEFAULT, NULL);
+
+	return (ng);
+}
+
+/* ARGSUSED */
+static void
+nfs_srv_zone_fini(zoneid_t zoneid, void *data)
+{
+	nfs_globals_t *ng;
+
+	ng = (nfs_globals_t *)data;
+	mutex_destroy(&ng->nfs_server_upordown_lock);
+	cv_destroy(&ng->nfs_server_upordown_cv);
+	mutex_destroy(&ng->rdma_wait_mutex);
+	cv_destroy(&ng->rdma_wait_cv);
+
+	kmem_free(ng, sizeof (*ng));
 }
 
 /*
  * Set up an iovec array of up to cnt pointers.
  */
-
 void
 mblk_to_iov(mblk_t *m, int cnt, struct iovec *iovp)
 {
@@ -2893,7 +2884,7 @@ rfs_pathname(
 		while (*path == '/')
 			path++;
 
-		startdvp = rootdir;
+		startdvp = ZONE_ROOTVP();
 	}
 
 	error = pn_get_buf(path, UIO_SYSSPACE, &pn, namebuf, sizeof (namebuf));
@@ -2916,7 +2907,7 @@ rfs_pathname(
 		}
 		VN_HOLD(startdvp);
 		error = lookuppnvp(&pn, NULL, NO_FOLLOW, dirvpp, compvpp,
-		    rootdir, startdvp, cr);
+		    ZONE_ROOTVP(), startdvp, cr);
 	}
 	if (error == ENAMETOOLONG) {
 		/*
@@ -2933,7 +2924,7 @@ rfs_pathname(
 		}
 		VN_HOLD(startdvp);
 		error = lookuppnvp(&pn, NULL, NO_FOLLOW, dirvpp, compvpp,
-		    rootdir, startdvp, cr);
+		    ZONE_ROOTVP(), startdvp, cr);
 		pn_free(&pn);
 	}
 
@@ -3035,168 +3026,6 @@ nfs_check_vpexi(vnode_t *mc_dvp, vnode_t *vp, cred_t *cr,
 	}
 
 	return (error);
-}
-
-/*
- * Do the main work of handling HA-NFSv4 Resource Group failover on
- * Sun Cluster.
- * We need to detect whether any RG admin paths have been added or removed,
- * and adjust resources accordingly.
- * Currently we're using a very inefficient algorithm, ~ 2 * O(n**2). In
- * order to scale, the list and array of paths need to be held in more
- * suitable data structures.
- */
-static void
-hanfsv4_failover(void)
-{
-	int i, start_grace, numadded_paths = 0;
-	char **added_paths = NULL;
-	rfs4_dss_path_t *dss_path;
-
-	/*
-	 * Note: currently, rfs4_dss_pathlist cannot be NULL, since
-	 * it will always include an entry for NFS4_DSS_VAR_DIR. If we
-	 * make the latter dynamically specified too, the following will
-	 * need to be adjusted.
-	 */
-
-	/*
-	 * First, look for removed paths: RGs that have been failed-over
-	 * away from this node.
-	 * Walk the "currently-serving" rfs4_dss_pathlist and, for each
-	 * path, check if it is on the "passed-in" rfs4_dss_newpaths array
-	 * from nfsd. If not, that RG path has been removed.
-	 *
-	 * Note that nfsd has sorted rfs4_dss_newpaths for us, and removed
-	 * any duplicates.
-	 */
-	dss_path = rfs4_dss_pathlist;
-	do {
-		int found = 0;
-		char *path = dss_path->path;
-
-		/* used only for non-HA so may not be removed */
-		if (strcmp(path, NFS4_DSS_VAR_DIR) == 0) {
-			dss_path = dss_path->next;
-			continue;
-		}
-
-		for (i = 0; i < rfs4_dss_numnewpaths; i++) {
-			int cmpret;
-			char *newpath = rfs4_dss_newpaths[i];
-
-			/*
-			 * Since nfsd has sorted rfs4_dss_newpaths for us,
-			 * once the return from strcmp is negative we know
-			 * we've passed the point where "path" should be,
-			 * and can stop searching: "path" has been removed.
-			 */
-			cmpret = strcmp(path, newpath);
-			if (cmpret < 0)
-				break;
-			if (cmpret == 0) {
-				found = 1;
-				break;
-			}
-		}
-
-		if (found == 0) {
-			unsigned index = dss_path->index;
-			rfs4_servinst_t *sip = dss_path->sip;
-			rfs4_dss_path_t *path_next = dss_path->next;
-
-			/*
-			 * This path has been removed.
-			 * We must clear out the servinst reference to
-			 * it, since it's now owned by another
-			 * node: we should not attempt to touch it.
-			 */
-			ASSERT(dss_path == sip->dss_paths[index]);
-			sip->dss_paths[index] = NULL;
-
-			/* remove from "currently-serving" list, and destroy */
-			remque(dss_path);
-			/* allow for NUL */
-			kmem_free(dss_path->path, strlen(dss_path->path) + 1);
-			kmem_free(dss_path, sizeof (rfs4_dss_path_t));
-
-			dss_path = path_next;
-		} else {
-			/* path was found; not removed */
-			dss_path = dss_path->next;
-		}
-	} while (dss_path != rfs4_dss_pathlist);
-
-	/*
-	 * Now, look for added paths: RGs that have been failed-over
-	 * to this node.
-	 * Walk the "passed-in" rfs4_dss_newpaths array from nfsd and,
-	 * for each path, check if it is on the "currently-serving"
-	 * rfs4_dss_pathlist. If not, that RG path has been added.
-	 *
-	 * Note: we don't do duplicate detection here; nfsd does that for us.
-	 *
-	 * Note: numadded_paths <= rfs4_dss_numnewpaths, which gives us
-	 * an upper bound for the size needed for added_paths[numadded_paths].
-	 */
-
-	/* probably more space than we need, but guaranteed to be enough */
-	if (rfs4_dss_numnewpaths > 0) {
-		size_t sz = rfs4_dss_numnewpaths * sizeof (char *);
-		added_paths = kmem_zalloc(sz, KM_SLEEP);
-	}
-
-	/* walk the "passed-in" rfs4_dss_newpaths array from nfsd */
-	for (i = 0; i < rfs4_dss_numnewpaths; i++) {
-		int found = 0;
-		char *newpath = rfs4_dss_newpaths[i];
-
-		dss_path = rfs4_dss_pathlist;
-		do {
-			char *path = dss_path->path;
-
-			/* used only for non-HA */
-			if (strcmp(path, NFS4_DSS_VAR_DIR) == 0) {
-				dss_path = dss_path->next;
-				continue;
-			}
-
-			if (strncmp(path, newpath, strlen(path)) == 0) {
-				found = 1;
-				break;
-			}
-
-			dss_path = dss_path->next;
-		} while (dss_path != rfs4_dss_pathlist);
-
-		if (found == 0) {
-			added_paths[numadded_paths] = newpath;
-			numadded_paths++;
-		}
-	}
-
-	/* did we find any added paths? */
-	if (numadded_paths > 0) {
-		/* create a new server instance, and start its grace period */
-		start_grace = 1;
-		rfs4_servinst_create(start_grace, numadded_paths, added_paths);
-
-		/* read in the stable storage state from these paths */
-		rfs4_dss_readstate(numadded_paths, added_paths);
-
-		/*
-		 * Multiple failovers during a grace period will cause
-		 * clients of the same resource group to be partitioned
-		 * into different server instances, with different
-		 * grace periods.  Since clients of the same resource
-		 * group must be subject to the same grace period,
-		 * we need to reset all currently active grace periods.
-		 */
-		rfs4_grace_reset_all();
-	}
-
-	if (rfs4_dss_numnewpaths > 0)
-		kmem_free(added_paths, rfs4_dss_numnewpaths * sizeof (char *));
 }
 
 /*
