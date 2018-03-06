@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright 2018 Nexenta Systems, Inc.
+ */
+
 #include <sys/systm.h>
 #include <sys/sdt.h>
 #include <rpc/types.h>
@@ -39,11 +43,6 @@
 #define	NFS4_MAX_MINOR_VERSION	0
 
 /*
- * This is the duplicate request cache for NFSv4
- */
-rfs4_drc_t *nfs4_drc = NULL;
-
-/*
  * The default size of the duplicate request cache
  */
 uint32_t nfs4_drc_max = 8 * 1024;
@@ -55,6 +54,8 @@ uint32_t nfs4_drc_max = 8 * 1024;
 uint32_t nfs4_drc_hash = 541;
 
 static void rfs4_resource_err(struct svc_req *req, COMPOUND4args *argsp);
+
+extern zone_key_t rfs4_zone_key;
 
 /*
  * Initialize a duplicate request cache.
@@ -94,11 +95,11 @@ rfs4_init_drc(uint32_t drc_size, uint32_t drc_hash_size)
  * Destroy a duplicate request cache.
  */
 void
-rfs4_fini_drc(rfs4_drc_t *drc)
+rfs4_fini_drc(void)
 {
+	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	rfs4_drc_t *drc = nsrv4->nfs4_drc;
 	rfs4_dupreq_t *drp, *drp_next;
-
-	ASSERT(drc);
 
 	/* iterate over the dr_cache and free the enties */
 	for (drp = list_head(&(drc->dr_cache)); drp != NULL; drp = drp_next) {
@@ -386,6 +387,8 @@ rfs4_dispatch(struct rpcdisp *disp, struct svc_req *req,
 	int		 dr_stat = NFS4_NOT_DUP;
 	rfs4_dupreq_t	*drp = NULL;
 	int		 rv;
+	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	rfs4_drc_t *nfs4_drc = nsrv4->nfs4_drc;
 
 	ASSERT(disp);
 
