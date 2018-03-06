@@ -20,8 +20,11 @@
  */
 
 /*
- * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ */
+
+/*
+ * Copyright 2018 Nexenta Systems, Inc.
  * Copyright (c) 2015, Joyent, Inc.
  */
 
@@ -143,7 +146,7 @@ nfs4_vget_pseudo(struct exportinfo *exi, vnode_t **vpp, fid_t *fidp)
  * b) a descendant of the export root is shared
  */
 struct exportinfo *
-pseudo_exportfs(vnode_t *vp, fid_t *fid, struct exp_visible *vis_head,
+pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid, struct exp_visible *vis_head,
     struct exportdata *exdata)
 {
 	struct exportinfo *exi;
@@ -152,7 +155,7 @@ pseudo_exportfs(vnode_t *vp, fid_t *fid, struct exp_visible *vis_head,
 	int vpathlen;
 	int i;
 
-	ASSERT(RW_WRITE_HELD(&exported_lock));
+	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
 
 	fsid = vp->v_vfsp->vfs_fsid;
 	exi = kmem_zalloc(sizeof (*exi), KM_SLEEP);
@@ -205,7 +208,7 @@ pseudo_exportfs(vnode_t *vp, fid_t *fid, struct exp_visible *vis_head,
 	/*
 	 * Insert the new entry at the front of the export list
 	 */
-	export_link(exi);
+	export_link(ne, exi);
 
 	return (exi);
 }
@@ -281,14 +284,14 @@ tree_prepend_node(treenode_t *n, exp_visible_t *v, exportinfo_t *e)
  * they should be already freed.
  */
 static void
-tree_remove_node(treenode_t *node)
+tree_remove_node(nfs_export_t *ne, treenode_t *node)
 {
 	treenode_t *parent = node->tree_parent;
 	treenode_t *s; /* s for sibling */
 
 	if (parent == NULL) {
 		kmem_free(node, sizeof (*node));
-		ns_root = NULL;
+		ne->ns_root = NULL;
 		return;
 	}
 	/* This node is first child */
@@ -437,6 +440,7 @@ more_visible(struct exportinfo *exi, treenode_t *tree_head)
 	struct exp_visible *vp1, *vp2, *vis_head, *tail, *next;
 	int found;
 	treenode_t *child, *curr, *connect_point;
+	nfs_export_t *ne = nfs_get_export();
 
 	vis_head = tree_head->tree_vis;
 	connect_point = exi->exi_tree;
@@ -450,7 +454,7 @@ more_visible(struct exportinfo *exi, treenode_t *tree_head)
 		exi->exi_visible = vis_head;
 
 		/* Update the change timestamp */
-		tree_update_change(connect_point, &vis_head->vis_change);
+		tree_update_change(ne, connect_point, &vis_head->vis_change);
 
 		return;
 	}
@@ -510,7 +514,7 @@ more_visible(struct exportinfo *exi, treenode_t *tree_head)
 			tree_add_child(connect_point, curr);
 
 			/* Update the change timestamp */
-			tree_update_change(connect_point,
+			tree_update_change(ne, connect_point,
 			    &curr->tree_vis->vis_change);
 
 			connect_point = NULL;
@@ -627,8 +631,9 @@ treeclimb_export(struct exportinfo *exip)
 	struct vattr va;
 	treenode_t *tree_head = NULL;
 	timespec_t now;
+	nfs_export_t *ne = nfs_get_export();
 
-	ASSERT(RW_WRITE_HELD(&exported_lock));
+	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
 
 	gethrestime(&now);
 
@@ -677,23 +682,23 @@ treeclimb_export(struct exportinfo *exip)
 				 * this as a pseudo export so that an NFS v4
 				 * client can do lookups in it.
 				 */
-				new_exi = pseudo_exportfs(vp, &fid, vis_head,
-				    NULL);
+				new_exi = pseudo_exportfs(ne, vp, &fid,
+				    vis_head, NULL);
 				vis_head = NULL;
 			}
 
-			if (VN_CMP(vp, rootdir)) {
+			if (VN_CMP(vp, ZONE_ROOTVP())) {
 				/* at system root */
 				/*
 				 * If sharing "/", new_exi is shared exportinfo
 				 * (exip). Otherwise, new_exi is exportinfo
 				 * created by pseudo_exportfs() above.
 				 */
-				ns_root = tree_prepend_node(tree_head, NULL,
+				ne->ns_root = tree_prepend_node(tree_head, NULL,
 				    new_exi);
 
 				/* Update the change timestamp */
-				tree_update_change(ns_root, &now);
+				tree_update_change(ne, ne->ns_root, &now);
 
 				break;
 			}
@@ -788,7 +793,7 @@ treeclimb_export(struct exportinfo *exip)
 			exportinfo_t *e  = tree_head->tree_exi;
 			/* exip will be freed in exportfs() */
 			if (e && e != exip) {
-				export_unlink(e);
+				export_unlink(ne, e);
 				exi_rele(e);
 			}
 			tree_head = tree_head->tree_child_first;
@@ -812,12 +817,12 @@ treeclimb_export(struct exportinfo *exip)
  * to continue releasing visibles, until we reach VROOT node.
  */
 void
-treeclimb_unexport(struct exportinfo *exip)
+treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 {
 	treenode_t *tnode, *old_nd;
 	treenode_t *connect_point = NULL;
 
-	ASSERT(RW_WRITE_HELD(&exported_lock));
+	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
 
 	tnode = exip->exi_tree;
 	/*
@@ -839,7 +844,7 @@ treeclimb_unexport(struct exportinfo *exip)
 		/* Release pseudo export if it has no child */
 		if (TREE_ROOT(tnode) && !TREE_EXPORTED(tnode) &&
 		    tnode->tree_child_first == NULL) {
-			export_unlink(tnode->tree_exi);
+			export_unlink(ne, tnode->tree_exi);
 			exi_rele(tnode->tree_exi);
 		}
 
@@ -854,14 +859,14 @@ treeclimb_unexport(struct exportinfo *exip)
 		/* Remove itself, if this is a leaf and non-exported node */
 		if (old_nd->tree_child_first == NULL &&
 		    !TREE_EXPORTED(old_nd)) {
-			tree_remove_node(old_nd);
+			tree_remove_node(ne, old_nd);
 			connect_point = tnode;
 		}
 	}
 
 	/* Update the change timestamp */
 	if (connect_point != NULL)
-		tree_update_change(connect_point, NULL);
+		tree_update_change(ne, connect_point, NULL);
 }
 
 /*
@@ -1154,14 +1159,6 @@ nfs_visible_inode(struct exportinfo *exi, ino64_t ino,
 }
 
 /*
- * The change attribute value of the root of nfs pseudo namespace.
- *
- * The ns_root_change is protected by exported_lock because all of the treenode
- * operations are protected by exported_lock too.
- */
-static timespec_t ns_root_change;
-
-/*
  * Get the change attribute from visible and returns TRUE.
  * If the change value is not available returns FALSE.
  */
@@ -1171,6 +1168,7 @@ nfs_visible_change(struct exportinfo *exi, vnode_t *vp, timespec_t *change)
 	struct exp_visible *visp;
 	fid_t fid;
 	treenode_t *node;
+	nfs_export_t *ne = nfs_get_export();
 
 	/*
 	 * First check to see if vp is export root.
@@ -1215,14 +1213,13 @@ nfs_visible_change(struct exportinfo *exi, vnode_t *vp, timespec_t *change)
 exproot:
 	/* The VROOT export have its visible available through treenode */
 	node = exi->exi_tree;
-	if (node != ns_root) {
+	if (node != ne->ns_root) {
 		ASSERT(node->tree_vis != NULL);
 		*change = node->tree_vis->vis_change;
 	} else {
 		ASSERT(node->tree_vis == NULL);
-		*change = ns_root_change;
+		*change = ne->ns_root_change;
 	}
-
 	return (TRUE);
 }
 
@@ -1234,15 +1231,15 @@ exproot:
  * If the change value is not supplied, the current time is used.
  */
 void
-tree_update_change(treenode_t *tnode, timespec_t *change)
+tree_update_change(nfs_export_t *ne, treenode_t *tnode, timespec_t *change)
 {
 	timespec_t *vis_change;
 
 	ASSERT(tnode != NULL);
-	ASSERT((tnode != ns_root && tnode->tree_vis != NULL) ||
-	    (tnode == ns_root && tnode->tree_vis == NULL));
+	ASSERT((tnode != ne->ns_root && tnode->tree_vis != NULL) ||
+	    (tnode == ne->ns_root && tnode->tree_vis == NULL));
 
-	vis_change = tnode == ns_root ? &ns_root_change
+	vis_change = tnode == ne->ns_root ? &ne->ns_root_change
 	    : &tnode->tree_vis->vis_change;
 
 	if (change != NULL)

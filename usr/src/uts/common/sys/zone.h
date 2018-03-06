@@ -18,12 +18,13 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2018 Joyent, Inc.
+ * Copyright 2014 Igor Kozhukhov <ikozhukhov@gmail.com>.
+ * Copyright 2019 Joyent, Inc.
  * Copyright 2019 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2014 Igor Kozhukhov <ikozhukhov@gmail.com>.
- * Copyright 2018, Joyent, Inc.
  */
 
 #ifndef _SYS_ZONE_H
@@ -778,7 +779,6 @@ typedef enum zone_pageout_op {
  */
 #define	ZONE_PS_INVAL	PS_MYID
 
-
 extern zone_t zone0;
 extern zone_t *global_zone;
 extern uint_t maxzones;
@@ -918,6 +918,11 @@ struct zsd_entry {
  * Special processes visible in all zones.
  */
 #define	ZONE_SPECIALPID(x)	 ((x) == 0 || (x) == 1)
+
+/*
+ * A root vnode of the current zone.
+ */
+#define	ZONE_ROOTVP()	(curproc->p_zone->zone_rootvp)
 
 /*
  * Zone-safe version of thread_create() to be used when the caller wants to

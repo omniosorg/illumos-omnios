@@ -18,15 +18,18 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
+/*
+ * Copyright 2018 Nexenta Systems, Inc.
+ */
+
 #ifndef _NFS4_DRC_H
 #define	_NFS4_DRC_H
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -70,12 +73,11 @@ typedef struct rfs4_dupreq {
 #define	NFS4_DUP_REPLAY 	4
 #define	NFS4_DUP_INUSE		5
 
-extern rfs4_drc_t *nfs4_drc;
 extern uint32_t nfs4_drc_max;
 extern uint32_t nfs4_drc_hash;
 
 rfs4_drc_t *rfs4_init_drc(uint32_t, uint32_t);
-void rfs4_fini_drc(rfs4_drc_t *);
+void rfs4_fini_drc(void);
 void rfs4_dr_chstate(rfs4_dupreq_t *, int);
 rfs4_dupreq_t *rfs4_alloc_dr(rfs4_drc_t *);
 int rfs4_find_dr(struct svc_req *, rfs4_drc_t *, rfs4_dupreq_t **);
