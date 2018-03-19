@@ -800,9 +800,6 @@ zfs_secpolicy_share(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 int
 zfs_secpolicy_smb_acl(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 {
-	if (!INGLOBALZONE(curproc))
-		return (SET_ERROR(EPERM));
-
 	if (secpolicy_smb(cr) == 0) {
 		return (0);
 	} else {
