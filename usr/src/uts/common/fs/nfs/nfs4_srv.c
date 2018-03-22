@@ -537,11 +537,14 @@ rfs4_zone_init(zoneid_t zoneid)
 		verf.tv_sec = (time_t)tverf.tv_sec;
 		verf.tv_nsec = tverf.tv_nsec;
 	}
+	nsrv4->write4verf = *(uint64_t *)&verf;
 
+	/* Used to manage create/destroy of server state */
+	nsrv4->nfs4_server_state = NULL;
 	nsrv4->nfs4_cur_servinst = NULL;
 	nsrv4->nfs4_deleg_policy = SRV_NEVER_DELEGATE;
-	nsrv4->write4verf = *(uint64_t *)&verf;
 	mutex_init(&nsrv4->deleg_lock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&nsrv4->state_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&nsrv4->servinst_lock, NULL, MUTEX_DEFAULT, NULL);
 	rw_init(&nsrv4->deleg_policy_lock, NULL, RW_DEFAULT, NULL);
 
@@ -555,6 +558,7 @@ rfs4_zone_fini(zoneid_t zoneid, void *data)
 	nfs4_srv_t *nsrv4 = data;
 
 	mutex_destroy(&nsrv4->deleg_lock);
+	mutex_destroy(&nsrv4->state_lock);
 	mutex_destroy(&nsrv4->servinst_lock);
 	rw_destroy(&nsrv4->deleg_policy_lock);
 
@@ -570,8 +574,6 @@ rfs4_srvrinit(void)
 
 	rfs4_attr_init();
 
-	/* Used to manage create/destroy of server state */
-	mutex_init(&rfs4_state_lock, NULL, MUTEX_DEFAULT, NULL);
 
 	if (fem_create("deleg_rdops", nfs4_rd_deleg_tmpl, &deleg_rdops) != 0) {
 		rfs4_disable_delegation();
@@ -596,8 +598,6 @@ rfs4_srvrfini(void)
 	}
 
 	rfs4_state_g_fini();
-
-	mutex_destroy(&rfs4_state_lock);
 
 	fem_free(deleg_rdops);
 	fem_free(deleg_wrops);
@@ -627,7 +627,6 @@ rfs4_do_server_start(int server_upordown,
 	} else {
 		/* Cold start */
 		nsrv4->rfs4_start_time = 0;
-		nsrv4->cpr_id = 0;
 		rfs4_state_zone_init(nsrv4);
 		nsrv4->nfs4_drc = rfs4_init_drc(nfs4_drc_max,
 		    nfs4_drc_hash);
@@ -805,6 +804,7 @@ rfs4_servinst_create(nfs4_srv_t *nsrv4, int start_grace,
 	    sizeof (rfs4_dss_path_t *), KM_SLEEP);
 
 	for (i = 0; i < dss_npaths; i++) {
+		/* CSTYLED */
 		sip->dss_paths[i] = rfs4_dss_newpath(nsrv4, sip, dss_paths[i], i);
 	}
 
@@ -10020,6 +10020,7 @@ hanfsv4_failover(nfs4_srv_t *nsrv4)
 
 		/* create a new server instance, and start its grace period */
 		start_grace = 1;
+		/* CSTYLED */
 		rfs4_servinst_create(nsrv4, start_grace, numadded_paths, added_paths);
 
 		/* read in the stable storage state from these paths */
