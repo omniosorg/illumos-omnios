@@ -120,7 +120,21 @@ typedef struct {		/* opaque entry type for later use */
 	rfs4_dbe_t *dbe;
 } *rfs4_entry_t;
 
-extern rfs4_table_t *rfs4_client_tab;
+/*
+ * NFSv4 server state databases
+ *
+ * Initilized when the module is loaded and used by NFSv4 state tables.
+ * These kmem_cache free pools are used globally, the NFSv4 state tables
+ * which make use of these kmem_cache free pools are per zone.
+ */
+extern kmem_cache_t *rfs4_client_mem_cache;
+extern kmem_cache_t *rfs4_clntIP_mem_cache;
+extern kmem_cache_t *rfs4_openown_mem_cache;
+extern kmem_cache_t *rfs4_openstID_mem_cache;
+extern kmem_cache_t *rfs4_lockstID_mem_cache;
+extern kmem_cache_t *rfs4_lockown_mem_cache;
+extern kmem_cache_t *rfs4_file_mem_cache;
+extern kmem_cache_t *rfs4_delegstID_mem_cache;
 
 /* database, table, index creation entry points */
 extern rfs4_database_t *rfs4_database_create(uint32_t);
@@ -129,6 +143,8 @@ extern void		rfs4_database_destroy(rfs4_database_t *);
 
 extern void		rfs4_database_destroy(rfs4_database_t *);
 
+extern kmem_cache_t	*nfs4_init_mem_cache(char *, uint32_t, uint32_t,
+				uint32_t);
 extern rfs4_table_t	*rfs4_table_create(rfs4_database_t *, char *,
 				time_t, uint32_t,
 				bool_t (*create)(rfs4_entry_t, void *),
@@ -772,6 +788,9 @@ typedef struct nfs4_srv {
 	verifier4	write4verf;
 	/* Delegation lock */
 	kmutex_t	deleg_lock;
+	/* Used to serialize create/destroy of nfs4_server_state database */
+	kmutex_t	state_lock;
+	rfs4_database_t *nfs4_server_state;
 	/* Used to manage access to server instance linked list */
 	kmutex_t	servinst_lock;
 	rfs4_servinst_t *nfs4_cur_servinst;
@@ -790,9 +809,75 @@ typedef struct nfs4_srv {
 	rfs4_drc_t	*nfs4_drc;
 	/* nfsv4 server start time */
 	time_t rfs4_start_time;
-	/* CPR callback id -- not related to v4 callbacks */
-	callb_id_t cpr_id;
+	/* Used to serialize lookups of clientids */
+	krwlock_t rfs4_findclient_lock;
+
+	/* NFSv4 server state client tables */
+	/* table expiry times */
+	time_t rfs4_client_cache_time;
+	time_t rfs4_openowner_cache_time;
+	time_t rfs4_state_cache_time;
+	time_t rfs4_lo_state_cache_time;
+	time_t rfs4_lockowner_cache_time;
+	time_t rfs4_file_cache_time;
+	time_t rfs4_deleg_state_cache_time;
+	time_t rfs4_clntip_cache_time;
+	/* tables and indexes */
+	/* client table */
+	rfs4_table_t *rfs4_client_tab;
+	rfs4_index_t *rfs4_clientid_idx;
+	rfs4_index_t *rfs4_nfsclnt_idx;
+	/* client IP table */
+	rfs4_table_t *rfs4_clntip_tab;
+	rfs4_index_t *rfs4_clntip_idx;
+	/* Open Owner table */
+	rfs4_table_t *rfs4_openowner_tab;
+	rfs4_index_t *rfs4_openowner_idx;
+	/* Open State ID table */
+	rfs4_table_t *rfs4_state_tab;
+	rfs4_index_t *rfs4_state_idx;
+	rfs4_index_t *rfs4_state_owner_file_idx;
+	rfs4_index_t *rfs4_state_file_idx;
+	/* Lock State ID table */
+	rfs4_table_t *rfs4_lo_state_tab;
+	rfs4_index_t *rfs4_lo_state_idx;
+	rfs4_index_t *rfs4_lo_state_owner_idx;
+	/* Lock owner table */
+	rfs4_table_t *rfs4_lockowner_tab;
+	rfs4_index_t *rfs4_lockowner_idx;
+	rfs4_index_t *rfs4_lockowner_pid_idx;
+	/* File table */
+	rfs4_table_t *rfs4_file_tab;
+	rfs4_index_t *rfs4_file_idx;
+	/* Deleg State table */
+	rfs4_table_t *rfs4_deleg_state_tab;
+	rfs4_index_t *rfs4_deleg_idx;
+	rfs4_index_t *rfs4_deleg_state_idx;
+
+	/* client stable storage */
+	int rfs4_ss_enabled;
 } nfs4_srv_t;
+
+/*
+ * max length of the NFSv4 server database name
+ */
+#define	RFS4_MAX_MEM_CACHE_NAME 48
+
+/*
+ * global NFSv4 server kmem caches
+ * r_db_name - The name of the state database and the table that will use it
+ *             These tables are defined in nfs4_srv_t
+ * r_db_mem_cache - The kmem cache associated with the state database name
+ */
+typedef struct rfs4_db_mem_cache {
+	char		r_db_name[RFS4_MAX_MEM_CACHE_NAME];
+	kmem_cache_t	*r_db_mem_cache;
+} rfs4_db_mem_cache_t;
+
+#define	RFS4_DB_MEM_CACHE_NUM 8
+
+rfs4_db_mem_cache_t rfs4_db_mem_cache_table[RFS4_DB_MEM_CACHE_NUM];
+
 
 extern srv_deleg_policy_t nfs4_get_deleg_policy();
 
@@ -814,7 +899,6 @@ extern void		rfs4_dss_readstate(nfs4_srv_t *, int, char **);
  * Various interfaces to manipulate the state structures introduced
  * above
  */
-extern	kmutex_t	rfs4_state_lock;
 extern	void		rfs4_clean_state_exi(struct exportinfo *exi);
 extern	void		rfs4_free_reply(nfs_resop4 *);
 extern	void		rfs4_copy_reply(nfs_resop4 *, nfs_resop4 *);
