@@ -631,10 +631,10 @@ void
 rpc_null_v3(caddr_t *argp, caddr_t *resp, struct exportinfo *exi,
     struct svc_req *req, cred_t *cr, bool_t ro)
 {
-	DTRACE_NFSV3_3(op__null__start, struct svc_req *, req,
-	    cred_t *, cr, vnode_t *, NULL);
-	DTRACE_NFSV3_3(op__null__done, struct svc_req *, req,
-	    cred_t *, cr, vnode_t *, NULL);
+	DTRACE_NFSV3_4(op__null__start, struct svc_req *, req,
+	    cred_t *, cr, vnode_t *, NULL, struct exportinfo *, exi);
+	DTRACE_NFSV3_4(op__null__done, struct svc_req *, req,
+	    cred_t *, cr, vnode_t *, NULL, struct exportinfo *, exi);
 }
 
 /* ARGSUSED */
