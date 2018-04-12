@@ -5879,13 +5879,20 @@ rfs4_compound(COMPOUND4args *args, COMPOUND4res *resp, struct exportinfo *exi,
 
 	rw_exit(&ne->exported_lock);
 
-	DTRACE_NFSV4_2(compound__done, struct compound_state *, &cs,
-	    COMPOUND4res *, resp);
-
+	/*
+	 * clear exportinfo and vnode fields from compound_state before dtrace
+	 * probe, to avoid tracing residual values for path and share path.
+	 */
 	if (cs.vp)
 		VN_RELE(cs.vp);
 	if (cs.saved_vp)
 		VN_RELE(cs.saved_vp);
+	cs.exi = cs.saved_exi = NULL;
+	cs.vp = cs.saved_vp = NULL;
+
+	DTRACE_NFSV4_2(compound__done, struct compound_state *, &cs,
+	    COMPOUND4res *, resp);
+
 	if (cs.saved_fh.nfs_fh4_val)
 		kmem_free(cs.saved_fh.nfs_fh4_val, NFS4_FHSIZE);
 
