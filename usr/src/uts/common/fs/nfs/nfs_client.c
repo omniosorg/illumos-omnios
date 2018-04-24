@@ -1362,8 +1362,8 @@ nfs_async_manager_stop(vfs_t *vfsp)
 
 int
 nfs_async_readahead(vnode_t *vp, u_offset_t blkoff, caddr_t addr,
-    struct seg *seg, cred_t *cr, void (*readahead)(vnode_t *, u_offset_t,
-    caddr_t, struct seg *, cred_t *))
+    struct seg *seg, cred_t *cr, void (*readahead)(vnode_t *,
+    u_offset_t, caddr_t, struct seg *, cred_t *))
 {
 	rnode_t *rp;
 	mntinfo_t *mi;
@@ -1462,8 +1462,8 @@ noasync:
 
 int
 nfs_async_putapage(vnode_t *vp, page_t *pp, u_offset_t off, size_t len,
-    int flags, cred_t *cr, int (*putapage)(vnode_t *, page_t *, u_offset_t,
-    size_t, int, cred_t *))
+    int flags, cred_t *cr, int (*putapage)(vnode_t *, page_t *,
+    u_offset_t, size_t, int, cred_t *))
 {
 	rnode_t *rp;
 	mntinfo_t *mi;
