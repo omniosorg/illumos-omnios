@@ -24,6 +24,7 @@
  * Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved.
  * Copyright 2015, Joyent, Inc.
  * Copyright (c) 2016, Mohamed A. Khalfella <khalfella@gmail.com>
+ * Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -182,7 +183,8 @@ fcntl(int fdes, int cmd, intptr_t arg)
 			}
 		}
 
-		if (error == 0 && fp->f_vnode != NULL)
+		if (error == 0 && fp->f_vnode != NULL && 
+			fp->f_vnode->v_type == VSOCK)
 			(void) VOP_IOCTL(fp->f_vnode, F_ASSOCI_PID,
 			    (intptr_t)p->p_pidp->pid_id, FKIOCTL, kcred,
 			    NULL, NULL);
@@ -228,7 +230,7 @@ fcntl(int fdes, int cmd, intptr_t arg)
 			 * Assume we succeed to duplicate the file descriptor
 			 * and associate the pid to the vnode.
 			 */
-			if (fp->f_vnode != NULL)
+			if (fp->f_vnode != NULL && fp->f_vnode->v_type == VSOCK)
 				(void) VOP_IOCTL(fp->f_vnode, F_ASSOCI_PID,
 				    (intptr_t)p->p_pidp->pid_id, FKIOCTL,
 				    kcred, NULL, NULL);
@@ -247,7 +249,8 @@ fcntl(int fdes, int cmd, intptr_t arg)
 					 * Failed to duplicate fdes,
 					 * disassociate the pid from the vnode.
 					 */
-					if (fp->f_vnode != NULL)
+					if (fp->f_vnode != NULL && 
+						fp->f_vnode->v_type == VSOCK)
 						(void) VOP_IOCTL(fp->f_vnode,
 						    F_DASSOC_PID,
 						    (intptr_t)p->p_pidp->pid_id,
