@@ -876,7 +876,8 @@ flist_fork(proc_t *pp, proc_t *cp)
 		cufp->uf_busy = pufp->uf_busy;
 		cufp->uf_gen = pufp->uf_gen;
 
-		if (cufp->uf_file != NULL && cufp->uf_file->f_vnode != NULL)
+		if (cufp->uf_file != NULL && cufp->uf_file->f_vnode != NULL && 
+			cufp->uf_file->f_vnode->v_type == VSOCK)
 			(void) VOP_IOCTL(cufp->uf_file->f_vnode, F_ASSOCI_PID,
 			    (intptr_t)cp->p_pidp->pid_id, FKIOCTL, kcred,
 			    NULL, NULL);
@@ -966,7 +967,7 @@ closef(file_t *fp)
 	offset = fp->f_offset;
 
 	vp = fp->f_vnode;
-	if (vp != NULL)
+	if (vp != NULL && vp->v_type == VSOCK)
 		(void) VOP_IOCTL(vp, F_DASSOC_PID,
 		    (intptr_t)(ttoproc(curthread)->p_pidp->pid_id), FKIOCTL,
 		    kcred, NULL, NULL);
