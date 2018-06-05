@@ -284,12 +284,13 @@ make_argv(char *s)
 		return (NULL);
 
         for (p = strtok(s, ws); p != NULL; p = strtok(NULL, ws)) {
-		while ( p != NULL && p[strlen(p) - 1] == '\\'){
-			char* prev = p;
+		while (p[strlen(p) - 1] == '\\'){
+			int offset = strlen(p);
+			p[offset - 1] = ' ';
 			char* next = strtok(NULL, ws);	
 			if (next == NULL) 
 				break;
-		        memmove(prev + (strlen(p) - 1),next,strlen(next)+1); 
+		        memcpy(p + offset, next, strlen(next)+1); 	
 		}
 			
                 argv[argc++] = p;
