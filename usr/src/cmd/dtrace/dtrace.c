@@ -296,7 +296,6 @@ make_argv(char *s)
                 argv[argc++] = p;
 	}
 
-
 	if (argc == 0)
 		argv[argc++] = s;
 
