@@ -17,17 +17,15 @@
 
 /*
  * Quanitize the time spent in each NFSv3 andf NFSv4 operation,
- * optionally for a specified client and share.
+ * optionally for a specified client, share and zone.
  *
- * usage:   nfs_time.d
- * usage:   nfs_time.d <client ip>   <share path>
- * example: nfs_time.d 192.168.123.1 /mypool/fs1
+ * Usage: nfs-time.d [<client ip>|all [<share path>|all] [<zone id>]]]
  *
- * It is valid to specify <client ip> or <share path> as "all" to
- * quantize data for all clients and/or all shares.
- * example: nfs_time.d 192.168.123.1 all
- * example: nfs_time.d all /mypool/fs1
- * example: nfs_time.d all all
+ * example: nfs_time.d 192.168.123.1 /mypool/fs1  0
+ *
+ * It is valid to specify <client ip> or <share path> as "all"
+ * to quantize data for all clients and/or all shares.
+ * Ommitting <zone id> will quantize data for all zones.
  */
 
 #pragma D option flowindent
@@ -35,23 +33,31 @@
 
 dtrace:::BEGIN
 {
-	client = ($$1 == NULL) ? "all" : $$1;
-	share = ($$2 == NULL) ? "all" : $$2;
-	printf("%Y - client=%s share=%s\n", walltimestamp, client, share);
+	all_clients = (($$1 == NULL) || ($$1 == "all")) ? 1 : 0;
+	all_shares = (($$2 == NULL) || ($$2 == "all")) ? 1 : 0;
+	all_zones = ($$3 == NULL) ? 1 : 0;
+
+	client = $$1;
+	share = $$2;
+	zoneid = $3;
+
+	printf("%Y - client=%s share=%s zone=%s)\n", walltimestamp,
+	    (all_clients) ? "all" : client,
+	    (all_shares) ? "all" : share,
+	    (all_zones) ? "all" : $$3);
 }
 
 nfsv3:::op-*-start,
 nfsv4:::op-*-start
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
 {
 	self->ts[probefunc] = timestamp;
 }
 
 nfsv3:::op-*-done,
 nfsv4:::op-*-done
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
+/ ((all_clients) || (args[0]->ci_remote == client)) &&
+   ((all_shares) || (args[1]->noi_shrpath == share)) &&
+   ((all_zones) || (args[1]->noi_zoneid == zoneid)) /
 {
 	elapsed = (timestamp - self->ts[probefunc]);
 	@q[probefunc]=quantize(elapsed);
