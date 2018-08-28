@@ -17,17 +17,15 @@
 
 /*
  * Print input and output values for each NFSv3 andf NFSv4 operation,
- * optionally for a specified client and share.
+ * optionally for a specified client, share and zone.
  *
- * usage:   nfs_test.d
- * usage:   nfs_test.d <client ip>   <share path>
- * example: nfs_test.d 192.168.123.1 /mypool/fs1
+ * Usage: nfs-trace.d [<client ip>|all [<share path>|all] [<zone id>]]]
  *
- * It is valid to specify <client ip> or <share path> as "all" to
- * print data for all clients and/or all shares.
- * example: nfs_test.d 192.168.123.1 all
- * example: nfs_test.d all /mypool/fs1
- * example: nfs_test.d all all
+ * example: nfs_trace.d 192.168.123.1 /mypool/fs1  0
+ *
+ * It is valid to specify <client ip> or <share path> as "all"
+ * to quantize data for all clients and/or all shares.
+ * Ommitting <zone id> will quantize data for all zones.
  */
 
 /*
@@ -46,9 +44,18 @@
 
 dtrace:::BEGIN
 {
-	client = ($$1 == NULL) ? "all" : $$1;
-	share = ($$2 == NULL) ? "all" : $$2;
-	printf("%Y - client=%s share=%s\n", walltimestamp, client, share);
+	all_clients = (($$1 == NULL) || ($$1 == "all")) ? 1 : 0;
+	all_shares = (($$2 == NULL) || ($$2 == "all")) ? 1 : 0;
+	all_zones = ($$3 == NULL) ? 1 : 0;
+
+	client = $$1;
+	share = $$2;
+	zoneid = $3;
+
+	printf("%Y - client=%s share=%s zone=%s)\n", walltimestamp,
+	    (all_clients) ? "all" : client,
+	    (all_shares) ? "all" : share,
+	    (all_zones) ? "all" : $$3);
 }
 
 nfsv3:::op-getattr-start,
@@ -72,8 +79,9 @@ nfsv3:::op-rename-start,
 nfsv3:::op-rmdir-start,
 nfsv3:::op-symlink-start,
 nfsv3:::op-write-start
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
+/ ((all_clients) || (args[0]->ci_remote == client)) &&
+   ((all_shares) || (args[1]->noi_shrpath == share)) &&
+   ((all_zones) || (args[1]->noi_zoneid == zoneid)) /
 {
 	printf("\n");
 	print(*args[0]);
@@ -105,8 +113,9 @@ nfsv3:::op-rename-done,
 nfsv3:::op-rmdir-done,
 nfsv3:::op-symlink-done,
 nfsv3:::op-write-done
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
+/ ((all_clients) || (args[0]->ci_remote == client)) &&
+   ((all_shares) || (args[1]->noi_shrpath == share)) &&
+   ((all_zones) || (args[1]->noi_zoneid == zoneid)) /
 {
 	/*
 	printf("\n");
@@ -149,8 +158,9 @@ nfsv4:::op-setclientid-start,
 nfsv4:::op-setclientid-confirm-start,
 nfsv4:::op-verify-start,
 nfsv4:::op-write-start
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
+/ ((all_clients) || (args[0]->ci_remote == client)) &&
+   ((all_shares) || (args[1]->noi_shrpath == share)) &&
+   ((all_zones) || (args[1]->noi_zoneid == zoneid)) /
 {
 	printf("\n");
 	print(*args[0]);
@@ -169,8 +179,9 @@ nfsv4:::op-putrootfh-start,
 nfsv4:::op-readlink-start,
 nfsv4:::op-restorefh-start,
 nfsv4:::op-savefh-start
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
+/ ((all_clients) || (args[0]->ci_remote == client)) &&
+   ((all_shares) || (args[1]->noi_shrpath == share)) &&
+   ((all_zones) || (args[1]->noi_zoneid == zoneid)) /
 {
 	printf("\n");
 	print(*args[0]);
@@ -217,8 +228,9 @@ nfsv4:::op-setclientid-done,
 nfsv4:::op-setclientid-confirm-done,
 nfsv4:::op-verify-done,
 nfsv4:::op-write-done
-/ ((client == "all") || (args[0]->ci_remote == client)) &&
-   ((share == "all") || (args[1]->noi_shrpath == share)) /
+/ ((all_clients) || (args[0]->ci_remote == client)) &&
+   ((all_shares) || (args[1]->noi_shrpath == share)) &&
+   ((all_zones) || (args[1]->noi_zoneid == zoneid)) /
 {
 	/*
 	printf("\n");
