@@ -39,6 +39,7 @@ typedef struct nfsv4opinfo {
 	cred_t *noi_cred;	/* credentials for operation */
 	string noi_curpath;	/* current file handle path (if any) */
 	string noi_shrpath;     /* current share path */
+	zoneid_t noi_zoneid;	/* zone identifier */
 } nfsv4opinfo_t;
 
 typedef struct nfsv4cbinfo {
@@ -107,6 +108,7 @@ translator nfsv4opinfo_t < struct compound_state *P > {
 	noi_curpath = (P->vp == NULL) ? "<unknown>" : P->vp->v_path;
 	noi_shrpath = (P->exi == NULL || P->exi->exi_export.ex_path == NULL) ?
 	    "<unknown>" : P->exi->exi_export.ex_path;
+	noi_zoneid = (P->exi == NULL) ? -1 : P->exi->exi_zoneid;
 };
 
 typedef struct nfsv3opinfo {
@@ -114,6 +116,7 @@ typedef struct nfsv3opinfo {
 	cred_t *noi_cred;	/* credentials for operation */
 	string noi_curpath;	/* current file handle path (if any) */
 	string noi_shrpath;     /* current share path */
+	zoneid_t noi_zoneid;	/* zone identifier */
 } nfsv3opinfo_t;
 
 typedef struct nfsv3oparg nfsv3oparg_t;
@@ -127,4 +130,6 @@ translator nfsv3opinfo_t < nfsv3oparg_t *P > {
 	noi_shrpath =
 	    (arg3 == 0 || ((exportinfo_t *)arg3)->exi_export.ex_path == NULL) ?
 	    "<unknown>" : ((exportinfo_t *)arg3)->exi_export.ex_path;
+	noi_zoneid =
+	    (arg3 == 0) ? -1 : ((exportinfo_t *)arg3)->exi_zoneid;
 };
