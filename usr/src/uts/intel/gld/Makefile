@@ -57,6 +57,8 @@ ALL_TARGET	= $(BINARY)
 LINT_TARGET	= $(MODULE).lint
 INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 
+LDFLAGS		+= -dy -N misc/mac
+
 #
 # For now, disable these lint checks; maintainers should endeavor
 # to investigate and remove these for maximum lint coverage.
