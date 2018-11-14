@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@TOOLS_PYTHON@
 #
 # CDDL HEADER START
 #
@@ -42,7 +42,7 @@ ret = 0
 for filename in sys.argv[1:]:
 	try:
 		fin = open(filename, 'r')
-	except IOError, e:
+	except IOError as e:
 		sys.stderr.write("failed to open '%s': %s\n" %
 				 (e.filename, e.strerror))
 		continue

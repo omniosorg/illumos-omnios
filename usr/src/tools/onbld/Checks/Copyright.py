@@ -46,6 +46,7 @@ def copyright(fh, filename=None, output=sys.stderr):
 		filename = fh.name
 
 	for line in fh:
+		line = line.decode('utf8', 'ignore')
 		if is_copyright(line):
 			rights += 1
 			if is_current_copyright(line):

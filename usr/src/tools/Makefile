@@ -24,6 +24,7 @@
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright (c) 2016, Chris Fraire <cfraire@me.com>.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 
 include ../Makefile.master
@@ -102,16 +103,27 @@ ROOTDIRS= \
 	$(ROOTONBLD)/lib/$(MACH) \
 	$(ROOTONBLD)/lib/$(MACH)/64 \
 	$(ROOTONBLD)/lib/perl \
-	$(ROOTONBLD)/lib/python$(PYTHON_VERSION) \
-	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld \
-	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/Checks \
-	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/Scm \
 	$(ROOTONBLD)/env \
 	$(ROOTONBLD)/etc \
 	$(ROOTONBLD)/etc/exception_lists \
 	$(ROOTONBLD)/share \
 	$(ROOTONBLD)/man \
 	$(ROOTONBLD)/man/man1onbld
+
+$(BUILDPY2)ROOTDIRS += \
+	$(ROOTONBLD)/lib/python$(PYTHON_VERSION) \
+	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld \
+	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/Checks \
+	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/Scm
+
+$(BUILDPY3)ROOTDIRS += \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION) \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION)/onbld \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION)/onbld/__pycache__ \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION)/onbld/Checks \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION)/onbld/Checks/__pycache__ \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION)/onbld/Scm \
+	$(ROOTONBLD)/lib/python$(PYTHON3_VERSION)/onbld/Scm/__pycache__
 
 all :=		TARGET= install
 install :=	TARGET= install
@@ -130,7 +142,7 @@ DOROOTDIRS= $(ROOTDIRS)
 clobber:= DOROOTDIRS=
 clean:= DOROOTDIRS=
 
-DOROOTONBLDLIBPY= $(ROOTONBLDLIBPY)
+$(BUILDPY2)DOROOTONBLDLIBPY= $(ROOTONBLDLIBPY)
 clobber:= DOROOTONBLDLIBPY=
 clean:= DOROOTONBLDLIBPY=
 

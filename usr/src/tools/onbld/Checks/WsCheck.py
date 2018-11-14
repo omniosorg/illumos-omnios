@@ -35,6 +35,7 @@ def wscheck(fh, output=sys.stderr):
 	fname = fh.name
 
 	for line in fh:
+		line = line.decode('utf-8', 'ignore')
 		if re.search(r' \t', line):
 			err(output, fname, lineno, stMsg);
 			ret = 1

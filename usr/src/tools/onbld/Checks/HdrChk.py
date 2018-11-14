@@ -85,6 +85,7 @@ class HeaderFile(object):
 
 	def getline(self):
 		for line in self.file:
+			line = line.decode('utf-8')
 			self.lineno += 1
 			if not line or line.isspace():
 				continue

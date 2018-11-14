@@ -252,12 +252,12 @@ alternates = {
 misspellingREs = []
 alternateREs = []
 
-for misspelling, correct in misspellings.iteritems():
+for misspelling, correct in misspellings.items():
 	regex = re.compile(r'\b%s\b' % (misspelling), re.IGNORECASE)
 	entry = (regex, misspelling, correct)
 	misspellingREs.append(entry)
 
-for alternate, correct in alternates.iteritems():
+for alternate, correct in alternates.items():
 	regex = re.compile(r'\b%s\b' % (alternate), re.IGNORECASE)
 	entry = (regex, alternate, correct)
 	alternateREs.append(entry)

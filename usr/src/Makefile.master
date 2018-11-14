@@ -132,6 +132,9 @@ JAVA_ROOT=	/usr/java
 BLD_JAVA_6=	$(POUND_SIGN)
 BLD_JAVA_8=	$(POUND_SIGN)
 
+# The python 2 modules are not built by default in OmniOS
+BUILDPY2=	$(POUND_SIGN)
+
 GNUC_ROOT=	/opt/gcc/4.4.4
 GCCLIBDIR=	$(GNUC_ROOT)/lib
 GCCLIBDIR64=	$(GNUC_ROOT)/lib/$(MACH64)
@@ -209,6 +212,7 @@ PYTHON3_VERSION=	3.5
 PYTHON3_PKGVERS=	-35
 PYTHON3_SUFFIX=		m
 PYTHON3=		/usr/bin/python$(PYTHON3_VERSION)
+TOOLS_PYTHON=		$(PYTHON3)
 SORT=		/usr/bin/sort
 TOUCH=		/usr/bin/touch
 WC=		/usr/bin/wc
@@ -279,7 +283,11 @@ INS.symlink=	$(RM) $@; $(SYMLINK) $(INSLINKTARGET) $@
 # files we must make certain to not adjust the mtime of the source
 # (.py) file.
 #
-INS.pyfile=	$(RM) $@; $(SED) -e "1s:^\#!@PYTHON@:\#!$(PYTHON):" < $< > $@; $(CHMOD) $(FILEMODE) $@; $(TOUCH) -r $< $@
+INS.pyfile=	$(RM) $@; $(SED) \
+		-e "1s:^\#!@PYTHON@:\#!$(PYTHON):" \
+		-e "1s:^\#!@PYTHON3@:\#!$(PYTHON3):" \
+		-e "1s:^\#!@TOOLS_PYTHON@:\#!$(TOOLS_PYTHON):" \
+		< $< > $@; $(CHMOD) $(FILEMODE) $@; $(TOUCH) -r $< $@
 
 # MACH must be set in the shell environment per uname -p on the build host
 # More specific architecture variables should be set in lower makefiles.
@@ -1129,7 +1137,11 @@ PKGPUBLISHER_NONREDIST=	on-extra
 	$(CHMOD) +x $@
 
 .py:
-	$(RM) $@; $(SED) -e "1s:^\#!@PYTHON@:\#!$(PYTHON):" < $< > $@; $(CHMOD) +x $@
+	$(RM) $@; $(SED) \
+		-e "1s:^\#!@PYTHON@:\#!$(PYTHON):" \
+		-e "1s:^\#!@PYTHON3@:\#!$(PYTHON3):" \
+		-e "1s:^\#!@TOOLS_PYTHON@:\#!$(TOOLS_PYTHON):" \
+		< $< > $@; $(CHMOD) +x $@
 
 .py.pyc:
 	$(RM) $@

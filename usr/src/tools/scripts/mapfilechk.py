@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@TOOLS_PYTHON@
 #
 # CDDL HEADER START
 #
@@ -48,7 +48,7 @@ class ExceptionList(object):
 		fh = None
 		try:
 			fh = open(exfile, 'r')
-		except IOError, e:
+		except IOError as e:
 			sys.stderr.write('Failed to open exception list: '
 					 '%s: %s\n' % (e.filename, e.strerror))
 			sys.exit(2)
@@ -91,7 +91,7 @@ def usage():
 def check(filename, opts):
 	try:
 		fh = open(filename, 'r')
-	except IOError, e:
+	except IOError as e:
 		sys.stderr.write("failed to open '%s': %s\n" %
 				 (e.filename, e.strerror))
 		return 1

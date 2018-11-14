@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@TOOLS_PYTHON@
 #
 # CDDL HEADER START
 #
@@ -22,6 +22,7 @@
 
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 
 #
@@ -59,8 +60,8 @@ for opt, arg in opts:
 ret = 0
 for filename in args:
 	try:
-		fh = open(filename, 'r')
-	except IOError, e:
+		fh = open(filename, 'rb')
+	except IOError as e:
 		sys.stderr.write("failed to open '%s': %s\n" %
 				 (e.filename, e.strerror))
 	else:

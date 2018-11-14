@@ -73,7 +73,7 @@ def cmtblkchk(fh, blk_name, blk_text, filename=None,
 	for line in fh:
 		line = line.rstrip('\r\n')
 		lineno += 1
-		
+
 		if StartRE.search(line):
 			in_cmt = True
 			lic.append(line)
@@ -110,7 +110,7 @@ def cmtblkchk(fh, blk_name, blk_text, filename=None,
 	for b in blocks:
 		try:
 			checkblock(b, full_text)
-		except CmtBlkError, e:
+		except CmtBlkError as e:
 			ret = 1
 			output.write(
 				"%s: %d: Error: Invalid line in %s block:\n"
@@ -120,7 +120,7 @@ def cmtblkchk(fh, blk_name, blk_text, filename=None,
 				"    '%s'\n" % (filename, e.lineno, blk_name,
 						e.shouldbe, e.seen))
 			break
-		
+
 	if verbose and not ret:
 		output.write("%s: Valid %s block\n" %
 			     (filename, blk_name))

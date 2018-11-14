@@ -29,9 +29,9 @@
 
 #
 # Check delta comments:
-# 	- Have the correct form.
-# 	- Have a synopsis matching that of the bug
-# 	- Appear only once.
+#	- Have the correct form.
+#	- Have a synopsis matching that of the bug
+#	- Appear only once.
 #
 
 import re, sys
@@ -113,9 +113,9 @@ def comchk(comments, check_db=True, output=sys.stderr):
 
 	if len(bugs) > 0 and check_db:
 		bugdb = BugDB()
-		results = bugdb.lookup(bugs.keys())
+		results = bugdb.lookup(list(bugs.keys()))
 
-	for crid, insts in bugs.iteritems():
+	for crid, insts in bugs.items():
 		if len(insts) > 1:
 			errors['dup'].append(crid)
 

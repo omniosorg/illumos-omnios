@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@TOOLS_PYTHON@
 #
 # CDDL HEADER START
 #
@@ -43,10 +43,10 @@ ret = 0
 for filename in sys.argv[1:]:
 	try:
 		fh = open(filename, 'r')
-	except IOError, e:
+	except IOError as e:
 		sys.stderr.write("failed to open '%s': %s\n" %
 				 (e.filename, e.strerror))
-                continue
+		continue
 
 	ret |= wscheck(fh, output=sys.stderr)
 	fh.close()
