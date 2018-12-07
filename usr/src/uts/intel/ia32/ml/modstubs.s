@@ -91,8 +91,6 @@ char stubs_base[1], stubs_end[1];
  * This file contains the stubs routines for modules which can be autoloaded.
  */
 
-#if defined(__amd64)
-
 /*
  * See the 'struct mod_modinfo' definition to see what this declaration
  * is trying to achieve here.
@@ -238,10 +236,6 @@ fcnname/**/_info:							\
 	leave
 	ret
 	SET_SIZE(stubs_common_code)
-
-#else
-#error "Trying to build modstubs on an unsupported arch"
-#endif	/* __amd64 */
 
 #define STUB(module, fcnname, retfcn)	\
     STUB_COMMON(module, fcnname, mod_hold_stub, retfcn, 0)
@@ -1292,10 +1286,8 @@ fcnname/**/_info:							\
 	MODULE(elfexec,exec);
 	STUB(elfexec, elfexec,		nomod_einval);
 	STUB(elfexec, mapexec_brand,	nomod_einval);
-#if defined(__amd64)
 	STUB(elfexec, elf32exec,	nomod_einval);
 	STUB(elfexec, mapexec32_brand,	nomod_einval);
-#endif
 	END_MODULE(elfexec);
 #endif
 
@@ -1325,7 +1317,9 @@ fcnname/**/_info:							\
 	END_MODULE(ppt);
 #endif
 
-/ this is just a marker for the area of text that contains stubs
+/*
+ * this is just a marker for the area of text that contains stubs
+ */
 
 	ENTRY_NP(stubs_end)
 	nop
