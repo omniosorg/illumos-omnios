@@ -464,7 +464,9 @@ dlmgmt_create_common(const char *name, datalink_class_t class, uint32_t media,
 	linkp->ll_tomb = B_FALSE;
 
 	if (avl_find(&dlmgmt_name_avl, linkp, &name_where) != NULL ||
-	    avl_find(&dlmgmt_id_avl, linkp, &id_where) != NULL) {
+	    avl_find(&dlmgmt_id_avl, linkp, &id_where) != NULL ||
+	    (zoneid == GLOBAL_ZONEID &&
+	     avl_find(&dlmgmt_loan_avl, linkp, NULL) != NULL)) {
 		err = EEXIST;
 		goto done;
 	}
