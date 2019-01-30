@@ -29,7 +29,7 @@
  */
 
 /*
- * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright 2019 Nexenta Systems, Inc.
  * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
@@ -4339,7 +4339,7 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	int error;
 	vnode_t *odvp;
 	vnode_t *ndvp;
-	vnode_t *srcvp, *targvp;
+	vnode_t *srcvp, *targvp, *tvp;
 	struct vattr obdva, oidva, oadva;
 	struct vattr nbdva, nidva, nadva;
 	char *onm, *nnm;
@@ -4347,6 +4347,7 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	rfs4_file_t *fp, *sfp;
 	int in_crit_src, in_crit_targ;
 	int fp_rele_grant_hold, sfp_rele_grant_hold;
+	int unlinked;
 	bslabel_t *clabel;
 	struct sockaddr *ca;
 	char *converted_onm = NULL;
@@ -4357,9 +4358,10 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	    RENAME4args *, args);
 
 	fp = sfp = NULL;
-	srcvp = targvp = NULL;
+	srcvp = targvp = tvp = NULL;
 	in_crit_src = in_crit_targ = 0;
 	fp_rele_grant_hold = sfp_rele_grant_hold = 0;
+	unlinked = 0;
 
 	/* CURRENT_FH: target directory */
 	ndvp = cs->vp;
@@ -4532,7 +4534,6 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	}
 	fp_rele_grant_hold = 1;
 
-
 	/* Check for NBMAND lock on both source and target */
 	if (nbl_need_check(srcvp)) {
 		nbl_start_crit(srcvp, RW_READER);
@@ -4567,11 +4568,15 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	NFS4_SET_FATTR4_CHANGE(resp->source_cinfo.before, obdva.va_ctime)
 	NFS4_SET_FATTR4_CHANGE(resp->target_cinfo.before, nbdva.va_ctime)
 
-	if ((error = VOP_RENAME(odvp, converted_onm, ndvp, converted_nnm,
-	    cs->cr, NULL, 0)) == 0 && fp != NULL) {
-		struct vattr va;
-		vnode_t *tvp;
+	error = VOP_RENAME(odvp, converted_onm, ndvp, converted_nnm, cs->cr,
+	    NULL, 0);
 
+	/*
+	 * If target existed and was unlinked by VOP_RENAME, state will need
+	 * closed. To avoid deadlock, rfs4_close_all_state will be done after
+	 * any necessary nbl_end_crit on srcvp and tgtvp.
+	 */
+	if (error == 0 && fp != NULL) {
 		rfs4_dbe_lock(fp->rf_dbe);
 		tvp = fp->rf_vp;
 		if (tvp)
@@ -4579,17 +4584,22 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 		rfs4_dbe_unlock(fp->rf_dbe);
 
 		if (tvp) {
+			struct vattr va;
 			va.va_mask = AT_NLINK;
+
 			if (!VOP_GETATTR(tvp, &va, 0, cs->cr, NULL) &&
 			    va.va_nlink == 0) {
-				/* The file is gone and so should the state */
-				if (in_crit_targ) {
-					nbl_end_crit(targvp);
-					in_crit_targ = 0;
+				unlinked = 1;
+
+				/* DEBUG data */
+				if ((srcvp == targvp) || (tvp != targvp)) {
+					cmn_err(CE_WARN, "rfs4_op_rename: "
+					    "srcvp %p, targvp: %p, tvp: %p",
+					    srcvp, targvp, tvp);
 				}
-				rfs4_close_all_state(fp);
+			} else {
+				VN_RELE(tvp);
 			}
-			VN_RELE(tvp);
 		}
 	}
 	if (error == 0)
@@ -4603,6 +4613,21 @@ rfs4_op_rename(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 		nbl_end_crit(targvp);
 	if (targvp)
 		VN_RELE(targvp);
+
+	if (unlinked) {
+		ASSERT(fp != NULL);
+		ASSERT(tvp != NULL);
+
+		/* DEBUG data */
+		if (RW_READ_HELD(&tvp->v_nbllock)) {
+			cmn_err(CE_WARN, "rfs4_op_rename: "
+			    "RW_READ_HELD(%p)", tvp);
+		}
+
+		/* The file is gone and so should the state */
+		rfs4_close_all_state(fp);
+		VN_RELE(tvp);
+	}
 
 	if (sfp) {
 		rfs4_clear_dont_grant(sfp);
