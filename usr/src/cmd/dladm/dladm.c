@@ -651,8 +651,8 @@ static const ofmt_field_t link_s_fields[] = {
 { "IERRORS",	10,		LINK_S_IERRORS,	print_link_stats_cb},
 { "OPACKETS",	12,		LINK_S_OPKTS,	print_link_stats_cb},
 { "OBYTES",	12,		LINK_S_OBYTES,	print_link_stats_cb},
-{ "OERRORS",	8,		LINK_S_OERRORS,	print_link_stats_cb}}
-;
+{ "OERRORS",	8,		LINK_S_OERRORS,	print_link_stats_cb},
+{ NULL,		0,		0,		NULL}};
 
 typedef struct link_args_s {
 	char		*link_s_link;
