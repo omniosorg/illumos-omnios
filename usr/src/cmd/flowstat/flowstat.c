@@ -426,7 +426,7 @@ query_flow_stats(dladm_handle_t handle, dladm_flow_attr_t *attr, void *arg)
 	prev_stat = flow_node->fc_stat;
 
 	/* Query library for current stats */
-	curr_stat = dladm_flow_stat_query(flowname);
+	curr_stat = dladm_flow_stat_query(flowname, handle);
 	if (curr_stat == NULL)
 		goto done;
 
@@ -491,7 +491,7 @@ dump_one_flow_stats(dladm_handle_t handle, dladm_flow_attr_t *attr, void *arg)
 	char	*flowname = attr->fa_flowname;
 	void	*stat;
 
-	stat = dladm_flow_stat_query_all(flowname);
+	stat = dladm_flow_stat_query_all(flowname, handle);
 	if (stat == NULL)
 		goto done;
 	print_all_stats(stat);

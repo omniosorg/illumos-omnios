@@ -48,6 +48,7 @@ extern "C" {
 struct dladm_handle {
 	int dld_fd;	/* file descriptor to DLD_CONTROL_DEV */
 	int door_fd;	/* file descriptor to DLMGMT_DOOR */
+	kstat_ctl_t *dld_kcp;	/* for kstat consumers */
 };
 
 /* DLMGMT_DOOR can only be accessed by libdladm and dlmgmtd */

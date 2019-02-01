@@ -119,6 +119,7 @@ dladm_open(dladm_handle_t *handle)
 		return (DLADM_STATUS_NOMEM);
 	}
 
+	(*handle)->dld_kcp = kstat_open();
 	(*handle)->dld_fd = dld_fd;
 	(*handle)->door_fd = -1;
 
@@ -132,6 +133,8 @@ dladm_close(dladm_handle_t handle)
 		(void) close(handle->dld_fd);
 		if (handle->door_fd != -1)
 			(void) close(handle->door_fd);
+		if (handle->dld_kcp != NULL)
+			(void) kstat_close(handle->dld_kcp);
 		free(handle);
 	}
 }
@@ -140,6 +143,12 @@ int
 dladm_dld_fd(dladm_handle_t handle)
 {
 	return (handle->dld_fd);
+}
+
+kstat_ctl_t*
+dladm_dld_kcp(dladm_handle_t handle)
+{
+	return (handle->dld_kcp);
 }
 
 /*
