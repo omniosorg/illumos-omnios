@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright 2019 Nexenta Systems, Inc.
  * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
  * Copyright 2017 Joyent, Inc.
@@ -624,8 +624,7 @@ static char *(*_sa_errorstr)(int);
 static int (*_sa_parse_legacy_options)(sa_group_t, char *, char *);
 static boolean_t (*_sa_needs_refresh)(sa_handle_t *);
 static libzfs_handle_t *(*_sa_get_zfs_handle)(sa_handle_t);
-static int (*_sa_zfs_process_share)(sa_handle_t, sa_group_t, sa_share_t,
-    char *, char *, zprop_source_t, char *, char *, char *);
+static int (* _sa_get_zfs_share)(sa_handle_t, char *, zfs_handle_t *);
 static void (*_sa_update_sharetab_ts)(sa_handle_t);
 
 /*
@@ -673,9 +672,8 @@ _zfs_init_libshare(void)
 		    dlsym(libshare, "sa_needs_refresh");
 		_sa_get_zfs_handle = (libzfs_handle_t *(*)(sa_handle_t))
 		    dlsym(libshare, "sa_get_zfs_handle");
-		_sa_zfs_process_share = (int (*)(sa_handle_t, sa_group_t,
-		    sa_share_t, char *, char *, zprop_source_t, char *,
-		    char *, char *))dlsym(libshare, "sa_zfs_process_share");
+		_sa_get_zfs_share = (int (*)(sa_handle_t, char *,
+		    zfs_handle_t *)) dlsym(libshare, "sa_get_zfs_share");
 		_sa_update_sharetab_ts = (void (*)(sa_handle_t))
 		    dlsym(libshare, "sa_update_sharetab_ts");
 		if (_sa_init == NULL || _sa_init_arg == NULL ||
@@ -683,7 +681,7 @@ _zfs_init_libshare(void)
 		    _sa_enable_share == NULL || _sa_disable_share == NULL ||
 		    _sa_errorstr == NULL || _sa_parse_legacy_options == NULL ||
 		    _sa_needs_refresh == NULL || _sa_get_zfs_handle == NULL ||
-		    _sa_zfs_process_share == NULL || _sa_service == NULL ||
+		    _sa_get_zfs_share == NULL || _sa_service == NULL ||
 		    _sa_update_sharetab_ts == NULL) {
 			_sa_init = NULL;
 			_sa_init_arg = NULL;
@@ -696,7 +694,7 @@ _zfs_init_libshare(void)
 			(void) dlclose(libshare);
 			_sa_needs_refresh = NULL;
 			_sa_get_zfs_handle = NULL;
-			_sa_zfs_process_share = NULL;
+			_sa_get_zfs_share = NULL;
 			_sa_update_sharetab_ts = NULL;
 		}
 	}
@@ -887,17 +885,13 @@ zfs_share_proto(zfs_handle_t *zhp, zfs_share_proto_t *proto)
 		if (share == NULL) {
 			/*
 			 * This may be a new file system that was just
-			 * created so isn't in the internal cache
-			 * (second time through). Rather than
-			 * reloading the entire configuration, we can
-			 * assume ZFS has done the checking and it is
-			 * safe to add this to the internal
-			 * configuration.
+			 * created so isn't in the internal cache.
+			 * Rather than reloading the entire configuration,
+			 * we can add just this one share to the cache.
 			 */
-			if (_sa_zfs_process_share(hdl->libzfs_sharehdl,
-			    NULL, NULL, mountpoint,
-			    proto_table[*curr_proto].p_name, sourcetype,
-			    shareopts, sourcestr, zhp->zfs_name) != SA_OK) {
+			if ((_sa_get_zfs_share == NULL) ||
+			    (_sa_get_zfs_share(hdl->libzfs_sharehdl, "zfs", zhp)
+			    != SA_OK)) {
 				(void) zfs_error_fmt(hdl,
 				    proto_table[*curr_proto].p_share_err,
 				    dgettext(TEXT_DOMAIN, "cannot share '%s'"),
