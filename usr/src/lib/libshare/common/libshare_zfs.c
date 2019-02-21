@@ -26,7 +26,7 @@
 /*
  * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  * Copyright 2017 RackTop Systems.
- * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright 2019 Nexenta Systems, Inc.
  */
 
 #include <stdio.h>
@@ -984,6 +984,29 @@ sa_get_zfs_shares(sa_handle_t handle, char *groupname)
 	 * pointer to a cached value that will be freed when
 	 * sa_fini() is called.
 	 */
+	return (err);
+}
+
+/*
+ * Initializes shares for only the dataset specified fs_handle.
+ * This is used as a performance optimization relative to sa_get_zfs_shares.
+ */
+int
+sa_get_zfs_share(sa_handle_t handle, char *groupname, zfs_handle_t *fs_handle)
+{
+	sa_group_t zfsgroup;
+	libzfs_handle_t *zfs_libhandle;
+	int err;
+
+	if ((err = prep_zfs_handle_and_group(handle, groupname, &zfs_libhandle,
+	    &zfsgroup, &err)) != SA_OK) {
+		return (err);
+	}
+	/* Not an error, this could be a legacy condition */
+	if (zfsgroup == NULL)
+		return (SA_OK);
+
+	err = sa_get_zfs_share_common(handle, fs_handle, NULL, zfsgroup);
 	return (err);
 }
 
