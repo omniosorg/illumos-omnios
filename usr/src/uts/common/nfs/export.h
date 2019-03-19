@@ -695,7 +695,7 @@ extern void	export_unlink(nfs_export_t *, struct exportinfo *);
 /*
  * exi_id support
  */
-extern krwlock_t  nfs_exi_id_lock;
+extern kmutex_t  nfs_exi_id_lock;
 extern avl_tree_t exi_id_tree;
 extern int exi_id_get_next(void);
 
