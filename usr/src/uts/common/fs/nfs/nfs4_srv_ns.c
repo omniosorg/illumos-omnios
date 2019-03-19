@@ -210,6 +210,14 @@ pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid, struct exp_visible *v
 	 */
 	export_link(ne, exi);
 
+	/*
+	 * Initialize exi_id and exi_kstats
+	 */
+	mutex_enter(&nfs_exi_id_lock);
+	exi->exi_id = exi_id_get_next();
+	avl_add(&exi_id_tree, exi);
+	mutex_exit(&nfs_exi_id_lock);
+
 	return (exi);
 }
 
@@ -793,6 +801,9 @@ treeclimb_export(struct exportinfo *exip)
 			exportinfo_t *e  = tree_head->tree_exi;
 			/* exip will be freed in exportfs() */
 			if (e && e != exip) {
+				mutex_enter(&nfs_exi_id_lock);
+				avl_remove(&exi_id_tree, e);
+				mutex_exit(&nfs_exi_id_lock);
 				export_unlink(ne, e);
 				exi_rele(e);
 			}
@@ -844,6 +855,9 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 		/* Release pseudo export if it has no child */
 		if (TREE_ROOT(tnode) && !TREE_EXPORTED(tnode) &&
 		    tnode->tree_child_first == NULL) {
+			mutex_enter(&nfs_exi_id_lock);
+			avl_remove(&exi_id_tree, tnode->tree_exi);
+			mutex_exit(&nfs_exi_id_lock);
 			export_unlink(ne, tnode->tree_exi);
 			exi_rele(tnode->tree_exi);
 		}
