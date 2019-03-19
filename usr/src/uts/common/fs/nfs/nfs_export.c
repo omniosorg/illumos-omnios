@@ -85,7 +85,7 @@ static zone_key_t nfs_export_key;
 static int exi_id_next;
 static bool_t exi_id_overflow;
 avl_tree_t exi_id_tree;
-krwlock_t nfs_exi_id_lock;
+kmutex_t nfs_exi_id_lock;
 
 static int	unexport(nfs_export_t *, exportinfo_t *);
 static void	exportfree(exportinfo_t *);
@@ -827,7 +827,7 @@ exi_id_get_next()
 	struct exportinfo e;
 	int ret = exi_id_next;
 
-	ASSERT(RW_LOCK_HELD(&nfs_exi_id_lock));
+	ASSERT(MUTEX_HELD(&nfs_exi_id_lock));
 
 	do {
 		exi_id_next++;
@@ -907,10 +907,10 @@ nfs_export_zone_init(zoneid_t zoneid)
 	export_link(ne, ne->exi_root);
 
 	/* Initialize exi_id and exi_kstats */
-	rw_enter(&nfs_exi_id_lock, RW_WRITER);
+	mutex_enter(&nfs_exi_id_lock);
 	ne->exi_root->exi_id = exi_id_get_next();
 	avl_add(&exi_id_tree, ne->exi_root);
-	rw_exit(&nfs_exi_id_lock);
+	mutex_exit(&nfs_exi_id_lock);
 
 	rw_exit(&ne->exported_lock);
 	ne->ns_root = NULL;
@@ -927,11 +927,12 @@ nfs_export_zone_fini(zoneid_t zoneid, void *data)
 	struct exportinfo *exi;
 
 	rw_enter(&ne->exported_lock, RW_WRITER);
-	rw_enter(&nfs_exi_id_lock, RW_WRITER);
+	mutex_enter(&nfs_exi_id_lock);
+
 	avl_remove(&exi_id_tree, ne->exi_root);
 	export_unlink(ne, ne->exi_root);
 
-	rw_exit(&nfs_exi_id_lock);
+	mutex_exit(&nfs_exi_id_lock);
 	rw_exit(&ne->exported_lock);
 
 	/* Deallocate the place holder for the public file handle */
@@ -968,7 +969,7 @@ nfs_export_zone_fini(zoneid_t zoneid, void *data)
 void
 nfs_exportinit(void)
 {
-	rw_init(&nfs_exi_id_lock, NULL, RW_DEFAULT, NULL);
+	mutex_init(&nfs_exi_id_lock, NULL, MUTEX_DEFAULT, NULL);
 
 	/* exi_id handling initialization */
 	exi_id_next = 0;
@@ -990,7 +991,7 @@ nfs_exportfini(void)
 {
 	(void) zone_key_delete(nfs_export_key);
 	avl_destroy(&exi_id_tree);
-	rw_destroy(&nfs_exi_id_lock);
+	mutex_destroy(&nfs_exi_id_lock);
 }
 
 /*
@@ -1584,9 +1585,9 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	 */
 	for (ex = exi->fid_hash.next; ex != NULL; ex = ex->fid_hash.next) {
 		if (ex != ne->exi_root && VN_CMP(ex->exi_vp, vp)) {
-			rw_enter(&nfs_exi_id_lock, RW_WRITER);
+			mutex_enter(&nfs_exi_id_lock);
 			avl_remove(&exi_id_tree, ex);
-			rw_exit(&nfs_exi_id_lock);
+			mutex_exit(&nfs_exi_id_lock);
 			export_unlink(ne, ex);
 			break;
 		}
@@ -1691,13 +1692,13 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	if (ex != NULL) {
 		exi->exi_id = ex->exi_id;
 	} else {
-		rw_enter(&nfs_exi_id_lock, RW_READER);
+		mutex_enter(&nfs_exi_id_lock);
 		exi->exi_id = exi_id_get_next();
-		rw_exit(&nfs_exi_id_lock);
+		mutex_exit(&nfs_exi_id_lock);
 	}
-	rw_enter(&nfs_exi_id_lock, RW_WRITER);
+	mutex_enter(&nfs_exi_id_lock);
 	avl_add(&exi_id_tree, exi);
-	rw_exit(&nfs_exi_id_lock);
+	mutex_exit(&nfs_exi_id_lock);
 
 	DTRACE_PROBE(nfss__i__exported_lock3_stop);
 	rw_exit(&ne->exported_lock);
@@ -1787,6 +1788,9 @@ unexport(nfs_export_t *ne, struct exportinfo *exi)
 		return (EINVAL);
 	}
 
+	mutex_enter(&nfs_exi_id_lock);
+	avl_remove(&exi_id_tree, exi);
+	mutex_exit(&nfs_exi_id_lock);
 	export_unlink(ne, exi);
 
 	/*
