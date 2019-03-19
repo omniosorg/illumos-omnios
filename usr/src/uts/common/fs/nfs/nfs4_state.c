@@ -1479,12 +1479,12 @@ rfs4_state_zone_fini()
 
 	rfs4_set_deleg_policy(nsrv4, SRV_NEVER_DELEGATE);
 
+	mutex_enter(&nsrv4->state_lock);
+
 	if (nsrv4->nfs4_server_state == NULL) {
 		mutex_exit(&nsrv4->state_lock);
 		return;
 	}
-
-	mutex_enter(&nsrv4->state_lock);
 
 	/* destroy server instances and current instance ptr */
 	rfs4_servinst_destroy_all(nsrv4);
