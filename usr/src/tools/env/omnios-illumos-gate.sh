@@ -301,6 +301,6 @@ export PRIMARY_CCC=gcc4,/opt/gcc-4.4.4/bin/g++,gnu
 export SHADOW_CCS=gcc7,/opt/gcc-7/bin/gcc,gnu
 export SHADOW_CCCS=gcc7,/opt/gcc-7/bin/g++,gnu
 
-export ONNV_BUILDNUM=`grep '^VERSION=r' /etc/os-release | cut -c10-15`
+export ONNV_BUILDNUM=151030
 export PKGVERS_BRANCH=$ONNV_BUILDNUM.0
 
