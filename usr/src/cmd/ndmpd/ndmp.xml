@@ -144,8 +144,8 @@ POSSIBILITY OF SUCH DAMAGE.
 		<propval name='drive-type' type='astring' value='sysv' />
 		<propval name='value_authorization' type='astring'
 			value='solaris.smf.value.ndmp' />
-		<propval name='vendor-name' type='astring' value='Nexenta' />
-		<propval name='product-name' type='astring' value='NexentaStor' />
+		<propval name='vendor-name' type='astring' value='Illumos' />
+		<propval name='product-name' type='astring' value='OmniosCE' />
 	</property_group>
 
 	<!-- Create Service Template information -->
