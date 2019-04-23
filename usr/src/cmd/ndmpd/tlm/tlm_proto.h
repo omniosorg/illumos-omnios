@@ -42,7 +42,6 @@
 #include <tlm_buffers.h>
 #include <ndmpd_door.h>
 #include <dirent.h>
-#include <syslog.h>
 #include <pthread.h>
 
 #define	SCSI_CHANGER_DIR	"/dev/scsi/changer"

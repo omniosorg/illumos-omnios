@@ -35,8 +35,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/* Copyright 2016 Nexenta Systems, Inc. All rights reserved. */
+
 #include <sys/errno.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -81,12 +84,12 @@ read_scsi_page(scsi_link_t *slink, union scsi_cdb *cdb,
 	dname = sasd_slink_name(slink);
 	dev = open(dname, O_RDWR | O_NDELAY);
 	if (dev == -1) {
-		NDMP_LOG(LOG_DEBUG, "Open failed for %s err=%d",
+		syslog(LOG_DEBUG, "Open failed for %s err=%d",
 		    dname, errno);
 		return (errno);
 	}
 	if (tlm_ioctl(dev, USCSICMD, &uscsi_cmd) < 0) {
-		NDMP_LOG(LOG_DEBUG, "SCSI cmd %d failed for %s err=%d",
+		syslog(LOG_DEBUG, "SCSI cmd %d failed for %s err=%d",
 		    cdb->scc_cmd, dname, errno);
 		(void) close(dev);
 		return (errno);
@@ -273,7 +276,7 @@ add_lib(scsi_link_t *slink, struct scsi_inquiry *sd, void *arg)
 	sasd_drive_t *ssd;
 
 	if (!slink || !sd) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument %x %x %x",
+		syslog(LOG_DEBUG, "Invalid argument %x %x %x",
 		    slink, sd, arg);
 		return (-TLM_INVALID);
 	}
@@ -285,7 +288,7 @@ add_lib(scsi_link_t *slink, struct scsi_inquiry *sd, void *arg)
 		l = tlm_insert_new_library(slink);
 		tlm_enable_barcode(l);
 
-		NDMP_LOG(LOG_DEBUG, "lib %d sid %d lun %d",
+		syslog(LOG_DEBUG, "lib %d sid %d lun %d",
 		    l, slink->sl_sid, slink->sl_lun);
 
 		if ((ssd = sasd_slink_drive(slink)) != NULL) {
@@ -315,7 +318,7 @@ make_virtual_slot(int l, tlm_drive_t *dp)
 	tlm_slot_t *sp;
 
 	if (l <= 0 || !dp) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument %d, %x", l, dp);
+		syslog(LOG_DEBUG, "Invalid argument %d, %x", l, dp);
 		return (-TLM_INVALID);
 	}
 
@@ -323,7 +326,7 @@ make_virtual_slot(int l, tlm_drive_t *dp)
 		return (-TLM_NO_MEMORY);
 
 	if (!(sp = tlm_slot(l, s))) {
-		NDMP_LOG(LOG_DEBUG, "Internal error: slot not found %d", s);
+		syslog(LOG_DEBUG, "Internal error: slot not found %d", s);
 		return (-TLM_ERROR_INTERNAL);
 	}
 	/*
@@ -344,13 +347,13 @@ make_stand_alone_drive(scsi_link_t *slink, int l)
 	tlm_drive_t *dp;
 
 	if (!slink || l <= 0) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument %x %d", slink, l);
+		syslog(LOG_DEBUG, "Invalid argument %x %d", slink, l);
 		return (-TLM_INVALID);
 	}
 
 	d = tlm_insert_new_drive(l);
 	if (!(dp = tlm_drive(l, d))) {
-		NDMP_LOG(LOG_DEBUG, "Internal error: drive not found %d", d);
+		syslog(LOG_DEBUG, "Internal error: drive not found %d", d);
 		return (-TLM_ERROR_INTERNAL);
 	}
 
@@ -411,7 +414,7 @@ add_drv(scsi_link_t *slink, struct scsi_inquiry *sd, void *arg)
 	tlm_drive_t *drive;
 
 	if (!slink || !sd) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument %x %x %x",
+		syslog(LOG_DEBUG, "Invalid argument %x %x %x",
 		    slink, sd, arg);
 		return (-TLM_INVALID);
 	}
@@ -435,10 +438,10 @@ add_drv(scsi_link_t *slink, struct scsi_inquiry *sd, void *arg)
 				return (-TLM_INVALID);
 			}
 			l = *vlp;
-			NDMP_LOG(LOG_DEBUG, "vlib(%d, %d) sid %d lun %d",
+			syslog(LOG_DEBUG, "vlib(%d, %d) sid %d lun %d",
 			    l, d, slink->sl_sid, slink->sl_lun);
 		} else
-			NDMP_LOG(LOG_DEBUG, "(%d, %d) sid %d lun %d",
+			syslog(LOG_DEBUG, "(%d, %d) sid %d lun %d",
 			    l, d, slink->sl_sid, slink->sl_lun);
 
 		if ((drive = tlm_drive(l, d)) != NULL) {
@@ -503,14 +506,14 @@ inaccbl_drv_warn(int start, int max)
 		if (lp->tl_drive_count <= 0)
 			continue;
 
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "Warning: The following drives are not accessible:");
 		for (d = 1; d <= lp->tl_drive_count; d++)
 			if (!(dname = tlm_get_tape_name(l, d))) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "Error getting drive(%d, %d)", l, d);
 			} else
-				NDMP_LOG(LOG_DEBUG, "%s", dname);
+				syslog(LOG_DEBUG, "%s", dname);
 
 		/*
 		 * Note: Make the slots inaccessible to prevent running
@@ -553,22 +556,18 @@ tlm_init(void)
 		if ((sa = scsi_get_adapter(i)))
 			(void) scan_bus(sa, add_lib, (void *)&nlibs);
 
-	NDMP_LOG(LOG_DEBUG, "nlibs %d", nlibs);
-
 	/* Search through all SCSI adapters, look for tape drives. */
 	vlibs = 0;
 	for (i = 0; i < nsa; i++)
 		if ((sa = scsi_get_adapter(i)))
 			(void) scan_bus(sa, add_drv, (void *)&vlibs);
 
-	NDMP_LOG(LOG_DEBUG, "vlibs %d", vlibs);
-
 	if (nlibs > 0 && vlibs > 0)
 		inaccbl_drv_warn(nlibs + 1, vlibs + nlibs + 1);
 
 	for (l = 1; l <= tlm_library_count(); l++) {
 		if (!(lp = tlm_library(l))) {
-			NDMP_LOG(LOG_DEBUG, "can't find lib %d", l);
+			syslog(LOG_DEBUG, "can't find lib %d", l);
 			continue;
 		}
 
@@ -586,7 +585,7 @@ tlm_init(void)
 		for (d = 1; d <= lp->tl_drive_count; d++) {
 			dp = tlm_drive(l, d);
 			if (dp && !dp->td_exists) {
-				NDMP_LOG(LOG_DEBUG, "Ghost drive found %d.%d",
+				syslog(LOG_DEBUG, "Ghost drive found %d.%d",
 				    l, d);
 				lp->tl_ghost_drives = TRUE;
 				continue;

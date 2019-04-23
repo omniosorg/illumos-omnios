@@ -2,7 +2,6 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
 /*
  * BSD 3 Clause License
  *
@@ -38,11 +37,12 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright 2014 Nexenta Systems, Inc. All rights reserved. */
+/* Copyright 2016 Nexenta Systems, Inc. All rights reserved. */
 
 #include <sys/types.h>
 #include <errno.h>
 #include <pwd.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/queue.h>
@@ -166,8 +166,6 @@ ndmpd_connect_open_v2(ndmp_connection_t *connection, void *body)
 	 * to process the request.
 	 */
 	if (reply.error == NDMP_NO_ERR) {
-		NDMP_LOG(LOG_DEBUG, "set ver to: %d",
-		    request->protocol_version);
 		ndmp_set_version(connection, request->protocol_version);
 		session->ns_protocol_version = request->protocol_version;
 	}
@@ -199,11 +197,6 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 	char *uname;
 
 	request = (ndmp_connect_client_auth_request *)body;
-	NDMP_LOG(LOG_DEBUG, "auth_type:%s",
-	    request->auth_data.auth_type == NDMP_AUTH_NONE ? "None" :
-	    (request->auth_data.auth_type == NDMP_AUTH_TEXT ? "Text" :
-	    (request->auth_data.auth_type == NDMP_AUTH_MD5 ? "MD5" :
-	    "Invalid")));
 
 	reply.error = NDMP_NO_ERR;
 
@@ -213,8 +206,8 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		 * Allow no authorization for development.
 		 * Comment the following for a non-secure production server.
 		 */
-		NDMP_LOG(LOG_ERR, "Authorization denied.");
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR, "Authorization denied.");
+		syslog(LOG_ERR,
 		    "Authorization type should be md5 or cleartext.");
 		reply.error = NDMP_ILLEGAL_ARGS_ERR;
 		ndmpd_audit_connect(connection, EINVAL);
@@ -224,8 +217,8 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		/* Check authorization.  */
 		if ((uname = ndmpd_get_prop(NDMP_CLEARTEXT_USERNAME)) == NULL ||
 		    *uname == 0) {
-			NDMP_LOG(LOG_ERR, "Authorization denied.");
-			NDMP_LOG(LOG_ERR, "User name is not set at server.");
+			syslog(LOG_ERR, "Authorization denied.");
+			syslog(LOG_ERR, "User name is not set at server.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmp_set_authorized(connection, FALSE);
 			ndmp_send_reply(connection, (void *) &reply,
@@ -236,7 +229,7 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		}
 		auth = &request->auth_data.ndmp_auth_data_u.auth_text;
 		if (strcmp(uname, auth->user) != 0) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Authorization denied. Not a valid user.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmpd_audit_connect(connection,
@@ -245,8 +238,8 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		}
 		passwd = ndmpd_get_prop(NDMP_CLEARTEXT_PASSWORD);
 		if (!passwd || !*passwd) {
-			NDMP_LOG(LOG_ERR, "Authorization denied.");
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR, "Authorization denied.");
+			syslog(LOG_ERR,
 			    "Cleartext password is not set at server.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmp_set_authorized(connection, FALSE);
@@ -260,11 +253,9 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		}
 		if (!dec_passwd || !*dec_passwd ||
 		    strcmp(auth->password, dec_passwd) != 0) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Authorization denied. Invalid password.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
-		} else {
-			NDMP_LOG(LOG_DEBUG, "Authorization granted.");
 		}
 		ndmpd_audit_connect(connection, reply.error ?
 		    ADT_FAIL_PAM + PAM_AUTH_ERR : 0);
@@ -276,8 +267,8 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		/* Check authorization.  */
 		if ((uname = ndmpd_get_prop(NDMP_CRAM_MD5_USERNAME)) == NULL ||
 		    *uname == 0) {
-			NDMP_LOG(LOG_ERR, "Authorization denied.");
-			NDMP_LOG(LOG_ERR,  "User name is not set at server.");
+			syslog(LOG_ERR, "Authorization denied.");
+			syslog(LOG_ERR,  "User name is not set at server.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmp_set_authorized(connection, FALSE);
 			ndmp_send_reply(connection, (void *) &reply,
@@ -289,8 +280,8 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		md5 = &request->auth_data.ndmp_auth_data_u.auth_md5;
 		passwd = ndmpd_get_prop(NDMP_CRAM_MD5_PASSWORD);
 		if (!passwd || !*passwd) {
-			NDMP_LOG(LOG_ERR, "Authorization denied.");
-			NDMP_LOG(LOG_ERR, "MD5 password is not set at server.");
+			syslog(LOG_ERR, "Authorization denied.");
+			syslog(LOG_ERR, "MD5 password is not set at server.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmp_set_authorized(connection, FALSE);
 			ndmp_send_reply(connection, (void *) &reply,
@@ -306,16 +297,14 @@ ndmpd_connect_client_auth_v2(ndmp_connection_t *connection, void *body)
 		    session->ns_challenge);
 
 		if (strcmp(uname, md5->user) != 0) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Authorization denied. Not a valid user.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 		} else if (memcmp(md5_digest, md5->auth_digest,
 		    sizeof (md5_digest)) != 0) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Authorization denied. Invalid password.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
-		} else {
-			NDMP_LOG(LOG_DEBUG, "Authorization granted");
 		}
 		ndmpd_audit_connect(connection, reply.error ?
 		    ADT_FAIL_PAM + PAM_AUTH_ERR : 0);
@@ -356,12 +345,6 @@ ndmpd_connect_server_auth_v2(ndmp_connection_t *connection, void *body)
 	ndmp_connect_server_auth_reply reply;
 
 	request = (ndmp_connect_server_auth_request *)body;
-
-	NDMP_LOG(LOG_DEBUG, "auth_type:%s",
-	    request->client_attr.auth_type == NDMP_AUTH_NONE ? "None" :
-	    (request->client_attr.auth_type == NDMP_AUTH_TEXT ? "Text" :
-	    (request->client_attr.auth_type == NDMP_AUTH_MD5 ? "MD5" :
-	    "Invalid")));
 
 	reply.error = NDMP_NO_ERR;
 	reply.auth_result.auth_type = request->client_attr.auth_type;
@@ -443,10 +426,6 @@ ndmpd_connect_client_auth_v3(ndmp_connection_t *connection, void *body)
 	char *type;
 
 	request = (ndmp_connect_client_auth_request_v3 *)body;
-	NDMP_LOG(LOG_DEBUG, "auth_type %s",
-	    request->auth_data.auth_type == NDMP_AUTH_NONE ? "None" :
-	    request->auth_data.auth_type == NDMP_AUTH_TEXT ? "Text" :
-	    request->auth_data.auth_type == NDMP_AUTH_MD5 ? "MD5" : "Invalid");
 
 	reply.error = NDMP_NO_ERR;
 
@@ -461,8 +440,8 @@ ndmpd_connect_client_auth_v3(ndmp_connection_t *connection, void *body)
 		/* Check authorization.  */
 		if ((uname = ndmpd_get_prop(NDMP_CLEARTEXT_USERNAME)) == NULL ||
 		    *uname == 0) {
-			NDMP_LOG(LOG_ERR, "Authorization denied.");
-			NDMP_LOG(LOG_ERR, "User name is not set at server.");
+			syslog(LOG_ERR, "Authorization denied.");
+			syslog(LOG_ERR, "User name is not set at server.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmp_set_authorized(connection, FALSE);
 			ndmp_send_reply(connection, (void *) &reply,
@@ -483,8 +462,8 @@ ndmpd_connect_client_auth_v3(ndmp_connection_t *connection, void *body)
 		/* Check authorization.  */
 		if ((uname = ndmpd_get_prop(NDMP_CRAM_MD5_USERNAME)) == NULL ||
 		    *uname == 0) {
-			NDMP_LOG(LOG_ERR, "Authorization denied.");
-			NDMP_LOG(LOG_ERR, "User name is not set at server.");
+			syslog(LOG_ERR, "Authorization denied.");
+			syslog(LOG_ERR, "User name is not set at server.");
 			reply.error = NDMP_NOT_AUTHORIZED_ERR;
 			ndmp_set_authorized(connection, FALSE);
 			ndmp_send_reply(connection, (void *) &reply,
@@ -514,7 +493,7 @@ ndmpd_connect_client_auth_v3(ndmp_connection_t *connection, void *body)
 		ndmp_set_authorized(connection, FALSE);
 		if (tcp_get_peer(connection->conn_sock, &addr.s_addr,
 		    NULL) != -1) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Authorization(%s) denied for %s.", type,
 			    inet_ntoa(IN_ADDR(addr)));
 		}
@@ -551,9 +530,6 @@ ndmpd_connect_close_v3(ndmp_connection_t *connection, void *body)
 	if ((nlp = ndmp_get_nlp(session)) == NULL)
 		return;
 
-	NDMP_LOG(LOG_DEBUG, "ver: %u",
-	    session->ns_protocol_version);
-
 	/* Send the SHUTDOWN message before closing the connection. */
 	req.reason = NDMP_SHUTDOWN;
 	req.protocol_version = session->ns_protocol_version;
@@ -561,7 +537,7 @@ ndmpd_connect_close_v3(ndmp_connection_t *connection, void *body)
 
 	if (ndmp_send_request(connection, NDMP_NOTIFY_CONNECTION_STATUS,
 	    NDMP_NO_ERR, (void *) &req, 0) < 0) {
-		NDMP_LOG(LOG_NOTICE, "Sending connection shutdown notify");
+		syslog(LOG_NOTICE, "Sending connection shutdown notify");
 		return;
 	}
 
@@ -649,9 +625,6 @@ ndmp_connect_list_find(ndmp_connection_t *connection)
 {
 	struct conn_list *clp;
 
-	NDMP_LOG(LOG_DEBUG, "connection: 0x%p",
-	    connection);
-
 	LIST_FOREACH(clp, &cl_head, cl_q) {
 		if (clp->cl_conn == connection) {
 			(void) mutex_unlock(&cl_mutex);
@@ -680,7 +653,7 @@ ndmp_connect_list_add(ndmp_connection_t *connection, int *id)
 	struct conn_list *clp;
 
 	if (connection == NULL) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "ndmp_connect_list_add: Invalid argument");
 		return (-1);
 	}
 
@@ -718,7 +691,7 @@ ndmp_connect_list_del(ndmp_connection_t *connection)
 	(void) mutex_lock(&cl_mutex);
 	if (!(clp = ndmp_connect_list_find(connection))) {
 		(void) mutex_unlock(&cl_mutex);
-		NDMP_LOG(LOG_DEBUG, "connection not found");
+		syslog(LOG_ERR, "ndmp_connect_list_del: connection not found");
 		return (-1);
 	}
 
@@ -746,8 +719,6 @@ static struct conn_list *
 ndmp_connect_list_find_id(int id)
 {
 	struct conn_list *clp;
-
-	NDMP_LOG(LOG_DEBUG, "id: %d", id);
 
 	(void) mutex_lock(&cl_mutex);
 	LIST_FOREACH(clp, &cl_head, cl_q) {
@@ -1025,7 +996,7 @@ connection_get(struct conn_list *clp, ndmp_door_ctx_t *enc_ctx)
 		ndmp_connect_get_v3(clp->cl_conn, enc_ctx);
 		break;
 	default:
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Invalid session (0x%p) version 0x%x", session,
 		    session->ns_protocol_version);
 	}
@@ -1060,7 +1031,7 @@ ndmpd_connect_kill(ndmp_connection_t *connection)
 		ndmpd_connect_close_v3(connection, (void *)NULL);
 		break;
 	default:
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Invalid session (0x%p) version 0x%x", session,
 		    session->ns_protocol_version);
 	}
@@ -1125,7 +1096,7 @@ ndmpd_get_devs(ndmp_door_ctx_t *enc_ctx)
 
 	if ((n = sasd_dev_count()) == 0) {
 		ndmp_door_put_int32(enc_ctx, n);
-		NDMP_LOG(LOG_DEBUG, "No device attached.");
+		syslog(LOG_DEBUG, "No device attached.");
 		return;
 	}
 	ndmp_door_put_int32(enc_ctx, n);
@@ -1184,10 +1155,8 @@ ndmpd_connect_auth_text(char *uname, char *auth_id, char *auth_password)
 		}
 	}
 
-	if (rv == NDMP_NO_ERR) {
-		NDMP_LOG(LOG_DEBUG, "Authorization granted.");
-	} else {
-		NDMP_LOG(LOG_ERR, "Authorization denied.");
+	if (rv != NDMP_NO_ERR) {
+		syslog(LOG_ERR, "Authorization denied.");
 	}
 
 	return (rv);
@@ -1242,12 +1211,6 @@ ndmpd_connect_auth_md5(char *uname, char *auth_id, char *auth_digest,
 			}
 			free(dec_passwd);
 		}
-	}
-
-	if (rv == NDMP_NO_ERR) {
-		NDMP_LOG(LOG_DEBUG, "Authorization granted.");
-	} else {
-		NDMP_LOG(LOG_ERR, "Authorization denied.");
 	}
 
 	return (rv);

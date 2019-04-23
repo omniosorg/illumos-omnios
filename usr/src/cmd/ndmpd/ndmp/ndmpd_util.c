@@ -37,9 +37,10 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright 2014 Nexenta Systems, Inc. All rights reserved. */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
 
 #include <sys/types.h>
+#include <syslog.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -153,14 +154,13 @@ static char *exls[] = {
 	NULL
 };
 
-
 /*
- * The counter for creating unique names with "ndmp.%d" format.
+ * The counter for creating unique names with "NDMP_RCF_BASENAME.%d" format.
  */
-#define	NDMP_RCF_BASENAME	"ndmp."
 static int ndmp_job_cnt = 0;
 
 static int scsi_test_unit_ready(int dev_id);
+static int ndmpd_mkdir(const char *);
 
 /*
  * ndmpd_add_file_handler
@@ -308,11 +308,11 @@ ndmp_check_mover_state(ndmpd_session_t *session)
 		if (closed) {
 			/* Connection closed or internal error */
 			if (closed > 0) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "ndmp mover: connection closed by peer");
 				reason = NDMP_MOVER_HALT_CONNECT_CLOSED;
 			} else {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "ndmp mover: Internal error");
 				reason = NDMP_MOVER_HALT_INTERNAL_ERROR;
 			}
@@ -402,8 +402,6 @@ ndmpd_select(ndmpd_session_t *session, boolean_t block, ulong_t class_mask)
 
 		if (errno == EINTR)
 			return (0);
-
-		NDMP_LOG(LOG_DEBUG, "Select error: %m");
 
 		nlp = ndmp_get_nlp(session);
 		(void) mutex_lock(&nlp->nlp_mtx);
@@ -522,7 +520,7 @@ ndmpd_save_env(ndmpd_session_t *session, ndmp_pval *env, ulong_t envlen)
 			return (NDMP_NO_MEM_ERR);
 		}
 
-		NDMP_LOG(LOG_DEBUG, "env(%s): \"%s\"",
+		syslog(LOG_DEBUG, "env(%s): \"%s\"",
 		    namebuf, valbuf);
 
 		(void) mutex_lock(&session->ns_lock);
@@ -594,7 +592,8 @@ ndmpd_save_nlist_v2(ndmpd_session_t *session, ndmp_name *nlist,
 		return (NDMP_NO_ERR);
 
 	session->ns_data.dd_nlist_len = 0;
-	session->ns_data.dd_nlist = ndmp_malloc(sizeof (ndmp_name)*nlistlen);
+	session->ns_data.dd_nlist =
+	    ndmp_malloc(sizeof (ndmp_name)*(nlistlen + 1));
 	if (session->ns_data.dd_nlist == 0)
 		return (NDMP_NO_MEM_ERR);
 
@@ -746,11 +745,6 @@ ndmpd_save_nlist_v3(ndmpd_session_t *session, ndmp_name_v3 *nlist,
 		tp->nm3_err = NDMP_NO_ERR;
 		session->ns_data.dd_nlist_len++;
 
-		NDMP_LOG(LOG_DEBUG, "orig \"%s\"", tp->nm3_opath);
-		NDMP_LOG(LOG_DEBUG, "dest \"%s\"", NDMP_SVAL(tp->nm3_dpath));
-		NDMP_LOG(LOG_DEBUG, "name \"%s\"", NDMP_SVAL(tp->nm3_newnm));
-		NDMP_LOG(LOG_DEBUG, "node %lld", tp->nm3_node);
-		NDMP_LOG(LOG_DEBUG, "fh_info %lld", tp->nm3_fh_info);
 	}
 
 	if (rv != NDMP_NO_ERR)
@@ -785,7 +779,7 @@ ndmpd_free_nlist(ndmpd_session_t *session)
 		break;
 
 	default:
-		NDMP_LOG(LOG_DEBUG, "Unknown version %d",
+		syslog(LOG_DEBUG, "Unknown version %d",
 		    session->ns_protocol_version);
 	}
 }
@@ -863,7 +857,7 @@ void
 ndmp_send_reply(ndmp_connection_t *connection, void *reply, char *msg)
 {
 	if (ndmp_send_response(connection, NDMP_NO_ERR, reply) < 0)
-		NDMP_LOG(LOG_DEBUG, "%s", msg);
+		syslog(LOG_DEBUG, "%s", msg);
 }
 
 
@@ -885,7 +879,7 @@ ndmp_mtioctl(int fd, int cmd, int count)
 	mp.mt_op = cmd;
 	mp.mt_count = count;
 	if (ioctl(fd, MTIOCTOP, &mp) < 0) {
-		NDMP_LOG(LOG_ERR, "Failed to send command to tape: %m.");
+		syslog(LOG_ERR, "Failed to send command to tape: %m.");
 		return (-1);
 	}
 
@@ -934,7 +928,7 @@ set_socket_options(int sock)
 		val = 60;
 	val <<= 10; /* convert the value from kilobytes to bytes */
 	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &val, sizeof (val)) < 0)
-		NDMP_LOG(LOG_ERR, "SO_SNDBUF failed: %m");
+		syslog(LOG_ERR, "SO_SNDBUF failed: %m");
 
 	/* set receive buffer size */
 	val = atoi((const char *)ndmpd_get_prop_default(NDMP_SOCKET_CRS, "60"));
@@ -942,17 +936,17 @@ set_socket_options(int sock)
 		val = 60;
 	val <<= 10; /* convert the value from kilobytes to bytes */
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &val, sizeof (val)) < 0)
-		NDMP_LOG(LOG_ERR, "SO_RCVBUF failed: %m");
+		syslog(LOG_ERR, "SO_RCVBUF failed: %m");
 
 	/* don't wait to group tcp data */
 	val = 1;
 	if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &val, sizeof (val)) != 0)
-		NDMP_LOG(LOG_ERR, "TCP_NODELAY failed: %m");
+		syslog(LOG_ERR, "TCP_NODELAY failed: %m");
 
 	/* tcp keep-alive */
 	val = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof (val)) != 0)
-		NDMP_LOG(LOG_ERR, "SO_KEEPALIVE failed: %m");
+		syslog(LOG_ERR, "SO_KEEPALIVE failed: %m");
 }
 
 /*
@@ -999,15 +993,15 @@ ndmp_buffer_get_size(ndmpd_session_t *session)
 			xfer_size *= KILOBYTE;
 		else
 			xfer_size = REMOTE_RECORD_SIZE;
-		NDMP_LOG(LOG_DEBUG, "Remote operation: %d", xfer_size);
+		syslog(LOG_DEBUG, "Remote operation: %d", xfer_size);
 	} else {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "Local operation: %lu", session->ns_mover.md_record_size);
 		if ((xfer_size = session->ns_mover.md_record_size) == 0)
 			xfer_size = MAX_RECORD_SIZE;
 	}
 
-	NDMP_LOG(LOG_DEBUG, "xfer_size: %d", xfer_size);
+	syslog(LOG_DEBUG, "xfer_size: %d", xfer_size);
 	return (xfer_size);
 }
 
@@ -1028,7 +1022,7 @@ int
 ndmp_lbr_init(ndmpd_session_t *session)
 {
 	if (session->ns_ndmp_lbr_params != NULL) {
-		NDMP_LOG(LOG_DEBUG, "ndmp_lbr_params already allocated.");
+		syslog(LOG_DEBUG, "ndmp_lbr_params already allocated.");
 		return (0);
 	}
 
@@ -1101,18 +1095,18 @@ ndmp_wait_for_mover(ndmpd_session_t *session)
 	(void) mutex_lock(&nlp->nlp_mtx);
 	while (session->ns_mover.md_state == NDMP_MOVER_STATE_PAUSED) {
 		if (session->ns_eof) {
-			NDMP_LOG(LOG_ERR, "EOF detected");
+			syslog(LOG_ERR, "EOF detected");
 			break;
 		}
 		if (session->ns_data.dd_abort) {
-			NDMP_LOG(LOG_DEBUG, "Received data abort");
+			syslog(LOG_DEBUG, "Received data abort");
 			break;
 		}
 		if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP) {
 			/* remote backup/restore error */
 			if (session->ns_mover.md_sock == -1 &&
 			    session->ns_mover.md_listen_sock == -1) {
-				NDMP_LOG(LOG_ERR,
+				syslog(LOG_ERR,
 				    "Remote data connection terminated");
 				break;
 			}
@@ -1123,7 +1117,7 @@ ndmp_wait_for_mover(ndmpd_session_t *session)
 				    lcmd->tc_reader == TLM_ABORT ||
 				    lcmd->tc_writer == TLM_STOP ||
 				    lcmd->tc_writer == TLM_ABORT) {
-					NDMP_LOG(LOG_ERR,
+					syslog(LOG_ERR,
 					    "Local data connection terminated");
 					break;
 				}
@@ -1156,9 +1150,9 @@ is_buffer_erroneous(tlm_buffer_t *buf)
 	    buf->tb_errno != 0);
 	if (rv) {
 		if (buf == NULL) {
-			NDMP_LOG(LOG_DEBUG, "buf == NULL");
+			syslog(LOG_DEBUG, "buf == NULL");
 		} else {
-			NDMP_LOG(LOG_DEBUG, "eot: %u, eof: %u, errno: %d",
+			syslog(LOG_DEBUG, "eot: %u, eof: %u, errno: %d",
 			    buf->tb_eot, buf->tb_eof, buf->tb_errno);
 		}
 	}
@@ -1210,7 +1204,7 @@ ndmp_execute_cdb(ndmpd_session_t *session, char *adapter_name, int sid, int lun,
 			reply.error = NDMP_NO_MEM_ERR;
 			if (ndmp_send_response(session->ns_connection,
 			    NDMP_NO_ERR, (void *)&reply) < 0)
-				NDMP_LOG(LOG_DEBUG, "error sending"
+				syslog(LOG_DEBUG, "error sending"
 				    " scsi_execute_cdb reply.");
 			return;
 		}
@@ -1233,12 +1227,6 @@ ndmp_execute_cdb(ndmpd_session_t *session, char *adapter_name, int sid, int lun,
 
 	cmd.uscsi_cdb = (caddr_t)request->cdb.cdb_val;
 	cmd.uscsi_cdblen = request->cdb.cdb_len;
-
-	NDMP_LOG(LOG_DEBUG, "cmd: 0x%x, len: %d, flags: %d, datain_len: %d",
-	    request->cdb.cdb_val[0] & 0xff, request->cdb.cdb_len,
-	    request->flags, request->datain_len);
-	NDMP_LOG(LOG_DEBUG, "dataout_len: %d, timeout: %d",
-	    request->dataout.dataout_len, request->timeout);
 
 	if (request->cdb.cdb_len > 12) {
 		reply.error = NDMP_ILLEGAL_ARGS_ERR;
@@ -1263,10 +1251,10 @@ ndmp_execute_cdb(ndmpd_session_t *session, char *adapter_name, int sid, int lun,
 	}
 
 	if (ioctl(fd, USCSICMD, &cmd) < 0) {
-		if (errno != EIO && errno != 0)
-			NDMP_LOG(LOG_ERR,
+		if (errno != EIO && errno != 0) {
+			syslog(LOG_ERR,
 			    "Failed to send command to device: %m");
-		NDMP_LOG(LOG_DEBUG, "ioctl(USCSICMD) error: %m");
+		}
 		if (cmd.uscsi_status == 0)
 			reply.error = NDMP_IO_ERR;
 	}
@@ -1285,7 +1273,7 @@ ndmp_execute_cdb(ndmpd_session_t *session, char *adapter_name, int sid, int lun,
 
 	if (ndmp_send_response(session->ns_connection, NDMP_NO_ERR,
 	    (void *)&reply) < 0)
-		NDMP_LOG(LOG_DEBUG, "Error sending scsi_execute_cdb reply.");
+		syslog(LOG_DEBUG, "Error sending scsi_execute_cdb reply.");
 
 	if (request->flags == NDMP_SCSI_DATA_IN)
 		free(cmd.uscsi_bufaddr);
@@ -1309,8 +1297,7 @@ ndmp_stop_local_reader(ndmpd_session_t *session, tlm_commands_t *cmds)
 {
 	ndmp_lbr_params_t *nlp;
 
-	if (session != NULL && session->ns_data.dd_sock == -1) {
-		/* 2-way restore */
+	if (session != NULL) {
 		if (cmds != NULL && cmds->tcs_reader_count > 0) {
 			if ((nlp = ndmp_get_nlp(session)) != NULL) {
 				(void) mutex_lock(&nlp->nlp_mtx);
@@ -1341,7 +1328,7 @@ ndmp_stop_remote_reader(ndmpd_session_t *session)
 			/*
 			 * 3-way restore.
 			 */
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "data.sock: %d", session->ns_data.dd_sock);
 			(void) close(session->ns_data.dd_sock);
 			session->ns_data.dd_sock = -1;
@@ -1358,12 +1345,7 @@ ndmp_stop_remote_reader(ndmpd_session_t *session)
 void
 ndmp_wait_for_reader(tlm_commands_t *cmds)
 {
-	if (cmds == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cmds == NULL");
-	} else {
-		NDMP_LOG(LOG_DEBUG,
-		    "reader_count: %d", cmds->tcs_reader_count);
-
+	if (cmds != NULL) {
 		while (cmds->tcs_reader_count > 0)
 			(void) sleep(1);
 	}
@@ -1390,7 +1372,6 @@ ndmp_open_list_find(char *dev, int sid, int lun)
 	struct open_list *olp;
 
 	if (dev == NULL || *dev == '\0') {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
 		return (NULL);
 	}
 
@@ -1431,17 +1412,13 @@ ndmp_open_list_add(ndmp_connection_t *conn, char *dev, int sid, int lun, int fd)
 	struct open_list *olp;
 
 	if (dev == NULL || *dev == '\0') {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
 		return (EINVAL);
 	}
-	NDMP_LOG(LOG_DEBUG,
-	    "conn: 0x%08x, dev: %s, sid: %d, lun: %d", conn, dev, sid, lun);
 
 	err = 0;
 	olhp = &ol_head;
 
 	if ((olp = ndmp_open_list_find(dev, sid, lun)) != NULL) {
-		NDMP_LOG(LOG_DEBUG, "already in list");
 		/*
 		 * The adapter handle can be opened many times by the clients.
 		 * Only when the target is set, we must check and reject the
@@ -1455,7 +1432,7 @@ ndmp_open_list_add(ndmp_connection_t *conn, char *dev, int sid, int lun, int fd)
 	} else if ((olp = ndmp_malloc(sizeof (struct open_list))) == NULL) {
 		err = ENOMEM;
 	} else if ((olp->ol_devnm = strdup(dev)) == NULL) {
-		NDMP_LOG(LOG_ERR, "Out of memory.");
+		syslog(LOG_ERR, "Out of memory.");
 		free(olp);
 		err = ENOMEM;
 	} else {
@@ -1495,18 +1472,16 @@ ndmp_open_list_del(char *dev, int sid, int lun)
 	struct open_list *olp;
 
 	if (dev == NULL || *dev == '\0') {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_DEBUG, "Invalid argument");
 		return (EINVAL);
 	}
 	if ((olp = ndmp_open_list_find(dev, sid, lun)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "%s not found", dev);
+		syslog(LOG_DEBUG, "%s not found", dev);
 		return (ENOENT);
 	}
 
 	(void) mutex_lock(&ol_mutex);
 	if (--olp->ol_nref <= 0) {
-		NDMP_LOG(LOG_DEBUG,
-		    "Removed dev: %s, sid: %d, lun: %d", dev, sid, lun);
 		LIST_REMOVE(olp, ol_q);
 		free(olp->ol_devnm);
 		free(olp);
@@ -1539,11 +1514,7 @@ ndmp_open_list_release(ndmp_connection_t *conn)
 	olp = LIST_FIRST(olhp);
 	while (olp != NULL) {
 		next = LIST_NEXT(olp, ol_q);
-		NDMP_LOG(LOG_DEBUG, "olp->conn 0x%08x", olp->cl_conn);
 		if (olp->cl_conn == conn) {
-			NDMP_LOG(LOG_DEBUG,
-			    "Removed dev: %s, sid: %d, lun: %d",
-			    olp->ol_devnm, olp->ol_sid, olp->ol_lun);
 			LIST_REMOVE(olp, ol_q);
 			if (olp->ol_fd > 0)
 				(void) close(olp->ol_fd);
@@ -1575,18 +1546,16 @@ ndmp_stop_buffer_worker(ndmpd_session_t *session)
 
 	session->ns_tape.td_pos = 0;
 	if ((nlp = ndmp_get_nlp(session)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "nlp == NULL");
+		syslog(LOG_DEBUG, "nlp == NULL");
 	} else {
 		cmds = &nlp->nlp_cmds;
-		if (cmds->tcs_command == NULL) {
-			NDMP_LOG(LOG_DEBUG, "cmds->tcs_command == NULL");
-		} else {
+		if (cmds->tcs_command != NULL) {
 			cmds->tcs_reader = cmds->tcs_writer = TLM_ABORT;
 			cmds->tcs_command->tc_reader = TLM_ABORT;
 			cmds->tcs_command->tc_writer = TLM_ABORT;
 			while (cmds->tcs_reader_count > 0 ||
 			    cmds->tcs_writer_count > 0) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "trying to stop buffer worker");
 				(void) sleep(1);
 			}
@@ -1613,16 +1582,14 @@ ndmp_stop_reader_thread(ndmpd_session_t *session)
 	tlm_commands_t *cmds;
 
 	if ((nlp = ndmp_get_nlp(session)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "nlp == NULL");
+		syslog(LOG_DEBUG, "nlp == NULL");
 	} else {
 		cmds = &nlp->nlp_cmds;
-		if (cmds->tcs_command == NULL) {
-			NDMP_LOG(LOG_DEBUG, "cmds->tcs_command == NULL");
-		} else {
+		if (cmds->tcs_command != NULL) {
 			cmds->tcs_reader = TLM_ABORT;
 			cmds->tcs_command->tc_reader = TLM_ABORT;
 			while (cmds->tcs_reader_count > 0) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "trying to stop reader thread");
 				(void) sleep(1);
 			}
@@ -1649,19 +1616,17 @@ ndmp_stop_writer_thread(ndmpd_session_t *session)
 	tlm_commands_t *cmds;
 
 	if ((nlp = ndmp_get_nlp(session)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "nlp == NULL");
+		syslog(LOG_DEBUG, "nlp == NULL");
 	} else {
 		cmds = &nlp->nlp_cmds;
-		if (cmds->tcs_command == NULL) {
-			NDMP_LOG(LOG_DEBUG, "cmds->tcs_command == NULL");
-		} else {
+		if (cmds->tcs_command != NULL) {
 			(void) mutex_lock(&nlp->nlp_mtx);
 			cmds->tcs_writer = TLM_ABORT;
 			cmds->tcs_command->tc_writer = TLM_ABORT;
 			(void) cond_broadcast(&nlp->nlp_cv);
 			(void) mutex_unlock(&nlp->nlp_mtx);
 			while (cmds->tcs_writer_count > 0) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "trying to stop writer thread");
 				(void) sleep(1);
 			}
@@ -1691,7 +1656,7 @@ ndmp_free_reader_writer_ipc(ndmpd_session_t *session)
 	if ((nlp = ndmp_get_nlp(session)) != NULL) {
 		cmds = &nlp->nlp_cmds;
 		if (cmds->tcs_command != NULL) {
-			NDMP_LOG(LOG_DEBUG, "cmds->tcs_command->tc_ref: %d",
+			syslog(LOG_DEBUG, "cmds->tcs_command->tc_ref: %d",
 			    cmds->tcs_command->tc_ref);
 			tlm_release_reader_writer_ipc(cmds->tcs_command);
 		}
@@ -1716,8 +1681,6 @@ ndmp_waitfor_op(ndmpd_session_t *session)
 	if (session != NULL) {
 		while (session->ns_nref > 0) {
 			(void) sleep(1);
-			NDMP_LOG(LOG_DEBUG,
-			    "waiting for session nref: %d", session->ns_nref);
 		}
 	}
 }
@@ -1929,11 +1892,10 @@ ndmp_connect_sock_v3(ulong_t addr, ushort_t port)
 	int sock;
 	struct sockaddr_in sin;
 
-	NDMP_LOG(LOG_DEBUG, "addr %s:%d", inet_ntoa(IN_ADDR(addr)), port);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		NDMP_LOG(LOG_DEBUG, "Socket error: %m");
+		syslog(LOG_DEBUG, "Socket error: %m");
 		return (-1);
 	}
 
@@ -1942,13 +1904,14 @@ ndmp_connect_sock_v3(ulong_t addr, ushort_t port)
 	sin.sin_addr.s_addr = htonl(addr);
 	sin.sin_port = htons(port);
 	if (connect(sock, (struct sockaddr *)&sin, sizeof (sin)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Connect error: %m");
+		syslog(LOG_DEBUG, "Connect error: %m");
 		(void) close(sock);
 		return (-1);
 	}
 
+	syslog(LOG_DEBUG, "Remote addr %s:%d", inet_ntoa(IN_ADDR(addr)), port);
+
 	set_socket_options(sock);
-	NDMP_LOG(LOG_DEBUG, "sock %d", sock);
 
 	return (sock);
 }
@@ -1988,7 +1951,7 @@ ndmp_create_socket(ulong_t *addr, ushort_t *port)
 
 	/* Fail if no IP can be obtained */
 	if (!p) {
-		NDMP_LOG(LOG_ERR, "Undetermined network port.");
+		syslog(LOG_ERR, "Undetermined network port.");
 		return (-1);
 	}
 
@@ -1996,7 +1959,7 @@ ndmp_create_socket(ulong_t *addr, ushort_t *port)
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sd < 0) {
-		NDMP_LOG(LOG_DEBUG, "Socket error: %m");
+		syslog(LOG_DEBUG, "Socket error: %m");
 		return (-1);
 	}
 	sin.sin_family = AF_INET;
@@ -2005,15 +1968,15 @@ ndmp_create_socket(ulong_t *addr, ushort_t *port)
 	length = sizeof (sin);
 
 	if (bind(sd, (struct sockaddr *)&sin, sizeof (sin)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Bind error: %m");
+		syslog(LOG_DEBUG, "Bind error: %m");
 		(void) close(sd);
 		sd = -1;
 	} else if (getsockname(sd, (struct sockaddr *)&sin, &length) < 0) {
-		NDMP_LOG(LOG_DEBUG, "getsockname error: %m");
+		syslog(LOG_DEBUG, "getsockname error: %m");
 		(void) close(sd);
 		sd = -1;
 	} else if (listen(sd, 5) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Listen error: %m");
+		syslog(LOG_DEBUG, "Listen error: %m");
 		(void) close(sd);
 		sd = -1;
 	} else
@@ -2062,26 +2025,72 @@ cctime(time_t *t)
 /*
  * ndmp_new_job_name
  *
- * Create a job name for each backup/restore to keep track
+ * Copy, at most, 'n' characters of the current backup
+ * job name to the buffer in parameter 's1'.
  *
  * Parameters:
- *   jname (output) - job name
+ *
+ *   s1 (input) - pointer to a user supplied buffer
+ *   n  (input) - number of bytes to copy
  *
  * Returns:
- *   jname
+ *   count of bytes in name
  */
-char *
-ndmp_new_job_name(char *jname)
-{
-	if (jname != NULL) {
-		(void) snprintf(jname, TLM_MAX_BACKUP_JOB_NAME, "%s%d",
-		    NDMP_RCF_BASENAME, ndmp_job_cnt++);
-		NDMP_LOG(LOG_DEBUG, "jname: \"%s\"", jname);
-	}
 
-	return (jname);
+int
+ndmp_new_job_name(char *s1, size_t n) {
+
+	if (n >= TLM_MAX_BACKUP_JOB_NAME) {
+		/*
+		 * TLM_MAX_BACKUP_JOB_NAME is the fixed length of
+		 * the encoded job name in the format `NdmpBackup.nnnn\0`,
+		 * where nnnn is a job sequence number.  A null byte
+		 * is included. It is okay if the buffer is bigger than that.
+		 */
+		return (snprintf(s1, n, "%10s.%04d",
+		    NDMP_RCF_BASENAME, ndmp_job_cnt++%1000));
+	}
+	return (0);
 }
 
+/*
+ * Check if the volume is already checkpointed. Assume it is not
+ * by setting nlp_snapname to '\0' at first. It will be filled
+ * in  with the checkpoint (snapshot name) if one is found.
+ */
+boolean_t
+fs_is_checkpointed(ndmp_lbr_params_t *nlp)
+{
+	zfs_handle_t *zhp;
+	snap_data_t si;
+
+	(void) mutex_lock(&zlib_mtx);
+	if ((zhp = zfs_open(zlibh, nlp->nlp_vol, ZFS_TYPE_DATASET)) != NULL) {
+		nlp->nlp_snapname[0] = '\0';
+		si.creation_time = (time_t)0;
+		si.last_snapshot = nlp->nlp_snapname;
+		if (ndmp_find_latest_autosync(zhp, (void *) &si) != 0) {
+			syslog(LOG_ERR,
+			    "Find AutoSync failed (err=%d): %s",
+			    errno, libzfs_error_description(zlibh));
+			zfs_close(zhp);
+			(void) mutex_unlock(&zlib_mtx);
+			return (B_FALSE);
+		}
+		zfs_close(zhp);
+		if (strlen(nlp->nlp_snapname) == 0) {
+			syslog(LOG_DEBUG, "Apparently not an "
+			    "Auto-Sync - continue as normal backup");
+			(void) mutex_unlock(&zlib_mtx);
+			return (B_FALSE);
+		}
+	}
+	(void) mutex_unlock(&zlib_mtx);
+	syslog(LOG_DEBUG, "It is an autosync:");
+	syslog(LOG_DEBUG, "nlp->nlp_vol = [%s]", nlp->nlp_vol);
+	syslog(LOG_DEBUG, "nlp->nlp_snapname = [%s]", nlp->nlp_snapname);
+	return (B_TRUE);
+}
 
 /*
  * fs_is_valid_logvol
@@ -2101,9 +2110,9 @@ fs_is_valid_logvol(char *path)
 	struct stat64 st;
 
 	if (stat64(path, &st) < 0)
-		return (FALSE);
+		return (B_FALSE);
 
-	return (TRUE);
+	return (B_TRUE);
 }
 
 
@@ -2120,9 +2129,8 @@ fs_is_valid_logvol(char *path)
  *   buf
  */
 char *
-ndmpd_mk_temp(char *buf)
+ndmpd_mk_temp(char * fname, char *buf)
 {
-	char fname[TLM_MAX_BACKUP_JOB_NAME];
 	const char *dir;
 	char *rv;
 
@@ -2131,29 +2139,86 @@ ndmpd_mk_temp(char *buf)
 
 	dir = ndmpd_get_prop(NDMP_DEBUG_PATH);
 	if (dir == 0 || *dir == '\0') {
-		NDMP_LOG(LOG_DEBUG, "NDMP work path not specified");
+		syslog(LOG_DEBUG, "NDMP work path not specified");
+		return (0);
+	}
+
+	/*
+	 * Make sure the NDMP work directory exists.
+	 */
+	if (ndmpd_mkdir(dir) < 0) {
+		syslog(LOG_DEBUG,
+		    "Could not create NDMP work path %s", dir);
 		return (0);
 	}
 
 	if (!fs_is_valid_logvol((char *)dir)) {
-		NDMP_LOG(LOG_ERR,
-		    "Log file path cannot be on system volumes.");
+		syslog(LOG_ERR,
+		    "Log file path cannot be on system volumes");
 		return (0);
 	}
 
 	dir += strspn(dir, " \t");
 	if (!*dir) {
-		NDMP_LOG(LOG_DEBUG, "NDMP work path not specified");
+		syslog(LOG_DEBUG, "NDMP work path not specified");
 		return (0);
 	}
 
 	rv = buf;
-	(void) ndmp_new_job_name(fname);
+
 	(void) tlm_cat_path(buf, (char *)dir, fname);
 
 	return (rv);
 }
 
+/*
+ * ndmp_mkdir
+ *
+ * If the temporary bitmap database directory doesn't exist
+ * create it.  This keep from having to create directory
+ * by hand when it is changed with svcadm.
+ *
+ * Parameters:
+ *   dir (input) - the path to create
+ *
+ * Returns:
+ *   0 - success.
+ *  -1 - error.
+ */
+static int
+ndmpd_mkdir(const char *dir)
+{
+	char tmp[PATH_MAX];
+	char *p = NULL;
+	size_t len;
+
+	(void) snprintf(tmp, sizeof (tmp), "%s", dir);
+	len = strlen(tmp);
+	if (tmp[len - 1] == '/')
+		tmp[len - 1] = '\0';
+	for (p = tmp + 1; *p; p++) {
+		if (*p == '/') {
+			*p = '\0';
+			if (mkdir(tmp, S_IRWXU) < 0) {
+				if (errno != EEXIST) {
+				syslog(LOG_ERR,
+				    "failed to create intermediate path %s\n",
+				    tmp);
+				return (-1);
+				}
+			}
+			*p = '/';
+		}
+	}
+	if (mkdir(tmp, S_IRWXU) < 0) {
+		if (errno != EEXIST) {
+		syslog(LOG_ERR,
+		    "failed to create full path %s\n", tmp);
+		return (-1);
+		}
+	}
+	return (0);
+}
 
 /*
  * ndmpd_make_bk_dir_path
@@ -2193,6 +2258,66 @@ ndmpd_make_bk_dir_path(char *buf, char *fname)
 	return (buf);
 }
 
+static int
+ndmp_match_checkpoint_name(zfs_handle_t *zhp, void *arg)
+{
+	snap_data_t *sd = (snap_data_t *)arg;
+	time_t snap_creation;
+	nvlist_t *userprops = NULL;
+
+	if (zfs_get_type(zhp) == ZFS_TYPE_SNAPSHOT) {
+		if ((userprops = zfs_get_user_props(zhp)) != NULL) {
+			/*
+			 * Destination AutoSync snap-shots have
+			 * 'nms:autosyncmark' property whereas the
+			 * source dataset snap-shot has has
+			 * 'nms:service' property. This finds either
+			 * for use as backup.
+			 */
+			if (nvlist_exists(userprops, "nms:autosyncmark") ||
+			    nvlist_exists(userprops,
+				"com.nexenta.nef:hprsvcid") ||
+			    nvlist_exists(userprops, "nms:service")) {
+				snap_creation = (time_t)zfs_prop_get_int(zhp,
+				    ZFS_PROP_CREATION);
+				if (snap_creation > sd->creation_time) {
+					(void) strncpy(
+					    (char *) sd->last_snapshot,
+					    zfs_get_name(zhp),
+					    ZFS_MAX_DATASET_NAME_LEN);
+					sd->creation_time = snap_creation;
+				}
+			}
+		}
+	}
+	zfs_close(zhp);
+	return (0);
+}
+
+/*
+ * ndmp_find_latest_autosync
+ *
+ * Given a dataset zfs_handlt_t find the latest "AutoSync" snapshot
+ */
+int
+ndmp_find_latest_autosync(zfs_handle_t *zhp, void *arg)
+{
+	int err;
+	snap_data_t *si = (snap_data_t *)arg;
+
+	err = zfs_iter_dependents(zhp, B_FALSE,
+	    ndmp_match_checkpoint_name, (void *)si);
+	if (err) {
+		syslog(LOG_DEBUG,
+		    "Trying to find AutoSync zfs_iter_snapshots: %d", err);
+		si->last_snapshot = '\0';
+		return (-1);
+	} else {
+		syslog(LOG_DEBUG, "Found most recent AutoSync -> [%s]\n",
+		    si->last_snapshot);
+	}
+	return (0);
+}
 
 /*
  * ndmp_is_chkpnt_root
@@ -2206,7 +2331,7 @@ ndmp_is_chkpnt_root(char *path)
 	struct stat64 st;
 
 	if (stat64(path, &st) != 0) {
-		NDMP_LOG(LOG_DEBUG, "Couldn't stat path \"%s\"", path);
+		syslog(LOG_DEBUG, "Couldn't stat path \"%s\"", path);
 		return (TRUE);
 	}
 	return (FALSE);
@@ -2260,13 +2385,11 @@ ndmp_get_bk_dir_ino(ndmp_lbr_params_t *nlp)
 
 	if (stat64(nlp->nlp_backup_path, &st) != 0) {
 		rv = -1;
-		NDMP_LOG(LOG_DEBUG, "Getting inode # of \"%s\"",
+		syslog(LOG_ERR, "Failed to get inode # of \"%s\"",
 		    nlp->nlp_backup_path);
 	} else {
 		rv = 0;
 		nlp->nlp_bkdirino = st.st_ino;
-		NDMP_LOG(LOG_DEBUG, "nlp_bkdirino: %lu",
-		    (uint_t)nlp->nlp_bkdirino);
 	}
 
 	return (rv);
@@ -2289,11 +2412,11 @@ ndmp_check_utf8magic(tlm_cmd_t *cmd)
 	int err, len, actual_size;
 
 	if (cmd == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cmd == NULL");
+		syslog(LOG_DEBUG, "cmd == NULL");
 		return (FALSE);
 	}
 	if (cmd->tc_buffers == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cmd->tc_buffers == NULL");
+		syslog(LOG_DEBUG, "cmd->tc_buffers == NULL");
 		return (FALSE);
 	}
 
@@ -2304,12 +2427,12 @@ ndmp_check_utf8magic(tlm_cmd_t *cmd)
 	cp = tlm_get_read_buffer(RECORDSIZE, &err, cmd->tc_buffers,
 	    &actual_size);
 	if (cp == NULL) {
-		NDMP_LOG(LOG_DEBUG, "Can't read from buffers, err: %d", err);
+		syslog(LOG_DEBUG, "Can't read from buffers, err: %d", err);
 		return (FALSE);
 	}
 	len = strlen(NDMPUTF8MAGIC);
 	if (actual_size < len) {
-		NDMP_LOG(LOG_DEBUG, "Not enough data in the buffers");
+		syslog(LOG_DEBUG, "Not enough data in the buffers");
 		return (FALSE);
 	}
 
@@ -2323,28 +2446,22 @@ ndmp_check_utf8magic(tlm_cmd_t *cmd)
  * Get the backup checkpoint time.
  */
 int
-ndmp_get_cur_bk_time(ndmp_lbr_params_t *nlp, time_t *tp, char *jname)
+ndmp_get_cur_bk_time(ndmp_lbr_params_t *nlp, time_t *tp)
 {
 	int err;
 
-	if (!nlp || !nlp->nlp_backup_path || !tp) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+	if (!nlp || !tp) {
+		syslog(LOG_ERR, "Invalid argument");
 		return (-1);
 	}
 
-	if (!fs_is_chkpnt_enabled(nlp->nlp_backup_path)) {
-		NDMP_LOG(LOG_DEBUG, "Not a chkpnt volume %s",
-		    nlp->nlp_backup_path);
-		*tp = time(NULL);
-		return (0);
-	}
-
-	err = tlm_get_chkpnt_time(nlp->nlp_backup_path, !NLP_ISCHKPNTED(nlp),
-	    tp, jname);
+	err = tlm_get_chkpnt_time(nlp->nlp_snapname, tp);
 	if (err != 0) {
-		NDMP_LOG(LOG_DEBUG, "Can't checkpoint time");
+		syslog(LOG_ERR, "Can't checkpoint time from [%s]",
+		    nlp->nlp_snapname);
 	} else {
-		NDMP_LOG(LOG_DEBUG, "%s", cctime(tp));
+		syslog(LOG_DEBUG, "Checkpoint time of [%s] is [%s]",
+		    nlp->nlp_snapname, cctime(tp));
 	}
 
 	return (err);
@@ -2416,7 +2533,7 @@ is_tape_unit_ready(char *adptnm, int dev_id)
 	}
 	do {
 		if (scsi_test_unit_ready(fd) >= 0) {
-			NDMP_LOG(LOG_DEBUG, "Unit is ready");
+			syslog(LOG_DEBUG, "Unit is ready");
 
 			if (dev_id <= 0)
 				(void) close(fd);
@@ -2424,7 +2541,7 @@ is_tape_unit_ready(char *adptnm, int dev_id)
 			return (TRUE);
 		}
 
-		NDMP_LOG(LOG_DEBUG, "Unit not ready");
+		syslog(LOG_DEBUG, "Unit not ready");
 		(void) usleep(TUR_WAIT);
 
 	} while (--try > 0);
@@ -2432,7 +2549,7 @@ is_tape_unit_ready(char *adptnm, int dev_id)
 	if (dev_id <= 0)
 		(void) close(fd);
 
-	NDMP_LOG(LOG_DEBUG, "Unit didn't get ready");
+	syslog(LOG_DEBUG, "Unit didn't get ready");
 	return (FALSE);
 }
 
@@ -2462,9 +2579,9 @@ scsi_test_unit_ready(int dev_id)
 	retval = ioctl(dev_id, USCSICMD, &ucmd);
 
 	if (retval != 0 && errno != EIO) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Failed to send inquiry request to device: %m.");
-		NDMP_LOG(LOG_DEBUG, "Inquiry request failed for"
+		syslog(LOG_DEBUG, "Inquiry request failed for"
 		    " dev_id:%d err=%d -%m", dev_id, errno);
 		retval = -errno;
 	} else
@@ -2505,6 +2622,23 @@ ndmp_load_params(void)
 
 	/* Get the value from ndmp SMF property. */
 	ndmp_dar_support = ndmpd_get_prop_yorn(NDMP_DAR_SUPPORT);
+
+	ndmp_autosync_support = ndmpd_get_prop_yorn(NDMP_AUTOSYNC_SUPPORT);
+	ndmp_hpr_support = ndmpd_get_prop_yorn(NDMP_HPR_SUPPORT);
+	/*
+	 * The HPR snapshot feature superscedes autosync and the two can't be
+	 * active together on the same system.
+	 */
+	if (ndmp_hpr_support) {
+		ndmp_autosync_support = 0;
+		syslog(LOG_DEBUG, "NDMP_HPR_SUPPORT set to [%d]",
+		    ndmp_hpr_support);
+	}
+
+	if (ndmp_autosync_support) {
+		syslog(LOG_DEBUG, "NDMP_AUTOSYNC_SUPPORT set to [%d]",
+		    ndmp_autosync_support);
+	}
 
 	if ((ndmp_ver = atoi(ndmpd_get_prop(NDMP_VERSION_ENV))) == 0)
 		ndmp_ver = NDMPVER;

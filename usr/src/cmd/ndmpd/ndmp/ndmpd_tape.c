@@ -37,9 +37,10 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright 2014 Nexenta Systems, Inc.  All rights reserved. */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
 
 #include <sys/param.h>
+#include <syslog.h>
 #include <fcntl.h>
 #include <sys/mtio.h>
 #include <errno.h>
@@ -115,12 +116,12 @@ ndmpd_tape_open_v2(ndmp_connection_t *connection, void *body)
 	int sid, lun;
 	int err;
 	scsi_adapter_t *sa;
-	int devid;
+	int devid = -1;
 
 	err = NDMP_NO_ERR;
 
 	if (session->ns_tape.td_fd != -1 || session->ns_scsi.sd_is_open != -1) {
-		NDMP_LOG(LOG_INFO,
+		syslog(LOG_INFO,
 		    "Connection already has a tape or scsi device open");
 		err = NDMP_DEVICE_OPENED_ERR;
 	} else if (request->mode != NDMP_TAPE_READ_MODE &&
@@ -130,8 +131,6 @@ ndmpd_tape_open_v2(ndmp_connection_t *connection, void *body)
 	}
 
 	if ((sa = scsi_get_adapter(0)) != NULL) {
-		NDMP_LOG(LOG_DEBUG,
-		    "Adapter device opened: %s", request->device.name);
 		(void) strlcpy(adptnm, request->device.name, SCSI_MAX_NAME-2);
 		adptnm[SCSI_MAX_NAME-1] = '\0';
 		sid = lun = -1;
@@ -142,14 +141,14 @@ ndmpd_tape_open_v2(ndmp_connection_t *connection, void *body)
 		if (ndmp_open_list_find(request->device.name, sid, lun) == 0 &&
 		    (devid = tape_open(request->device.name,
 		    O_RDWR | O_NDELAY)) < 0) {
-			NDMP_LOG(LOG_ERR, "Failed to open device %s: %m.",
+			syslog(LOG_ERR, "Failed to open device %s: %m.",
 			    request->device.name);
 			err = NDMP_NO_DEVICE_ERR;
 		}
 		else
 			(void) close(devid);
 	} else {
-		NDMP_LOG(LOG_ERR, "%s: No such tape device.",
+		syslog(LOG_ERR, "%s: No such tape device.",
 		    request->device.name);
 		err = NDMP_NO_DEVICE_ERR;
 	}
@@ -192,7 +191,7 @@ ndmpd_tape_open_v2(ndmp_connection_t *connection, void *body)
 	mode = (request->mode == NDMP_TAPE_READ_MODE) ? O_RDONLY : O_RDWR;
 	mode |= O_NDELAY;
 	if ((session->ns_tape.td_fd = open(request->device.name, mode)) < 0) {
-			NDMP_LOG(LOG_ERR, "Failed to open tape device %s: %m.",
+			syslog(LOG_ERR, "Failed to open tape device %s: %m.",
 			    request->device.name);
 			switch (errno) {
 			case EACCES:
@@ -220,8 +219,6 @@ ndmpd_tape_open_v2(ndmp_connection_t *connection, void *body)
 	(void) strlcpy(session->ns_tape.td_adapter_name, adptnm, SCSI_MAX_NAME);
 	session->ns_tape.td_record_count = 0;
 
-	NDMP_LOG(LOG_DEBUG, "Tape is opened fd: %d", session->ns_tape.td_fd);
-
 	tape_open_send_reply(connection, NDMP_NO_ERR);
 }
 
@@ -246,7 +243,7 @@ ndmpd_tape_close_v2(ndmp_connection_t *connection, void *body)
 	ndmpd_session_t *session = ndmp_get_client_data(connection);
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_close reply");
@@ -281,7 +278,7 @@ ndmpd_tape_get_state_v2(ndmp_connection_t *connection, void *body)
 	struct mtdrivetype dtp;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_get_state reply");
@@ -289,8 +286,7 @@ ndmpd_tape_get_state_v2(ndmp_connection_t *connection, void *body)
 	}
 
 	if (ioctl(session->ns_tape.td_fd, MTIOCGET, &mtstatus) < 0) {
-		NDMP_LOG(LOG_ERR, "Failed to get status from tape: %m.");
-		NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCGET) error: %m.");
+		syslog(LOG_ERR, "Failed to get status from tape: %m.");
 		reply.error = NDMP_IO_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
 		    "sending tape_get_state reply");
@@ -300,9 +296,8 @@ ndmpd_tape_get_state_v2(ndmp_connection_t *connection, void *body)
 	dtpr.size = sizeof (struct mtdrivetype);
 	dtpr.mtdtp = &dtp;
 	if (ioctl(session->ns_tape.td_fd, MTIOCGETDRIVETYPE, &dtpr) == -1) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Failed to get drive type information from tape: %m.");
-		NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCGETDRIVETYPE) error: %m.");
 		reply.error = NDMP_IO_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
 		    "sending tape_get_state reply");
@@ -323,10 +318,6 @@ ndmpd_tape_get_state_v2(ndmp_connection_t *connection, void *body)
 	reply.soft_errors = 0;
 	reply.total_space = long_long_to_quad(0);	/* not supported */
 	reply.space_remain = long_long_to_quad(0);	/* not supported */
-
-	NDMP_LOG(LOG_DEBUG,
-	    "flags: 0x%x, file_num: %d, block_size: %d, blockno: %d",
-	    reply.flags, reply.file_num, reply.block_size, reply.blockno);
 
 	reply.error = NDMP_NO_ERR;
 	ndmp_send_reply(connection, (void *) &reply,
@@ -361,7 +352,7 @@ ndmpd_tape_mtio_v2(ndmp_connection_t *connection, void *body)
 	reply.resid_count = 0;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_mtio reply");
@@ -414,9 +405,6 @@ ndmpd_tape_mtio_v2(ndmp_connection_t *connection, void *body)
 			errno = 0;
 			rc = ioctl(session->ns_tape.td_fd, MTIOCTOP, &tapeop);
 			NS_UPD(trun, twait);
-			NDMP_LOG(LOG_DEBUG,
-			    "ioctl MTIO rc:%d, cmd:%d, retry:%d, error: %d",
-			    rc, tapeop.mt_op, retry, errno);
 		} while (rc < 0 && errno == EIO &&
 		    retry++ < 5);
 
@@ -427,9 +415,8 @@ ndmpd_tape_mtio_v2(ndmp_connection_t *connection, void *body)
 		 * determine that the call was not completely successful.
 		 */
 		if (rc < 0) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Failed to send command to tape: %m.");
-			NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCTOP) error: %m.");
 
 			/* MTWEOF doesnt have residual count */
 			if (tapeop.mt_op == MTWEOF)
@@ -446,10 +433,8 @@ ndmpd_tape_mtio_v2(ndmp_connection_t *connection, void *body)
 		    request->tape_op != NDMP_MTIO_OFF) {
 			if (ioctl(session->ns_tape.td_fd, MTIOCGET,
 			    &mtstatus) < 0) {
-				NDMP_LOG(LOG_ERR,
+				syslog(LOG_ERR,
 				    "Failed to send command to tape: %m.");
-				NDMP_LOG(LOG_DEBUG,
-				    "ioctl(MTIOCGET) error: %m.");
 				reply.error = NDMP_IO_ERR;
 				ndmp_send_reply(connection, (void *)&reply,
 				    "sending tape_mtio reply");
@@ -461,8 +446,6 @@ ndmpd_tape_mtio_v2(ndmp_connection_t *connection, void *body)
 		}
 	}
 
-	NDMP_LOG(LOG_DEBUG, "resid_count: %d",
-	    reply.resid_count);
 	ndmp_send_reply(connection, (void *) &reply, "sending tape_mtio reply");
 }
 
@@ -499,7 +482,7 @@ ndmpd_tape_read_v2(ndmp_connection_t *connection, void *body)
 	reply.data_in.data_in_len = 0;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
 		    "sending tape_read reply");
@@ -549,7 +532,7 @@ ndmpd_tape_execute_cdb_v2(ndmp_connection_t *connection, void *body)
 	if (session->ns_tape.td_fd == -1) {
 		(void) memset((void *) &reply, 0, sizeof (reply));
 
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_execute_cdb reply");
@@ -612,7 +595,7 @@ ndmpd_tape_get_state_v3(ndmp_connection_t *connection, void *body)
 	struct mtget mtstatus;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_get_state reply");
@@ -620,8 +603,7 @@ ndmpd_tape_get_state_v3(ndmp_connection_t *connection, void *body)
 	}
 
 	if (ioctl(session->ns_tape.td_fd, MTIOCGET, &mtstatus) == -1) {
-		NDMP_LOG(LOG_ERR, "Failed to get status from tape: %m.");
-		NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCGET) error: %m.");
+		syslog(LOG_ERR, "Failed to get status from tape: %m.");
 
 		reply.error = NDMP_IO_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
@@ -632,9 +614,8 @@ ndmpd_tape_get_state_v3(ndmp_connection_t *connection, void *body)
 	dtpr.size = sizeof (struct mtdrivetype);
 	dtpr.mtdtp = &dtp;
 	if (ioctl(session->ns_tape.td_fd, MTIOCGETDRIVETYPE, &dtpr) == -1) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Failed to get drive type information from tape: %m.");
-		NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCGETDRIVETYPE) error: %m.");
 
 		reply.error = NDMP_IO_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
@@ -664,10 +645,6 @@ ndmpd_tape_get_state_v3(ndmp_connection_t *connection, void *body)
 	    NDMP_TAPE_STATE_TOTAL_SPACE_INVALID |
 	    NDMP_TAPE_STATE_SPACE_REMAIN_INVALID |
 	    NDMP_TAPE_STATE_PARTITION_INVALID;
-
-
-	NDMP_LOG(LOG_DEBUG, "f 0x%x, fnum %d, bsize %d, bno: %d",
-	    reply.flags, reply.file_num, reply.block_size, reply.blockno);
 
 	reply.error = NDMP_NO_ERR;
 	ndmp_send_reply(connection, (void *) &reply,
@@ -764,14 +741,14 @@ void ndmpd_tape_write_v3(ndmp_connection_t *connection, void *body) {
 	reply.count = 0;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_write reply");
 		return;
 	}
 	if (session->ns_tape.td_mode == NDMP_TAPE_READ_MODE) {
-		NDMP_LOG(LOG_INFO, "Tape device opened in read-only mode");
+		syslog(LOG_INFO, "Tape device opened in read-only mode");
 		reply.error = NDMP_PERMISSION_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_write reply");
@@ -802,10 +779,10 @@ void ndmpd_tape_write_v3(ndmp_connection_t *connection, void *body) {
 	    request->data_out.data_out_len);
 
 	if (n < 0) {
-		NDMP_LOG(LOG_ERR, "Tape write error: %m.");
+		syslog(LOG_ERR, "Tape write error: %m.");
 		reply.error = NDMP_IO_ERR;
 	} else if (n == 0) {
-		NDMP_LOG(LOG_INFO, "EOM detected");
+		syslog(LOG_INFO, "EOM detected");
 		reply.error = NDMP_EOM_ERR;
 	} else {
 		NS_ADD(wtape, n);
@@ -813,7 +790,7 @@ void ndmpd_tape_write_v3(ndmp_connection_t *connection, void *body) {
 		reply.error = NDMP_NO_ERR;
 
 		if (n < request->data_out.data_out_len)
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 				"EOM is coming (partial write of %d bytes)", n);
 	}
 
@@ -853,7 +830,7 @@ ndmpd_tape_read_v3(ndmp_connection_t *connection, void *body)
 	reply.data_in.data_in_len = 0;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_read reply");
@@ -901,7 +878,7 @@ ndmpd_tape_read_v3(ndmp_connection_t *connection, void *body)
 		 * repeated attempt to read at EOT.
 		 */
 		else if (errno == EIO && tape_is_at_bof(session)) {
-			NDMP_LOG(LOG_DEBUG, "Repeated read at EOT");
+			syslog(LOG_DEBUG, "Repeated read at EOT");
 			reply.error = NDMP_EOM_ERR;
 		}
 		/*
@@ -909,20 +886,20 @@ ndmpd_tape_read_v3(ndmp_connection_t *connection, void *body)
 		 * trying to read from blank tape is NDMP_EOM_ERR.
 		 */
 		else if (errno == EIO && tape_is_at_bot(session)) {
-			NDMP_LOG(LOG_ERR, "Blank tape detected, returning EOM");
+			syslog(LOG_ERR, "Blank tape detected, returning EOM");
 			reply.error = NDMP_EOM_ERR;
 		} else {
-			NDMP_LOG(LOG_ERR, "Tape read error: %m.");
+			syslog(LOG_ERR, "Tape read error: %m.");
 			reply.error = NDMP_IO_ERR;
 		}
 	} else if (n == 0) {
 		if (tape_is_at_bof(session)) {
-			NDMP_LOG(LOG_DEBUG, "EOT detected");
+			syslog(LOG_DEBUG, "EOT detected");
 			reply.error = NDMP_EOM_ERR;
 		} else {
 			/* reposition the tape to BOT side of FM */
 			fm_dance(session);
-			NDMP_LOG(LOG_DEBUG, "EOF detected");
+			syslog(LOG_DEBUG, "EOF detected");
 			reply.error = NDMP_EOF_ERR;
 		}
 	} else {
@@ -968,7 +945,7 @@ ndmpd_tape_get_state_v4(ndmp_connection_t *connection, void *body)
 	struct mtdrivetype dtp;
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_get_state reply");
@@ -980,9 +957,8 @@ ndmpd_tape_get_state_v4(ndmp_connection_t *connection, void *body)
 	 */
 
 	if (ioctl(session->ns_tape.td_fd, MTIOCGET, &mtstatus) == -1) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Failed to get status information from tape: %m.");
-		NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCGET) error: %m.");
 
 		reply.error = NDMP_IO_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
@@ -993,9 +969,8 @@ ndmpd_tape_get_state_v4(ndmp_connection_t *connection, void *body)
 	dtpr.size = sizeof (struct mtdrivetype);
 	dtpr.mtdtp = &dtp;
 	if (ioctl(session->ns_tape.td_fd, MTIOCGETDRIVETYPE, &dtpr) == -1) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Failed to get drive type information from tape: %m.");
-		NDMP_LOG(LOG_DEBUG, "ioctl(MTIOCGETDRIVETYPE) error: %m.");
 
 		reply.error = NDMP_IO_ERR;
 		ndmp_send_reply(connection, (void *)&reply,
@@ -1023,9 +998,6 @@ ndmpd_tape_get_state_v4(ndmp_connection_t *connection, void *body)
 	    NDMP_TAPE_STATE_SPACE_REMAIN_INVALID |
 	    NDMP_TAPE_STATE_PARTITION_INVALID;
 
-	NDMP_LOG(LOG_DEBUG, "f 0x%x, fnum %d, bsize %d, bno: %d",
-	    reply.flags, reply.file_num, reply.block_size, reply.blockno);
-
 	reply.error = NDMP_NO_ERR;
 	ndmp_send_reply(connection, (void *) &reply,
 	    "sending tape_get_state reply");
@@ -1050,7 +1022,7 @@ ndmpd_tape_close_v4(ndmp_connection_t *connection, void *body)
 	ndmpd_session_t *session = ndmp_get_client_data(connection);
 
 	if (session->ns_tape.td_fd == -1) {
-		NDMP_LOG(LOG_ERR, "Tape device is not open.");
+		syslog(LOG_ERR, "Tape device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending tape_close reply");
@@ -1129,12 +1101,10 @@ unbuffered_read(ndmpd_session_t *session, char *buf, long wanted,
 		if (errno == ENOSPC) {
 			reply->error = NDMP_EOF_ERR;
 		} else {
-			NDMP_LOG(LOG_ERR, "Tape read error: %m.");
+			syslog(LOG_ERR, "Tape read error: %m.");
 			reply->error = NDMP_IO_ERR;
 		}
 	} else if (n == 0) {
-		NDMP_LOG(LOG_DEBUG, "NDMP_EOF_ERR");
-
 		reply->error = NDMP_EOF_ERR;
 
 		(void) ndmp_mtioctl(session->ns_tape.td_fd, MTFSF, 1);
@@ -1143,8 +1113,6 @@ unbuffered_read(ndmpd_session_t *session, char *buf, long wanted,
 		(void) memset(buf, 0, len);
 		n = read(session->ns_tape.td_fd, buf, len);
 		buf[len] = '\0';
-
-		NDMP_LOG(LOG_DEBUG, "Checking EOM: nread %d [%s]", n, buf);
 
 		(void) ndmp_mtioctl(session->ns_tape.td_fd, MTBSF, 1);
 
@@ -1207,18 +1175,17 @@ common_tape_open(ndmp_connection_t *connection, char *devname, int ndmpmode)
 	int mode;
 	int sid, lun;
 	scsi_adapter_t *sa;
-	int devid;
+	int devid = -1;
 
 	err = NDMP_NO_ERR;
 
 	if (session->ns_tape.td_fd != -1 || session->ns_scsi.sd_is_open != -1) {
-		NDMP_LOG(LOG_INFO,
+		syslog(LOG_INFO,
 		    "Connection already has a tape or scsi device open");
 		err = NDMP_DEVICE_OPENED_ERR;
 	} else if (!validmode(ndmpmode))
 		err = NDMP_ILLEGAL_ARGS_ERR;
 	if ((sa = scsi_get_adapter(0)) != NULL) {
-		NDMP_LOG(LOG_DEBUG, "Adapter device opened: %s", devname);
 		(void) strlcpy(adptnm, devname, SCSI_MAX_NAME-2);
 		adptnm[SCSI_MAX_NAME-1] = '\0';
 		sid = lun = -1;
@@ -1227,14 +1194,14 @@ common_tape_open(ndmp_connection_t *connection, char *devname, int ndmpmode)
 		scsi_find_sid_lun(sa, devname, &sid, &lun);
 		if (ndmp_open_list_find(devname, sid, lun) == 0 &&
 		    (devid = open(devname, O_RDWR | O_NDELAY)) < 0) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Failed to open device %s: %m.", devname);
 			err = NDMP_NO_DEVICE_ERR;
 		} else {
 			(void) close(devid);
 		}
 	} else {
-		NDMP_LOG(LOG_ERR, "%s: No such tape device.", devname);
+		syslog(LOG_ERR, "%s: No such tape device.", devname);
 		err = NDMP_NO_DEVICE_ERR;
 	}
 
@@ -1269,7 +1236,7 @@ common_tape_open(ndmp_connection_t *connection, char *devname, int ndmpmode)
 		session->ns_tape.td_fd = open(devname, O_RDONLY);
 	}
 	if (session->ns_tape.td_fd < 0) {
-		NDMP_LOG(LOG_ERR, "Failed to open tape device %s: %m.",
+		syslog(LOG_ERR, "Failed to open tape device %s: %m.",
 		    devname);
 		switch (errno) {
 		case EACCES:
@@ -1316,8 +1283,6 @@ common_tape_open(ndmp_connection_t *connection, char *devname, int ndmpmode)
 	session->ns_tape.td_lun = lun;
 	(void) strlcpy(session->ns_tape.td_adapter_name, adptnm, SCSI_MAX_NAME);
 	session->ns_tape.td_record_count = 0;
-
-	NDMP_LOG(LOG_DEBUG, "Tape is opened fd: %d", session->ns_tape.td_fd);
 
 	tape_open_send_reply(connection, NDMP_NO_ERR);
 }

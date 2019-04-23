@@ -37,6 +37,7 @@
  */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
 
 /*
  * File history callback functions called by backup modules. NDMP file history
@@ -53,6 +54,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -134,8 +136,6 @@ ndmpd_api_file_history_path_v2(void *cookie, char *name,
 	    PATH_NAMEBUF_SIZE) {
 		ndmp_fh_add_unix_path_request request;
 
-		NDMP_LOG(LOG_DEBUG,
-		    "sending %ld entries", session->ns_fh.fh_path_index);
 
 		request.paths.paths_val = session->ns_fh.fh_path_entries;
 		request.paths.paths_len = session->ns_fh.fh_path_index;
@@ -143,7 +143,7 @@ ndmpd_api_file_history_path_v2(void *cookie, char *name,
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_FH_ADD_UNIX_PATH, NDMP_NO_ERR, (void *) &request,
 		    0) < 0) {
-			NDMP_LOG(LOG_DEBUG, "Sending file history data");
+			syslog(LOG_ERR, "Sending file history data failed");
 			return (-1);
 		}
 		session->ns_fh.fh_path_index = 0;
@@ -226,15 +226,12 @@ ndmpd_api_file_history_dir_v2(void *cookie, char *name, ulong_t node,
 	    DIR_NAMEBUF_SIZE) {
 		ndmp_fh_add_unix_dir_request request;
 
-		NDMP_LOG(LOG_DEBUG,
-		    "sending %ld entries", session->ns_fh.fh_dir_index);
-
 		request.dirs.dirs_val = session->ns_fh.fh_dir_entries;
 		request.dirs.dirs_len = session->ns_fh.fh_dir_index;
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_FH_ADD_UNIX_DIR, NDMP_NO_ERR, (void *) &request,
 		    0) < 0) {
-			NDMP_LOG(LOG_DEBUG, "Sending file history data");
+			syslog(LOG_DEBUG, "Sending file history data");
 			return (-1);
 		}
 		session->ns_fh.fh_dir_index = 0;
@@ -313,9 +310,6 @@ ndmpd_api_file_history_node_v2(void *cookie, ulong_t node,
 	    session->ns_fh.fh_node_index == N_NODE_ENTRIES) {
 		ndmp_fh_add_unix_node_request request;
 
-		NDMP_LOG(LOG_DEBUG,
-		    "sending %ld entries", session->ns_fh.fh_node_index);
-
 		request.nodes.nodes_val = session->ns_fh.fh_node_entries;
 		request.nodes.nodes_len = session->ns_fh.fh_node_index;
 		/*
@@ -329,7 +323,7 @@ ndmpd_api_file_history_node_v2(void *cookie, ulong_t node,
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_FH_ADD_UNIX_NODE, NDMP_NO_ERR, (void *) &request,
 		    0) < 0) {
-			NDMP_LOG(LOG_DEBUG, "Sending file history data");
+			syslog(LOG_ERR, "Sending file history data failed");
 			return (-1);
 		}
 		session->ns_fh.fh_node_index = 0;
@@ -409,16 +403,13 @@ ndmpd_api_file_history_file_v3(void *cookie, char *name,
 	    session->ns_fh_v3.fh_file_name_buf_index + strlen(name) + 1 >
 	    PATH_NAMEBUF_SIZE) {
 
-		NDMP_LOG(LOG_DEBUG, "sending %ld entries",
-		    session->ns_fh_v3.fh_file_index);
-
 		request.files.files_len = session->ns_fh_v3.fh_file_index;
 		request.files.files_val = session->ns_fh_v3.fh_files;
 
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_FH_ADD_FILE, NDMP_NO_ERR, (void *) &request, 0) < 0) {
-			NDMP_LOG(LOG_DEBUG,
-			    "Sending ndmp_fh_add_file request");
+			syslog(LOG_ERR,
+			    "Sending ndmp_fh_add_file request failed");
 			return (-1);
 		}
 
@@ -539,16 +530,13 @@ ndmpd_api_file_history_dir_v3(void *cookie, char *name, ulong_t node,
 	    session->ns_fh_v3.fh_dir_name_buf_index + strlen(name) + 1 >
 	    DIR_NAMEBUF_SIZE) {
 
-		NDMP_LOG(LOG_DEBUG, "sending %ld entries",
-		    session->ns_fh_v3.fh_dir_index);
-
 		request.dirs.dirs_val = session->ns_fh_v3.fh_dirs;
 		request.dirs.dirs_len = session->ns_fh_v3.fh_dir_index;
 
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_FH_ADD_DIR, NDMP_NO_ERR, (void *) &request, 0) < 0) {
-			NDMP_LOG(LOG_DEBUG,
-			    "Sending ndmp_fh_add_dir request");
+			syslog(LOG_ERR,
+			    "Sending ndmp_fh_add_dir request failed");
 			return (-1);
 		}
 
@@ -645,8 +633,6 @@ ndmpd_api_file_history_node_v3(void *cookie, ulong_t node,
 	 */
 	if (file_stat == NULL ||
 	    session->ns_fh_v3.fh_node_index == N_NODE_ENTRIES) {
-		NDMP_LOG(LOG_DEBUG, "sending %ld entries",
-		    session->ns_fh_v3.fh_node_index);
 
 		/*
 		 * Need to send Dir entry as well. Since Dir entry is more
@@ -662,8 +648,8 @@ ndmpd_api_file_history_node_v3(void *cookie, ulong_t node,
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_FH_ADD_NODE,
 		    NDMP_NO_ERR, (void *) &request, 0) < 0) {
-			NDMP_LOG(LOG_DEBUG,
-			    "Sending ndmp_fh_add_node request");
+			syslog(LOG_ERR,
+			    "Sending ndmp_fh_add_node request failed");
 			return (-1);
 		}
 
@@ -739,28 +725,26 @@ ndmpd_fhpath_v3_cb(lbr_fhlog_call_backs_t *cbp, char *path, struct stat64 *stp,
 
 	if (!cbp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 	} else if (!cbp->fh_cookie) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cookie is NULL");
+		syslog(LOG_DEBUG, "cookie is NULL");
 	} else if (!path) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "path is NULL");
+		syslog(LOG_DEBUG, "path is NULL");
 	} else if (!(nlp = ndmp_get_nlp(cbp->fh_cookie))) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 	} else
 		err = 0;
 
 	if (err != 0)
 		return (0);
 
-	NDMP_LOG(LOG_DEBUG, "pname(%s)", path);
-
 	err = 0;
 	if (NLP_ISSET(nlp, NLPF_FH)) {
 		if (!NLP_ISSET(nlp, NLPF_DIRECT)) {
-			NDMP_LOG(LOG_DEBUG, "DAR NOT SET!");
+			syslog(LOG_DEBUG, "DAR NOT SET!");
 			off = 0LL;
 		}
 
@@ -773,7 +757,7 @@ ndmpd_fhpath_v3_cb(lbr_fhlog_call_backs_t *cbp, char *path, struct stat64 *stp,
 			    path);
 			if ((err = ndmpd_api_file_history_file_v3(cbp->
 			    fh_cookie, p, stp, off)) < 0)
-				NDMP_LOG(LOG_DEBUG, "\"%s\" %d", path, err);
+				syslog(LOG_DEBUG, "\"%s\" %d", path, err);
 		}
 	}
 
@@ -801,23 +785,21 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 
 	if (!cbp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 	} else if (!cbp->fh_cookie) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cookie is NULL");
+		syslog(LOG_DEBUG, "cookie is NULL");
 	} else if (!dir) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "dir is NULL");
+		syslog(LOG_DEBUG, "dir is NULL");
 	} else if (!(nlp = ndmp_get_nlp(cbp->fh_cookie))) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 	} else
 		err = 0;
 
 	if (err != 0)
 		return (0);
-
-	NDMP_LOG(LOG_DEBUG, "d(%s)", dir);
 
 	if (!NLP_ISSET(nlp, NLPF_FH))
 		return (0);
@@ -840,7 +822,7 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 	 */
 	if (pino != ROOT_INODE &&
 	    !dbm_getone(nlp->nlp_bkmap, (u_longlong_t)stp->st_ino)) {
-		NDMP_LOG(LOG_DEBUG, "nothing below here");
+		syslog(LOG_DEBUG, "nothing below here");
 		return (0);
 	}
 
@@ -859,7 +841,7 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 		nml = PATH_MAX;
 		err = dp_readdir(dirp, &pos, nm, &nml, &ino);
 		if (err != 0) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "%d reading pos %u dir \"%s\"", err, pos, dir);
 			break;
 		}
@@ -871,7 +853,6 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 			if (rootfs_dot_or_dotdot(nm))
 				ino = ROOT_INODE;
 		} else if (ino == nlp->nlp_bkdirino && IS_DOTDOT(nm)) {
-			NDMP_LOG(LOG_DEBUG, "nm(%s): %lu", nm, ino);
 			ino = ROOT_INODE;
 		}
 
@@ -882,15 +863,15 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 		 * If the entry is on exclusion list dont send the info
 		 */
 		if (tlm_is_excluded(dir, nm, ndmp_excl_list)) {
-			NDMP_LOG(LOG_DEBUG,
-			    "name \"%s\" skipped", nm == 0 ? "nil" : nm);
+			syslog(LOG_DEBUG,
+			    "name \"%s\" skipped", *nm == '\0' ? "nil" : nm);
 			continue;
 		}
 
 		err = (*params->mp_file_history_dir_func)(cbp->fh_cookie, nm,
 		    ino, pino);
 		if (err < 0) {
-			NDMP_LOG(LOG_DEBUG, "\"%s\": %d", dir, err);
+			syslog(LOG_ERR, "\"%s\": %d", dir, err);
 			break;
 		}
 
@@ -908,7 +889,7 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 			(void) strlcat(dirpath, nm, PATH_MAX);
 			err = stat64(dirpath, &ret_attr);
 			if (err != 0) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_ERR,
 				    "Error looking up %s", nm);
 				break;
 			}
@@ -917,7 +898,7 @@ ndmpd_fhdir_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, struct stat64 *stp)
 				err = (*params->mp_file_history_node_func)(cbp->
 				    fh_cookie, ino, &ret_attr, 0);
 				if (err < 0) {
-					NDMP_LOG(LOG_DEBUG, "\"%s/\": %d",
+					syslog(LOG_ERR, "\"%s/\": %d",
 					    dir, err);
 					break;
 				}
@@ -946,22 +927,22 @@ ndmpd_fhnode_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, char *file,
 
 	if (!cbp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 	} else if (!cbp->fh_cookie) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cookie is NULL");
+		syslog(LOG_DEBUG, "cookie is NULL");
 	} else if (!dir) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "dir is NULL");
+		syslog(LOG_DEBUG, "dir is NULL");
 	} else if (!file) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "file is NULL");
+		syslog(LOG_DEBUG, "file is NULL");
 	} else if (!stp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "stp is NULL");
+		syslog(LOG_DEBUG, "stp is NULL");
 	} else if (!(nlp = ndmp_get_nlp(cbp->fh_cookie))) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 	} else {
 		err = 0;
 	}
@@ -969,7 +950,6 @@ ndmpd_fhnode_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, char *file,
 	if (err != 0)
 		return (0);
 
-	NDMP_LOG(LOG_DEBUG, "d(%s), f(%s)", dir, file);
 
 	err = 0;
 	if (NLP_ISSET(nlp, NLPF_FH)) {
@@ -977,8 +957,6 @@ ndmpd_fhnode_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, char *file,
 			off = 0LL;
 		if (stp->st_ino == nlp->nlp_bkdirino) {
 			ino = ROOT_INODE;
-			NDMP_LOG(LOG_DEBUG,
-			    "bkroot %d -> %d", stp->st_ino, ROOT_INODE);
 		} else
 			ino = stp->st_ino;
 
@@ -987,7 +965,7 @@ ndmpd_fhnode_v3_cb(lbr_fhlog_call_backs_t *cbp, char *dir, char *file,
 			err = -1;
 		else if ((err = (*params->mp_file_history_node_func)(cbp->
 		    fh_cookie, ino, stp, off)) < 0)
-			NDMP_LOG(LOG_DEBUG, "\"%s/%s\" %d", dir, file, err);
+			syslog(LOG_ERR, "\"%s/%s\" %d", dir, file, err);
 	}
 
 	return (err);
@@ -1008,19 +986,19 @@ ndmp_send_recovery_stat_v3(ndmpd_module_params_t *params,
 
 	rv = -1;
 	if (!params) {
-		NDMP_LOG(LOG_DEBUG, "params == NULL");
+		syslog(LOG_DEBUG, "params == NULL");
 	} else if (!params->mp_file_recovered_func) {
-		NDMP_LOG(LOG_DEBUG, "paramsfile_recovered_func == NULL");
+		syslog(LOG_DEBUG, "paramsfile_recovered_func == NULL");
 	} else if (!nlp) {
-		NDMP_LOG(LOG_DEBUG, "nlp == NULL");
+		syslog(LOG_DEBUG, "nlp == NULL");
 	} else if (idx < 0) {
-		NDMP_LOG(LOG_DEBUG, "idx(%d) < 0", idx);
+		syslog(LOG_DEBUG, "idx(%d) < 0", idx);
 	} else if (!(ep = (mem_ndmp_name_v3_t *)MOD_GETNAME(params, idx))) {
-		NDMP_LOG(LOG_DEBUG, "nlist[%d] == NULL", idx);
+		syslog(LOG_DEBUG, "nlist[%d] == NULL", idx);
 	} else if (!ep->nm3_opath) {
-		NDMP_LOG(LOG_DEBUG, "nlist[%d].nm3_opath == NULL", idx);
+		syslog(LOG_DEBUG, "nlist[%d].nm3_opath == NULL", idx);
 	} else {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "ep[%d].nm3_opath \"%s\"", idx, ep->nm3_opath);
 		rv = MOD_FILERECOVERD(params, ep->nm3_opath, stat);
 	}
@@ -1046,23 +1024,21 @@ ndmpd_path_restored_v3(lbr_fhlog_call_backs_t *cbp, char *name,
 	int idx = (int)ll_idx;
 
 	if (!cbp) {
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 		return (-1);
 	}
 	if (!name) {
-		NDMP_LOG(LOG_DEBUG, "name is NULL");
+		syslog(LOG_DEBUG, "name is NULL");
 		return (-1);
 	}
-
-	NDMP_LOG(LOG_DEBUG, "name: \"%s\", idx: %d", name, idx);
 
 	nlp = ndmp_get_nlp(cbp->fh_cookie);
 	if (!nlp) {
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 		return (-1);
 	}
 	if (idx < 0 || idx >= nlp->nlp_nfiles) {
-		NDMP_LOG(LOG_DEBUG, "Invalid idx: %d", idx);
+		syslog(LOG_DEBUG, "Invalid idx: %d", idx);
 		return (-1);
 	}
 	params = nlp->nlp_params;
@@ -1274,7 +1250,7 @@ ndmpd_file_history_cleanup(ndmpd_session_t *session, boolean_t send_flag)
 		ndmpd_file_history_cleanup_v3(session, send_flag);
 		break;
 	default:
-		NDMP_LOG(LOG_DEBUG, "Unknown version %d",
+		syslog(LOG_ERR, "Unknown version %d",
 		    session->ns_protocol_version);
 	}
 }
@@ -1307,11 +1283,11 @@ fh_requested(void *cookie)
 	ndmp_lbr_params_t *nlp;
 
 	if ((nlp = ndmp_get_nlp(cookie)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 		return (FALSE);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "nlp_fh %c", NDMP_YORN(NLP_ISSET(nlp, NLPF_FH)));
+	syslog(LOG_DEBUG, "nlp_fh %c", NDMP_YORN(NLP_ISSET(nlp, NLPF_FH)));
 
 	return (NLP_ISSET(nlp, NLPF_FH));
 }
@@ -1337,23 +1313,23 @@ ndmpd_file_history_path(lbr_fhlog_call_backs_t *cbp, char *path,
 
 	if (!cbp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 	} else if (!cbp->fh_cookie) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cookie is NULL");
+		syslog(LOG_DEBUG, "cookie is NULL");
 	} else if (!path) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "path is NULL");
+		syslog(LOG_DEBUG, "path is NULL");
 	} else if (!stp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "stp is NULL");
+		syslog(LOG_DEBUG, "stp is NULL");
 	} else
 		err = 0;
 
 	if (err != 0)
 		return (0);
 
-	NDMP_LOG(LOG_DEBUG, "path: \"%s\"", path);
+	syslog(LOG_DEBUG, "path: \"%s\"", path);
 
 	err = 0;
 	if (fh_requested(cbp->fh_cookie)) {
@@ -1362,7 +1338,7 @@ ndmpd_file_history_path(lbr_fhlog_call_backs_t *cbp, char *path,
 			err = -1;
 		else if ((err = (*params->mp_file_history_path_func)(cbp->
 		    fh_cookie, path, stp, 0)) < 0)
-			NDMP_LOG(LOG_DEBUG, "\"%s\": %d", path, err);
+			syslog(LOG_DEBUG, "\"%s\": %d", path, err);
 	}
 
 	return (err);
@@ -1390,26 +1366,26 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 
 	if (!cbp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 	} else if (!cbp->fh_cookie) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cookie is NULL");
+		syslog(LOG_DEBUG, "cookie is NULL");
 	} else if (!dir) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "dir is NULL");
+		syslog(LOG_DEBUG, "dir is NULL");
 	} else if (!stp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "stp is NULL");
+		syslog(LOG_DEBUG, "stp is NULL");
 	} if (!(nlp = ndmp_get_nlp(cbp->fh_cookie))) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 	} else
 		err = 0;
 
 	if (err != 0)
 		return (0);
 
-	NDMP_LOG(LOG_DEBUG, "dir: \"%s\"", dir);
+	syslog(LOG_DEBUG, "dir: \"%s\"", dir);
 
 	if (!fh_requested(cbp->fh_cookie))
 		return (0);
@@ -1432,7 +1408,7 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 	 */
 	if (pino != ROOT_INODE &&
 	    !dbm_getone(nlp->nlp_bkmap, (u_longlong_t)stp->st_ino)) {
-		NDMP_LOG(LOG_DEBUG, "nothing below here");
+		syslog(LOG_DEBUG, "nothing below here");
 		return (0);
 	}
 
@@ -1452,7 +1428,7 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 		nml = PATH_MAX;
 		err = dp_readdir(dirp, &pos, nm, &nml, &ino);
 		if (err != 0) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "%d reading pos %u dir \"%s\"", err, pos, dir);
 			break;
 		}
@@ -1464,7 +1440,7 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 			if (rootfs_dot_or_dotdot(nm))
 				ino = ROOT_INODE;
 		} else if (ino == nlp->nlp_bkdirino && IS_DOTDOT(nm)) {
-			NDMP_LOG(LOG_DEBUG, "nm(%s): %lu", nm, ino);
+			syslog(LOG_DEBUG, "nm(%s): %lu", nm, ino);
 			ino = ROOT_INODE;
 		}
 
@@ -1474,7 +1450,7 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 		err = (*params->mp_file_history_dir_func)(cbp->fh_cookie, nm,
 		    ino, pino);
 		if (err < 0) {
-			NDMP_LOG(LOG_DEBUG, "\"%s/%s\": %d", dir, nm, err);
+			syslog(LOG_ERR, "\"%s/%s\": %d", dir, nm, err);
 			break;
 		}
 
@@ -1492,8 +1468,8 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 			(void) strlcat(dirpath, nm, PATH_MAX);
 			err = stat64(dirpath, &ret_attr);
 			if (err != 0) {
-				NDMP_LOG(LOG_DEBUG,
-				    "Error looking up %s", nm);
+				syslog(LOG_ERR,
+				    "Error looking up %s failed", nm);
 				break;
 			}
 
@@ -1501,7 +1477,7 @@ ndmpd_file_history_dir(lbr_fhlog_call_backs_t *cbp, char *dir,
 				err = (*params->mp_file_history_node_func)(cbp->
 				    fh_cookie, ino, &ret_attr, 0);
 				if (err < 0) {
-					NDMP_LOG(LOG_DEBUG, "\"%s/\": %d",
+					syslog(LOG_DEBUG, "\"%s/\": %d",
 					    dir, err);
 					break;
 				}
@@ -1531,36 +1507,32 @@ ndmpd_file_history_node(lbr_fhlog_call_backs_t *cbp, char *dir, char *file,
 
 	if (!cbp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 	} else if (!cbp->fh_cookie) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "cookie is NULL");
+		syslog(LOG_DEBUG, "cookie is NULL");
 	} else if (!dir) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "dir is NULL");
+		syslog(LOG_DEBUG, "dir is NULL");
 	} else if (!file) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "file is NULL");
+		syslog(LOG_DEBUG, "file is NULL");
 	} else if (!stp) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "stp is NULL");
+		syslog(LOG_DEBUG, "stp is NULL");
 	} else if (!(nlp = ndmp_get_nlp(cbp->fh_cookie))) {
 		err = -1;
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 	} else
 		err = 0;
 
 	if (err != 0)
 		return (0);
 
-	NDMP_LOG(LOG_DEBUG, "d(%s), f(%s)", dir, file);
-
 	err = 0;
 	if (fh_requested(cbp->fh_cookie) == TRUE) {
 		if (stp->st_ino == nlp->nlp_bkdirino) {
 			ino = ROOT_INODE;
-			NDMP_LOG(LOG_DEBUG,
-			    "bkroot %d -> %d", stp->st_ino, ROOT_INODE);
 		} else {
 			ino = stp->st_ino;
 		}
@@ -1570,7 +1542,7 @@ ndmpd_file_history_node(lbr_fhlog_call_backs_t *cbp, char *dir, char *file,
 			err = -1;
 		else if ((err = (*params->mp_file_history_node_func)(cbp->
 		    fh_cookie, ino, stp, 0)) < 0)
-			NDMP_LOG(LOG_DEBUG, "\"%s/\": %d", dir, file, err);
+			syslog(LOG_DEBUG, "\"%s/\": %d", dir, file, err);
 
 	}
 
@@ -1595,23 +1567,20 @@ ndmpd_path_restored(lbr_fhlog_call_backs_t *cbp, char *name, struct stat64 *stp,
 	int pos =  (int)ll_pos;
 
 	if (cbp == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cbp is NULL");
+		syslog(LOG_DEBUG, "cbp is NULL");
 		return (-1);
 	}
 	if (name == NULL) {
-		NDMP_LOG(LOG_DEBUG, "name is NULL");
+		syslog(LOG_DEBUG, "name is NULL");
 		return (-1);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "name: \"%s\", pos: %d",
-	    name, pos);
-
 	if ((nlp = ndmp_get_nlp(cbp->fh_cookie)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "nlp is NULL");
+		syslog(LOG_DEBUG, "nlp is NULL");
 		return (-1);
 	}
 	if (pos < 0 || pos >= nlp->nlp_nfiles) {
-		NDMP_LOG(LOG_DEBUG, "Invalid pos: %d", pos);
+		syslog(LOG_DEBUG, "Invalid pos: %d", pos);
 		return (-1);
 	}
 	params = get_params(cbp->fh_cookie);

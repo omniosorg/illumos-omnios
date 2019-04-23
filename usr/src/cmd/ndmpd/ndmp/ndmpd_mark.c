@@ -36,8 +36,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
+
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <cstack.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -132,7 +135,7 @@ count_bits_cb(int bmd, u_longlong_t bn, void *arg)
 	if (dbm_getone(bmd, bn)) {
 		(*(u_longlong_t *)arg)++;
 		if (ndmpd_print_inodes)
-			NDMP_LOG(LOG_DEBUG, "%llu", bn);
+			syslog(LOG_DEBUG, "%lu", bn);
 	}
 
 	return (0);
@@ -161,7 +164,7 @@ count_set_bits(char *path, int bmd)
 
 	cnt = 0;
 	(void) dbm_apply_ifset(bmd, count_bits_cb, &cnt);
-	NDMP_LOG(LOG_DEBUG, "%s %llu inodes marked", path, cnt);
+	syslog(LOG_DEBUG, "%s %lu inodes marked", path, cnt);
 }
 
 
@@ -189,10 +192,10 @@ traverse(ndmpd_session_t *session, ndmp_lbr_params_t *nlp,
 	time_t s, e;
 
 	if (!session || !nlp || !ftp) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument in traverse");
 		return (-1);
 	}
-	NDMP_LOG(LOG_DEBUG, "Processing directories of \"%s\"",
+	syslog(LOG_DEBUG, "Processing directories of \"%s\"",
 	    nlp->nlp_backup_path);
 
 	(void) time(&s);
@@ -200,7 +203,7 @@ traverse(ndmpd_session_t *session, ndmp_lbr_params_t *nlp,
 		rv = -1;
 		if (!session->ns_data.dd_abort && !NLP_ISSET(nlp,
 		    NLPF_ABORTED)) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "Traversing backup path hierarchy \"%s\"",
 			    nlp->nlp_backup_path);
 		}
@@ -208,7 +211,7 @@ traverse(ndmpd_session_t *session, ndmp_lbr_params_t *nlp,
 		(void) dbm_setone(nlp->nlp_bkmap, (u_longlong_t)ROOT_INODE);
 		rv = 0;
 		(void) time(&e);
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "\"%s\" traversed in %u sec", nlp->nlp_backup_path,
 		    (uint_t)(e-s));
 
@@ -263,14 +266,14 @@ mark_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 	tacl = mpp->mp_tacl;
 	nlp = ndmp_get_nlp(mpp->mp_session);
 	if (!mpp) {
-		NDMP_LOG(LOG_DEBUG, "NULL argument passed");
+		syslog(LOG_ERR, "NULL argument passed");
 		rv = -1;
 	} else if (mpp->mp_session->ns_eof) {
-		NDMP_LOG(LOG_INFO, "Connection to the client is closed");
+		syslog(LOG_ERR, "Connection to the client is closed");
 		rv = -1;
 	} else if (mpp->mp_session->ns_data.dd_abort ||
 	    (nlp && NLP_ISSET(nlp, NLPF_ABORTED))) {
-		NDMP_LOG(LOG_INFO, "Processing directories aborted.");
+		syslog(LOG_ERR, "Processing directories aborted.");
 		rv = -1;
 	}
 
@@ -286,12 +289,12 @@ mark_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 
 	/* sanity check on fh and stat of the path passed */
 	if (pstp->st_ino > bl) {
-		NDMP_LOG(LOG_DEBUG, "Invalid path inode #%u",
+		syslog(LOG_ERR, "Invalid path inode #%u",
 		    (uint_t)pstp->st_ino);
 		return (-1);
 	}
 	if (pstp->st_ino != pfhp->fh_fid) {
-		NDMP_LOG(LOG_DEBUG, "Path ino mismatch %u %u",
+		syslog(LOG_ERR, "Path ino mismatch %u %u",
 		    (uint_t)pstp->st_ino, (uint_t)pfhp->fh_fid);
 		return (-1);
 	}
@@ -309,12 +312,12 @@ mark_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 
 	/* sanity check on fh and stat of the entry passed */
 	if (estp->st_ino > bl) {
-		NDMP_LOG(LOG_DEBUG, "Invalid entry inode #%u",
+		syslog(LOG_ERR, "Invalid entry inode #%u",
 		    (uint_t)estp->st_ino);
 		return (-1);
 	}
 	if (estp->st_ino != efhp->fh_fid) {
-		NDMP_LOG(LOG_DEBUG, "Entry ino mismatch %u %u", estp->st_ino,
+		syslog(LOG_ERR, "Entry ino mismatch %u %u", estp->st_ino,
 		    (uint_t)pfhp->fh_fid);
 		return (-1);
 	}
@@ -324,32 +327,27 @@ mark_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 		/* base backup */
 		(void) dbm_setone(bmd, (u_longlong_t)estp->st_ino);
 		(void) dbm_setone(bmd, (u_longlong_t)pstp->st_ino);
-		if (ndmpd_verbose_traverse) {
-			NDMP_LOG(LOG_DEBUG, "Base Backup");
-			NDMP_LOG(LOG_DEBUG, "\"%s/%s\"",
-			    pnp->tn_path, enp->tn_path);
-		}
 
 	} else if (estp->st_mtime > ddate) {
 		(void) dbm_setone(bmd, (u_longlong_t)estp->st_ino);
 		(void) dbm_setone(bmd, (u_longlong_t)pstp->st_ino);
 		if (ndmpd_verbose_traverse) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "m(%u,%u,%u,%u)", (uint_t)pstp->st_ino,
 			    (uint_t)estp->st_ino, (uint_t)estp->st_mtime,
 			    (uint_t)ddate);
-			NDMP_LOG(LOG_DEBUG, "\"%s/%s\"",
+			syslog(LOG_DEBUG, "\"%s/%s\"",
 			    pnp->tn_path, enp->tn_path);
 		}
 	} else if (iscreated(nlp, NULL, tacl, ddate)) {
 		(void) dbm_setone(bmd, (u_longlong_t)estp->st_ino);
 		(void) dbm_setone(bmd, (u_longlong_t)pstp->st_ino);
 		if (ndmpd_verbose_traverse) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "cr(%u,%u,%u,%u)", (uint_t)pstp->st_ino,
 			    (uint_t)estp->st_ino, (uint_t)estp->st_mtime,
 			    (uint_t)ddate);
-			NDMP_LOG(LOG_DEBUG, "\"%s/%s\"",
+			syslog(LOG_DEBUG, "\"%s/%s\"",
 			    pnp->tn_path, enp->tn_path);
 		}
 	} else if (estp->st_ctime > ddate) {
@@ -359,28 +357,22 @@ mark_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 		}
 		if (ndmpd_verbose_traverse) {
 			if (NLP_IGNCTIME(nlp)) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "ign c(%u,%u,%u,%u)", (uint_t)pstp->st_ino,
 				    (uint_t)estp->st_ino,
 				    (uint_t)estp->st_ctime, (uint_t)ddate);
 			} else {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "c(%u,%u,%u,%u)", (uint_t)pstp->st_ino,
 				    (uint_t)estp->st_ino,
 				    (uint_t)estp->st_ctime, (uint_t)ddate);
 			}
-			NDMP_LOG(LOG_DEBUG, "\"%s/%s\"",
+			syslog(LOG_DEBUG, "\"%s/%s\"",
 			    pnp->tn_path, enp->tn_path);
 		}
 	} else if (S_ISDIR(estp->st_mode) &&
 	    dbm_getone(bmd, (u_longlong_t)estp->st_ino)) {
 		(void) dbm_setone(bmd, (u_longlong_t)pstp->st_ino);
-		if (ndmpd_verbose_traverse) {
-			NDMP_LOG(LOG_DEBUG, "d(%u,%u)",
-			    (uint_t)pstp->st_ino, (uint_t)estp->st_ino);
-			NDMP_LOG(LOG_DEBUG, "\"%s, %s\"",
-			    pnp->tn_path, enp->tn_path);
-		}
 	}
 
 	return (0);
@@ -410,11 +402,11 @@ mark_inodes_v2(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	mark_param_t mp;
 
 	if (!session || !nlp || !path || !*path) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument in mark_inodes_v2");
 		return (-1);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "path \"%s\"", path);
+	syslog(LOG_DEBUG, "path \"%s\"", path);
 
 	mp.mp_bmd = nlp->nlp_bkmap;
 	mp.mp_ddate = nlp->nlp_ldate;
@@ -425,7 +417,7 @@ mark_inodes_v2(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	ft.ft_lpath = nlp->nlp_backup_path;
 	ft.ft_callbk = mark_cb;
 	ft.ft_arg = &mp;
-	ft.ft_logfp = (ft_log_t)ndmp_log;
+	ft.ft_logfp = (ft_log_t)syslog;
 	ft.ft_flags = ndmpd_mark_flags;
 
 	return (traverse(session, nlp, &ft));
@@ -438,32 +430,28 @@ mark_inodes_v2(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
  * Create a dbitmap and return its descriptor.
  *
  * Parameters:
- *   path (input) - path for which the bitmap should be created
+ *   nlp (input) - pointer to the nlp structure
  *   value (input) - the initial value for the bitmap
  *
  * Returns:
  *   the dbitmap descriptor
  */
 static int
-create_bitmap(char *path, int value)
+create_bitmap(ndmp_lbr_params_t *nlp, int value)
 {
 	char bm_fname[PATH_MAX];
-	char buf[TLM_MAX_PATH_NAME];
 	char *livepath;
 	ulong_t ninode;
 
-	NDMP_LOG(LOG_DEBUG, "path \"%s\"", path);
+	livepath = NLP_ISCHKPNTED(nlp) ?
+	    nlp->nlp_mountpoint : nlp->nlp_backup_path;
 
-	if (fs_is_chkpntvol(path))
-		livepath = (char *)tlm_remove_checkpoint(path, buf);
-	else
-		livepath = path;
 	ninode = 1024 * 1024 * 1024;
 	if (ninode == 0)
 		return (-1);
-	(void) ndmpd_mk_temp(bm_fname);
+	(void) ndmpd_mk_temp(nlp->nlp_job_name, bm_fname);
 
-	NDMP_LOG(LOG_DEBUG, "path \"%s\"ninode %u bm_fname \"%s\"",
+	syslog(LOG_DEBUG, "path \"%s\" ninode %u bm_fname \"%s\"",
 	    livepath, ninode, bm_fname);
 
 	return (dbm_alloc(bm_fname, (u_longlong_t)ninode, value));
@@ -487,11 +475,11 @@ create_allset_bitmap(ndmp_lbr_params_t *nlp)
 {
 	int rv;
 
-	nlp->nlp_bkmap = create_bitmap(nlp->nlp_backup_path, 1);
-	NDMP_LOG(LOG_DEBUG, "nlp_bkmap %d", nlp->nlp_bkmap);
+	nlp->nlp_bkmap = create_bitmap(nlp, 1);
 
 	if (nlp->nlp_bkmap < 0) {
-		NDMP_LOG(LOG_DEBUG, "Failed to allocate bitmap.");
+		syslog(LOG_ERR,
+		    "Failed to allocate bitmap in create_allset_bitmap");
 		rv = -1;
 	} else
 		rv = 0;
@@ -532,11 +520,10 @@ mark_common_v2(ndmpd_session_t *session, ndmp_lbr_params_t *nlp)
 		return (create_allset_bitmap(nlp));
 
 	rv = 0;
-	nlp->nlp_bkmap = create_bitmap(nlp->nlp_backup_path, 0);
-	NDMP_LOG(LOG_DEBUG, "nlp_bkmap %d", nlp->nlp_bkmap);
+	nlp->nlp_bkmap = create_bitmap(nlp, 0);
 
 	if (nlp->nlp_bkmap < 0) {
-		NDMP_LOG(LOG_DEBUG, "Failed to allocate bitmap.");
+		syslog(LOG_ERR, "Failed to allocate bitmap in mark_common_v2");
 		rv = -1;
 	} else {
 		if (fs_is_chkpntvol(nlp->nlp_backup_path))
@@ -619,7 +606,7 @@ ndmpd_mark_inodes_v2(ndmpd_session_t *session, ndmp_lbr_params_t *nlp)
 	int rv;
 
 	if (ndmp_skip_traverse) {
-		NDMP_LOG(LOG_INFO, "Skip processing directories \"%s\"",
+		syslog(LOG_INFO, "Skip processing directories \"%s\"",
 		    nlp->nlp_backup_path);
 		rv = create_allset_bitmap(nlp);
 	} else {
@@ -628,7 +615,7 @@ ndmpd_mark_inodes_v2(ndmpd_session_t *session, ndmp_lbr_params_t *nlp)
 		else if (NLP_ISDUMP(nlp))
 			rv = mark_dump_inodes_v2(session, nlp);
 		else {
-			NDMP_LOG(LOG_DEBUG, "Unknown backup type for \"%s\"",
+			syslog(LOG_ERR, "Unknown backup type for \"%s\"",
 			    nlp->nlp_backup_path);
 			rv = -1;
 		}
@@ -683,18 +670,17 @@ mark_tokv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	mark_param_t mp;
 
 	if (!session || !nlp || !path || !*path) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument in mark_tokv3");
 		return (-1);
 	}
 	if (nlp->nlp_tokdate == (time_t)0)
 		return (create_allset_bitmap(nlp));
 
-	nlp->nlp_bkmap = create_bitmap(nlp->nlp_backup_path, 0);
+	nlp->nlp_bkmap = create_bitmap(nlp, 0);
 	if (nlp->nlp_bkmap < 0) {
-		NDMP_LOG(LOG_DEBUG, "Failed to allocate bitmap.");
+		syslog(LOG_ERR, "Failed to allocate bitmap in mark_tokv3");
 		return (-1);
 	}
-	NDMP_LOG(LOG_DEBUG, "nlp_bkmap %d", nlp->nlp_bkmap);
 
 	mp.mp_bmd = nlp->nlp_bkmap;
 	mp.mp_ddate = nlp->nlp_tokdate;
@@ -705,7 +691,7 @@ mark_tokv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	ft.ft_lpath = nlp->nlp_backup_path;
 	ft.ft_callbk = mark_cb;
 	ft.ft_arg = &mp;
-	ft.ft_logfp = (ft_log_t)ndmp_log;
+	ft.ft_logfp = (ft_log_t)syslog;
 	ft.ft_flags = ndmpd_mark_flags;
 
 	return (traverse(session, nlp, &ft));
@@ -743,13 +729,13 @@ marklbrv3_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 
 	mpp = (mark_param_t *)arg;
 	if (!mpp) {
-		NDMP_LOG(LOG_DEBUG, "NULL argument passed");
+		syslog(LOG_ERR, "NULL argument passed in marklbrv3");
 		return (-1);
 	}
 	nlp = ndmp_get_nlp(mpp->mp_session);
 	if (mpp->mp_session->ns_data.dd_abort ||
 	    (nlp && NLP_ISSET(nlp, NLPF_ABORTED))) {
-		NDMP_LOG(LOG_INFO, "Processing directories aborted.");
+		syslog(LOG_ERR, "Processing directories aborted.");
 		return (-1);
 	}
 
@@ -761,12 +747,12 @@ marklbrv3_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 
 	/* sanity check on fh and stat of the path passed */
 	if (pstp->st_ino > bl) {
-		NDMP_LOG(LOG_DEBUG, "Invalid path inode #%u",
+		syslog(LOG_ERR, "Invalid path inode #%u",
 		    (uint_t)pstp->st_ino);
 		return (-1);
 	}
 	if (pstp->st_ino != pfhp->fh_fid) {
-		NDMP_LOG(LOG_DEBUG, "Path ino mismatch %u %u",
+		syslog(LOG_ERR, "Path ino mismatch %u %u",
 		    (uint_t)pstp->st_ino, (uint_t)pfhp->fh_fid);
 		return (-1);
 	}
@@ -776,10 +762,6 @@ marklbrv3_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 	 */
 	if (!enp->tn_path) {
 		(void) dbm_setone(bmd, pstp->st_ino);
-		if (ndmpd_verbose_traverse) {
-			NDMP_LOG(LOG_DEBUG, "d(%u)", (uint_t)pstp->st_ino);
-			NDMP_LOG(LOG_DEBUG, "\"%s\"", pnp->tn_path);
-		}
 		return (0);
 	}
 
@@ -788,12 +770,12 @@ marklbrv3_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 
 	/* sanity check on fh and stat of the entry passed */
 	if (estp->st_ino > bl) {
-		NDMP_LOG(LOG_DEBUG, "Invalid entry inode #%u",
+		syslog(LOG_ERR, "Invalid entry inode #%u",
 		    (uint_t)estp->st_ino);
 		return (-1);
 	}
 	if (estp->st_ino != efhp->fh_fid) {
-		NDMP_LOG(LOG_DEBUG, "Entry ino mismatch %u %u", estp->st_ino,
+		syslog(LOG_ERR, "Entry ino mismatch %u %u", estp->st_ino,
 		    (uint_t)pfhp->fh_fid);
 		return (-1);
 	}
@@ -801,12 +783,6 @@ marklbrv3_cb(void *arg, fst_node_t *pnp, fst_node_t *enp)
 	if (S_ISDIR(estp->st_mode) &&
 	    dbm_getone(bmd, (u_longlong_t)estp->st_ino)) {
 		(void) dbm_setone(bmd, (u_longlong_t)pstp->st_ino);
-		if (ndmpd_verbose_traverse) {
-			NDMP_LOG(LOG_DEBUG, "d(%u,%u)",
-			    (uint_t)pstp->st_ino, (uint_t)estp->st_ino);
-			NDMP_LOG(LOG_DEBUG, "\"%s, %s\"",
-			    pnp->tn_path, enp->tn_path);
-		}
 	}
 
 	return (0);
@@ -837,7 +813,7 @@ mark_lbrv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	mark_param_t mp;
 
 	if (!session || !nlp || !path || !*path) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument in mark_lbrv3");
 		return (-1);
 	}
 	/* full and archive backups backup everything */
@@ -845,12 +821,11 @@ mark_lbrv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	if (c == 'F' || c == 'A')
 		return (create_allset_bitmap(nlp));
 
-	nlp->nlp_bkmap = create_bitmap(nlp->nlp_backup_path, 0);
+	nlp->nlp_bkmap = create_bitmap(nlp, 0);
 	if (nlp->nlp_bkmap < 0) {
-		NDMP_LOG(LOG_DEBUG, "Failed to allocate bitmap.");
+		syslog(LOG_ERR, "Failed to allocate bitmap in mark_lbrv3");
 		return (-1);
 	}
-	NDMP_LOG(LOG_DEBUG, "nlp_bkmap %d", nlp->nlp_bkmap);
 
 	mp.mp_bmd = nlp->nlp_bkmap;
 	mp.mp_ddate = 0;
@@ -861,7 +836,7 @@ mark_lbrv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	ft.ft_lpath = nlp->nlp_backup_path;
 	ft.ft_callbk = marklbrv3_cb;
 	ft.ft_arg = &mp;
-	ft.ft_logfp = (ft_log_t)ndmp_log;
+	ft.ft_logfp = (ft_log_t)syslog;
 	ft.ft_flags = ndmpd_mark_flags;
 
 	return (traverse(session, nlp, &ft));
@@ -892,18 +867,17 @@ mark_levelv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	tlm_acls_t traverse_acl;
 
 	if (!session || !nlp || !path || !*path) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument in mark_levelv3");
 		return (-1);
 	}
 	if (nlp->nlp_ldate == (time_t)0)
 		return (create_allset_bitmap(nlp));
 
-	nlp->nlp_bkmap = create_bitmap(nlp->nlp_backup_path, 0);
+	nlp->nlp_bkmap = create_bitmap(nlp, 0);
 	if (nlp->nlp_bkmap < 0) {
-		NDMP_LOG(LOG_DEBUG, "Failed to allocate bitmap.");
+		syslog(LOG_ERR, "Failed to allocate bitmap in mark_levelv3");
 		return (-1);
 	}
-	NDMP_LOG(LOG_DEBUG, "nlp_bkmap %d", nlp->nlp_bkmap);
 
 	/*
 	 * We do not want to allocate memory for acl every time we
@@ -921,7 +895,7 @@ mark_levelv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp, char *path)
 	ft.ft_lpath = nlp->nlp_backup_path;
 	ft.ft_callbk = mark_cb;
 	ft.ft_arg = &mp;
-	ft.ft_logfp = (ft_log_t)ndmp_log;
+	ft.ft_logfp = (ft_log_t)syslog;
 	ft.ft_flags = ndmpd_mark_flags;
 
 	return (traverse(session, nlp, &ft));
@@ -967,7 +941,7 @@ mark_commonv3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp)
 		rv = mark_levelv3(session, nlp, chkpath);
 	} else {
 		rv = -1;
-		NDMP_LOG(LOG_DEBUG, "Unknown backup type for \"%s\"",
+		syslog(LOG_ERR, "Unknown backup type for \"%s\"",
 		    nlp->nlp_backup_path);
 	}
 
@@ -1024,7 +998,7 @@ ndmpd_mark_inodes_v3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp)
 	int rv;
 
 	if (ndmp_skip_traverse) {
-		NDMP_LOG(LOG_INFO, "Skip processing directories \"%s\"",
+		syslog(LOG_INFO, "Skip processing directories \"%s\"",
 		    nlp->nlp_backup_path);
 		rv = create_allset_bitmap(nlp);
 	} else {
@@ -1033,7 +1007,7 @@ ndmpd_mark_inodes_v3(ndmpd_session_t *session, ndmp_lbr_params_t *nlp)
 		else if (NLP_ISDUMP(nlp)) {
 			rv = mark_commonv3(session, nlp);
 		} else {
-			NDMP_LOG(LOG_DEBUG, "Unknown backup type for \"%s\"",
+			syslog(LOG_ERR, "Unknown backup type for \"%s\"",
 			    nlp->nlp_backup_path);
 			rv = -1;
 		}

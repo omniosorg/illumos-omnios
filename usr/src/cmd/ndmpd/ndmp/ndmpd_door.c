@@ -36,9 +36,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
 
 /* This file contains all the door server code */
 
+#include <syslog.h>
 #include <door.h>
 #include <alloca.h>
 #include <errno.h>
@@ -68,7 +70,7 @@ ndmp_door_init(void)
 	(void) mutex_lock(&ndmp_doorsrv_mutex);
 
 	if (ndmp_door_fildes != -1) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "ndmp_door_init: ndmpd service is already running.");
 		(void) mutex_unlock(&ndmp_doorsrv_mutex);
 		return (0);
@@ -76,7 +78,7 @@ ndmp_door_init(void)
 
 	if ((ndmp_door_fildes = door_create(ndmp_door_server,
 	    NULL, DOOR_UNREF)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "ndmp_door_init: Could not create door.");
+		syslog(LOG_ERR, "ndmp_door_init: Could not create door.");
 		(void) mutex_unlock(&ndmp_doorsrv_mutex);
 		return (-1);
 	}
@@ -84,7 +86,7 @@ ndmp_door_init(void)
 	(void) unlink(NDMP_DOOR_SVC);
 
 	if ((fd = creat(NDMP_DOOR_SVC, 0444)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "ndmp_door_init: Can't create %s: %m.",
+		syslog(LOG_ERR, "ndmp_door_init: Can't create %s: %m.",
 		    NDMP_DOOR_SVC);
 		(void) door_revoke(ndmp_door_fildes);
 		ndmp_door_fildes = -1;
@@ -96,14 +98,14 @@ ndmp_door_init(void)
 	(void) fdetach(NDMP_DOOR_SVC);
 
 	if (fattach(ndmp_door_fildes, NDMP_DOOR_SVC) < 0) {
-		NDMP_LOG(LOG_DEBUG, "ndmp_door_init: fattach failed %m");
+		syslog(LOG_ERR, "ndmp_door_init: fattach failed %m");
 		(void) door_revoke(ndmp_door_fildes);
 		ndmp_door_fildes = -1;
 		(void) mutex_unlock(&ndmp_doorsrv_mutex);
 		return (-1);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "ndmp_door_init: Door server successfully started");
+	syslog(LOG_DEBUG, "ndmp_door_init: Door server successfully started");
 	(void) mutex_unlock(&ndmp_doorsrv_mutex);
 	return (0);
 }
@@ -137,7 +139,7 @@ ndmp_door_check(void)
 	}
 
 	if (info.di_target > 0) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Service already running: pid %ld", info.di_target);
 		(void) close(door);
 		return (1);
@@ -160,8 +162,8 @@ ndmp_door_server(void *cookie, char *ptr, size_t size,
 	unsigned int used;
 	ndmp_door_ctx_t *dec_ctx;
 	ndmp_door_ctx_t *enc_ctx;
-	unsigned int dec_status;
-	unsigned int enc_status;
+	unsigned int dec_status = EINVAL;
+	unsigned int enc_status = EINVAL;
 
 	dec_ctx = ndmp_door_decode_start(ptr, size);
 	if (dec_ctx == 0)
@@ -171,7 +173,7 @@ ndmp_door_server(void *cookie, char *ptr, size_t size,
 	buflen = NDMP_DOOR_SIZE;
 
 	if ((buf = alloca(buflen)) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "Out of memory.");
+		syslog(LOG_ERR, "Out of memory.");
 		(void) ndmp_door_decode_finish(dec_ctx);
 		return;
 	}
@@ -183,7 +185,7 @@ ndmp_door_server(void *cookie, char *ptr, size_t size,
 	}
 
 	if (req_type != NDMP_GET_STAT)
-		NDMP_LOG(LOG_DEBUG, "ndmp_door_server: req_type=%d", req_type);
+		syslog(LOG_DEBUG, "ndmp_door_server: req_type=%d", req_type);
 
 	switch (req_type) {
 	case NDMP_GET_DOOR_STATUS: {
@@ -229,7 +231,7 @@ ndmp_door_server(void *cookie, char *ptr, size_t size,
 		break;
 
 	default:
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "ndmp_door_server: Invalid request type 0x%x", req_type);
 		goto decode_error;
 	}

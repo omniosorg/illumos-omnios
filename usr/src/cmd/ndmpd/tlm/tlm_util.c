@@ -37,6 +37,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/* Copyright 2016 Nexenta Systems, Inc. All rights reserved. */
+
+#include <syslog.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,17 +89,14 @@ cstack_delete(cstack_t *stk)
 	cstack_t *tmp;
 
 	if (stk == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cstack_delete: invalid stack");
 		return;
 	}
 
 	while ((tmp = stk->next) != NULL) {
 		stk->next = tmp->next;
-		NDMP_LOG(LOG_DEBUG, "cstack_delete(element): 0x%p", tmp);
 		free(tmp);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "cstack_delete: 0x%p", stk);
 	free(stk);
 }
 
@@ -117,7 +117,6 @@ cstack_push(cstack_t *stk, void *data, int len)
 	cstack_t *stk_node;
 
 	if (stk == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cstack_push: invalid stack");
 		return (-1);
 	}
 
@@ -129,7 +128,6 @@ cstack_push(cstack_t *stk, void *data, int len)
 	stk_node->next = stk->next;
 	stk->next = stk_node;
 
-	NDMP_LOG(LOG_DEBUG, "cstack_push(0x%p): 0x%p", stk, stk_node);
 	return (0);
 }
 
@@ -148,12 +146,10 @@ cstack_pop(cstack_t *stk, void **data, int *len)
 	cstack_t *stk_node;
 
 	if (stk == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cstack_pop: invalid stack");
 		return (-1);
 	}
 
 	if ((stk_node = stk->next) == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cstack_pop: underflow");
 		return (-1);
 	}
 
@@ -164,7 +160,6 @@ cstack_pop(cstack_t *stk, void **data, int *len)
 		*len = stk_node->len;
 
 	stk->next = stk_node->next;
-	NDMP_LOG(LOG_DEBUG, "cstack_pop(0x%p): 0x%p", stk, stk_node);
 
 	free(stk_node);
 	return (0);
@@ -181,12 +176,10 @@ int
 cstack_top(cstack_t *stk, void **data, int *len)
 {
 	if (stk == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cstack_pop: invalid stack");
 		return (-1);
 	}
 
 	if (stk->next == NULL) {
-		NDMP_LOG(LOG_DEBUG, "cstack_pop: underflow");
 		return (-1);
 	}
 
@@ -544,7 +537,7 @@ tlm_new_dir_info(struct  fs_fhandle *fhp, char *dir, char *nm)
 	(void) memcpy(&fdip->fd_dir_fh, fhp, sizeof (fs_fhandle_t));
 	if (!tlm_cat_path(fdip->fd_dir_name, dir, nm)) {
 		free(fdip);
-		NDMP_LOG(LOG_DEBUG, "TAPE BACKUP Find> path too long [%s][%s]",
+		syslog(LOG_DEBUG, "TAPE BACKUP Find> path too long [%s][%s]",
 		    dir, nm);
 		return (NULL);
 	}

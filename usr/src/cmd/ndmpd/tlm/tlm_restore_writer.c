@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  */
 
 /*
@@ -36,6 +35,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
+
+#include <syslog.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -228,7 +230,7 @@ rs_darhl_new_name(struct rs_name_maker *rnp, char *name, char **sels, int *pos,
 		if (strcmp(sels[x], " ")) {
 			*pos = x;
 			(void) strlcpy(longname, sels[x], TLM_MAX_PATH_NAME);
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_DEBUG,
 			    "to replace hardlink name [%s], pos [%d]",
 			    longname, *pos);
 
@@ -269,7 +271,7 @@ tar_getdir(tlm_commands_t *commands,
 	char	*hugename;
 	longlong_t huge_size = 0;	/* size of a HUGE file */
 	long	acl_spot;		/* any ACL info on the next volume */
-	long	file_size;		/* size of file to restore */
+	long	file_size = 0;		/* size of file to restore */
 	long	size_left = 0;		/* need this after volume change */
 	int	last_action = 0;	/* what we are doing at EOT */
 	boolean_t multi_volume = FALSE;	/* is this a multi-volume switch ? */
@@ -337,10 +339,10 @@ tar_getdir(tlm_commands_t *commands,
 	(void) memset(acls, 0, sizeof (tlm_acls_t));
 	if (IS_SET(flags, RSFLG_OVR_ALWAYS)) {
 		acls->acl_overwrite = TRUE;
-		NDMP_LOG(LOG_DEBUG, "RSFLG_OVR_ALWAYS");
+		syslog(LOG_DEBUG, "RSFLG_OVR_ALWAYS");
 	} else if (IS_SET(flags, RSFLG_OVR_UPDATE)) {
 		acls->acl_update = TRUE;
-		NDMP_LOG(LOG_DEBUG, "RSFLG_OVR_UPDATE");
+		syslog(LOG_DEBUG, "RSFLG_OVR_UPDATE");
 	}
 
 	/*
@@ -383,7 +385,7 @@ tar_getdir(tlm_commands_t *commands,
 		static int hardlink_tmp_idx = 0;
 
 		if (multi_volume) {
-			NDMP_LOG(LOG_DEBUG, "multi_volume %c %d",
+			syslog(LOG_DEBUG, "multi_volume %c %d",
 			    last_action, size_left);
 
 			/*
@@ -434,13 +436,13 @@ tar_getdir(tlm_commands_t *commands,
 			if (chk_rv == 0) {
 				/* one of the end of tar file marks */
 				if (++nzerohdr >= 2) {
-					NDMP_LOG(LOG_DEBUG,
+					syslog(LOG_DEBUG,
 					    "nzerohdr %d, breaking",
 					    nzerohdr);
 					/* end of tar file */
 					break;
 				}
-				NDMP_LOG(LOG_DEBUG, "nzerohdr %d, continuing",
+				syslog(LOG_DEBUG, "nzerohdr %d, continuing",
 				    nzerohdr);
 				continue;
 			} else if (chk_rv < 0) {
@@ -484,12 +486,6 @@ tar_getdir(tlm_commands_t *commands,
 			}
 		}
 
-		NDMP_LOG(LOG_DEBUG, "n [%s] f [%c] s %lld m %o u %d g %d t %d",
-		    tar_hdr->th_name, tar_hdr->th_linkflag,
-		    acls->acl_attr.st_size, acls->acl_attr.st_mode,
-		    acls->acl_attr.st_uid, acls->acl_attr.st_gid,
-		    acls->acl_attr.st_mtime);
-
 		/*
 		 * If the restore is running using DAR we should check for
 		 * extended attribute entries
@@ -520,7 +516,7 @@ tar_getdir(tlm_commands_t *commands,
 			}
 
 			if (hardlink_done) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "found hardlink, inode = %u, target = [%s]",
 				    hardlink_inode,
 				    hardlink_target? hardlink_target : "--");
@@ -549,7 +545,7 @@ tar_getdir(tlm_commands_t *commands,
 					nmp = rs_new_name(rnp, name, pos,
 					    file_name);
 					if (!nmp) {
-						NDMP_LOG(LOG_DEBUG,
+						syslog(LOG_ERR,
 						    "can't make name for %s",
 						    longname);
 					}
@@ -569,13 +565,13 @@ tar_getdir(tlm_commands_t *commands,
 							    tlm_entry_restored(
 							    job_stats,
 							    file_name, pos);
-							NDMP_LOG(LOG_DEBUG,
+							syslog(LOG_DEBUG,
 							    "restored %s -> %s",
 							    nmp,
 							    hardlink_target);
 						}
 					} else {
-						NDMP_LOG(LOG_DEBUG,
+						syslog(LOG_DEBUG,
 						    "no target for hardlink %s",
 						    nmp);
 					}
@@ -690,11 +686,11 @@ tar_getdir(tlm_commands_t *commands,
 					hardlink_tmp_idx++;
 					hardlink_tmp_file = 1;
 					want_this_file = TRUE;
-					NDMP_LOG(LOG_DEBUG,
+					syslog(LOG_DEBUG,
 					    "To restore temp hardlink file %s.",
 					    nmp);
 				} else {
-					NDMP_LOG(LOG_DEBUG,
+					syslog(LOG_DEBUG,
 					    "No tmplink_dir specified.");
 				}
 			}
@@ -718,7 +714,7 @@ tar_getdir(tlm_commands_t *commands,
 			if (is_hardlink && !DAR) {
 				if (hardlink_q_add(hardlink_q, hardlink_inode,
 				    0, nmp, hardlink_tmp_file))
-					NDMP_LOG(LOG_DEBUG,
+					syslog(LOG_ERR,
 					    "failed to add (%u, %s) to HL q",
 					    hardlink_inode, nmp);
 			}
@@ -749,9 +745,6 @@ tar_getdir(tlm_commands_t *commands,
 			if (rv != 0)
 				continue;
 
-			NDMP_LOG(LOG_DEBUG, "sizeleft %s %d, %lld", longname,
-			    size_left, huge_size);
-
 			if (want_this_file) {
 				job_stats->js_bytes_total += file_size;
 				job_stats->js_files_total++;
@@ -771,7 +764,7 @@ tar_getdir(tlm_commands_t *commands,
 					 * this hardlink.
 					 */
 					if (is_hardlink) {
-						NDMP_LOG(LOG_DEBUG,
+						syslog(LOG_DEBUG,
 						    "Restored hardlink file %s",
 						    nmp);
 
@@ -807,8 +800,8 @@ tar_getdir(tlm_commands_t *commands,
 			    longname;
 			link_name = (*longlink == 0) ?
 			    tar_hdr->th_linkname : longlink;
-			NDMP_LOG(LOG_DEBUG, "file_name[%s]", file_name);
-			NDMP_LOG(LOG_DEBUG, "link_name[%s]", link_name);
+			syslog(LOG_DEBUG, "file_name[%s]", file_name);
+			syslog(LOG_DEBUG, "link_name[%s]", link_name);
 			if (is_file_wanted(file_name, sels, exls, flags,
 			    &mchtype, &pos)) {
 				nmp = rs_new_name(rnp, name, pos, file_name);
@@ -920,7 +913,7 @@ tar_getdir(tlm_commands_t *commands,
 			    &lnk_end, local_commands);
 
 			if (size_left != 0)
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "fsize %d sleft %d lnkend %d",
 				    file_size, size_left, lnk_end);
 			break;
@@ -932,7 +925,7 @@ tar_getdir(tlm_commands_t *commands,
 			    &nm_end, local_commands);
 
 			if (size_left != 0)
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "fsize %d sleft %d nmend %d",
 				    file_size, size_left, nm_end);
 			is_long_name = TRUE;
@@ -998,6 +991,7 @@ tar_getfile(tlm_backup_restore_arg_t *argp)
 				/* the restore job name */
 	int	erc;		/* error return codes */
 	int	flags;
+	int	i;
 	struct	rs_name_maker rn;
 	tlm_commands_t *commands;
 	tlm_cmd_t *local_commands;
@@ -1027,24 +1021,30 @@ tar_getfile(tlm_backup_restore_arg_t *argp)
 	 * will not have a restore directory.
 	 */
 	if (*job == '\0') {
-		NDMP_LOG(LOG_DEBUG, "No job defined");
+		syslog(LOG_DEBUG, "No job defined");
 		local_commands->tc_reader = TLM_STOP;
 		free(dir);
 		(void) pthread_barrier_wait(&argp->ba_barrier);
 		return (-1);
 	}
 
-	sels = argp->ba_sels;
+	sels = ndmp_malloc(sizeof (char *) * (argp->ba_count + 1));
+	    /* One extra for NULL terminate */
 	if (sels == NULL) {
 		local_commands->tc_reader = TLM_STOP;
 		free(dir);
 		(void) pthread_barrier_wait(&argp->ba_barrier);
 		return (-1);
 	}
+
+	(void) memset(sels, 0, (argp->ba_count + 1) * sizeof (char *));
+	for (i = 0; i < argp->ba_count; i++) {
+		sels[i] = argp->ba_sels[i];
+	}
+
 	exls = &list;
 
 	tlm_log_list("selections", sels);
-	tlm_log_list("exclusions", exls);
 
 	if (wildcard_enabled())
 		flags |= RSFLG_MATCH_WCARD;
@@ -1065,17 +1065,14 @@ tar_getfile(tlm_backup_restore_arg_t *argp)
 	/*
 	 * work
 	 */
-	NDMP_LOG(LOG_DEBUG, "start restore job %s", job);
 	erc = tar_getdir(commands, local_commands, job_stats, &rn, 1, 1,
 	    sels, exls, flags, 0, NULL, NULL);
 
 	/*
 	 * teardown
 	 */
-	NDMP_LOG(LOG_DEBUG, "end restore job %s", job);
 	tlm_un_ref_job_stats(job);
 	tlm_release_list(sels);
-	tlm_release_list(exls);
 
 	commands->tcs_writer_count--;
 	local_commands->tc_reader = TLM_STOP;
@@ -1104,7 +1101,7 @@ make_dirs(char *dir)
 			*cp = '\0';
 			if (lstat64(dir, &st) < 0)
 				if (mkdir(dir, 0777) < 0) {
-					NDMP_LOG(LOG_DEBUG, "Error %d"
+					syslog(LOG_ERR, "Error %d"
 					    " creating directory %s",
 					    errno, dir);
 					*cp = c;
@@ -1129,7 +1126,7 @@ mkbasedir(char *path)
 	struct stat64 st;
 
 	if (!path || !*path) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument");
 		return (-1);
 	}
 
@@ -1169,11 +1166,10 @@ restore_file(int *fp,
 	*size_left = 0;
 	if (!real_name) {
 		if (want_this_file) {
-			NDMP_LOG(LOG_DEBUG, "No file name but wanted!");
+			syslog(LOG_DEBUG, "No file name but wanted!");
 			want_this_file = FALSE;
 		}
-	} else
-		NDMP_LOG(LOG_DEBUG, "new file[%s]", real_name);
+	}
 
 	/*
 	 * OK, some FM is creeping in here ...
@@ -1227,7 +1223,7 @@ restore_file(int *fp,
 			*fp = open(real_name, O_CREAT | O_TRUNC | O_WRONLY,
 			    S_IRUSR | S_IWUSR);
 			if (*fp == -1) {
-				NDMP_LOG(LOG_ERR,
+				syslog(LOG_ERR,
 				    "Could not open %s for restore: %d",
 				    real_name, errno);
 				job_stats->js_errors++;
@@ -1270,7 +1266,7 @@ restore_file(int *fp,
 		rec = get_read_buffer(size, &error, &actual_size,
 		    local_commands);
 		if (actual_size <= 0) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "RESTORE WRITER> error %d, actual_size %d",
 			    error, actual_size);
 
@@ -1279,7 +1275,7 @@ restore_file(int *fp,
 			*size_left = size;
 			return (0);
 		} else if (error) {
-			NDMP_LOG(LOG_DEBUG, "Error %d in file [%s]",
+			syslog(LOG_ERR, "Error %d in file [%s]",
 			    error, local_commands->tc_file_name);
 			break;
 		}
@@ -1288,7 +1284,7 @@ restore_file(int *fp,
 		if (want_this_file) {
 			ret = write(*fp, rec, write_size);
 			if (ret < 0) {
-				NDMP_LOG(LOG_ERR,
+				syslog(LOG_ERR,
 				    "Write error %d for file [%s]", errno,
 				    local_commands->tc_file_name);
 				job_stats->js_errors++;
@@ -1300,7 +1296,7 @@ restore_file(int *fp,
 				NS_ADD(wdisk, ret);
 				NS_INC(wfile);
 				if (ret < write_size) {
-					NDMP_LOG(LOG_ERR,
+					syslog(LOG_ERR,
 					    "Partial write for file [%s]",
 					    local_commands->tc_file_name);
 				}
@@ -1400,16 +1396,14 @@ restore_xattr_hdr(int *fp,
 	int error;
 
 	if (!fname) {
-		NDMP_LOG(LOG_DEBUG, "No file name but wanted!");
-	} else {
-		NDMP_LOG(LOG_DEBUG, "new xattr[%s]", fname);
+		syslog(LOG_DEBUG, "No file name but wanted!");
 	}
 
 	error = 0;
 	xhdr = (struct xattr_hdr *)get_read_buffer(size, &error,
 	    &actual_size, local_commands);
 	if (xhdr == NULL || error != 0) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Could not read xattr [%s:%s] for restore. ",
 		    name, fname);
 		job_stats->js_errors++;
@@ -1418,7 +1412,7 @@ restore_xattr_hdr(int *fp,
 
 	/* Check extended attribute header */
 	if (strcmp(xhdr->h_version, XATTR_ARCH_VERS) != 0) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Unrecognized header format [%s]", xhdr->h_version);
 		return (0);
 	}
@@ -1432,7 +1426,7 @@ restore_xattr_hdr(int *fp,
 
 		fd = attropen(name, xattrname, O_CREAT | O_RDWR, 0755);
 		if (fd == -1) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "Could not open xattr [%s:%s] for restore err=%d.",
 			    name, xattrname, errno);
 			job_stats->js_errors++;
@@ -1447,7 +1441,7 @@ restore_xattr_hdr(int *fp,
 	tar_hdr = (tlm_tar_hdr_t *)get_read_buffer(sizeof (*tar_hdr),
 	    &error, &actual_size, local_commands);
 	if (tar_hdr == NULL || error != 0) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Could not read xattr data [%s:%s] for restore. ",
 		    fname, xattrname);
 		job_stats->js_errors++;
@@ -1458,10 +1452,6 @@ restore_xattr_hdr(int *fp,
 	acls->acl_attr.st_uid = oct_atoi(tar_hdr->th_uid);
 	acls->acl_attr.st_gid = oct_atoi(tar_hdr->th_gid);
 	acls->acl_attr.st_mtime = oct_atoi(tar_hdr->th_mtime);
-
-	NDMP_LOG(LOG_DEBUG, "xattr_hdr: %s size %d mode %06o uid %d gid %d",
-	    xattrname, acls->acl_attr.st_size, acls->acl_attr.st_mode,
-	    acls->acl_attr.st_uid, acls->acl_attr.st_gid);
 
 	size = acls->acl_attr.st_size;
 	while (size > 0 && local_commands->tc_writer == TLM_RESTORE_RUN) {
@@ -1477,7 +1467,7 @@ restore_xattr_hdr(int *fp,
 			rec = get_read_one_buf(rec, actual_size, size, &error,
 			    local_commands);
 			if (rec == NULL) {
-				NDMP_LOG(LOG_DEBUG, "Error %d in file [%s]",
+				syslog(LOG_ERR, "Error %d in file [%s]",
 				    error, xattrname);
 				return (size);
 			}
@@ -1485,13 +1475,13 @@ restore_xattr_hdr(int *fp,
 			sysattr_write = 1;
 		}
 		if (actual_size <= 0) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "RESTORE WRITER> error %d, actual_size %d",
 			    error, actual_size);
 
 			return (size);
 		} else if (error) {
-			NDMP_LOG(LOG_DEBUG, "Error %d in file [%s]",
+			syslog(LOG_ERR, "Error %d in file [%s]",
 			    error, local_commands->tc_file_name);
 			break;
 		} else {
@@ -1534,7 +1524,7 @@ exact_find(char *name, char **list)
 		cp = *list + strspn(*list, "/");
 		if (match(cp, name)) {
 			found = TRUE;
-			NDMP_LOG(LOG_DEBUG, "exact_find> found[%s]", cp);
+			syslog(LOG_DEBUG, "exact_find> found[%s]", cp);
 			break;
 		}
 	}
@@ -1553,14 +1543,14 @@ is_parent(char *parent, char *child, int flags)
 
 	if (IS_SET(flags, RSFLG_MATCH_WCARD)) {
 		if (!tlm_cat_path(tmp, parent, "*")) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "is_parent> path too long [%s]", parent);
 			rv = FALSE;
 		} else
 			rv = (match(tmp, child) != 0) ? TRUE : FALSE;
 	} else {
 		if (!tlm_cat_path(tmp, parent, "/")) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "is_parent> path too long [%s]", parent);
 			rv = FALSE;
 		} else
@@ -1592,7 +1582,7 @@ is_file_wanted(char *name,
     int *pos)
 {
 	char *p_sel;
-	char *uc_name, *retry, *namep;
+	char *uc_name = NULL, *retry, *namep;
 	boolean_t found;
 	int i;
 	name_match_fp_t *cmp_fp;
@@ -1610,7 +1600,7 @@ is_file_wanted(char *name,
 	 * For empty selection, restore everything
 	 */
 	if (*sels == NULL || **sels == '\0') {
-		NDMP_LOG(LOG_DEBUG, "is_file_wanted: Restore all");
+		syslog(LOG_DEBUG, "is_file_wanted: Restore all");
 		return (TRUE);
 	}
 
@@ -1635,8 +1625,6 @@ is_file_wanted(char *name,
 		(void) strupr(uc_name);
 		namep = uc_name;
 	}
-	NDMP_LOG(LOG_DEBUG, "is_file_wanted> flg: 0x%x name: [%s]",
-	    flags, name);
 
 	for (i = 0; *sels != NULL; sels++, i++) {
 		p_sel = *sels + strspn(*sels, "/");
@@ -1645,8 +1633,6 @@ is_file_wanted(char *name,
 		 * Try exact match.
 		 */
 		if ((*cmp_fp)(p_sel, namep)) {
-			NDMP_LOG(LOG_DEBUG, "match1> pos: %d [%s][%s]",
-			    i, p_sel, name);
 			found = TRUE;
 			if (mchtype != NULL)
 				*mchtype = PM_EXACT;
@@ -1658,7 +1644,7 @@ is_file_wanted(char *name,
 		 */
 		(void) tlm_cat_path(retry, namep, "/");
 		if ((*cmp_fp)(p_sel, retry)) {
-			NDMP_LOG(LOG_DEBUG, "match2> pos %d [%s][%s]",
+			syslog(LOG_DEBUG, "match2> pos %d [%s][%s]",
 			    i, p_sel, name);
 			found = TRUE;
 			if (mchtype != NULL)
@@ -1670,8 +1656,6 @@ is_file_wanted(char *name,
 		 * 'name' is an entry below the 'p_sel' hierarchy.
 		 */
 		if (is_parent(p_sel, namep, flags)) {
-			NDMP_LOG(LOG_DEBUG, "parent1> pos %d [%s][%s]",
-			    i, p_sel, name);
 			found = TRUE;
 			if (mchtype != NULL)
 				*mchtype = PM_CHILD;
@@ -1686,7 +1670,7 @@ is_file_wanted(char *name,
 		 * and they can't be restored.
 		 */
 		if (is_parent(namep, p_sel, flags)) {
-			NDMP_LOG(LOG_DEBUG, "parent2> pos %d [%s][%s]",
+			syslog(LOG_DEBUG, "parent2> pos %d [%s][%s]",
 			    i, p_sel, name);
 			found = TRUE;
 			if (mchtype != NULL)
@@ -1728,7 +1712,7 @@ input_mem(int l,
 	char *rec;
 
 	if (l <= 0 || d <= 0 || !lcmds || !mem) {
-		NDMP_LOG(LOG_DEBUG, "Invalid argument");
+		syslog(LOG_ERR, "Invalid argument");
 		return (-1);
 	}
 
@@ -1736,11 +1720,11 @@ input_mem(int l,
 	while (toread > 0) {
 		rec = get_read_buffer(toread, &err, &actual_size, lcmds);
 		if (actual_size <= 0) {
-			NDMP_LOG(LOG_DEBUG, "err %d act_size %d detected",
+			syslog(LOG_ERR, "err %d act_size %d detected",
 			    err, actual_size);
 			break;
 		} else if (err) {
-			NDMP_LOG(LOG_DEBUG, "error %d reading data", err);
+			syslog(LOG_ERR, "error %d reading data", err);
 			return (-1);
 		}
 		rec_size = min(actual_size, toread);
@@ -1766,7 +1750,7 @@ get_humongus_file_header(int lib,
 	char *p_record, *value;
 	int rv;
 
-	NDMP_LOG(LOG_DEBUG, "HUGE Record found: %d", recsize);
+	syslog(LOG_WARNING, "HUGE Record found: %d", recsize);
 
 	rv = 0;
 	if (recsize == 0) {
@@ -1778,7 +1762,7 @@ get_humongus_file_header(int lib,
 		 * field is 0.  Otherwise the header.size field should show
 		 * the length of the data of this header.
 		 */
-		NDMP_LOG(LOG_DEBUG, "Old HUGE record found");
+		syslog(LOG_WARNING, "Old HUGE record found");
 		recsize = RECORDSIZE;
 	}
 
@@ -1786,9 +1770,9 @@ get_humongus_file_header(int lib,
 		rv = -1;
 		*size = 0;
 		*name = '\0';
-		NDMP_LOG(LOG_DEBUG, "Error reading a HUGE file name");
+		syslog(LOG_ERR, "Error reading a HUGE file name");
 	} else {
-		NDMP_LOG(LOG_DEBUG, "HUGE [%s]", name);
+		syslog(LOG_DEBUG, "HUGE [%s]", name);
 
 		p_record = name;
 		value = parse(&p_record, " ");
@@ -1802,7 +1786,7 @@ get_humongus_file_header(int lib,
 		(void) strlcpy(name, p_record, TLM_MAX_PATH_NAME);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "HUGE Record %lld [%s]", *size, name);
+	syslog(LOG_DEBUG, "HUGE Record %lld [%s]", *size, name);
 
 	return (rv);
 }
@@ -1820,7 +1804,7 @@ get_long_name(int lib,
 {
 	int nread;
 
-	NDMP_LOG(LOG_DEBUG, "LONGNAME Record found rs %d bs %d", recsize,
+	syslog(LOG_DEBUG, "LONGNAME Record found rs %d bs %d", recsize,
 	    *buf_spot);
 
 	if (*buf_spot < 0)
@@ -1831,12 +1815,12 @@ get_long_name(int lib,
 	if (nread < 0) {
 		nread = recsize; /* return 0 as size left */
 		name[*buf_spot] = '\0';
-		NDMP_LOG(LOG_ERR, "Error %d reading a long file name %s.",
+		syslog(LOG_ERR, "Error %d reading a long file name %s.",
 		    nread, name);
 	} else {
 		*buf_spot += nread;
 		name[*buf_spot] = '\0';
-		NDMP_LOG(LOG_DEBUG, "LONGNAME [%s]", name);
+		syslog(LOG_DEBUG, "LONGNAME [%s]", name);
 	}
 
 	return (recsize - nread);
@@ -1857,7 +1841,6 @@ create_directory(char *dir, tlm_job_stats_t *job_stats)
 	 * Make sure all directories in this path exist, create them if
 	 * needed.
 	 */
-	NDMP_LOG(LOG_DEBUG, "new dir[%s]", dir);
 
 	erc = 0;
 	p = &dir[1];
@@ -1869,7 +1852,7 @@ create_directory(char *dir, tlm_job_stats_t *job_stats)
 				if (mkdir(dir, 0777) != 0 && errno != EEXIST) {
 					erc = errno;
 					job_stats->js_errors++;
-					NDMP_LOG(LOG_DEBUG,
+					syslog(LOG_ERR,
 					    "Could not create directory %s: %d",
 					    dir, errno);
 					break;
@@ -1904,7 +1887,7 @@ create_hard_link(char *name_old, char *name_new,
 		if (erc == EEXIST)
 			return (0);
 		job_stats->js_errors++;
-		NDMP_LOG(LOG_DEBUG, "error %d (errno %d) hardlink [%s] to [%s]",
+		syslog(LOG_ERR, "error %d (errno %d) hardlink [%s] to [%s]",
 		    erc, errno, name_new, name_old);
 		return (erc);
 	}
@@ -1929,9 +1912,16 @@ create_sym_link(char *dst, char *target, tlm_acls_t *acls,
 	st = &acls->acl_attr;
 	if (symlink(target, dst) != 0) {
 		erc = errno;
-		job_stats->js_errors++;
-		NDMP_LOG(LOG_DEBUG, "error %d softlink [%s] to [%s]",
-		    errno, dst, target);
+		if (errno == EEXIST) {
+			erc = 0;
+			syslog(LOG_DEBUG,
+			    "softlink [%s] to [%s] already existed",
+			    dst, target);
+		} else {
+			job_stats->js_errors++;
+			syslog(LOG_ERR, "error %d softlink [%s] to [%s]",
+			    errno, dst, target);
+		}
 	} else {
 		st->st_mode |= S_IFLNK;
 		erc = set_acl(dst, acls);
@@ -1964,7 +1954,7 @@ create_special(char flag, char *name, tlm_acls_t *acls, int major, int minor,
 		dev = 0;
 		break;
 	default:
-		NDMP_LOG(LOG_ERR, "unsupported flag %d", flag);
+		syslog(LOG_ERR, "unsupported flag %d", flag);
 		return (-1);
 	}
 
@@ -1975,7 +1965,7 @@ create_special(char flag, char *name, tlm_acls_t *acls, int major, int minor,
 	}
 	if (mknod(name, 0777 | mode, dev) != 0) {
 		job_stats->js_errors++;
-		NDMP_LOG(LOG_DEBUG, "error %d mknod [%s] major"
+		syslog(LOG_ERR, "error %d mknod [%s] major"
 		    " %d minor %d", errno, name, major, minor);
 		return (errno);
 	}
@@ -2010,7 +2000,7 @@ load_acl_info(int lib,
 	if (nread < 0) {
 		*acl_spot = 0;
 		(void) memset(acls, 0, sizeof (tlm_acls_t));
-		NDMP_LOG(LOG_DEBUG, "Error reading ACL data");
+		syslog(LOG_ERR, "Error reading ACL data");
 		return (0);
 	}
 	*acl_spot += nread;
@@ -2025,7 +2015,7 @@ ndmp_set_eprivs_least(void)
 	priv_set_t *priv_set;
 
 	if ((priv_set = priv_allocset()) == NULL) {
-		NDMP_LOG(LOG_ERR, "Out of memory.");
+		syslog(LOG_ERR, "Out of memory.");
 		return (-1);
 	}
 
@@ -2047,7 +2037,7 @@ ndmp_set_eprivs_least(void)
 	(void) priv_addset(priv_set, PRIV_SYS_CONFIG);
 
 	if (setppriv(PRIV_SET, PRIV_EFFECTIVE, priv_set) == -1) {
-		NDMP_LOG(LOG_ERR, "Additional privileges required.");
+		syslog(LOG_ERR, "Additional privileges required.");
 		priv_freeset(priv_set);
 		return (-1);
 	}
@@ -2061,14 +2051,14 @@ ndmp_set_eprivs_all(void)
 	priv_set_t *priv_set;
 
 	if ((priv_set = priv_allocset()) == NULL) {
-		NDMP_LOG(LOG_ERR, "Out of memory.");
+		syslog(LOG_ERR, "Out of memory.");
 		return (-1);
 	}
 
 	priv_fillset(priv_set);
 
 	if (setppriv(PRIV_SET, PRIV_EFFECTIVE, priv_set) != 0) {
-		NDMP_LOG(LOG_ERR, "Additional privileges required.");
+		syslog(LOG_ERR, "Additional privileges required.");
 		return (-1);
 	}
 	priv_freeset(priv_set);
@@ -2095,28 +2085,21 @@ set_attr(char *name, tlm_acls_t *acls)
 		return (0);
 
 	st = &acls->acl_attr;
-	NDMP_LOG(LOG_DEBUG, "set_attr: %s uid %d gid %d uname %s gname %s "
-	    "mode %o", name, st->st_uid, st->st_gid, acls->uname, acls->gname,
-	    st->st_mode);
 
 	uid = st->st_uid;
 	if ((pwd = getpwnam(acls->uname)) != NULL) {
-		NDMP_LOG(LOG_DEBUG, "set_attr: new uid %d old %d",
-		    pwd->pw_uid, uid);
 		uid = pwd->pw_uid;
 	}
 
 	gid = st->st_gid;
 	if ((grp = getgrnam(acls->gname)) != NULL) {
-		NDMP_LOG(LOG_DEBUG, "set_attr: new gid %d old %d",
-		    grp->gr_gid, gid);
 		gid = grp->gr_gid;
 	}
 
 	erc = lchown(name, uid, gid);
 	if (erc != 0) {
 		erc = errno;
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Could not set uid or/and gid for file %s.", name);
 	}
 
@@ -2127,7 +2110,7 @@ set_attr(char *name, tlm_acls_t *acls)
 		 * send error to log file and proceed.
 		 */
 		if (ndmp_set_eprivs_all()) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Could not set effective privileges to 'all'.");
 		} else {
 			priv_all = TRUE;
@@ -2138,7 +2121,7 @@ set_attr(char *name, tlm_acls_t *acls)
 		erc = chmod(name, st->st_mode);
 		if (erc != 0) {
 			erc = errno;
-			NDMP_LOG(LOG_ERR, "Could not set correct file"
+			syslog(LOG_ERR, "Could not set correct file"
 			    " permission for file %s: %d", name, errno);
 		}
 
@@ -2154,7 +2137,7 @@ set_attr(char *name, tlm_acls_t *acls)
 		 * log file and proceed.
 		 */
 		if (ndmp_set_eprivs_least())
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Could not set least required privileges.");
 	}
 
@@ -2170,8 +2153,6 @@ set_acl(char *name, tlm_acls_t *acls)
 	int erc;
 	acl_t *aclp = NULL;
 
-	if (name)
-		NDMP_LOG(LOG_DEBUG, "set_acl: %s", name);
 	if (acls == NULL)
 		return (0);
 
@@ -2183,20 +2164,19 @@ set_acl(char *name, tlm_acls_t *acls)
 
 	if (!acls->acl_non_trivial) {
 		(void) memset(acls, 0, sizeof (tlm_acls_t));
-		NDMP_LOG(LOG_DEBUG, "set_acl: skipping trivial");
 		return (erc);
 	}
 
 	erc = acl_fromtext(acls->acl_info.attr_info, &aclp);
 	if (erc != 0) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "TAPE RESTORE> acl_fromtext errno %d", erc);
 	}
 	if (aclp) {
 		erc = acl_set(name, aclp);
 		if (erc < 0) {
 			erc = errno;
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "TAPE RESTORE> acl_set errno %d", errno);
 		}
 		acl_free(aclp);
@@ -2258,13 +2238,13 @@ catnames(struct rs_name_maker *rnp, char *buf, int pos, char *path)
 
 	rv = NULL;
 	if (!buf) {
-		NDMP_LOG(LOG_DEBUG, "buf is NULL");
+		syslog(LOG_DEBUG, "buf is NULL");
 	} else if (!path) {
-		NDMP_LOG(LOG_DEBUG, "path is NULL");
+		syslog(LOG_DEBUG, "path is NULL");
 	} else if (!rnp->rn_nlp) {
-		NDMP_LOG(LOG_DEBUG, "rn_nlp is NULL [%s]", path);
+		syslog(LOG_DEBUG, "rn_nlp is NULL [%s]", path);
 	} else if (!tlm_cat_path(buf, rnp->rn_nlp, path)) {
-		NDMP_LOG(LOG_DEBUG, "Path too long [%s][%s]",
+		syslog(LOG_DEBUG, "Path too long [%s][%s]",
 		    rnp->rn_nlp, path);
 	} else
 		rv = buf;
@@ -2305,8 +2285,6 @@ rs_create_new_bkpath(char *bk_path, char *path, char *pbuf)
 		(void) snprintf(pbuf, TLM_MAX_PATH_NAME, "%s%s", bk_path, p);
 	else
 		(void) snprintf(pbuf, TLM_MAX_PATH_NAME, "%s/%s", bk_path, p);
-
-	NDMP_LOG(LOG_DEBUG, "old path [%s] new path [%s]", path, pbuf);
 }
 
 
@@ -2408,7 +2386,7 @@ ndmp_iter_zfs(ndmp_context_t *nctx, int (*np_restore_property)(nvlist_t *,
 
 			if (mhpx->nh_major > META_HDR_MAJOR_VERSION) {
 				/* Major header mismatch */
-				NDMP_LOG(LOG_ERR, "metadata header mismatch",
+				syslog(LOG_ERR, "metadata header mismatch",
 				    "M%d != M%d", mhpx->nh_major,
 				    META_HDR_MAJOR_VERSION);
 				free(mhbuf);
@@ -2417,7 +2395,7 @@ ndmp_iter_zfs(ndmp_context_t *nctx, int (*np_restore_property)(nvlist_t *,
 			if (mhpx->nh_major == META_HDR_MAJOR_VERSION &&
 			    mhpx->nh_minor > META_HDR_MINOR_VERSION) {
 				/* Minor header mismatch */
-				NDMP_LOG(LOG_ERR, "Warning:"
+				syslog(LOG_ERR, "Warning:"
 				    "metadata header mismatch m%d != m%d",
 				    mhpx->nh_minor,
 				    META_HDR_MINOR_VERSION);

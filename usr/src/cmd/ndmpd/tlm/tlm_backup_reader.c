@@ -36,6 +36,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
+
+#include <syslog.h>
 #include <stdio.h>
 #include <limits.h>
 #include <time.h>
@@ -115,7 +118,6 @@ tlm_output_dir(char *name, tlm_acls_t *tlm_acls,
 	 * Send the node or path history of the directory itself.
 	 */
 	pos = tlm_get_data_offset(local_commands);
-	NDMP_LOG(LOG_DEBUG, "pos: %10lld  [%s]", pos, name);
 	(void) tlm_log_fhnode(job_stats, name, "", &tlm_acls->acl_attr, pos);
 	(void) tlm_log_fhpath_name(job_stats, name, &tlm_acls->acl_attr, pos);
 	/* fhdir_cb is handled in ndmpd_tar3.c */
@@ -257,7 +259,7 @@ output_xattr_header(char *fname, char *aname, int fd,
 		return (-TLM_NO_SCRATCH_SPACE);
 
 	if (fstat64(fd, attr) == -1) {
-		NDMP_LOG(LOG_DEBUG, "output_file_header stat failed.");
+		syslog(LOG_ERR, "output_file_header stat failed.");
 		free(section_name);
 		return (-TLM_OPEN_ERR);
 	}
@@ -299,9 +301,6 @@ output_xattr_header(char *fname, char *aname, int fd,
 	    attr->st_mtime);
 	(void) strlcpy(tar_hdr->th_magic, TLM_MAGIC,
 	    sizeof (tar_hdr->th_magic));
-
-	NDMP_LOG(LOG_DEBUG, "xattr_hdr: %s size %d mode %06o uid %d gid %d",
-	    aname, hsize, attr->st_mode & 07777, attr->st_uid, attr->st_gid);
 
 	tlm_build_header_checksum(tar_hdr);
 
@@ -488,9 +487,6 @@ output_file_header(char *name, char *link,
 		(void) strlcpy(tar_hdr->th_name, section_name, TLM_NAME_SIZE);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "long_link: %s [%s]", long_link ? "TRUE" : "FALSE",
-	    link);
-
 	if (long_link) {
 		(void) snprintf(tar_hdr->th_linkname,
 		    sizeof (tar_hdr->th_name),
@@ -530,8 +526,6 @@ output_file_header(char *name, char *link,
 		} else {
 			tar_hdr->th_linkflag = *link == 0 ? LF_NORMAL :
 			    LF_SYMLINK;
-			NDMP_LOG(LOG_DEBUG, "linkflag: '%c'",
-			    tar_hdr->th_linkflag);
 		}
 	}
 	(void) snprintf(tar_hdr->th_size, sizeof (tar_hdr->th_size), "%011o ",
@@ -580,7 +574,7 @@ tlm_readlink(char *nm, char *snap, char *buf, int bufsize)
 		 */
 		buf[len] = '\0';
 	} else {
-		NDMP_LOG(LOG_DEBUG, "Error %d reading softlink of [%s]",
+		syslog(LOG_ERR, "Error %d reading softlink of [%s]",
 		    errno, nm);
 		buf[0] = '\0';
 
@@ -644,7 +638,6 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 	int	afd = 0;
 	longlong_t seek_spot = 0;	/* location in the file */
 					/* for Multi Volume record */
-	u_longlong_t pos;
 	DIR *dp;
 	struct dirent *dtp;
 	char *attrname;
@@ -662,7 +655,7 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 	}
 
 	if (!tlm_cat_path(fullname, dir, name)) {
-		NDMP_LOG(LOG_DEBUG, "Path too long.");
+		syslog(LOG_ERR, "Path too long.");
 		free(fullname);
 		return (-TLM_NO_SCRATCH_SPACE);
 	}
@@ -681,7 +674,7 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 	}
 
 	if (!tlm_cat_path(snapname, chkdir, name)) {
-		NDMP_LOG(LOG_DEBUG, "Path too long.");
+		syslog(LOG_ERR, "Path too long.");
 		rv = -TLM_NO_SCRATCH_SPACE;
 		goto err_out;
 	}
@@ -693,20 +686,17 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 	 */
 	fd = attropen(fnamep, ".", O_RDONLY);
 	if (fd == -1) {
-		NDMP_LOG(LOG_DEBUG, "BACKUP> Can't open file [%s][%s]",
+		syslog(LOG_ERR, "BACKUP> Can't open file [%s][%s]",
 		    fullname, fnamep);
 		rv = TLM_NO_SOURCE_FILE;
 		goto err_out;
 	}
 
-	pos = tlm_get_data_offset(local_commands);
-	NDMP_LOG(LOG_DEBUG, "pos: %10lld  [%s]", pos, name);
-
 	section = 0;
 
 	dp = (DIR *)fdopendir(fd);
 	if (dp == NULL) {
-		NDMP_LOG(LOG_DEBUG, "BACKUP> Can't open file [%s]", fullname);
+		syslog(LOG_ERR, "BACKUP> Can't open file [%s]", fullname);
 		(void) close(fd);
 		rv = TLM_NO_SOURCE_FILE;
 		goto err_out;
@@ -723,7 +713,7 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 
 		afd = attropen(fnamep, dtp->d_name, O_RDONLY);
 		if (afd == -1) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "problem(%d) opening xattr file [%s][%s]", errno,
 			    fullname, fnamep);
 			goto tear_down;
@@ -745,8 +735,8 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 			long	actual_size;
 			int	read_size;
 			int sysattr_read = 0;
-			char *rec;
-			int size;
+			char *rec = NULL;
+			int size = 0;
 
 			/*
 			 * check for Abort commands
@@ -805,7 +795,7 @@ tlm_output_xattr(char  *dir, char *name, char *chkdir,
 			NS_INC(rfile);
 
 			if (actual_size == -1) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_ERR,
 				    "problem(%d) reading file [%s][%s]",
 				    errno, fullname, snapname);
 				goto tear_down;
@@ -867,7 +857,7 @@ tlm_output_file(char *dir, char *name, char *chkdir,
 	u_longlong_t hardlink_pos = 0;
 
 	if (tlm_is_too_long(tlm_acls->acl_checkpointed, dir, name)) {
-		NDMP_LOG(LOG_DEBUG, "Path too long [%s][%s]", dir, name);
+		syslog(LOG_ERR, "Path too long [%s][%s]", dir, name);
 		return (-TLM_NO_SCRATCH_SPACE);
 	}
 
@@ -880,13 +870,12 @@ tlm_output_file(char *dir, char *name, char *chkdir,
 	}
 	if (!tlm_cat_path(fullname, dir, name) ||
 	    !tlm_cat_path(snapname, chkdir, name)) {
-		NDMP_LOG(LOG_DEBUG, "Path too long.");
+		syslog(LOG_ERR, "Path too long.");
 		real_size = -TLM_NO_SCRATCH_SPACE;
 		goto err_out;
 	}
 
 	pos = tlm_get_data_offset(local_commands);
-	NDMP_LOG(LOG_DEBUG, "pos: %10lld  [%s]", pos, name);
 
 	if (S_ISPECIAL(tlm_acls->acl_attr.st_mode)) {
 		if (S_ISLNK(tlm_acls->acl_attr.st_mode)) {
@@ -936,14 +925,14 @@ tlm_output_file(char *dir, char *name, char *chkdir,
 		 */
 		fd = open(fnamep, O_RDONLY);
 		if (fd == -1) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "BACKUP> Can't open file [%s][%s] err(%d)",
 			    fullname, fnamep, errno);
 			real_size = -TLM_NO_SOURCE_FILE;
 			goto err_out;
 		}
 	} else {
-		NDMP_LOG(LOG_DEBUG, "found hardlink, inode = %llu, pos = %llu ",
+		syslog(LOG_DEBUG, "found hardlink, inode = %llu, pos = %llu ",
 		    tlm_acls->acl_attr.st_ino, hardlink_pos);
 
 		fd = -1;
@@ -1047,7 +1036,7 @@ tlm_output_file(char *dir, char *name, char *chkdir,
 				break;
 
 			if (actual_size == -1) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_ERR,
 				    "problem(%d) reading file [%s][%s]",
 				    errno, fullname, snapname);
 				goto tear_down;
@@ -1066,7 +1055,7 @@ tlm_output_file(char *dir, char *name, char *chkdir,
 	if (tlm_acls->acl_attr.st_nlink > 1 && !hardlink_done) {
 		(void) hardlink_q_add(hardlink_q, tlm_acls->acl_attr.st_ino,
 		    pos, NULL, 0);
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "backed up hardlink file %s, inode = %llu, pos = %llu ",
 		    fullname, tlm_acls->acl_attr.st_ino, pos);
 	}
@@ -1076,7 +1065,7 @@ tlm_output_file(char *dir, char *name, char *chkdir,
 	 * backed up, no add_node entry should be sent for this link.
 	 */
 	if (hardlink_done) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "backed up hardlink link %s, inode = %llu, pos = %llu ",
 		    fullname, tlm_acls->acl_attr.st_ino, hardlink_pos);
 	} else {

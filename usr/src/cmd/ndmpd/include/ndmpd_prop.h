@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2017 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -116,6 +116,10 @@ typedef enum {
 	NDMP_ZFS_FORCE_OVERRIDE,
 	NDMP_DRIVE_TYPE,
 	NDMP_DEBUG_MODE,
+	NDMP_VENDOR_NAME,
+	NDMP_PRODUCT_NAME,
+	NDMP_AUTOSYNC_SUPPORT,
+	NDMP_HPR_SUPPORT,
 	NDMP_MAXALL
 } ndmpd_cfg_id_t;
 

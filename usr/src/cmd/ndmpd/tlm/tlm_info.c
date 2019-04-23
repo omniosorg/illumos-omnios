@@ -36,6 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <syslog.h>
 #include <stdlib.h>
 #include "tlm.h"
 #include "tlm_proto.h"
@@ -203,7 +204,7 @@ tlm_ref_job_stats(char *name)
 		}
 		link = link->tc_next;
 	} while (link != tlm_info.ti_job_stats);
-	NDMP_LOG(LOG_DEBUG,
+	syslog(LOG_DEBUG,
 	    "TAPE BACKUP> Ref for job [%s] was not found", name);
 	(void) mutex_unlock(&jstat_mtx);
 
@@ -221,7 +222,7 @@ tlm_un_ref_job_stats(char *name)
 	(void) mutex_lock(&jstat_mtx);
 	link = tlm_info.ti_job_stats;
 	if (link == 0) {
-		NDMP_LOG(LOG_DEBUG, "TAPE BACKUP>"
+		syslog(LOG_DEBUG, "TAPE BACKUP>"
 		    " Internal error for job [%s], could not delete", name);
 		return;
 	}
@@ -238,7 +239,7 @@ tlm_un_ref_job_stats(char *name)
 		link = link->tc_next;
 	} while (link != tlm_info.ti_job_stats);
 	(void) mutex_unlock(&jstat_mtx);
-	NDMP_LOG(LOG_DEBUG,
+	syslog(LOG_DEBUG,
 	    "TAPE BACKUP> Delete for job [%s] was not found", name);
 }
 
@@ -305,7 +306,7 @@ tlm_un_ref(tlm_chain_link_t *old_top, tlm_chain_link_t *link)
 		}
 		chain_link = chain_link->tc_next;
 	} while (chain_link != old_top);
-	NDMP_LOG(LOG_DEBUG, "TAPE BACKUP> un_ref target not found.");
+	syslog(LOG_DEBUG, "TAPE BACKUP> un_ref target not found.");
 	return (old_top);
 }
 

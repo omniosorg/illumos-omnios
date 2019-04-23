@@ -38,8 +38,10 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
+/* Copyright 2017 Nexenta Systems, Inc. All rights reserved. */
 
 #include <sys/types.h>
+#include <syslog.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -103,7 +105,7 @@ ndmpd_scsi_close_v2(ndmp_connection_t *connection, void *body)
 	ndmpd_session_t *session = ndmp_get_client_data(connection);
 
 	if (session->ns_scsi.sd_is_open == -1) {
-		NDMP_LOG(LOG_ERR, "SCSI device is not open.");
+		syslog(LOG_ERR, "SCSI device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending scsi_close reply");
@@ -226,16 +228,14 @@ ndmpd_scsi_reset_device_v2(ndmp_connection_t *connection, void *body)
 	struct uscsi_cmd  cmd;
 
 	if (session->ns_scsi.sd_devid == -1) {
-		NDMP_LOG(LOG_ERR, "SCSI device is not open.");
+		syslog(LOG_ERR, "SCSI device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 	} else {
 		reply.error = NDMP_NO_ERR;
 		(void) memset((void*)&cmd, 0, sizeof (cmd));
 		cmd.uscsi_flags |= USCSI_RESET;
 		if (ioctl(session->ns_scsi.sd_devid, USCSICMD, &cmd) < 0) {
-			NDMP_LOG(LOG_ERR, "USCSI reset failed: %m.");
-			NDMP_LOG(LOG_DEBUG,
-			    "ioctl(USCSICMD) USCSI_RESET failed: %m.");
+			syslog(LOG_ERR, "USCSI reset failed: %m.");
 			reply.error = NDMP_IO_ERR;
 		}
 	}
@@ -265,7 +265,6 @@ ndmpd_scsi_reset_bus_v2(ndmp_connection_t *connection, void *body)
 {
 	ndmp_scsi_reset_bus_reply reply;
 
-	NDMP_LOG(LOG_DEBUG, "request not supported");
 	reply.error = NDMP_NOT_SUPPORTED_ERR;
 
 	ndmp_send_reply(connection, (void *) &reply,
@@ -296,7 +295,6 @@ ndmpd_scsi_execute_cdb_v2(ndmp_connection_t *connection, void *body)
 	    !session->ns_scsi.sd_valid_target_set) {
 		(void) memset((void *) &reply, 0, sizeof (reply));
 
-		NDMP_LOG(LOG_ERR, "SCSI device is not open.");
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 		ndmp_send_reply(connection, (void *) &reply,
 		    "sending scsi_execute_cdb reply");
@@ -416,16 +414,13 @@ common_open(ndmp_connection_t *connection, char *devname)
 	int sid, lun;
 	int err;
 	scsi_adapter_t *sa;
-	int devid;
+	int devid = -1;
 
 	err = NDMP_NO_ERR;
 
 	if (session->ns_tape.td_fd != -1 || session->ns_scsi.sd_is_open != -1) {
-		NDMP_LOG(LOG_ERR,
-		    "Session already has a tape or scsi device open.");
 		err = NDMP_DEVICE_OPENED_ERR;
 	} else if ((sa = scsi_get_adapter(0)) != NULL) {
-		NDMP_LOG(LOG_DEBUG, "Adapter device found: %s", devname);
 		(void) strlcpy(adptnm, devname, SCSI_MAX_NAME-2);
 		adptnm[SCSI_MAX_NAME-1] = '\0';
 		sid = lun = -1;
@@ -433,12 +428,12 @@ common_open(ndmp_connection_t *connection, char *devname)
 		scsi_find_sid_lun(sa, devname, &sid, &lun);
 		if (ndmp_open_list_find(devname, sid, lun) == NULL &&
 		    (devid = open(devname, O_RDWR | O_NDELAY)) < 0) {
-			NDMP_LOG(LOG_ERR, "Failed to open device %s: %m.",
+			syslog(LOG_ERR, "Failed to open device %s: %m.",
 			    devname);
 			err = NDMP_NO_DEVICE_ERR;
 		}
 	} else {
-		NDMP_LOG(LOG_ERR, "%s: No such SCSI adapter.", devname);
+		syslog(LOG_ERR, "%s: No such SCSI adapter.", devname);
 		err = NDMP_NO_DEVICE_ERR;
 	}
 
@@ -512,14 +507,14 @@ common_set_target(ndmp_connection_t *connection, char *device,
 		reply.error = NDMP_DEV_NOT_OPEN_ERR;
 	} else if (!scsi_dev_exists(session->ns_scsi.sd_adapter_name, sid,
 	    lun)) {
-		NDMP_LOG(LOG_ERR, "No such SCSI device: target %d lun %d.",
+		syslog(LOG_ERR, "No such SCSI device: target %d lun %d.",
 		    sid, lun);
 		reply.error = NDMP_NO_DEVICE_ERR;
 	} else {
 		type = scsi_get_devtype(session->ns_scsi.sd_adapter_name, sid,
 		    lun);
 		if (type != DTYPE_SEQUENTIAL && type != DTYPE_CHANGER) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Not a tape or robot device: target %d lun %d.",
 			    sid, lun);
 			reply.error = NDMP_ILLEGAL_ARGS_ERR;
@@ -557,7 +552,6 @@ common_set_target(ndmp_connection_t *connection, char *device,
 	}
 
 	if (reply.error == NDMP_NO_ERR) {
-		NDMP_LOG(LOG_DEBUG, "Updated sid %d lun %d", sid, lun);
 		session->ns_scsi.sd_sid = sid;
 		session->ns_scsi.sd_lun = lun;
 		session->ns_scsi.sd_valid_target_set = TRUE;

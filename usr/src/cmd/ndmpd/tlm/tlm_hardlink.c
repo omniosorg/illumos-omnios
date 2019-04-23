@@ -49,9 +49,6 @@
 #define	HL_DBG_GET	0x0004
 #define	HL_DBG_ADD	0x0008
 
-static int hardlink_q_dbg = -1;
-
-
 struct hardlink_q *
 hardlink_q_init()
 {
@@ -62,9 +59,6 @@ hardlink_q_init()
 		SLIST_INIT(qhead);
 	}
 
-	if (hardlink_q_dbg & HL_DBG_INIT)
-		NDMP_LOG(LOG_DEBUG, "qhead = %p", qhead);
-
 	return (qhead);
 }
 
@@ -73,33 +67,18 @@ hardlink_q_cleanup(struct hardlink_q *hl_q)
 {
 	struct hardlink_node *hl;
 
-	if (hardlink_q_dbg & HL_DBG_CLEANUP)
-		NDMP_LOG(LOG_DEBUG, "(1): qhead = %p", hl_q);
-
 	if (!hl_q)
 		return;
 
 	while (!SLIST_EMPTY(hl_q)) {
 		hl = SLIST_FIRST(hl_q);
 
-		if (hardlink_q_dbg & HL_DBG_CLEANUP)
-			NDMP_LOG(LOG_DEBUG, "(2): remove node, inode = %lu",
-			    hl->inode);
-
 		SLIST_REMOVE_HEAD(hl_q, next_hardlink);
 
 		/* remove the temporary file */
 		if (hl->is_tmp) {
 			if (hl->path) {
-				NDMP_LOG(LOG_DEBUG, "(3): remove temp file %s",
-				    hl->path);
-				if (remove(hl->path)) {
-					NDMP_LOG(LOG_DEBUG,
-					    "error removing temp file");
-				}
-			} else {
-				NDMP_LOG(LOG_DEBUG, "no link name, inode = %lu",
-				    hl->inode);
+				(void) remove(hl->path);
 			}
 		}
 
@@ -122,17 +101,10 @@ hardlink_q_get(struct hardlink_q *hl_q, unsigned long inode,
 {
 	struct hardlink_node *hl;
 
-	if (hardlink_q_dbg & HL_DBG_GET)
-		NDMP_LOG(LOG_DEBUG, "(1): qhead = %p, inode = %lu",
-		    hl_q, inode);
-
 	if (!hl_q)
 		return (-1);
 
 	SLIST_FOREACH(hl, hl_q, next_hardlink) {
-		if (hardlink_q_dbg & HL_DBG_GET)
-			NDMP_LOG(LOG_DEBUG, "(2): checking, inode = %lu",
-			    hl->inode);
 
 		if (hl->inode != inode)
 			continue;
@@ -160,17 +132,10 @@ hardlink_q_add(struct hardlink_q *hl_q, unsigned long inode,
 {
 	struct hardlink_node *hl;
 
-	if (hardlink_q_dbg & HL_DBG_ADD)
-		NDMP_LOG(LOG_DEBUG,
-		    "(1): qhead = %p, inode = %lu, path = %p (%s)",
-		    hl_q, inode, path, path? path : "(--)");
-
 	if (!hl_q)
 		return (-1);
 
 	if (!hardlink_q_get(hl_q, inode, 0, 0)) {
-		NDMP_LOG(LOG_DEBUG, "hardlink (inode = %lu) exists in queue %p",
-		    inode, hl_q);
 		return (-1);
 	}
 
@@ -185,11 +150,6 @@ hardlink_q_add(struct hardlink_q *hl_q, unsigned long inode,
 		hl->path = strdup(path);
 	else
 		hl->path = NULL;
-
-	if (hardlink_q_dbg & HL_DBG_ADD)
-		NDMP_LOG(LOG_DEBUG,
-		    "(2): added node, inode = %lu, path = %p (%s)",
-		    hl->inode, hl->path, hl->path? hl->path : "(--)");
 
 	SLIST_INSERT_HEAD(hl_q, hl, next_hardlink);
 

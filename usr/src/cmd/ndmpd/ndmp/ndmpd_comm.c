@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2017 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/uio.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -82,6 +83,16 @@ int ndmp_full_restore_path = 1;
  * Do we support Direct Access Restore?
  */
 int ndmp_dar_support = 0;
+
+/*
+ * Is autosync enabled?
+ */
+int ndmp_autosync_support = 0;
+
+/*
+ * Is HPR snapshot enabled?
+ */
+int ndmp_hpr_support = 0;
 
 /*
  * ndmp_connection_t handler function
@@ -154,7 +165,7 @@ ndmp_create_connection(void)
 	    ndmp_readit, ndmp_writeit);
 
 	if (connection->conn_xdrs.x_ops == 0) {
-		NDMP_LOG(LOG_DEBUG, "xdrrec_create failed");
+		syslog(LOG_ERR, "xdrrec_create failed");
 		(void) mutex_destroy(&connection->conn_lock);
 		(void) close(connection->conn_sock);
 		free(connection);
@@ -278,7 +289,7 @@ ndmp_run(ulong_t port, ndmp_con_handler_func_t con_handler_func)
 	sin.sin_port = htons(port);
 
 	if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Socket error: %m");
+		syslog(LOG_ERR, "Socket error: %m");
 		return (-1);
 	}
 
@@ -288,22 +299,21 @@ ndmp_run(ulong_t port, ndmp_con_handler_func_t con_handler_func)
 
 
 	if (bind(server_socket, (struct sockaddr *)&sin, sizeof (sin)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "bind error: %m");
+		syslog(LOG_ERR, "bind error: %m");
 		(void) close(server_socket);
 		return (-1);
 	}
 	if (listen(server_socket, 5) < 0) {
-		NDMP_LOG(LOG_DEBUG, "listen error: %m");
+		syslog(LOG_ERR, "listen error: %m");
 		(void) close(server_socket);
 		return (-1);
 	}
 
 	for (; ; ) {
 		if ((ns = tcp_accept(server_socket, &ipaddr)) < 0) {
-			NDMP_LOG(LOG_DEBUG, "tcp_accept error: %m");
+			syslog(LOG_ERR, "tcp_accept error: %m");
 			continue;
 		}
-		NDMP_LOG(LOG_DEBUG, "connection fd: %d", ns);
 		set_socket_options(ns);
 
 		if ((argp = ndmp_malloc(sizeof (ndmpd_worker_arg_t))) != NULL) {
@@ -422,7 +432,7 @@ ndmp_send_request(ndmp_connection_t *connection_handle, ndmp_message message,
 
 	/* Lookup info necessary for processing this request. */
 	if (!(handler = ndmp_get_handler(connection, message))) {
-		NDMP_LOG(LOG_DEBUG, "Sending message 0x%x: not supported",
+		syslog(LOG_ERR, "Sending message 0x%x: not supported",
 		    message);
 		return (-1);
 	}
@@ -437,7 +447,7 @@ ndmp_send_request(ndmp_connection_t *connection_handle, ndmp_message message,
 
 	connection->conn_xdrs.x_op = XDR_ENCODE;
 	if (!xdr_ndmp_header(&connection->conn_xdrs, &header)) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Sending message 0x%x: encoding request header", message);
 		(void) xdrrec_endofrecord(&connection->conn_xdrs, 1);
 		return (-1);
@@ -445,7 +455,7 @@ ndmp_send_request(ndmp_connection_t *connection_handle, ndmp_message message,
 	if (err == NDMP_NO_ERR && handler->mh_xdr_request && request_data) {
 		if (!(*handler->mh_xdr_request)(&connection->conn_xdrs,
 		    request_data)) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "Sending message 0x%x: encoding request body",
 			    message);
 			(void) xdrrec_endofrecord(&connection->conn_xdrs, 1);
@@ -455,7 +465,6 @@ ndmp_send_request(ndmp_connection_t *connection_handle, ndmp_message message,
 	(void) xdrrec_endofrecord(&connection->conn_xdrs, 1);
 
 	if (handler->mh_xdr_reply == 0) {
-		NDMP_LOG(LOG_DEBUG, "handler->mh_xdr_reply == 0");
 		return (0);
 	}
 
@@ -478,7 +487,7 @@ ndmp_send_request(ndmp_connection_t *connection_handle, ndmp_message message,
 		if (r == 1) {
 			if (message !=
 			    connection->conn_msginfo.mi_hdr.message) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_ERR,
 				    "Received unexpected reply 0x%x",
 				    connection->conn_msginfo.mi_hdr.message);
 				ndmp_free_message(connection_handle);
@@ -571,7 +580,7 @@ ndmp_send_response(ndmp_connection_t *connection_handle, ndmp_error err,
 
 	connection->conn_xdrs.x_op = XDR_ENCODE;
 	if (!xdr_ndmp_header(&connection->conn_xdrs, &header)) {
-		NDMP_LOG(LOG_DEBUG, "Sending message 0x%x: "
+		syslog(LOG_ERR, "Sending message 0x%x: "
 		    "encoding reply header",
 		    header.message);
 		(void) xdrrec_endofrecord(&connection->conn_xdrs, 1);
@@ -582,7 +591,7 @@ ndmp_send_response(ndmp_connection_t *connection_handle, ndmp_error err,
 	    reply) {
 		if (!(*connection->conn_msginfo.mi_handler->mh_xdr_reply)(
 		    &connection->conn_xdrs, reply)) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "Sending message 0x%x: encoding reply body",
 			    header.message);
 			(void) xdrrec_endofrecord(&connection->conn_xdrs, 1);
@@ -858,19 +867,17 @@ connection_handler(ndmp_connection_t *connection)
 
 	if (ndmp_send_request_lock(connection, NDMP_NOTIFY_CONNECTION_STATUS,
 	    NDMP_NO_ERR, (void *)&req, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Connection terminated");
+		syslog(LOG_DEBUG, "Send CONNECTION STATUS failed");
 		return;
 	}
 	connection_fd = ndmp_get_fd(connection);
-
-	NDMP_LOG(LOG_DEBUG, "connection_fd: %d", connection_fd);
 
 	/*
 	 * Add the handler function for the connection to the DMA.
 	 */
 	if (ndmpd_add_file_handler(&session, (void *)&session, connection_fd,
 	    NDMPD_SELECT_MODE_READ, HC_CLIENT, connection_file_handler) != 0) {
-		NDMP_LOG(LOG_DEBUG, "Could not register session handler.");
+		syslog(LOG_ERR, "Could not register session handler.");
 		return;
 	}
 
@@ -878,7 +885,7 @@ connection_handler(ndmp_connection_t *connection)
 	 * Register the connection in the list of active connections.
 	 */
 	if (ndmp_connect_list_add(connection, &conn_id) != 0) {
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Could not register the session to the server.");
 		(void) ndmpd_remove_file_handler(&session, connection_fd);
 		return;
@@ -891,18 +898,16 @@ connection_handler(ndmp_connection_t *connection)
 
 	hardlink_q_cleanup(session.hardlink_q);
 
-	NDMP_LOG(LOG_DEBUG, "Connection terminated");
-
 	(void) ndmpd_remove_file_handler(&session, connection_fd);
 
 	if (session.ns_scsi.sd_is_open != -1) {
-		NDMP_LOG(LOG_DEBUG, "scsi.is_open: %d",
+		syslog(LOG_ERR, "scsi.is_open: %d",
 		    session.ns_scsi.sd_is_open);
 		(void) ndmp_open_list_del(session.ns_scsi.sd_adapter_name,
 		    session.ns_scsi.sd_sid, session.ns_scsi.sd_lun);
 	}
 	if (session.ns_tape.td_fd != -1) {
-		NDMP_LOG(LOG_DEBUG, "tape.fd: %d", session.ns_tape.td_fd);
+		syslog(LOG_ERR, "tape.fd: %d", session.ns_tape.td_fd);
 		(void) close(session.ns_tape.td_fd);
 		(void) ndmp_open_list_del(session.ns_tape.td_adapter_name,
 		    session.ns_tape.td_sid, session.ns_tape.td_lun);
@@ -1034,7 +1039,7 @@ ndmp_recv_msg(ndmp_connection_t *connection)
 	/* Lookup info necessary for processing this message. */
 	if ((connection->conn_msginfo.mi_handler = ndmp_get_handler(connection,
 	    connection->conn_msginfo.mi_hdr.message)) == 0) {
-		NDMP_LOG(LOG_DEBUG, "Message 0x%x not supported",
+		syslog(LOG_DEBUG, "Message 0x%x not supported",
 		    connection->conn_msginfo.mi_hdr.message);
 		return (NDMP_NOT_SUPPORTED_ERR);
 	}
@@ -1049,7 +1054,7 @@ ndmp_recv_msg(ndmp_connection_t *connection)
 		if (ndmp_check_auth_required(
 		    connection->conn_msginfo.mi_hdr.message) &&
 		    !connection->conn_authorized) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "Processing request 0x%x:connection not authorized",
 			    connection->conn_msginfo.mi_hdr.message);
 			return (NDMP_NOT_AUTHORIZED_ERR);
@@ -1059,7 +1064,7 @@ ndmp_recv_msg(ndmp_connection_t *connection)
 			xdr_func =
 			    connection->conn_msginfo.mi_handler->mh_xdr_request;
 			if (xdr_func == NULL) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_ERR,
 				    "Processing request 0x%x: no xdr function "
 				    "in handler table",
 				    connection->conn_msginfo.mi_hdr.message);
@@ -1080,7 +1085,7 @@ ndmp_recv_msg(ndmp_connection_t *connection)
 			xdr_func =
 			    connection->conn_msginfo.mi_handler->mh_xdr_reply;
 			if (xdr_func == NULL) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_ERR,
 				    "Processing reply 0x%x: no xdr function "
 				    "in handler table",
 				    connection->conn_msginfo.mi_hdr.message);
@@ -1102,8 +1107,12 @@ ndmp_recv_msg(ndmp_connection_t *connection)
 	if (xdr_func) {
 		if (!(*xdr_func)(&connection->conn_xdrs,
 		    connection->conn_msginfo.mi_body)) {
-			NDMP_LOG(LOG_DEBUG,
-			    "Processing message 0x%x: error decoding arguments",
+			syslog(LOG_ERR,
+			    "Processing %s message 0x%x: "
+			    "error decoding arguments",
+			    connection->conn_msginfo.mi_hdr.message_type ==
+			    NDMP_MESSAGE_REQUEST ?
+			    "Request" : "Reply",
 			    connection->conn_msginfo.mi_hdr.message);
 			free(connection->conn_msginfo.mi_body);
 			connection->conn_msginfo.mi_body = 0;
@@ -1168,9 +1177,6 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 	boolean_t reply_error = FALSE;
 	int err;
 
-	NDMP_LOG(LOG_DEBUG, "reply_expected: %s",
-	    reply_expected == TRUE ? "TRUE" : "FALSE");
-
 	(void) memset((void *)&reply_msginfo, 0, sizeof (msg_info_t));
 
 	do {
@@ -1179,11 +1185,10 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 
 		if ((err = ndmp_recv_msg(connection)) != NDMP_NO_ERR) {
 			if (connection->conn_eof) {
-				NDMP_LOG(LOG_DEBUG, "detected eof");
 				return (NDMP_PROC_ERR);
 			}
 			if (err < 1) {
-				NDMP_LOG(LOG_DEBUG, "error decoding header");
+				syslog(LOG_ERR, "error decoding header");
 
 				/*
 				 * Error occurred decoding the header.
@@ -1204,12 +1209,12 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 			}
 			if (connection->conn_msginfo.mi_hdr.message_type
 			    != NDMP_MESSAGE_REQUEST) {
-				NDMP_LOG(LOG_DEBUG, "received reply: 0x%x",
+				syslog(LOG_DEBUG, "received reply: 0x%x",
 				    connection->conn_msginfo.mi_hdr.message);
 
 				if (reply_expected == FALSE ||
 				    reply_read == TRUE)
-					NDMP_LOG(LOG_DEBUG,
+					syslog(LOG_DEBUG,
 					    "Unexpected reply message: 0x%x",
 					    connection->conn_msginfo.mi_hdr.
 					    message);
@@ -1223,8 +1228,6 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 				}
 				continue;
 			}
-			NDMP_LOG(LOG_DEBUG, "received request: 0x%x",
-			    connection->conn_msginfo.mi_hdr.message);
 
 			(void) ndmp_send_response((ndmp_connection_t *)
 			    connection, err, NULL);
@@ -1233,11 +1236,11 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 		}
 		if (connection->conn_msginfo.mi_hdr.message_type
 		    != NDMP_MESSAGE_REQUEST) {
-			NDMP_LOG(LOG_DEBUG, "received reply: 0x%x",
+			syslog(LOG_DEBUG, "received reply: 0x%x",
 			    connection->conn_msginfo.mi_hdr.message);
 
 			if (reply_expected == FALSE || reply_read == TRUE) {
-				NDMP_LOG(LOG_DEBUG,
+				syslog(LOG_DEBUG,
 				    "Unexpected reply message: 0x%x",
 				    connection->conn_msginfo.mi_hdr.message);
 				ndmp_free_message((ndmp_connection_t *)
@@ -1248,16 +1251,13 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 			reply_msginfo = connection->conn_msginfo;
 			continue;
 		}
-		NDMP_LOG(LOG_DEBUG, "received request: 0x%x",
-		    connection->conn_msginfo.mi_hdr.message);
-
 		/*
 		 * The following is needed to catch an improperly constructed
 		 * handler table or to deal with an NDMP client that is not
 		 * conforming to the negotiated protocol version.
 		 */
 		if (connection->conn_msginfo.mi_handler->mh_func == NULL) {
-			NDMP_LOG(LOG_DEBUG, "No handler for message 0x%x",
+			syslog(LOG_DEBUG, "No handler for message 0x%x",
 			    connection->conn_msginfo.mi_hdr.message);
 
 			(void) ndmp_send_response((ndmp_connection_t *)
@@ -1276,8 +1276,6 @@ ndmp_process_messages(ndmp_connection_t *connection, boolean_t reply_expected)
 
 	} while (xdrrec_eof(&connection->conn_xdrs) == FALSE &&
 	    connection->conn_eof == FALSE);
-
-	NDMP_LOG(LOG_DEBUG, "no more messages in stream buffer");
 
 	if (connection->conn_eof == TRUE) {
 		if (reply_msginfo.mi_body)
@@ -1515,7 +1513,7 @@ ndmpd_audit_backup(ndmp_connection_t *conn,
 	adt_event_data_t *event;
 
 	if ((event = adt_alloc_event(conn->conn_ah, ADT_ndmp_backup)) == NULL) {
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 		return;
 	}
 	event->adt_ndmp_backup.source = path;
@@ -1528,10 +1526,10 @@ ndmpd_audit_backup(ndmp_connection_t *conn,
 
 	if (result == 0) {
 		if (adt_put_event(event, ADT_SUCCESS, ADT_SUCCESS) != 0)
-			NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+			syslog(LOG_ERR, "Audit failure: %m.");
 	} else {
 		if (adt_put_event(event, ADT_FAILURE, result) != 0)
-			NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+			syslog(LOG_ERR, "Audit failure: %m.");
 	}
 
 	adt_free_event(event);
@@ -1552,7 +1550,7 @@ ndmpd_audit_restore(ndmp_connection_t *conn,
 
 	if ((event = adt_alloc_event(conn->conn_ah,
 	    ADT_ndmp_restore)) == NULL) {
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 		return;
 	}
 	event->adt_ndmp_restore.destination = path;
@@ -1565,10 +1563,10 @@ ndmpd_audit_restore(ndmp_connection_t *conn,
 
 	if (result == 0) {
 		if (adt_put_event(event, ADT_SUCCESS, ADT_SUCCESS) != 0)
-			NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+			syslog(LOG_ERR, "Audit failure: %m.");
 	} else {
 		if (adt_put_event(event, ADT_FAILURE, result) != 0)
-			NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+			syslog(LOG_ERR, "Audit failure: %m.");
 	}
 
 	adt_free_event(event);
@@ -1588,13 +1586,13 @@ ndmpd_audit_connect(ndmp_connection_t *conn, int result)
 	adt_termid_t *termid;
 
 	if (adt_load_termid(conn->conn_sock, &termid) != 0) {
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 		return;
 	}
 
 	if (adt_set_user(conn->conn_ah, ADT_NO_ATTRIB, ADT_NO_ATTRIB,
 	    ADT_NO_ATTRIB, ADT_NO_ATTRIB, termid, ADT_NEW) != 0) {
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 		free(termid);
 		return;
 	}
@@ -1602,16 +1600,16 @@ ndmpd_audit_connect(ndmp_connection_t *conn, int result)
 
 	if ((event = adt_alloc_event(conn->conn_ah,
 	    ADT_ndmp_connect)) == NULL) {
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 		return;
 	}
 
 	if (result == 0) {
 		if (adt_put_event(event, ADT_SUCCESS, ADT_SUCCESS) != 0)
-			NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+			syslog(LOG_ERR, "Audit failure: %m.");
 	} else {
 		if (adt_put_event(event, ADT_FAILURE, result) != 0)
-			NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+			syslog(LOG_ERR, "Audit failure: %m.");
 	}
 
 	adt_free_event(event);
@@ -1631,11 +1629,11 @@ ndmpd_audit_disconnect(ndmp_connection_t *conn)
 
 	if ((event = adt_alloc_event(conn->conn_ah,
 	    ADT_ndmp_disconnect)) == NULL) {
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 		return;
 	}
 	if (adt_put_event(event, ADT_SUCCESS, ADT_SUCCESS) != 0)
-		NDMP_LOG(LOG_ERR, "Audit failure: %m.");
+		syslog(LOG_ERR, "Audit failure: %m.");
 
 	adt_free_event(event);
 }
@@ -1646,7 +1644,7 @@ ndmp_malloc(size_t size)
 	void *data;
 
 	if ((data = calloc(1, size)) == NULL) {
-		NDMP_LOG(LOG_ERR, "Out of memory.");
+		syslog(LOG_ERR, "Out of memory.");
 	}
 
 	return (data);
@@ -1678,7 +1676,7 @@ get_backup_path_v3(ndmpd_module_params_t *params)
 		MOD_LOGV3(params, NDMP_LOG_ERROR,
 		    "Backup path not defined.\n");
 	} else {
-		NDMP_LOG(LOG_DEBUG, "bkpath: \"%s\"", bkpath);
+		syslog(LOG_DEBUG, "bkpath: \"%s\"", bkpath);
 	}
 
 	return (bkpath);

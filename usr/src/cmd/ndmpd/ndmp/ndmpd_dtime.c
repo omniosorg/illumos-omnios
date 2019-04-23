@@ -39,6 +39,7 @@
 
 #include <sys/param.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -50,7 +51,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <libnvpair.h>
-#include "ndmpd_log.h"
 #include "ndmpd.h"
 
 /*
@@ -161,7 +161,7 @@ unctime(char *str, time_t *t)
 	then.tm_year = atoi(&dbuf[E_YEAR]) - 1900;
 	then.tm_isdst = ndmp_isdst;
 
-	NDMP_LOG(LOG_DEBUG,
+	syslog(LOG_DEBUG,
 	    "yday %d wday %d %d/%d/%d %02d:%02d:%02d",
 	    then.tm_yday, then.tm_wday, then.tm_year, then.tm_mon,
 	    then.tm_mday, then.tm_hour, then.tm_min, then.tm_sec);
@@ -298,7 +298,7 @@ get_ddlevel(char **bpp)
 	 * For 'F', 'A', 'I', and 'D' return the character itself.
 	 */
 	if (IS_LBR_BKTYPE(*t)) {
-		NDMP_LOG(LOG_DEBUG, "Lbr bk type %c", *t);
+		syslog(LOG_DEBUG, "Lbr bk type %c", *t);
 		/*
 		 * Skip the backup type character and null terminate the
 		 * string.
@@ -394,8 +394,6 @@ static void put_ddate(FILE *fp,
 	if (!fp)
 		return;
 
-	NDMP_LOG(LOG_DEBUG, "[%u]", t);
-
 	(void) ctime_r(&t, tbuf, sizeof (tbuf));
 	/* LINTED variable format specifier */
 	(void) fprintf(fp, tbuf);
@@ -446,16 +444,16 @@ makedumpdate(dumpdates_t *ddp, char *tbuf)
 		rv = -1;
 	else if (!(nmp = get_ddname(&tbuf))) {
 		rv = -1;
-		NDMP_LOG(LOG_DEBUG, "get_ddname failed 0x%p", nmp);
+		syslog(LOG_ERR, "get_ddname failed 0x%p", nmp);
 	} else if ((ddp->dd_level = get_ddlevel(&tbuf)) < 0) {
 		rv = -1;
-		NDMP_LOG(LOG_DEBUG, "dd_level < 0 %d", ddp->dd_level);
+		syslog(LOG_ERR, "dd_level < 0 %d", ddp->dd_level);
 	} else if (!(un_buf = get_ddate(&tbuf))) {
 		rv = -1;
-		NDMP_LOG(LOG_DEBUG, "get_ddate failed 0x%p", un_buf);
+		syslog(LOG_ERR, "get_ddate failed 0x%p", un_buf);
 	} else if (unctime(un_buf, &ddp->dd_ddate) < 0) {
 		rv = -1;
-		NDMP_LOG(LOG_DEBUG, "unctime failed \"%s\"", un_buf);
+		syslog(LOG_ERR, "unctime failed \"%s\"", un_buf);
 	} else {
 		(void) strlcpy(ddp->dd_name, nmp, TLM_MAX_PATH_NAME);
 		rv = 0;
@@ -489,17 +487,10 @@ getrecord(FILE *fp, dumpdates_t *ddatep, int *recno)
 	} while (!*tbuf);
 
 	if (makedumpdate(ddatep, tbuf) < 0)
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_ERR,
 		    "Unknown intermediate format in %s, line %d", tbuf, *recno);
 
 	(*recno)++;
-
-	if (IS_LBR_BKTYPE(ddatep->dd_level & 0xff)) {
-		NDMP_LOG(LOG_DEBUG, "Lbr: [%s][%c][%u]",
-		    ddatep->dd_name, ddatep->dd_level, ddatep->dd_ddate);
-	} else
-		NDMP_LOG(LOG_DEBUG, "[%s][%d][%u]",
-		    ddatep->dd_name, ddatep->dd_level, ddatep->dd_ddate);
 
 	return (0);
 }
@@ -555,13 +546,6 @@ dumprecout(FILE *fp, dumpdates_t *ddp)
 	if (!ddp)
 		return;
 
-	if (IS_LBR_BKTYPE(ddp->dd_level)) {
-		NDMP_LOG(LOG_DEBUG, "Lbr: [%s][%c][%u]",
-		    ddp->dd_name, ddp->dd_level, ddp->dd_ddate);
-	} else
-		NDMP_LOG(LOG_DEBUG, "[%s][%d][%u]",
-		    ddp->dd_name, ddp->dd_level, ddp->dd_ddate);
-
 	put_ddname(fp, ddp->dd_name);
 	(void) fputc('\t', fp);
 	put_ddlevel(fp, ddp->dd_level);
@@ -596,25 +580,25 @@ initdumptimes(dumpdates_t *ddheadp)
 	fp = fopen(fname, "r");
 	if (!fp) {
 		if (errno != ENOENT) {
-			NDMP_LOG(LOG_ERR, "Cannot read %s: %m.", fname);
+			syslog(LOG_ERR, "Cannot read %s: %m.", fname);
 			return (-1);
 		}
 		/*
 		 * Dumpdates does not exist, make an empty one.
 		 */
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "No file `%s', making an empty one", fname);
 
 		fp = fopen(fname, "w");
 		if (!fp) {
-			NDMP_LOG(LOG_ERR, "Cannot create %s: %m.", fname);
+			syslog(LOG_ERR, "Cannot create %s: %m.", fname);
 			return (-1);
 		}
 		(void) fclose(fp);
 
 		fp = fopen(fname, "r");
 		if (!fp) {
-			NDMP_LOG(LOG_ERR,
+			syslog(LOG_ERR,
 			    "Cannot read %s after creating it. %m.", fname);
 			return (-1);
 		}
@@ -651,22 +635,22 @@ putdumptime(char *path, int level, time_t ddate)
 		return (-1);
 
 	if (IS_LBR_BKTYPE(level)) {
-		NDMP_LOG(LOG_DEBUG, "Lbr: [%s][%c][%u]", path, level, ddate);
+		syslog(LOG_DEBUG, "Lbr: [%s][%c][%u]", path, level, ddate);
 	} else {
-		NDMP_LOG(LOG_DEBUG, "[%s][%d][%u]", path, level, ddate);
+		syslog(LOG_DEBUG, "[%s][%d][%u]", path, level, ddate);
 	}
 
 	if (!ddates_pathname(fname)) {
-		NDMP_LOG(LOG_ERR, "Cannot get dumpdate file path name.");
+		syslog(LOG_ERR, "Cannot get dumpdate file path name.");
 		return (-1);
 	}
 
 	rfp = fopen(fname, "r");
 	if (!rfp) {
-		NDMP_LOG(LOG_DEBUG, "Creating %s.", fname);
+		syslog(LOG_DEBUG, "Creating %s.", fname);
 		(void) memset((void *)&ddhead, 0, sizeof (ddhead));
 		if (initdumptimes(&ddhead) < 0) {
-			NDMP_LOG(LOG_ERR, "Could not initialize %s.",
+			syslog(LOG_ERR, "Could not initialize %s.",
 			    NDMP_DUMPDATES);
 			dd_free(&ddhead);
 			return (-1);
@@ -675,7 +659,7 @@ putdumptime(char *path, int level, time_t ddate)
 		rv = readdumptimes(rfp, &ddhead);
 
 		if (rv < 0) {
-			NDMP_LOG(LOG_ERR, "Error reading dumpdates file.");
+			syslog(LOG_ERR, "Error reading dumpdates file.");
 			(void) fclose(rfp);
 			dd_free(&ddhead);
 			return (-1);
@@ -686,12 +670,12 @@ putdumptime(char *path, int level, time_t ddate)
 	(void) snprintf(bakfname, PATH_MAX, "%s.bak", fname);
 	wfp = fopen(bakfname, "w");
 	if (!wfp) {
-		NDMP_LOG(LOG_ERR, "Cannot open %s: %m.", bakfname);
+		syslog(LOG_ERR, "Cannot open %s: %m.", bakfname);
 		dd_free(&ddhead);
 		return (-1);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "[%s][%s]", fname, bakfname);
+	syslog(LOG_DEBUG, "[%s][%s]", fname, bakfname);
 
 	/* try to locate the entry in the file */
 	found = 0;
@@ -701,14 +685,14 @@ putdumptime(char *path, int level, time_t ddate)
 		if (strcmp(path, ddp->dd_name))
 			continue;
 
-		NDMP_LOG(LOG_DEBUG, "Found: [%s][%d][%u]",
+		syslog(LOG_DEBUG, "Found: [%s][%d][%u]",
 		    ddp->dd_name, ddp->dd_level, ddp->dd_ddate);
 
 		/* update the record for the entry */
 		found = 1;
 		ddp->dd_ddate = ddate;
 
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "Updated to: [%s][%d][%u]",
 		    ddp->dd_name, ddp->dd_level, ddp->dd_ddate);
 	}
@@ -750,15 +734,15 @@ append_dumptime(char *fname, char *path, int level, time_t ddate)
 		return (-1);
 
 	if (IS_LBR_BKTYPE(level & 0xff)) {
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "Lbr: [%s][%s][%c][%u]",
 		    fname, path, level, ddate);
 	} else
-		NDMP_LOG(LOG_DEBUG, "[%s][%s][%d][%u]",
+		syslog(LOG_DEBUG, "[%s][%s][%d][%u]",
 		    fname, path, level, ddate);
 
 	if (!ndmpd_make_bk_dir_path(fpath, fname)) {
-		NDMP_LOG(LOG_ERR, "Cannot get dumpdate file path name %s.",
+		syslog(LOG_ERR, "Cannot get dumpdate file path name %s.",
 		    fname);
 		return (-1);
 	}
@@ -773,7 +757,7 @@ append_dumptime(char *fname, char *path, int level, time_t ddate)
 	if (fp) {
 		(void) fclose(fp);
 		if (filecopy(bakfpath, fpath) != 0) {
-			NDMP_LOG(LOG_ERR, "Cannot copy %s to %s: %m.",
+			syslog(LOG_ERR, "Cannot copy %s to %s: %m.",
 			    fpath, bakfpath);
 			return (-1);
 		}
@@ -782,11 +766,11 @@ append_dumptime(char *fname, char *path, int level, time_t ddate)
 	/* open the new copy to append the record to it */
 	fp = fopen(bakfpath, "a");
 	if (!fp) {
-		NDMP_LOG(LOG_ERR, "Cannot open %s: %m.", bakfpath);
+		syslog(LOG_ERR, "Cannot open %s: %m.", bakfpath);
 		return (-1);
 	}
 
-	NDMP_LOG(LOG_DEBUG, "[%s][%s]", fpath, bakfpath);
+	syslog(LOG_DEBUG, "[%s][%s]", fpath, bakfpath);
 
 	/* append a new record */
 	(void) strlcpy(tmpdd.dd_name, path, TLM_MAX_PATH_NAME);
@@ -842,7 +826,7 @@ ndmpd_get_dumptime(char *path, int *level, time_t *ddate)
 	if (!path || !level || !ddate)
 		return (-1);
 
-	NDMP_LOG(LOG_DEBUG, "[%s] level %d",
+	syslog(LOG_DEBUG, "[%s] level %d",
 	    path, *level);
 
 	if (*level == 0) {
@@ -913,7 +897,7 @@ ndmpd_get_dumptime(char *path, int *level, time_t *ddate)
 	if (IS_LBR_BKTYPE(*level & 0xff)) {
 		save = find_date(ddp, path, *level, *ddate);
 
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "LBR_BKTYPE save 0x%p", save);
 
 		*ddate = save ? save->dd_ddate : (time_t)0;
@@ -962,7 +946,7 @@ ndmpd_put_dumptime(char *path, int level, time_t ddate)
 	char tbuf[64];
 	int rv;
 
-	NDMP_LOG(LOG_DEBUG, "[%s][%d][%u]", path, level,
+	syslog(LOG_DEBUG, "[%s][%d][%u]", path, level,
 	    ddate);
 
 	/* Check if this is a ZFS dataset */
@@ -999,7 +983,7 @@ ndmpd_append_dumptime(char *fname, char *path, int level, time_t ddate)
 	char tbuf[64];
 	int rv;
 
-	NDMP_LOG(LOG_DEBUG, "[%s][%s][%d][%u]", fname,
+	syslog(LOG_DEBUG, "[%s][%s][%d][%u]", fname,
 	    path, level, ddate);
 
 	/* Check if this is a ZFS dataset */

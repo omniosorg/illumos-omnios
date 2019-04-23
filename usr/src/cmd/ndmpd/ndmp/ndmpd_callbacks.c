@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  */
 
 /*
@@ -40,6 +41,7 @@
 /* Copyright 2014 Nexenta Systems, Inc. All rights reserved. */
 
 #include <sys/types.h>
+#include <syslog.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -88,7 +90,7 @@ ndmpd_api_done_v2(void *cookie, int err)
 	    session->ns_data.dd_state == NDMP_DATA_STATE_HALTED)
 		return;
 
-	NDMP_LOG(LOG_DEBUG, "data.operation: %d",
+	syslog(LOG_DEBUG, "data.operation: %d",
 	    session->ns_data.dd_operation);
 
 	if (session->ns_data.dd_operation == NDMP_DATA_OP_BACKUP) {
@@ -127,18 +129,18 @@ ndmpd_api_done_v2(void *cookie, int err)
 	req_v2.reason = session->ns_data.dd_halt_reason;
 	req_v2.text_reason = "";
 
-	NDMP_LOG(LOG_DEBUG, "ndmp_send_request(NDMP_NOTIFY_DATA_HALTED)");
+	syslog(LOG_DEBUG, "ndmp_send_request(NDMP_NOTIFY_DATA_HALTED)");
 
 	if (ndmp_send_request_lock(session->ns_connection,
 	    NDMP_NOTIFY_DATA_HALTED, NDMP_NO_ERR, (void *)&req_v2, 0) < 0)
-		NDMP_LOG(LOG_DEBUG, "Sending notify_data_halted request");
+		syslog(LOG_DEBUG, "Sending notify_data_halted request");
 
 	if (session->ns_data.dd_mover.addr_type == NDMP_ADDR_TCP) {
 
 		if (session->ns_mover.md_sock != session->ns_data.dd_sock) {
 			(void) close(session->ns_data.dd_sock);
 		} else {
-			NDMP_LOG(LOG_DEBUG, "Not closing as used by mover");
+			syslog(LOG_DEBUG, "Not closing as used by mover");
 		}
 
 		session->ns_data.dd_sock = -1;
@@ -186,7 +188,7 @@ ndmpd_api_log_v2(void *cookie, char *format, ...)
 
 	if (ndmp_send_request(session->ns_connection, _NDMP_LOG_LOG,
 	    NDMP_NO_ERR, (void *)&request, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Sending log request");
+		syslog(LOG_ERR, "Sending log request");
 		return (-1);
 	}
 	return (0);
@@ -275,7 +277,7 @@ ndmpd_api_seek_v2(void *cookie, u_longlong_t offset, u_longlong_t length)
 		    NDMP_NOTIFY_DATA_READ, NDMP_NO_ERR,
 		    (void *)&request, 0) < 0) {
 
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "Sending notify_data_read request");
 			return (-1);
 		}
@@ -339,7 +341,7 @@ ndmpd_api_file_recovered_v2(void *cookie, char *name, int error)
 
 	if (ndmp_send_request_lock(session->ns_connection, NDMP_LOG_FILE,
 	    NDMP_NO_ERR, (void *)&request, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Sending log file request");
+		syslog(LOG_ERR, "Sending log file request");
 		return (-1);
 	}
 	return (0);
@@ -466,7 +468,7 @@ ndmpd_api_log_v3(void *cookie, ndmp_log_type type, ulong_t msg_id,
 
 	if (ndmp_send_request(session->ns_connection, NDMP_LOG_MESSAGE,
 	    NDMP_NO_ERR, (void *)&request, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Error sending log message request.");
+		syslog(LOG_ERR, "Error sending log message request.");
 		return (-1);
 	}
 	return (0);
@@ -619,7 +621,7 @@ ndmpd_api_file_recovered_v3(void *cookie, char *name, int error)
 
 	if (ndmp_send_request_lock(session->ns_connection, NDMP_LOG_FILE,
 	    NDMP_NO_ERR, (void *)&request, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Error sending log file request");
+		syslog(LOG_ERR, "Error sending log file request");
 		return (-1);
 	}
 
@@ -671,7 +673,7 @@ ndmpd_api_seek_v3(void *cookie, u_longlong_t offset, u_longlong_t length)
 		if (ndmp_send_request_lock(session->ns_connection,
 		    NDMP_NOTIFY_DATA_READ, NDMP_NO_ERR,
 		    (void *)&request, 0) < 0) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "Sending notify_data_read request");
 			return (-1);
 		}
@@ -756,7 +758,7 @@ ndmpd_api_log_v4(void *cookie, ndmp_log_type type, ulong_t msg_id,
 
 	if (ndmp_send_request(session->ns_connection, NDMP_LOG_MESSAGE,
 	    NDMP_NO_ERR, (void *)&request, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Error sending log message request.");
+		syslog(LOG_ERR, "Error sending log message request.");
 		return (-1);
 	}
 	return (0);
@@ -818,7 +820,7 @@ ndmpd_api_file_recovered_v4(void *cookie, char *name, int error)
 
 	if (ndmp_send_request_lock(session->ns_connection, NDMP_LOG_FILE,
 	    NDMP_NO_ERR, (void *)&request, 0) < 0) {
-		NDMP_LOG(LOG_DEBUG, "Error sending log file request");
+		syslog(LOG_ERR, "Error sending log file request");
 		return (-1);
 	}
 
@@ -922,7 +924,7 @@ ndmpd_api_add_env(void *cookie, char *name, char *value)
 	    sizeof (ndmp_pval) * (session->ns_data.dd_env_len + 1));
 
 	if (session->ns_data.dd_env == NULL) {
-		NDMP_LOG(LOG_ERR, "Out of memory.");
+		syslog(LOG_ERR, "Out of memory.");
 		return (-1);
 	}
 	namebuf = strdup(name);

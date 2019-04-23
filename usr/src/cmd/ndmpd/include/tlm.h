@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright 2016 Nexenta Systems, Inc. All rights reserved.
  */
 
 /*
@@ -56,7 +57,7 @@
 
 #define	IS_SET(f, m)	(((f) & (m)) != 0)
 
-#define	TLM_MAX_BACKUP_JOB_NAME	32	/* max size of a job's name */
+#define	TLM_MAX_BACKUP_JOB_NAME	16	/* format is 'NdmpBackup.nnnn\0' */
 #define	TLM_TAPE_BUFFERS	10	/* number of rotating tape buffers */
 #define	TLM_LINE_SIZE		128	/* size of text messages */
 
@@ -436,15 +437,6 @@ typedef struct tm_ops {
 #define	CHKBLANKS	"        "	/* 8 blanks, no null */
 
 #define	LONGNAME_PREFIX	"././_LoNg_NaMe_"
-extern void ndmp_log(ulong_t, char *, char *, ...);
-char ndmp_log_info[256];
-#define	NDMP_LOG(p, ...) { \
-				(void) snprintf(ndmp_log_info, \
-				    sizeof (ndmp_log_info), \
-				    "[%d][%s:%d]", \
-				    (int)pthread_self(), __func__, __LINE__); \
-				ndmp_log(p, ndmp_log_info, __VA_ARGS__); \
-			}
 extern void *ndmp_malloc(size_t size);
 
 /*

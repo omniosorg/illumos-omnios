@@ -37,13 +37,14 @@
  */
 /* Copyright (c) 2007, The Storage Networking Industry Association. */
 /* Copyright (c) 1996, 1997 PDC, Network Appliance. All Rights Reserved */
-/* Copyright 2014 Nexenta Systems, Inc.  All rights reserved. */
+/* Copyright 2016 Nexenta Systems, Inc.  All rights reserved. */
 
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/stat.h>
 #include <sys/mnttab.h>
 #include <sys/mntent.h>
@@ -122,7 +123,7 @@ ndmpd_config_get_host_info_v2(ndmp_connection_t *connection, void *body)
 	reply.os_vers = uts.release;
 
 	if (sysinfo(SI_HW_SERIAL, hostidstr, sizeof (hostidstr)) < 0) {
-		NDMP_LOG(LOG_DEBUG, "sysinfo error: %m.");
+		syslog(LOG_ERR, "sysinfo error: %m.");
 		reply.error = NDMP_UNDEFINED_ERR;
 	}
 
@@ -171,8 +172,8 @@ ndmpd_config_get_butype_attr_v2(ndmp_connection_t *connection, void *body)
 	} else if (strcmp(request->name, "tar") == 0) {
 		reply.attrs = NDMP_NO_BACKUP_FILELIST;
 	} else {
-		NDMP_LOG(LOG_ERR, "Invalid backup type: %s.", request->name);
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR, "Invalid backup type: %s.", request->name);
+		syslog(LOG_ERR,
 		    "Supported backup types are 'dump' and 'tar' only.");
 		reply.error = NDMP_ILLEGAL_ARGS_ERR;
 	}
@@ -252,9 +253,9 @@ ndmpd_config_get_auth_attr_v2(ndmp_connection_t *connection, void *body)
 	case NDMP_AUTH_NONE:
 		/* FALL THROUGH */
 	default:
-		NDMP_LOG(LOG_ERR, "Invalid authentication type: %d.",
+		syslog(LOG_ERR, "Invalid authentication type: %d.",
 		    request->auth_type);
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Supported authentication types are md5 and cleartext.");
 		reply.error = NDMP_ILLEGAL_ARGS_ERR;
 		break;
@@ -307,7 +308,7 @@ ndmpd_config_get_host_info_v3(ndmp_connection_t *connection, void *body)
 
 	if (sysinfo(SI_HW_SERIAL, hostidstr, sizeof (hostidstr)) < 0) {
 
-		NDMP_LOG(LOG_DEBUG, "sysinfo error: %m.");
+		syslog(LOG_ERR, "sysinfo error: %m.");
 		reply.error = NDMP_UNDEFINED_ERR;
 	}
 
@@ -398,9 +399,9 @@ ndmpd_config_get_auth_attr_v3(ndmp_connection_t *connection, void *body)
 	case NDMP_AUTH_NONE:
 		/* FALL THROUGH */
 	default:
-		NDMP_LOG(LOG_ERR, "Invalid authentication type: %d.",
+		syslog(LOG_ERR, "Invalid authentication type: %d.",
 		    request->auth_type);
-		NDMP_LOG(LOG_ERR,
+		syslog(LOG_ERR,
 		    "Supported authentication types are md5 and cleartext.");
 		reply.error = NDMP_ILLEGAL_ARGS_ERR;
 		break;
@@ -543,7 +544,7 @@ ndmpd_config_get_fs_info_v3(ndmp_connection_t *connection, void *body)
 	reply.error = NDMP_NO_ERR;
 
 	if ((fd = open(MNTTAB, O_RDONLY)) == -1) {
-		NDMP_LOG(LOG_ERR, "File mnttab open error: %m.");
+		syslog(LOG_ERR, "File mnttab open error: %m.");
 		reply.error = NDMP_UNDEFINED_ERR;
 		goto send_reply;
 	}
@@ -551,14 +552,14 @@ ndmpd_config_get_fs_info_v3(ndmp_connection_t *connection, void *body)
 	/* nothing was found, send an empty reply */
 	if (ioctl(fd, MNTIOC_NMNTS, &nmnt) != 0 || nmnt <= 0) {
 		(void) close(fd);
-		NDMP_LOG(LOG_ERR, "No file system found.");
+		syslog(LOG_ERR, "No file system found.");
 		goto send_reply;
 	}
 
 	fp = fdopen(fd, "r");
 	if (!fp) {
 		(void) close(fd);
-		NDMP_LOG(LOG_ERR, "File mnttab open error: %m.");
+		syslog(LOG_ERR, "File mnttab open error: %m.");
 		reply.error = NDMP_UNDEFINED_ERR;
 		goto send_reply;
 	}
@@ -597,7 +598,7 @@ ndmpd_config_get_fs_info_v3(ndmp_connection_t *connection, void *body)
 		fsip->invalid = 0;
 
 		if (statvfs64(fs->mnt_mountp, &stat_buf) < 0) {
-			NDMP_LOG(LOG_DEBUG,
+			syslog(LOG_ERR,
 			    "statvfs(%s) error.", fs->mnt_mountp);
 			fsip->fs_status =
 			    "statvfs error: unable to determine filesystem"
@@ -721,7 +722,7 @@ ndmpd_config_get_tape_info_v3(ndmp_connection_t *connection, void *body)
 		if ((access(sd->sd_name, F_OK) == -1) && (errno == ENOENT))
 			continue;
 
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "model \"%s\" dev \"%s\"", sd->sd_id, sd->sd_name);
 
 		envp_head = envp;
@@ -740,8 +741,6 @@ ndmpd_config_get_tape_info_v3(ndmp_connection_t *connection, void *body)
 		dcp++;
 		n++;
 	}
-
-	NDMP_LOG(LOG_DEBUG, "n %d", n);
 
 	/*
 	 * We should not receive the get_tape_info when three-way backup is
@@ -823,7 +822,7 @@ ndmpd_config_get_scsi_info_v3(ndmp_connection_t *connection, void *body)
 		if ((access(sd->sd_name, F_OK) == -1) && (errno == ENOENT))
 			continue;
 
-		NDMP_LOG(LOG_DEBUG,
+		syslog(LOG_DEBUG,
 		    "model \"%s\" dev \"%s\"", sd->sd_id, sd->sd_name);
 
 		envp_head = envp;
@@ -842,8 +841,6 @@ ndmpd_config_get_scsi_info_v3(ndmp_connection_t *connection, void *body)
 		dcp++;
 		n++;
 	}
-
-	NDMP_LOG(LOG_DEBUG, "n %d", n);
 
 	reply.scsi_info.scsi_info_len = n;
 	reply.scsi_info.scsi_info_val = sip_save;
@@ -878,14 +875,26 @@ ndmpd_config_get_server_info_v3(ndmp_connection_t *connection, void *body)
 	ndmp_auth_type auth_types[2];
 	char rev_number[10];
 	ndmpd_session_t *session = ndmp_get_client_data(connection);
+	char *vendor;
+	char *product;
 
 	(void) memset((void*)&reply, 0, sizeof (reply));
 	reply.error = NDMP_NO_ERR;
 
 	if (connection->conn_authorized ||
 	    session->ns_protocol_version != NDMPV4) {
-		reply.vendor_name = VENDOR_NAME;
-		reply.product_name = PRODUCT_NAME;
+		if ((vendor = ndmpd_get_prop(NDMP_VENDOR_NAME)) == NULL ||
+		    *vendor == 0) {
+			reply.vendor_name = VENDOR_NAME;
+		} else {
+			reply.vendor_name = vendor;
+		}
+		if ((product = ndmpd_get_prop(NDMP_PRODUCT_NAME)) == NULL ||
+		    *product == 0) {
+			reply.product_name = PRODUCT_NAME;
+		} else {
+			reply.product_name = product;
+		}
 		(void) snprintf(rev_number, sizeof (rev_number), "%d",
 		    ndmp_ver);
 		reply.revision_number = rev_number;
@@ -894,10 +903,6 @@ ndmpd_config_get_server_info_v3(ndmp_connection_t *connection, void *body)
 		reply.product_name = "\0";
 		reply.revision_number = "\0";
 	}
-
-	NDMP_LOG(LOG_DEBUG,
-	    "vendor \"%s\", product \"%s\" rev \"%s\"",
-	    reply.vendor_name, reply.product_name, reply.revision_number);
 
 	auth_types[0] = NDMP_AUTH_TEXT;
 	auth_types[1] = NDMP_AUTH_MD5;
@@ -1055,7 +1060,7 @@ ndmpd_config_get_ext_list_v4(ndmp_connection_t *connection, void *body)
 		/*
 		 * Illegal request if extensions have already been selected.
 		 */
-		NDMP_LOG(LOG_ERR, "Extensions have already been selected.");
+		syslog(LOG_ERR, "Extensions have already been selected.");
 		reply.error = NDMP_EXT_DANDN_ILLEGAL_ERR;
 	} else {
 		/*
@@ -1100,13 +1105,13 @@ ndmpd_config_set_ext_list_v4(ndmp_connection_t *connection, void *body)
 		 * The DMA is required to issue a NDMP_GET_EXT_LIST request
 		 * prior sending a NDMP_SET_EXT_LIST request.
 		 */
-		NDMP_LOG(LOG_ERR, "No prior ndmp_config_get_ext_list issued.");
+		syslog(LOG_ERR, "No prior ndmp_config_get_ext_list issued.");
 		reply.error = NDMP_PRECONDITION_ERR;
 	} else if (session->ns_set_ext_list) {
 		/*
 		 * Illegal request if extensions have already been selected.
 		 */
-		NDMP_LOG(LOG_ERR, "Extensions have already been selected.");
+		syslog(LOG_ERR, "Extensions have already been selected.");
 		reply.error = NDMP_EXT_DANDN_ILLEGAL_ERR;
 	} else {
 		/*

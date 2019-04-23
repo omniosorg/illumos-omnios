@@ -46,7 +46,6 @@
 
 #include <thread.h>
 #include <synch.h>
-#include "ndmpd_log.h"
 #include "ndmp.h"
 #include <unistd.h>
 #include <sys/types.h>
@@ -61,6 +60,7 @@
 #define	AUTH_REQUIRED	TRUE
 #define	AUTH_NOT_REQUIRED	FALSE
 #define	NDMP_EOM_MAGIC	"PRCMEOM"
+#define	NDMP_RCF_BASENAME	"NdmpBackup"
 #define	KILOBYTE	1024
 
 #define	INT_MAXCMD	12

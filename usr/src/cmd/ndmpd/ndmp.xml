@@ -2,7 +2,7 @@
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
 Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
-Copyright 2014 Nexenta Systems, Inc. All rights reserved.
+Copyright 2017 Nexenta Systems, Inc. All rights reserved.
 
 NOTE:  This service manifest is not editable; its contents will
 be overwritten by package or patch operations, including
@@ -126,6 +126,8 @@ POSSIBILITY OF SUCH DAMAGE.
 		<propval name='token-maxseq' type='integer' value='9' />
 		<propval name='version' type='integer' value='4' />
 		<propval name='dar-support' type='boolean' value='false' />
+		<propval name='autosync-support' type='boolean' value='false' />
+		<propval name='hpr-support' type='boolean' value='true' />
 		<propval name='backup-quarantine' type='boolean' value='false' />
 		<propval name='restore-quarantine' type='boolean' value='false' />
 		<propval name='overwrite-quarantine' type='boolean' value='false' />
@@ -142,6 +144,8 @@ POSSIBILITY OF SUCH DAMAGE.
 		<propval name='drive-type' type='astring' value='sysv' />
 		<propval name='value_authorization' type='astring'
 			value='solaris.smf.value.ndmp' />
+		<propval name='vendor-name' type='astring' value='Nexenta' />
+		<propval name='product-name' type='astring' value='NexentaStor' />
 	</property_group>
 
 	<!-- Create Service Template information -->
