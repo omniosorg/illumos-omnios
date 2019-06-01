@@ -11,11 +11,11 @@
 #
 
 #
-# Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2019 Nexenta by DDN, Inc. All rights reserved.
 #
 
-# Use distributed make (dmake) by default.
-make=${MAKE:-dmake}
+# Use normal make (not dmake) by default.
+make=${MAKE:-make}
 
 # Set this if you want to use dbx or gdb:
 # export SOURCEDEBUG=yes
@@ -29,12 +29,14 @@ cpu=`uname -p`
 case $cpu in
 i386)
 	x=intel
+	kmdb_arch="amd64"
 	mdb_arch="ia32 amd64"
 	arch64=amd64
 	;;
 sparc)
 	x=sparc
-	mdb_arch=v9
+	kmdb_arch=v9
+	mdb_arch="v7 v9"
 	arch64=sparcv9
 	;;
 *)  echo "Unknown architecture" ; exit 1;;
@@ -89,14 +91,14 @@ then
     (cd $SRC/head && $make $targ)
 
   # always update the NFS (kernel) headers to be safe
-  (cd $SRC/uts/common/gssapi && $make -k install_h)
-  (cd $SRC/uts/common/sys && $make -k install_h)
-  (cd $SRC/uts/common/nfs && $make -k install_h)
-
+  (cd $SRC/uts/common/gssapi && $make -k $targ)
+  (cd $SRC/uts/common/sys && $make -k $targ)
+  (cd $SRC/uts/common/nfs && $make -k $targ)
 fi
 
 # Need some library headers too...
 for lib in \
+  libcmdutils \
   libcryptoutil \
   libidmap \
   libpam \
@@ -144,6 +146,7 @@ do_lib1() {
 for lib in \
   libavl \
   libuutil \
+  libcmdutils \
   libidmap \
   libzfs_core \
   libzfs
@@ -205,6 +208,8 @@ do_tags() {
 	find uts/common/net -name '*.[ch]' -print |sort
 	find uts/common/netinet -name '*.[ch]' -print |sort
 	find uts/common/nfs -name '*.[ch]' -print |sort
+	find uts/common/rpc -name '*.[ch]' -print |sort
+	find uts/common/klm -name '*.[ch]' -print |sort
 	find uts/common/fs/nfs -name '*.[ch]' -print |sort
 	find uts/common/gssapi -name '*.[ch]' -print |sort
 	find head -name '*.h' -print |sort
@@ -220,23 +225,19 @@ do_tags() {
 
 
 ################################################################
-# This creates a tarfile one can use to update a test machine.
+# This creates tarfiles one can use to update a test machine.
 
 do_tar() {
 	git_rev=`git rev-parse --short=8 HEAD`
+
+# NFS (everything)
 	files="
 kernel/misc/$arch64/klmmod
 kernel/misc/$arch64/klmops
 kernel/misc/$arch64/nfs_dlboot
 kernel/misc/$arch64/nfssrv
-kernel/misc/klmmod
-kernel/misc/klmops
-kernel/misc/nfs_dlboot
-kernel/misc/nfssrv
 kernel/fs/$arch64/nfs
-kernel/fs/nfs
 kernel/sys/$arch64/nfs
-kernel/sys/nfs
 lib/svc/manifest/network/nfs/cbd.xml
 lib/svc/manifest/network/nfs/client.xml
 lib/svc/manifest/network/nfs/mapid.xml
@@ -257,8 +258,6 @@ usr/lib/fs/nfs/nfsfind
 usr/lib/fs/nfs/showmount
 usr/lib/fs/nfs/umount
 usr/lib/nfs/libmapid.so.1
-usr/lib/nfs/llib-lmapid
-usr/lib/nfs/llib-lmapid.ln
 usr/lib/nfs/lockd
 usr/lib/nfs/mountd
 usr/lib/nfs/nfs4cbd
@@ -273,8 +272,14 @@ usr/sbin/clear_locks
 usr/sbin/exportfs
 usr/sbin/nfsref
 "
-
 	(cd $ROOT && tar cfj ../../nfs-${git_rev}.tar.bz2 $files)
+
+# KLM kmod
+	files="
+kernel/misc/$arch64/klmmod
+kernel/misc/$arch64/klmops
+"
+	(cd $ROOT && tar cfj ../../klm-${git_rev}.tar.bz2 $files)
 }
 
 # end do_tar()
