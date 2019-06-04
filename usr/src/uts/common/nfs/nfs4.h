@@ -26,6 +26,7 @@
 
 /*
  * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright 2019 Nexenta by DDN, Inc.
  */
 
 #ifndef _NFS4_H
@@ -801,7 +802,7 @@ typedef struct nfs4_srv {
 	int		seen_first_compound;
 	/*
 	 * Circular double-linked list of paths for currently-served RGs.
-	 * No locking required -- only changed on warmstart.
+	 * No locking required -- only changed on server start.
 	 * Managed with insque/remque.
 	 */
 	rfs4_dss_path_t	*dss_pathlist;
