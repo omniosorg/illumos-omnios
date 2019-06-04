@@ -29,8 +29,9 @@
  */
 
 /*
- * Copyright 2019 Nexenta Systems, Inc.
  * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright 2019 Nexenta Systems, Inc.
+ * Copyright 2019 Nexenta by DDN, Inc.
  */
 
 #include <sys/param.h>
@@ -630,6 +631,16 @@ rfs4_do_server_start(int server_upordown,
 		rfs4_state_zone_init(nsrv4);
 		nsrv4->nfs4_drc = rfs4_init_drc(nfs4_drc_max,
 		    nfs4_drc_hash);
+
+		/*
+		 * The nfsd service was started with the -s option
+		 * we need to pull in any state from the paths indicated.
+		 */
+		if (curzone == global_zone && rfs4_dss_numnewpaths > 0) {
+			/* read in the stable storage state from these paths */
+			rfs4_dss_readstate(nsrv4, rfs4_dss_numnewpaths,
+			    rfs4_dss_newpaths);
+		}
 	}
 
 	/* Check if delegation is to be enabled */
