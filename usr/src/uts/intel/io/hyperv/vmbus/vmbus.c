@@ -841,7 +841,7 @@ vmbus_intr_setup(struct vmbus_softc *sc)
 	}
 
 	if (psm_get_ipivect == NULL)
-		return (0);
+		panic("Hyper-V vmbus cannot get IDT vector (no PSM support)");
 
 	sc->vmbus_idtvec = psm_get_ipivect(IPL_VMBUS, -1);
 	if (add_avintr(NULL, IPL_VMBUS, (avfunc)vmbus_handle_intr,
