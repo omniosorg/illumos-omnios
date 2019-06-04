@@ -25,6 +25,7 @@
 
 /*
  * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright 2019 Nexenta by DDN, Inc.
  */
 
 #include <sys/systm.h>
@@ -1251,7 +1252,23 @@ rfs4_state_zone_init(nfs4_srv_t *nsrv4)
 	 * clients' recovery window.
 	 */
 	start_grace = 0;
-	rfs4_servinst_create(nsrv4, start_grace, 1, &dss_path);
+	if (curzone == global_zone && rfs4_dss_numnewpaths > 0) {
+		int i;
+		char **dss_allpaths = NULL;
+		dss_allpaths = kmem_alloc(sizeof (char *) * (rfs4_dss_numnewpaths + 1), KM_SLEEP);
+		/*
+		 * Add the default path into the list of paths for saving
+		 * state informantion.
+		 */
+		dss_allpaths[0] = dss_path;
+		for ( i = 0; i < rfs4_dss_numnewpaths; i++) {
+			dss_allpaths[i + 1] = rfs4_dss_newpaths[i];
+		}
+		rfs4_servinst_create(nsrv4, start_grace, (rfs4_dss_numnewpaths + 1), dss_allpaths);
+		kmem_free(dss_allpaths, (sizeof (char *) * (rfs4_dss_numnewpaths + 1)));
+	} else {
+		rfs4_servinst_create(nsrv4, start_grace, 1, &dss_path);
+	}
 
 	/* reset the "first NFSv4 request" status */
 	nsrv4->seen_first_compound = 0;
