@@ -6865,8 +6865,8 @@ unshare_unmount(int op, int argc, char **argv)
 				    SA_INIT_SHARE_API_SELECTIVE, &sharearg)) !=
 				        SA_OK) {
 					(void) fprintf(stderr, gettext(
-					    "Could not initialize libshare,
-					        %d"), ret);
+					    "Could not initialize libshare, "
+					    "%d"), ret);
 					return (ret);
 				}
 			}
