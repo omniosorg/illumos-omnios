@@ -6854,22 +6854,20 @@ unshare_unmount(int op, int argc, char **argv)
 		 * per shared dataset downstream.
 		 */
 		if (op == OP_SHARE) {
-			zfs_handle_t **dslist = NULL;
-			size_t count = 0;
-			get_all_datasets(&dslist, &count, B_FALSE);
+			get_all_cb_t dslist = { 0 };
+			get_all_datasets(&dslist, B_FALSE);
 
 			if (count > 0) {
 				sa_init_selective_arg_t sharearg;
-				sharearg.zhandle_arr = dslist;
-				sharearg.zhandle_len = count;
-				if ((ret = zfs_init_libshare_arg(
-				    zfs_get_handle(dslist[0]),
-				    SA_INIT_SHARE_API_SELECTIVE, &sharearg))
-				    != SA_OK) {
+				sharearg.zhandle_arr = dslist.cb_handles;
+				sharearg.zhandle_len = dslist.cb_used;
+				if ((ret = zfs_init_libshare_arg(g_zfs,
+				    SA_INIT_SHARE_API_SELECTIVE, &sharearg)) !=
+				        SA_OK) {
 					(void) fprintf(stderr, gettext(
-					    "Could not initialize libshare,"
-					    "%d"), ret);
-					return (1);
+					    "Could not initialize libshare,
+					        %d"), ret);
+					return (ret);
 				}
 			}
 		}
