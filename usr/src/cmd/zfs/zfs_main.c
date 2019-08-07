@@ -6857,7 +6857,7 @@ unshare_unmount(int op, int argc, char **argv)
 			get_all_cb_t dslist = { 0 };
 			get_all_datasets(&dslist, B_FALSE);
 
-			if (count > 0) {
+			if (dslist.cb_used != 0) {
 				sa_init_selective_arg_t sharearg;
 				sharearg.zhandle_arr = dslist.cb_handles;
 				sharearg.zhandle_len = dslist.cb_used;
