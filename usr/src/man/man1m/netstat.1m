@@ -1,15 +1,15 @@
 '\" te
+.\" Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 .\" Copyright 2018, Joyent, Inc.
 .\" Copyright (C) 2002, Sun Microsystems, Inc. All Rights Reserved
 .\" Copyright 1989 AT&T
 .\" Copyright (c) 1983 Regents of the University of California. All rights reserved. The Berkeley software License Agreement specifies the terms and conditions for redistribution.
-.TH NETSTAT 1M "Sep 02, 2015"
+.TH NETSTAT 1M "Jul 12, 2016"
 .SH NAME
 netstat \- show network status
 .SH SYNOPSIS
-.LP
 .nf
-\fBnetstat\fR [\fB-anvR\fR] [\fB-f\fR \fIaddress_family\fR] [\fB-P\fR \fIprotocol\fR]
+\fBnetstat\fR [\fB-anuvR\fR] [\fB-f\fR \fIaddress_family\fR] [\fB-P\fR \fIprotocol\fR]
 .fi
 
 .LP
@@ -55,7 +55,6 @@ netstat \- show network status
 .fi
 
 .SH DESCRIPTION
-.LP
 The \fBnetstat\fR command displays the contents of certain network-related data
 structures in various formats, depending on the options you select.
 .LP
@@ -353,6 +352,18 @@ time. See \fBtime\fR(2). Specify \fBd\fR for standard date format. See
 .sp
 .ne 2
 .na
+\fB\fB-u\fR\fR
+.ad
+.sp .6
+.RS 4n
+For each network endpoint show the list of processes which currently have an
+open file descriptor pointing to that endpoint. For each process in that list,
+also show the username, process ID and associated program.
+.RE
+
+.sp
+.ne 2
+.na
 \fB\fB-v\fR\fR
 .ad
 .sp .6
@@ -484,7 +495,6 @@ the interval specified by \fIinterval\fR.
 
 .SH DISPLAYS
 .SS "Active Sockets (First Form)"
-.LP
 The display for each active socket shows the local and remote address, the send
 and receive queue sizes (in bytes), the send and receive windows (in bytes),
 and the internal state of the protocol.
@@ -521,7 +531,6 @@ For SCTP sockets, because an endpoint can be represented by multiple addresses,
 the verbose option (\fB-v\fR) displays the list of all the local and remote
 addresses.
 .SS "\fITCP Sockets\fR"
-.LP
 The possible state values for \fBTCP\fR sockets are as follows:
 .sp
 .ne 2
@@ -641,7 +650,6 @@ Wait after close for remote shutdown retransmission.
 .RE
 
 .SS "\fISCTP Sockets\fR"
-.LP
 The possible state values for SCTP sockets are as follows:
 .sp
 .ne 2
@@ -730,7 +738,6 @@ state. \fBSHUTDOWN_ACK\fR has been sent to the peer.
 .RE
 
 .SS "Network Data Structures (Second Through Fifth Forms)"
-.LP
 The form of the display depends upon which of the \fB-g\fR, \fB-m\fR, \fB-p\fR,
 or \fB-s\fR options you select.
 .sp
@@ -805,7 +812,6 @@ options. You can also specify \fB-m\fR (the fifth form) with any set of the
 \fB-g\fR, \fB-p\fR, and \fB-s\fR options. If you specify more than one of these
 options, \fBnetstat\fR displays the information for each one of them.
 .SS "Interface Status (Sixth Form)"
-.LP
 The interface status display lists information for all current interfaces, one
 interface per line. If an interface is specified using the \fB-I\fR option, it
 displays information for only the specified interface.
@@ -849,7 +855,6 @@ packets  errs  packets errs  colls   packets  errs  packets  errs   colls
 If the input interface is not specified, the first interface of address family
 \fBinet\fR or \fBinet6\fR will be displayed.
 .SS "Routing Table (Seventh Form)"
-.LP
 The routing table display lists the available routes and the status of each.
 Each route consists of a destination host or network, and a gateway to use in
 forwarding packets. The \fIflags\fR column shows the status of the route. These
@@ -952,11 +957,9 @@ create a new combined route and address resolution entry.
 The \fIinterface\fR entry indicates the network interface utilized for the
 route.
 .SS "Multicast Routing Tables (Eighth Form)"
-.LP
 The multicast routing table consists of the virtual interface table and the
 actual routing table.
 .SS "DHCP Interface Information (Ninth Form)"
-.LP
 The \fBDHCP\fR interface information consists of the interface name, its
 current state, lease information, packet counts, and a list of flags.
 .LP
@@ -1040,7 +1043,6 @@ future lease.
 .RE
 
 .SH SEE ALSO
-.LP
 \fBarp\fR(1M), \fBdhcpinfo\fR(1), \fBdhcpagent\fR(1M), \fBifconfig\fR(1M),
 \fBiostat\fR(1M), \fBkstat\fR(1M), \fBmibiisa\fR(1M), \fBndp\fR(1M), \fBsavecore\fR(1M),
 \fBvmstat\fR(1M), \fBhosts\fR(4), \fBinet_type\fR(4), \fBnetworks\fR(4),
@@ -1055,7 +1057,6 @@ Group, March 1997.
 Droms, R. \fIRFC 3315, Dynamic Host Configuration Protocol for IPv6
 (DHCPv6)\fR. Cisco Systems. July 2003.
 .SH NOTES
-.LP
 When displaying interface information, \fBnetstat\fR honors the
 \fBDEFAULT_IP\fR setting in \fB/etc/default/inet_type\fR. If it is set to
 \fBIP_VERSION4\fR, then \fBnetstat\fR will omit information relating to IPv6
