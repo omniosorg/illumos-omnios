@@ -439,7 +439,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	if (strcmp(args->what.name, "..") == 0 &&
 	    EQFID(&exi->exi_fid, FH3TOFIDP(fhp))) {
 		if ((exi->exi_export.ex_flags & EX_NOHIDE) &&
-		    (dvp->v_flag & VROOT)) {
+		    ((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp))) {
 			/*
 			 * special case for ".." and 'nohide'exported root
 			 */
