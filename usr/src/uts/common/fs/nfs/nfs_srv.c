@@ -411,7 +411,7 @@ rfs_climb_crossmnt(vnode_t **dvpp, struct exportinfo **exip, cred_t *cr)
 	struct exportinfo *exi;
 	vnode_t *dvp = *dvpp;
 
-	ASSERT(dvp->v_flag & VROOT);
+	ASSERT((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp));
 
 	VN_HOLD(dvp);
 	dvp = untraverse(dvp);
@@ -490,7 +490,7 @@ rfs_lookup(struct nfsdiropargs *da, struct nfsdiropres *dr,
 	if (strcmp(da->da_name, "..") == 0 &&
 	    EQFID(&exi->exi_fid, (fid_t *)&fhp->fh_len)) {
 		if ((exi->exi_export.ex_flags & EX_NOHIDE) &&
-		    (dvp->v_flag & VROOT)) {
+		    ((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp))) {
 			/*
 			 * special case for ".." and 'nohide'exported root
 			 */

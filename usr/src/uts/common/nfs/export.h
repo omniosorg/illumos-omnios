@@ -38,6 +38,7 @@
 #include <nfs/nfs4.h>
 #include <sys/kiconv.h>
 #include <sys/avl.h>
+#include <sys/zone.h>
 
 #ifdef _KERNEL
 #include <sys/pkp_hash.h> /* for PKP_HASH_SIZE */
@@ -472,12 +473,15 @@ typedef struct treenode {
 } treenode_t;
 
 /*
- * TREE_ROOT checks if the node corresponds to a filesystem root
+ * TREE_ROOT checks if the node corresponds to a filesystem root or
+ * the zone's root directory.
  * TREE_EXPORTED checks if the node is explicitly shared
  */
 
 #define	TREE_ROOT(t) \
-	((t)->tree_exi && (t)->tree_exi->exi_vp->v_flag & VROOT)
+	((t)->tree_exi != NULL && \
+	(((t)->tree_exi->exi_vp->v_flag & VROOT) || \
+	VN_IS_CURZONEROOT((t)->tree_exi->exi_vp)))
 
 #define	TREE_EXPORTED(t) \
 	((t)->tree_exi && !PSEUDO((t)->tree_exi))

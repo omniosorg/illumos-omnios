@@ -730,6 +730,7 @@ srv_secinfo_treeclimb(nfs_export_t *ne, exportinfo_t *exip, secinfo_t *sec,
 	 * transferred from the PSEUDO export in exportfs()
 	 */
 	if (isadd && !(exip->exi_vp->v_flag & VROOT) &&
+	    !VN_IS_CURZONEROOT(exip->exi_vp) &&
 	    tnode->tree_vis->vis_seccnt > 0) {
 		srv_secinfo_add(&exip->exi_export.ex_secinfo,
 		    &exip->exi_export.ex_seccnt, tnode->tree_vis->vis_secinfo,
@@ -2076,7 +2077,7 @@ nfs_vptoexi(vnode_t *dvp, vnode_t *vp, cred_t *cr, int *walk,
 		 * If we're at the root of this filesystem, then
 		 * it's time to stop (with failure).
 		 */
-		if (vp->v_flag & VROOT) {
+		if ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp)) {
 			error = EINVAL;
 			break;
 		}
