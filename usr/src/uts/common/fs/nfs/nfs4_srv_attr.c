@@ -1303,15 +1303,15 @@ rfs4_get_mntdfileid(nfs4_attr_cmd_t cmd, struct nfs4_svgetit_arg *sarg)
 	vp = sarg->cs->vp;
 	sarg->mntdfid_set = FALSE;
 
-	/* VROOT object, must untraverse */
-	if (vp->v_flag & VROOT) {
+	/* VROOT object or zone's root, must untraverse */
+	if ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp)) {
 
 		/* extra hold for vp since untraverse might rele */
 		VN_HOLD(vp);
 		stubvp = untraverse(vp);
 
 		/*
-		 * If vp/stubvp are same, we must be at system
+		 * If vp/stubvp are same, we must be at system-or-zone
 		 * root because untraverse returned same vp
 		 * for a VROOT object.  sarg->vap was setup
 		 * before we got here, so there's no need to do
@@ -1377,10 +1377,10 @@ rfs4_fattr4_mounted_on_fileid(nfs4_attr_cmd_t cmd,
 		break;		/* this attr is supported */
 	case NFS4ATTR_GETIT:
 	case NFS4ATTR_VERIT:
-		if (! sarg->mntdfid_set)
+		if (!sarg->mntdfid_set)
 			error = rfs4_get_mntdfileid(cmd, sarg);
 
-		if (! error && sarg->mntdfid_set) {
+		if (!error && sarg->mntdfid_set) {
 			if (cmd == NFS4ATTR_GETIT)
 				na->mounted_on_fileid = sarg->mounted_on_fileid;
 			else
