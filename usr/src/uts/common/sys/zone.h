@@ -922,7 +922,15 @@ struct zsd_entry {
 /*
  * A root vnode of the current zone.
  */
-#define	ZONE_ROOTVP()	(curproc->p_zone->zone_rootvp)
+#define	ZONE_ROOTVP()	(curzone->zone_rootvp)
+
+/*
+ * Since a zone's root isn't necessarily an actual filesystem boundary
+ * (i.e. VROOT may not be set on zone->zone_rootvp) we need to not assume it.
+ * This macro helps in checking if a vnode is the current zone's rootvp.
+ * NOTE:  Using the VN_ prefix, even though it's defined here in zone.h.
+ */
+#define	VN_IS_CURZONEROOT(vp)   (VN_CMP(vp, ZONE_ROOTVP()))
 
 /*
  * Zone-safe version of thread_create() to be used when the caller wants to

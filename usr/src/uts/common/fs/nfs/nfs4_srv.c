@@ -958,7 +958,7 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 		 * need to traverse back to the mounted-on filesystem
 		 * and do the dotdot lookup there.
 		 */
-		if (cs->vp->v_flag & VROOT) {
+		if ((cs->vp->v_flag & VROOT) || VN_IS_CURZONEROOT(cs->vp)) {
 
 			/*
 			 * If at the system root, then can
@@ -2705,7 +2705,7 @@ do_rfs4_op_lookup(char *nm, struct svc_req *req, struct compound_state *cs)
 		 * need to traverse back to the mounted-on filesystem
 		 * and do the dotdot lookup there.
 		 */
-		if (cs->vp->v_flag & VROOT) {
+		if ((cs->vp->v_flag & VROOT) || VN_IS_CURZONEROOT(cs->vp)) {
 
 			/*
 			 * If at the system root, then can
