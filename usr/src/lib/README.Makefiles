@@ -619,7 +619,7 @@ outlined in this document:
 
 	lib/libdhcpagent
 
-	  Example of a simple 32-bit only library that obtains its sources
+	  Example of a simple 32/64-bit library that obtains its sources
 	  from multiple directories.
 
 	lib/ncad_addr

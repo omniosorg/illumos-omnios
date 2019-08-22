@@ -219,10 +219,16 @@ typedef struct dhcp_status {
 	char		if_name[LIFNAMSIZ];
 	DHCPSTATE	if_state;	/* state of interface; see above */
 
-	time_t		if_began;	/* time lease began (absolute) */
-	time_t		if_t1;		/* renewing time (absolute) */
-	time_t		if_t2;		/* rebinding time (absolute) */
-	time_t		if_lease;	/* lease expiration time (absolute) */
+	/*
+	 * We use uint32_t here so that the structure is the same in both
+	 * 32 and 64-bit, since it is passed via IPC.
+	 * Once everything that uses this is 64-bit, these should be changed
+	 * to time_t.
+	 */
+	uint32_t	if_began;	/* time lease began (absolute) */
+	uint32_t	if_t1;		/* renewing time (absolute) */
+	uint32_t	if_t2;		/* rebinding time (absolute) */
+	uint32_t	if_lease;	/* lease expiration time (absolute) */
 
 	uint16_t	if_dflags;	/* DHCP flags on this if; see above */
 
