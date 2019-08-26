@@ -2823,8 +2823,15 @@ zone_free(zone_t *zone)
 
 	cpu_uarray_free(zone->zone_ustate);
 
-	if (zone->zone_rootvp != NULL)
-		VN_RELE(zone->zone_rootvp);
+	if (zone->zone_rootvp != NULL) {
+		vnode_t *vp = zone->zone_rootvp;
+
+		mutex_enter(&vp->v_lock);
+		vp->v_flag &= ~VZONEROOT;
+		mutex_exit(&vp->v_lock);
+		VN_RELE(vp);
+		/* No need to worry about NULL-ing out zone_rootvp. */
+	}
 	if (zone->zone_rootpath)
 		kmem_free(zone->zone_rootpath, zone->zone_rootpathlen);
 	if (zone->zone_name != NULL)
@@ -3900,6 +3907,16 @@ zone_set_root(zone_t *zone, const char *upath)
 	}
 
 	ASSERT(error == 0);
+	mutex_enter(&vp->v_lock);
+	if (vp->v_flag & VZONEROOT) {
+		/* Wow, someone's already using this zone root! */
+		error = EEXIST;	/* XXX KEBE ASKS, better errno? */
+		mutex_exit(&vp->v_lock);
+		VN_RELE(vp);
+		goto out;
+	}
+	vp->v_flag |= VZONEROOT;
+	mutex_exit(&vp->v_lock);
 	zone->zone_rootvp = vp;		/* we hold a reference to vp */
 	zone->zone_rootpath = path;
 	zone->zone_rootpathlen = pathlen;
@@ -5874,7 +5891,12 @@ zone_destroy(zoneid_t zoneid)
 	 * other thread that might access it exist.
 	 */
 	if (zone->zone_rootvp != NULL) {
-		VN_RELE(zone->zone_rootvp);
+		vnode_t *vp = zone->zone_rootvp;
+
+		mutex_enter(&vp->v_lock);
+		vp->v_flag &= ~VZONEROOT;
+		mutex_exit(&vp->v_lock);
+		VN_RELE(vp);
 		zone->zone_rootvp = NULL;
 	}
 
