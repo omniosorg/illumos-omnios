@@ -2584,7 +2584,13 @@ nlm_unexport(struct exportinfo *exi)
 	struct nlm_globals *g;
 	struct nlm_host *hostp;
 
-	g = zone_getspecific(nlm_zone_key, curzone);
+	/* This may be called on behalf of global-zone doing shutdown. */
+	ASSERT(exi->exi_zone == curzone || curzone == global_zone);
+	g = zone_getspecific(nlm_zone_key, exi->exi_zone);
+	if (g == NULL) {
+		/* Did zone cleanup get here already? */
+		return;
+	}
 
 	mutex_enter(&g->lock);
 	hostp = avl_first(&g->nlm_hosts_tree);
