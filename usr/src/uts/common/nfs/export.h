@@ -481,7 +481,7 @@ typedef struct treenode {
 #define	TREE_ROOT(t) \
 	((t)->tree_exi != NULL && \
 	(((t)->tree_exi->exi_vp->v_flag & VROOT) || \
-	VN_IS_CURZONEROOT((t)->tree_exi->exi_vp)))
+	VN_CMP((t)->tree_exi->exi_zone->zone_rootvp, (t)->tree_exi->exi_vp)))
 
 #define	TREE_EXPORTED(t) \
 	((t)->tree_exi && !PSEUDO((t)->tree_exi))
@@ -533,13 +533,27 @@ struct exportinfo {
 	unsigned		exi_moved:1;
 	int			exi_id;
 	avl_node_t		exi_id_link;
-	zoneid_t		exi_zoneid;
+	/*
+	 * Soft-reference/backpointer to the zone.  The ZSD callbacks we have
+	 * invoke cleanup code that crosses into OTHER cleanup functions that
+	 * may assume same-zone context and attempt to find their own ZSD,
+	 * using "curzone" when in fact "curzone" is global when called from
+	 * NFS's ZSD cleanup (see lm_unexport->nlm_unexport for an example).
+	 *
+	 * During ZSD shutdown or destroy callbacks, the zone structure
+	 * does not have its mutex held, and it has just-enough references
+	 * to not free from underneath us.  This field is not a proper
+	 * referenced-held zone pointer, and only ZSD callbacks should use
+	 * it.
+	 */
+	struct zone		*exi_zone;
 #ifdef VOLATILE_FH_TEST
 	uint32_t		exi_volatile_id;
 	struct ex_vol_rename	*exi_vol_rename;
 	kmutex_t		exi_vol_rename_lock;
 #endif /* VOLATILE_FH_TEST */
 };
+#define	exi_zoneid exi_zone->zone_id
 
 typedef struct exportinfo exportinfo_t;
 typedef struct exportdata exportdata_t;
