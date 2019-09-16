@@ -692,9 +692,17 @@ exportinfo_t *
 vis2exi(treenode_t *tnode)
 {
 	exportinfo_t *exi_ret = NULL;
+#ifdef DEBUG
+	zone_t *zone;
+
+	ASSERT(tnode->tree_exi != NULL);
+	zone = tnode->tree_exi->exi_zone;
+#endif
 
 	for (;;) {
 		tnode = tnode->tree_parent;
+		ASSERT(tnode->tree_exi != NULL);
+		ASSERT3P(zone, ==, tnode->tree_exi->exi_zone);
 		if (TREE_ROOT(tnode)) {
 			exi_ret = tnode->tree_exi;
 			break;
@@ -1300,7 +1308,9 @@ exportfs(struct exportfs_args *args, model_t model, cred_t *cr)
 	exi->exi_fid = fid;
 	exi->exi_vp = vp;
 	exi->exi_count = 1;
-	exi->exi_zoneid = crgetzoneid(cr);
+	exi->exi_zone = crgetzone(cr);
+	ASSERT(exi->exi_zone != NULL);		/* XXX KEBE ASKS... */
+	ASSERT3P(exi->exi_zone, ==, curzone);	/* ... are these legit? */
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -1814,6 +1824,7 @@ unexport(nfs_export_t *ne, struct exportinfo *exi)
 		exi->exi_visible = NULL;
 
 		/* interconnect the existing treenode with the new exportinfo */
+		newexi->exi_zone = exi->exi_zone;
 		newexi->exi_tree = exi->exi_tree;
 		newexi->exi_tree->tree_exi = newexi;
 
@@ -1842,6 +1853,11 @@ unexport(nfs_export_t *ne, struct exportinfo *exi)
 	/*
 	 * If this was a public export, restore
 	 * the public filehandle to the root.
+	 */
+
+	/*
+	 * XXX KEBE ASKS --> Should CRED() instead be
+	 * exi->exi_zone->zone_kcred?
 	 */
 	if (exi == ne->exi_public) {
 		ne->exi_public = ne->exi_root;

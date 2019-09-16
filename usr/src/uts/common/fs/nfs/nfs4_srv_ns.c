@@ -146,8 +146,8 @@ nfs4_vget_pseudo(struct exportinfo *exi, vnode_t **vpp, fid_t *fidp)
  * b) a descendant of the export root is shared
  */
 struct exportinfo *
-pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid, struct exp_visible *vis_head,
-    struct exportdata *exdata)
+pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid,
+    struct exp_visible *vis_head, struct exportdata *exdata)
 {
 	struct exportinfo *exi;
 	struct exportdata *kex;
@@ -165,6 +165,7 @@ pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid, struct exp_visible *v
 	VN_HOLD(exi->exi_vp);
 	exi->exi_visible = vis_head;
 	exi->exi_count = 1;
+	/* Caller will set exi_zone... */
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -642,6 +643,7 @@ treeclimb_export(struct exportinfo *exip)
 	nfs_export_t *ne = nfs_get_export();
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
+	ASSERT3P(curzone, ==, exip->exi_zone);
 
 	gethrestime(&now);
 
@@ -693,6 +695,7 @@ treeclimb_export(struct exportinfo *exip)
 				 */
 				new_exi = pseudo_exportfs(ne, vp, &fid,
 				    vis_head, NULL);
+				new_exi->exi_zone = exip->exi_zone;
 				vis_head = NULL;
 			}
 
@@ -835,6 +838,7 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 	treenode_t *connect_point = NULL;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
+	ASSERT(curzone == exip->exi_zone || curzone == global_zone);
 
 	tnode = exip->exi_tree;
 	/*
@@ -983,6 +987,7 @@ has_visible(struct exportinfo *exi, vnode_t *vp)
 	 * list.  i.e. if it does not have a visible list, then there is no
 	 * node in this filesystem leads to any other shared node.
 	 */
+	ASSERT3P(curzone, ==, exi->exi_zone);
 	if (vp_is_exported &&
 	    ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp))) {
 		return (exi->exi_visible ? 1 : 0);
