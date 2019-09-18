@@ -883,7 +883,8 @@ nfs_export_zone_init(zoneid_t zoneid)
 	ne->exi_root->exi_count = 1;
 	mutex_init(&ne->exi_root->exi_lock, NULL, MUTEX_DEFAULT, NULL);
 
-	ne->exi_root->exi_vp = ZONE_ROOTVP();
+	ne->exi_root->exi_zone = zone_find_by_id_nolock(zoneid);
+	ne->exi_root->exi_vp = ne->exi_root->exi_zone->zone_rootvp;
 	ne->exi_rootfid.fid_len = MAXFIDSZ;
 	if (vop_fid_pseudo(ne->exi_root->exi_vp, &ne->exi_rootfid) != 0) {
 		mutex_destroy(&ne->exi_root->exi_lock);
