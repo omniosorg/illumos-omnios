@@ -693,17 +693,17 @@ vis2exi(treenode_t *tnode)
 {
 	exportinfo_t *exi_ret = NULL;
 #ifdef DEBUG
-	zone_t *zone;
-
-	ASSERT(tnode->tree_exi != NULL);
-	zone = tnode->tree_exi->exi_zone;
+	zone_t *zone = NULL;
 #endif
 
 	for (;;) {
 		tnode = tnode->tree_parent;
-		ASSERT(tnode->tree_exi != NULL);
-		ASSERT3P(zone, ==, tnode->tree_exi->exi_zone);
+#ifdef DEBUG
+		if (zone == NULL && tnode->tree_exi != NULL)
+			zone = tnode->tree_exi->exi_zone;
+#endif
 		if (TREE_ROOT(tnode)) {
+			ASSERT3P(zone, ==, tnode->tree_exi->exi_zone);
 			exi_ret = tnode->tree_exi;
 			break;
 		}
