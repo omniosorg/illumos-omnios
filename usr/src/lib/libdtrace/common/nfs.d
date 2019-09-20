@@ -108,7 +108,7 @@ translator nfsv4opinfo_t < struct compound_state *P > {
 	noi_curpath = (P->vp == NULL) ? "<unknown>" : P->vp->v_path;
 	noi_shrpath = (P->exi == NULL || P->exi->exi_export.ex_path == NULL) ?
 	    "<unknown>" : P->exi->exi_export.ex_path;
-	noi_zoneid = (P->exi == NULL) ? -1 : P->exi->exi_zoneid;
+	noi_zoneid = (P->exi == NULL) ? -1 : P->exi->exi_zone->zone_id;
 };
 
 typedef struct nfsv3opinfo {
@@ -131,5 +131,5 @@ translator nfsv3opinfo_t < nfsv3oparg_t *P > {
 	    (arg3 == 0 || ((exportinfo_t *)arg3)->exi_export.ex_path == NULL) ?
 	    "<unknown>" : ((exportinfo_t *)arg3)->exi_export.ex_path;
 	noi_zoneid =
-	    (arg3 == 0) ? -1 : ((exportinfo_t *)arg3)->exi_zoneid;
+	    (arg3 == 0) ? -1 : ((exportinfo_t *)arg3)->exi_zone->zone_id;
 };
