@@ -4110,6 +4110,8 @@ rfs4_clean_state_exi(struct exportinfo *exi)
 	/* curzone mightn't be exi_zone, so use exi_zone instead. */
 	ASSERT(exi->exi_zone == curzone || curzone == global_zone);
 	nsrv4 = zone_getspecific(rfs4_zone_key, exi->exi_zone);
+	if (nsrv4 == NULL) /* NOTE: NFSv4 cleanup MAY have already happened. */
+		return;
 	mutex_enter(&nsrv4->state_lock);
 
 	if (nsrv4->nfs4_server_state == NULL) {
