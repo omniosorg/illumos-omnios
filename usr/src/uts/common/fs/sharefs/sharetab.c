@@ -25,6 +25,7 @@
 
 /*
  * Copyright 2018 Nexenta Systems, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 #include <sys/types.h>
@@ -308,6 +309,27 @@ sharetab_zone_fini(zoneid_t zoneid, void *data)
 
 	rw_destroy(&sg->sharefs_lock);
 	rw_destroy(&sg->sharetab_lock);
+
+	/* ALL of the allocated things must be cleaned before we free sg. */
+	while (sg->sharefs_sharetab != NULL) {
+		int i;
+		sharetab_t *freeing = sg->sharefs_sharetab;
+
+		sg->sharefs_sharetab = freeing->s_next;
+		kmem_free(freeing->s_fstype, strlen(freeing->s_fstype) + 1);
+		for (i = 0; i < PKP_HASH_SIZE; i++) {
+			sharefs_hash_head_t *bucket;
+
+			bucket = &(freeing->s_buckets[i]);
+			while (bucket->ssh_sh != NULL) {
+				share_t *share = bucket->ssh_sh;
+
+				bucket->ssh_sh = share->sh_next;
+				sharefree(share, NULL);
+			}
+		}
+		kmem_free(freeing, sizeof (*freeing));
+	}
 
 	kmem_free(sg, sizeof (*sg));
 }
