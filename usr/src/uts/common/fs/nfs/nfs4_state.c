@@ -1517,12 +1517,14 @@ rfs4_state_zone_fini()
 	/* First stop all of the reaper threads in the database */
 	rfs4_database_shutdown(dbp);
 	/*
-	 * XXX workaround
-	 * Skip destrying the state database yet just in case there
-	 * are unfinished operations depending on it.
+	 * WARNING: There may be consumers of the rfs4 database still
+	 * active as we destroy these.  IF that's the case, consider putting
+	 * some of their _zone_fini()-like functions into the zsd key as
+	 * ~~SHUTDOWN~~ functions instead of ~~DESTROY~~ functions.  We can
+	 * maintain some ordering guarantees better that way.
 	 */
 	/* Now destroy/release the database tables */
-	/* rfs4_database_destroy(dbp); */
+	rfs4_database_destroy(dbp);
 
 	/* Reset the cache timers for next time */
 	nsrv4->rfs4_client_cache_time = 0;
