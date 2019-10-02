@@ -1496,6 +1496,14 @@ rfs4_state_zone_fini()
 
 	rfs4_set_deleg_policy(nsrv4, SRV_NEVER_DELEGATE);
 
+	/*
+	 * Clean up any dangling stable storage structures BEFORE calling
+	 * rfs4_servinst_destroy_all() so there are no dangling structures
+	 * (i.e. the srvinsts are all cleared of danglers BEFORE they get
+	 * freed).
+	 */
+	rfs4_ss_fini(nsrv4);
+
 	mutex_enter(&nsrv4->state_lock);
 
 	if (nsrv4->nfs4_server_state == NULL) {
@@ -1536,9 +1544,6 @@ rfs4_state_zone_fini()
 	nsrv4->rfs4_deleg_state_cache_time = 0;
 
 	mutex_exit(&nsrv4->state_lock);
-
-	/* clean up any dangling stable storage structures */
-	rfs4_ss_fini(nsrv4);
 }
 
 typedef union {
