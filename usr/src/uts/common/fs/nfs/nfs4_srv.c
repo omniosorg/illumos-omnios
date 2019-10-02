@@ -815,8 +815,8 @@ rfs4_servinst_create(nfs4_srv_t *nsrv4, int start_grace,
 	    sizeof (rfs4_dss_path_t *), KM_SLEEP);
 
 	for (i = 0; i < dss_npaths; i++) {
-		/* CSTYLED */
-		sip->dss_paths[i] = rfs4_dss_newpath(nsrv4, sip, dss_paths[i], i);
+		sip->dss_paths[i] =
+		    rfs4_dss_newpath(nsrv4, sip, dss_paths[i], i);
 	}
 
 	mutex_enter(&nsrv4->servinst_lock);
@@ -854,9 +854,25 @@ rfs4_servinst_destroy_all(nfs4_srv_t *nsrv4)
 		rw_destroy(&sip->rwlock);
 		if (sip->oldstate)
 			kmem_free(sip->oldstate, sizeof (rfs4_oldstate_t));
-		if (sip->dss_paths)
+		if (sip->dss_paths) {
+			int i = sip->dss_npaths;
+
+			while (i > 0) {
+				i--;
+				if (sip->dss_paths[i] != NULL) {
+					char *path = sip->dss_paths[i]->path;
+
+					if (path != NULL) {
+						kmem_free(path,
+						    strlen(path) + 1);
+					}
+					kmem_free(sip->dss_paths[i],
+					    sizeof (rfs4_dss_path_t));
+				}
+			}
 			kmem_free(sip->dss_paths,
 			    sip->dss_npaths * sizeof (rfs4_dss_path_t *));
+		}
 		kmem_free(sip, sizeof (rfs4_servinst_t));
 #ifdef DEBUG
 		n++;
