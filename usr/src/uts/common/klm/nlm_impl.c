@@ -849,7 +849,7 @@ nlm_nsm_init(struct nlm_nsm *nsm, struct knetconfig *knc, struct netbuf *nb)
 	 * statd using the status monitor protocol.
 	 */
 	error = clnt_tli_kcreate(&nsm->ns_knc, &nsm->ns_addr, SM_PROG, SM_VERS,
-	    0, NLM_RPC_RETRIES, kcred, &nsm->ns_handle);
+	    0, NLM_RPC_RETRIES, zone_kcred(), &nsm->ns_handle);
 	if (error != 0)
 		goto error;
 
@@ -858,7 +858,8 @@ nlm_nsm_init(struct nlm_nsm *nsm, struct knetconfig *knc, struct netbuf *nb)
 	 * local statd using the address registration protocol.
 	 */
 	error = clnt_tli_kcreate(&nsm->ns_knc, &nsm->ns_addr, NSM_ADDR_PROGRAM,
-	    NSM_ADDR_V1, 0, NLM_RPC_RETRIES, kcred, &nsm->ns_addr_handle);
+	    NSM_ADDR_V1, 0, NLM_RPC_RETRIES, zone_kcred(),
+	    &nsm->ns_addr_handle);
 	if (error != 0)
 		goto error;
 
@@ -867,8 +868,11 @@ nlm_nsm_init(struct nlm_nsm *nsm, struct knetconfig *knc, struct netbuf *nb)
 
 error:
 	kmem_free(nsm->ns_addr.buf, nsm->ns_addr.maxlen);
-	if (nsm->ns_handle)
+	if (nsm->ns_handle) {
+		ASSERT(nsm->ns_handle->cl_auth != NULL);
+		auth_destroy(nsm->ns_handle->cl_auth);
 		CLNT_DESTROY(nsm->ns_handle);
+	}
 
 	return (error);
 }
@@ -877,8 +881,12 @@ static void
 nlm_nsm_fini(struct nlm_nsm *nsm)
 {
 	kmem_free(nsm->ns_addr.buf, nsm->ns_addr.maxlen);
+	if (nsm->ns_addr_handle->cl_auth != NULL)
+		auth_destroy(nsm->ns_addr_handle->cl_auth);
 	CLNT_DESTROY(nsm->ns_addr_handle);
 	nsm->ns_addr_handle = NULL;
+	if (nsm->ns_handle->cl_auth != NULL)
+		auth_destroy(nsm->ns_handle->cl_auth);
 	CLNT_DESTROY(nsm->ns_handle);
 	nsm->ns_handle = NULL;
 	sema_destroy(&nsm->ns_sem);
@@ -2808,7 +2816,7 @@ void
 nlm_nsm_clnt_init(CLIENT *clnt, struct nlm_nsm *nsm)
 {
 	(void) clnt_tli_kinit(clnt, &nsm->ns_knc, &nsm->ns_addr, 0,
-	    NLM_RPC_RETRIES, kcred);
+	    NLM_RPC_RETRIES, zone_kcred());
 }
 
 void
