@@ -68,8 +68,6 @@
 #include <nfs/lm.h>
 #include <sys/sunddi.h>
 
-static zone_key_t nfs_export_key;
-
 /*
  * exi_id support
  *
@@ -122,7 +120,10 @@ fhandle_t nullfh2;	/* for comparing V2 filehandles */
 extern nfs_export_t *
 nfs_get_export(void)
 {
-	return (zone_getspecific(nfs_export_key, curzone));
+	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_export_t *ne = ng->nfs_export;
+	ASSERT(ne != NULL);
+	return (ne);
 }
 
 static uint8_t
@@ -722,10 +723,21 @@ void
 srv_secinfo_treeclimb(nfs_export_t *ne, exportinfo_t *exip, secinfo_t *sec,
     int seccnt, bool_t isadd)
 {
-	treenode_t *tnode = exip->exi_tree;
+	treenode_t *tnode;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT(tnode != NULL);
+
+	/*
+	 * exi_tree can be null for the zone root
+	 * which means we're already at the "top"
+	 * and there's nothing more to "climb".
+	 */
+	tnode = exip->exi_tree;
+	if (tnode == NULL) {
+		/* Should only happen for... */
+		ASSERT(exip == ne->exi_root);
+		return;
+	}
 
 	if (seccnt == 0)
 		return;
@@ -804,6 +816,7 @@ export_link(nfs_export_t *ne, exportinfo_t *exi)
 	exportinfo_t **bckt;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
+	ASSERT(exi->exi_zoneid == ne->ne_globals->nfs_zoneid);
 
 	bckt = &ne->exptable[exptablehash(&exi->exi_fsid, &exi->exi_fid)];
 	exp_hash_link(exi, fid_hash, bckt);
@@ -855,9 +868,35 @@ exi_id_get_next()
 	return (ret);
 }
 
-/*ARGSUSED*/
-static void *
-nfs_export_zone_init(zoneid_t zoneid)
+/*
+ * Get the root file handle for this zone.
+ * Called when nfs_svc() starts
+ */
+int
+nfs_export_get_rootfh(nfs_globals_t *g)
+{
+	nfs_export_t *ne = g->nfs_export;
+	int err;
+
+	ne->exi_rootfid.fid_len = MAXFIDSZ;
+	err = vop_fid_pseudo(ne->exi_root->exi_vp, &ne->exi_rootfid);
+	if (err != 0) {
+		ne->exi_rootfid.fid_len = 0;
+		return (err);
+	}
+
+	/* Setup the fhandle template exi_fh */
+	ne->exi_root->exi_fh.fh_fsid = rootdir->v_vfsp->vfs_fsid;
+	ne->exi_root->exi_fh.fh_xlen = ne->exi_rootfid.fid_len;
+	bcopy(ne->exi_rootfid.fid_data, ne->exi_root->exi_fh.fh_xdata,
+	    ne->exi_rootfid.fid_len);
+	ne->exi_root->exi_fh.fh_len = sizeof (ne->exi_root->exi_fh.fh_data);
+
+	return (0);
+}
+
+void
+nfs_export_zone_init(nfs_globals_t *ng)
 {
 	int i;
 	nfs_export_t *ne;
@@ -865,6 +904,8 @@ nfs_export_zone_init(zoneid_t zoneid)
 	ne = kmem_zalloc(sizeof (*ne), KM_SLEEP);
 
 	rw_init(&ne->exported_lock, NULL, RW_DEFAULT, NULL);
+
+	ne->ne_globals = ng; /* "up" pointer */
 
 	/*
 	 * Allocate the place holder for the public file handle, which
@@ -883,16 +924,14 @@ nfs_export_zone_init(zoneid_t zoneid)
 	ne->exi_root->exi_count = 1;
 	mutex_init(&ne->exi_root->exi_lock, NULL, MUTEX_DEFAULT, NULL);
 
-	ne->exi_root->exi_zone = zone_find_by_id_nolock(zoneid);
-	ne->exi_root->exi_vp = ne->exi_root->exi_zone->zone_rootvp;
-	ne->exi_rootfid.fid_len = MAXFIDSZ;
-	if (vop_fid_pseudo(ne->exi_root->exi_vp, &ne->exi_rootfid) != 0) {
-		mutex_destroy(&ne->exi_root->exi_lock);
-		kmem_free(ne->exi_root->exi_export.ex_path,
-		    ne->exi_root->exi_export.ex_pathlen + 1);
-		kmem_free(ne->exi_root, sizeof (*ne->exi_root));
-		return (NULL);
-	}
+	ASSERT(curzone->zone_id == ng->nfs_zoneid);
+	ne->exi_root->exi_vp = ZONE_ROOTVP();
+	ne->exi_root->exi_zoneid = ng->nfs_zoneid;
+
+	/*
+	 * Fill in ne->exi_rootfid later, in nfs_export_get_rootfid
+	 * because we can't correctly return errors here.
+	 */
 
 	/* Initialize auth cache and auth cache lock */
 	for (i = 0; i < AUTH_TABLESIZE; i++) {
@@ -904,12 +943,7 @@ nfs_export_zone_init(zoneid_t zoneid)
 	}
 	rw_init(&ne->exi_root->exi_cache_lock, NULL, RW_DEFAULT, NULL);
 
-	/* Setup the fhandle template */
-	ne->exi_root->exi_fh.fh_fsid = rootdir->v_vfsp->vfs_fsid;
-	ne->exi_root->exi_fh.fh_xlen = ne->exi_rootfid.fid_len;
-	bcopy(ne->exi_rootfid.fid_data, ne->exi_root->exi_fh.fh_xdata,
-	    ne->exi_rootfid.fid_len);
-	ne->exi_root->exi_fh.fh_len = sizeof (ne->exi_root->exi_fh.fh_data);
+	/* setup exi_fh later, in nfs_export_get_rootfid */
 
 	rw_enter(&ne->exported_lock, RW_WRITER);
 
@@ -925,24 +959,79 @@ nfs_export_zone_init(zoneid_t zoneid)
 	rw_exit(&ne->exported_lock);
 	ne->ns_root = NULL;
 
-	return (ne);
+	ng->nfs_export = ne;
 }
 
-/*ARGSUSED*/
-static void
-nfs_export_zone_fini(zoneid_t zoneid, void *data)
+/*
+ * During zone shutdown, remove exports
+ */
+void
+nfs_export_zone_shutdown(nfs_globals_t *ng)
+{
+	nfs_export_t *ne = ng->nfs_export;
+	struct exportinfo *exi, *nexi;
+	int i, errors;
+
+	rw_enter(&ne->exported_lock, RW_READER);
+
+	errors = 0;
+	for (i = 0; i < EXPTABLESIZE; i++) {
+
+		exi = ne->exptable[i];
+		if (exi != NULL)
+			exi_hold(exi);
+
+		while (exi != NULL) {
+
+			/*
+			 * Get and hold next export before
+			 * dropping the rwlock and unexport
+			 */
+			nexi = exi->fid_hash.next;
+			if (nexi != NULL)
+				exi_hold(nexi);
+
+			rw_exit(&ne->exported_lock);
+
+			/*
+			 * Skip ne->exi_root which gets special
+			 * create/destroy handling.
+			 */
+			if (exi != ne->exi_root &&
+			    unexport(ne, exi) != 0)
+				errors++;
+			exi_rele(exi);
+
+			rw_enter(&ne->exported_lock, RW_READER);
+			exi = nexi;
+		}
+	}
+	if (errors > 0) {
+		cmn_err(CE_NOTE,
+		    "NFS: failed un-exports in zone %d",
+		    (int) ng->nfs_zoneid);
+	}
+
+	rw_exit(&ne->exported_lock);
+}
+
+void
+nfs_export_zone_fini(nfs_globals_t *ng)
 {
 	int i;
-	nfs_export_t *ne = data;
+	nfs_export_t *ne = ng->nfs_export;
 	struct exportinfo *exi;
 
-	rw_enter(&ne->exported_lock, RW_WRITER);
-	mutex_enter(&nfs_exi_id_lock);
+	ng->nfs_export = NULL;
 
+	rw_enter(&ne->exported_lock, RW_WRITER);
+
+	mutex_enter(&nfs_exi_id_lock);
 	avl_remove(&exi_id_tree, ne->exi_root);
+	mutex_exit(&nfs_exi_id_lock);
+
 	export_unlink(ne, ne->exi_root);
 
-	mutex_exit(&nfs_exi_id_lock);
 	rw_exit(&ne->exported_lock);
 
 	/* Deallocate the place holder for the public file handle */
@@ -960,14 +1049,24 @@ nfs_export_zone_fini(zoneid_t zoneid, void *data)
 	    ne->exi_root->exi_export.ex_pathlen + 1);
 	kmem_free(ne->exi_root, sizeof (*ne->exi_root));
 
+	/*
+	 * The shutdown hook should have left the exi_id_tree
+	 * with nothing belonging to this zone.
+	 */
+	mutex_enter(&nfs_exi_id_lock);
+	i = 0;
 	exi = avl_first(&exi_id_tree);
 	while (exi != NULL) {
-		struct exportinfo *nexi = AVL_NEXT(&exi_id_tree, exi);
-		if (zoneid == exi->exi_zoneid)
-			(void) unexport(ne, exi);
-		exi = nexi;
+		if (exi->exi_zoneid == ng->nfs_zoneid)
+			i++;
+		exi = AVL_NEXT(&exi_id_tree, exi);
 	}
-
+	mutex_exit(&nfs_exi_id_lock);
+	if (i > 0) {
+		cmn_err(CE_NOTE,
+		    "NFS: zone %d has %d export IDs left after shutdown",
+		    (int) ng->nfs_zoneid, i);
+	}
 	rw_destroy(&ne->exported_lock);
 	kmem_free(ne, sizeof (*ne));
 }
@@ -987,9 +1086,6 @@ nfs_exportinit(void)
 	avl_create(&exi_id_tree, exi_id_compar, sizeof (struct exportinfo),
 	    offsetof(struct exportinfo, exi_id_link));
 
-	zone_key_create(&nfs_export_key, nfs_export_zone_init,
-	    NULL, nfs_export_zone_fini);
-
 	nfslog_init();
 }
 
@@ -999,7 +1095,6 @@ nfs_exportinit(void)
 void
 nfs_exportfini(void)
 {
-	(void) zone_key_delete(nfs_export_key);
 	avl_destroy(&exi_id_tree);
 	mutex_destroy(&nfs_exi_id_lock);
 }
@@ -1843,7 +1938,7 @@ unexport(nfs_export_t *ne, struct exportinfo *exi)
 	 * the v4 server may be holding file locks or vnodes under
 	 * this export.
 	 */
-	rfs4_clean_state_exi(exi);
+	rfs4_clean_state_exi(ne, exi);
 
 	/*
 	 * Notify the lock manager that the filesystem is being

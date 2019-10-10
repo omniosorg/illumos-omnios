@@ -900,7 +900,6 @@ extern void		rfs4_dss_readstate(nfs4_srv_t *, int, char **);
  * Various interfaces to manipulate the state structures introduced
  * above
  */
-extern	void		rfs4_clean_state_exi(struct exportinfo *exi);
 extern	void		rfs4_free_reply(nfs_resop4 *);
 extern	void		rfs4_copy_reply(nfs_resop4 *, nfs_resop4 *);
 
@@ -1494,10 +1493,13 @@ extern void	rfs4_compound_flagproc(COMPOUND4args *, int *);
 
 extern void	rfs4_srvrinit(void);
 extern void	rfs4_srvrfini(void);
+extern void	rfs4_srv_zone_init(nfs_globals_t *);
+extern void	rfs4_srv_zone_fini(nfs_globals_t *);
 extern void	rfs4_state_g_init(void);
 extern void	rfs4_state_zone_init(nfs4_srv_t *);
 extern void	rfs4_state_g_fini(void);
 extern void	rfs4_state_zone_fini(void);
+extern nfs4_srv_t *nfs4_get_srv(void);
 
 #endif
 #ifdef	__cplusplus

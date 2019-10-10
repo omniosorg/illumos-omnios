@@ -91,7 +91,15 @@ static int	rdma_setup_read_data3(READ3args *, READ3resok *);
 extern int nfs_loaned_buffers;
 
 u_longlong_t nfs3_srv_caller_id;
-static zone_key_t rfs3_zone_key;
+
+static nfs3_srv_t *
+nfs3_get_srv(void)
+{
+	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs3_srv_t *srv = ng->nfs3_srv;
+	ASSERT(srv != NULL);
+	return (srv);
+}
 
 /* ARGSUSED */
 void
@@ -1327,7 +1335,8 @@ rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
 	}
 
 	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
-	ns = zone_getspecific(rfs3_zone_key, curzone);
+	ns = nfs3_get_srv();
+
 	if (is_system_labeled()) {
 		bslabel_t *clabel = req->rq_label;
 
@@ -4128,7 +4137,7 @@ rfs3_commit(COMMIT3args *args, COMMIT3res *resp, struct exportinfo *exi,
 	}
 
 	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
-	ns = zone_getspecific(rfs3_zone_key, curzone);
+	ns = nfs3_get_srv();
 	bva.va_mask = AT_ALL;
 	error = VOP_GETATTR(vp, &bva, 0, cr, NULL);
 
@@ -4381,9 +4390,8 @@ rdma_setup_read_data3(READ3args *args, READ3resok *rok)
 	return (TRUE);
 }
 
-/* ARGSUSED */
-static void *
-rfs3_zone_init(zoneid_t zoneid)
+void
+rfs3_srv_zone_init(nfs_globals_t *ng)
 {
 	nfs3_srv_t *ns;
 	struct rfs3_verf_overlay {
@@ -4428,14 +4436,15 @@ rfs3_zone_init(zoneid_t zoneid)
 	if (verfp->id == 0)
 		verfp->id = (uint_t)now.tv_nsec;
 
-	return (ns);
+	ng->nfs3_srv = ns;
 }
 
-/* ARGSUSED */
-static void
-rfs3_zone_fini(zoneid_t zoneid, void *data)
+void
+rfs3_srv_zone_fini(nfs_globals_t *ng)
 {
-	nfs3_srv_t *ns = data;
+	nfs3_srv_t *ns = ng->nfs3_srv;
+
+	ng->nfs3_srv = NULL;
 
 	kmem_free(ns, sizeof (*ns));
 }
@@ -4444,7 +4453,6 @@ void
 rfs3_srvrinit(void)
 {
 	nfs3_srv_caller_id = fs_new_caller_id();
-	zone_key_create(&rfs3_zone_key, rfs3_zone_init, NULL, rfs3_zone_fini);
 }
 
 void
