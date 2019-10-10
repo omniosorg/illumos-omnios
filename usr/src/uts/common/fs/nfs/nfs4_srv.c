@@ -153,7 +153,6 @@ static int rdma_setup_read_data4(READ4args *, READ4res *);
 #define	DIRENT64_TO_DIRCOUNT(dp) \
 	(3 * BYTES_PER_XDR_UNIT + DIRENT64_NAMELEN((dp)->d_reclen))
 
-zone_key_t	rfs4_zone_key;
 
 static sysid_t		lockt_sysid;	/* dummy sysid for all LOCKT calls */
 
@@ -501,9 +500,17 @@ static const fs_operation_def_t nfs4_wr_deleg_tmpl[] = {
 	NULL,			NULL
 };
 
-/* ARGSUSED */
-static void *
-rfs4_zone_init(zoneid_t zoneid)
+nfs4_srv_t *
+nfs4_get_srv(void)
+{
+	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs4_srv_t *srv = ng->nfs4_srv;
+	ASSERT(srv != NULL);
+	return (srv);
+}
+
+void
+rfs4_srv_zone_init(nfs_globals_t *ng)
 {
 	nfs4_srv_t *nsrv4;
 	timespec32_t verf;
@@ -549,14 +556,15 @@ rfs4_zone_init(zoneid_t zoneid)
 	mutex_init(&nsrv4->servinst_lock, NULL, MUTEX_DEFAULT, NULL);
 	rw_init(&nsrv4->deleg_policy_lock, NULL, RW_DEFAULT, NULL);
 
-	return (nsrv4);
+	ng->nfs4_srv = nsrv4;
 }
 
-/* ARGSUSED */
-static void
-rfs4_zone_fini(zoneid_t zoneid, void *data)
+void
+rfs4_srv_zone_fini(nfs_globals_t *ng)
 {
-	nfs4_srv_t *nsrv4 = data;
+	nfs4_srv_t *nsrv4 = ng->nfs4_srv;
+
+	ng->nfs4_srv = NULL;
 
 	mutex_destroy(&nsrv4->deleg_lock);
 	mutex_destroy(&nsrv4->state_lock);
@@ -571,10 +579,7 @@ rfs4_srvrinit(void)
 {
 	extern void rfs4_attr_init();
 
-	zone_key_create(&rfs4_zone_key, rfs4_zone_init, NULL, rfs4_zone_fini);
-
 	rfs4_attr_init();
-
 
 	if (fem_create("deleg_rdops", nfs4_rd_deleg_tmpl, &deleg_rdops) != 0) {
 		rfs4_disable_delegation();
@@ -602,15 +607,13 @@ rfs4_srvrfini(void)
 
 	fem_free(deleg_rdops);
 	fem_free(deleg_wrops);
-
-	(void) zone_key_delete(rfs4_zone_key);
 }
 
 void
 rfs4_do_server_start(int server_upordown,
     int srv_delegation, int cluster_booted)
 {
-	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nfs4_srv_t *nsrv4 = nfs4_get_srv();
 
 	/* Is this a warm start? */
 	if (server_upordown == NFS_SERVER_QUIESCED) {
@@ -1517,7 +1520,7 @@ rfs4_op_commit(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 		goto out;
 	}
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 	*cs->statusp = resp->status = NFS4_OK;
 	resp->writeverf = nsrv4->write4verf;
 out:
@@ -5664,7 +5667,7 @@ rfs4_op_write(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 		goto out;
 	}
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 	if (args->data_len == 0) {
 		*cs->statusp = resp->status = NFS4_OK;
 		resp->count = 0;
@@ -5844,7 +5847,7 @@ rfs4_compound(COMPOUND4args *args, COMPOUND4res *resp, struct exportinfo *exi,
 	    KM_SLEEP);
 
 	cs.basecr = cr;
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 
 	DTRACE_NFSV4_2(compound__start, struct compound_state *, &cs,
 	    COMPOUND4args *, args);
@@ -6656,7 +6659,7 @@ rfs4_createfile(OPEN4args *args, struct svc_req *req, struct compound_state *cs,
 			 * We are writing over an existing file.
 			 * Check to see if we need to recall a delegation.
 			 */
-			nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+			nsrv4 = nfs4_get_srv();
 			rfs4_hold_deleg_policy(nsrv4);
 			if ((fp = rfs4_findfile(vp, NULL, &create)) != NULL) {
 				if (rfs4_check_delegated_byfp(FWRITE, fp,
@@ -8233,7 +8236,7 @@ rfs4_op_setclientid_confirm(nfs_argop4 *argop, nfs_resop4 *resop,
 	    struct compound_state *, cs,
 	    SETCLIENTID_CONFIRM4args *, args);
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 	*cs->statusp = res->status = NFS4_OK;
 
 	cp = rfs4_findclient_by_id(args->clientid, TRUE);

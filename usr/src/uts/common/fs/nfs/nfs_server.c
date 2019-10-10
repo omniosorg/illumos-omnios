@@ -115,7 +115,10 @@ static struct modlinkage modlinkage = {
 	MODREV_1, (void *)&modlmisc, NULL
 };
 
-zone_key_t nfssrv_zone_key;
+zone_key_t	nfssrv_zone_key;
+list_t		nfssrv_globals_list;
+krwlock_t	nfssrv_globals_rwl;
+
 kmem_cache_t *nfs_xuio_cache;
 int nfs_loaned_buffers = 0;
 
@@ -201,8 +204,9 @@ static char	*client_name(struct svc_req *req);
 static char	*client_addr(struct svc_req *req, char *buf);
 extern	int	sec_svc_getcred(struct svc_req *, cred_t *cr, char **, int *);
 extern	bool_t	sec_svc_inrootlist(int, caddr_t, int, caddr_t *);
-static void	*nfs_srv_zone_init(zoneid_t);
-static void	nfs_srv_zone_fini(zoneid_t, void *);
+static void	*nfs_server_zone_init(zoneid_t);
+static void	nfs_server_zone_fini(zoneid_t, void *);
+static void	nfs_server_zone_shutdown(zoneid_t, void *);
 
 #define	NFSLOG_COPY_NETBUF(exi, xprt, nb)	{		\
 	(nb)->maxlen = (xprt)->xp_rtaddr.maxlen;		\
@@ -263,6 +267,15 @@ nvlist_t *rfs4_dss_paths, *rfs4_dss_oldpaths;
 int rfs4_dispatch(struct rpcdisp *, struct svc_req *, SVCXPRT *, char *);
 bool_t rfs4_minorvers_mismatch(struct svc_req *, SVCXPRT *, void *);
 
+nfs_globals_t *
+nfs_srv_getzg(void)
+{
+	nfs_globals_t *ng;
+
+	ng = zone_getspecific(nfssrv_zone_key, curzone);
+	return (ng);
+}
+
 /*
  * Will be called at the point the server pool is being unregistered
  * from the pool list. From that point onwards, the pool is waiting
@@ -274,7 +287,7 @@ nfs_srv_offline(void)
 {
 	nfs_globals_t *ng;
 
-	ng = zone_getspecific(nfssrv_zone_key, curzone);
+	ng = nfs_srv_getzg();
 
 	mutex_enter(&ng->nfs_server_upordown_lock);
 	if (ng->nfs_server_upordown == NFS_SERVER_RUNNING) {
@@ -311,7 +324,7 @@ nfs_srv_quiesce_all(void)
 static void
 nfs_srv_shutdown_all(int quiesce)
 {
-	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_globals_t *ng = nfs_srv_getzg();
 
 	mutex_enter(&ng->nfs_server_upordown_lock);
 	if (quiesce) {
@@ -426,13 +439,17 @@ nfs_svc(struct nfs_svc_args *arg, model_t model)
 	model = model;		/* STRUCT macros don't always refer to it */
 #endif
 
-	ng = zone_getspecific(nfssrv_zone_key, curzone);
+	ng = nfs_srv_getzg();
 	STRUCT_SET_HANDLE(uap, model, arg);
 
 	/* Check privileges in nfssys() */
 
 	if ((fp = getf(STRUCT_FGET(uap, fd))) == NULL)
 		return (EBADF);
+
+	/* Setup global file handle in nfs_export */
+	if ((error = nfs_export_get_rootfh(ng)) != 0)
+		return (error);
 
 	/*
 	 * Set read buffer size to rsize
@@ -552,7 +569,7 @@ rdma_start(struct rdma_svc_args *rsa)
 		rsa->nfs_versmax = NFS_VERSMAX_DEFAULT;
 	}
 
-	ng = zone_getspecific(nfssrv_zone_key, curzone);
+	ng = nfs_srv_getzg();
 	ng->nfs_versmin = rsa->nfs_versmin;
 	ng->nfs_versmax = rsa->nfs_versmax;
 
@@ -2547,15 +2564,25 @@ client_addr(struct svc_req *req, char *buf)
 void
 nfs_srvinit(void)
 {
-	/* NFS server zone-specific global variables */
-	zone_key_create(&nfssrv_zone_key, nfs_srv_zone_init,
-	    NULL, nfs_srv_zone_fini);
 
+	/* Truly global stuff in this module (not per zone) */
+	rw_init(&nfssrv_globals_rwl, NULL, RW_DEFAULT, NULL);
+	list_create(&nfssrv_globals_list, sizeof (nfs_globals_t),
+	    offsetof (nfs_globals_t, nfs_g_link));
+
+	/* The order here is important */
 	nfs_exportinit();
 	rfs_srvrinit();
 	rfs3_srvrinit();
 	rfs4_srvrinit();
 	nfsauth_init();
+
+	/*
+	 * NFS server zone-specific global variables
+	 * Note the zone_init is called for the GZ here.
+	 */
+	zone_key_create(&nfssrv_zone_key, nfs_server_zone_init,
+	    nfs_server_zone_shutdown, nfs_server_zone_fini);
 }
 
 /*
@@ -2566,18 +2593,40 @@ nfs_srvinit(void)
 void
 nfs_srvfini(void)
 {
+
+	/*
+	 * NFS server zone-specific global variables
+	 * Note the zone_fini is called for the GZ here.
+	 */
+	(void) zone_key_delete(nfssrv_zone_key);
+
+	/* The order here is important (reverse of init) */
 	nfsauth_fini();
 	rfs4_srvrfini();
 	rfs3_srvrfini();
 	rfs_srvrfini();
 	nfs_exportfini();
 
-	(void) zone_key_delete(nfssrv_zone_key);
+	/* Truly global stuff in this module (not per zone) */
+	list_destroy(&nfssrv_globals_list);
+	rw_destroy(&nfssrv_globals_rwl);
 }
 
-/* ARGSUSED */
+/*
+ * Zone init, shutdown, fini functions for the NFS server
+ *
+ * This design is careful to create the entire hierarhcy of
+ * NFS server "globals" (including those created by various
+ * per-module *_zone_init functions, etc.) so that all these
+ * objects have exactly the same lifetime.
+ *
+ * These objects are also kept on a list for two reasons:
+ * 1: It makes finding these in  mdb _much_ easier.
+ * 2: It allows operating across all zone globals for
+ *    functions like nfs_auth.c:exi_cache_reclaim
+ */
 static void *
-nfs_srv_zone_init(zoneid_t zoneid)
+nfs_server_zone_init(zoneid_t zoneid)
 {
 	nfs_globals_t *ng;
 
@@ -2593,16 +2642,63 @@ nfs_srv_zone_init(zoneid_t zoneid)
 	mutex_init(&ng->rdma_wait_mutex, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&ng->rdma_wait_cv, NULL, CV_DEFAULT, NULL);
 
+	ng->nfs_zoneid = zoneid;
+
+	/*
+	 * Order here is important.
+	 * export init must precede srv init calls.
+	 */
+	nfs_export_zone_init(ng);
+	rfs_srv_zone_init(ng);
+	rfs3_srv_zone_init(ng);
+	rfs4_srv_zone_init(ng);
+	nfsauth_zone_init(ng);
+
+	rw_enter(&nfssrv_globals_rwl, RW_WRITER);
+	list_insert_tail(&nfssrv_globals_list, ng);
+	rw_exit(&nfssrv_globals_rwl);
+
 	return (ng);
 }
 
 /* ARGSUSED */
 static void
-nfs_srv_zone_fini(zoneid_t zoneid, void *data)
+nfs_server_zone_shutdown(zoneid_t zoneid, void *data)
 {
 	nfs_globals_t *ng;
 
 	ng = (nfs_globals_t *)data;
+
+	/*
+	 * Order is like _fini, but only
+	 * some modules need this hook.
+	 */
+	nfsauth_zone_shutdown(ng);
+	nfs_export_zone_shutdown(ng);
+}
+
+/* ARGSUSED */
+static void
+nfs_server_zone_fini(zoneid_t zoneid, void *data)
+{
+	nfs_globals_t *ng;
+
+	ng = (nfs_globals_t *)data;
+
+	rw_enter(&nfssrv_globals_rwl, RW_WRITER);
+	list_remove(&nfssrv_globals_list, ng);
+	rw_exit(&nfssrv_globals_rwl);
+
+	/*
+	 * Order here is important.
+	 * reverse order from init
+	 */
+	nfsauth_zone_fini(ng);
+	rfs4_srv_zone_fini(ng);
+	rfs3_srv_zone_fini(ng);
+	rfs_srv_zone_fini(ng);
+	nfs_export_zone_fini(ng);
+
 	mutex_destroy(&ng->nfs_server_upordown_lock);
 	cv_destroy(&ng->nfs_server_upordown_cv);
 	mutex_destroy(&ng->rdma_wait_mutex);

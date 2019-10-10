@@ -27,8 +27,8 @@
 /*	  All Rights Reserved	*/
 
 /*
- * Copyright 2018 Nexenta Systems, Inc.
  * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright 2019 Nexenta by DDN, Inc. All rights reserved.
  */
 
 #ifndef	_NFS_NFS_H
@@ -85,10 +85,19 @@ typedef enum {
 	NFS_SERVER_OFFLINE	/* server pool offline */
 } nfs_server_running_t;
 
+/* Forward declarations for nfs_globals */
+struct nfs_export;
+struct nfs_srv;
+struct nfs3_srv;
+struct nfs4_srv;
+struct nfsauth_globals;
+
 /*
  * Zone globals variables of NFS server
  */
 typedef struct nfs_globals {
+	list_node_t		nfs_g_link;	/* all globals list */
+
 	rpcvers_t		nfs_versmin;
 	rpcvers_t		nfs_versmax;
 
@@ -100,6 +109,14 @@ typedef struct nfs_globals {
 	/* RDMA wait variables */
 	kcondvar_t		rdma_wait_cv;
 	kmutex_t		rdma_wait_mutex;
+
+	zoneid_t		nfs_zoneid;
+	/* Per-zone data structures private to each module */
+	struct nfs_export	*nfs_export;	/* nfs_export.c */
+	struct nfs_srv		*nfs_srv;	/* nfs_srv.c */
+	struct nfs3_srv		*nfs3_srv;	/* nfs3_srv.c */
+	struct nfs4_srv		*nfs4_srv;	/* nfs4_srv.c */
+	struct nfsauth_globals	*nfs_auth;	/* nfs_auth.c */
 } nfs_globals_t;
 
 /*
@@ -899,6 +916,8 @@ extern void	rfs_statfs(fhandle_t *, struct nfsstatfs *, struct exportinfo *,
 extern void	*rfs_statfs_getfh(fhandle_t *);
 extern void	rfs_srvrinit(void);
 extern void	rfs_srvrfini(void);
+extern void	rfs_srv_zone_init(nfs_globals_t *);
+extern void	rfs_srv_zone_fini(nfs_globals_t *);
 
 /*
  * flags to define path types during Multi Component Lookups
@@ -969,10 +988,14 @@ extern int	nfsauth_access(struct exportinfo *, struct svc_req *, cred_t *,
     uid_t *, gid_t *, uint_t *, gid_t **);
 extern void	nfsauth_init(void);
 extern void	nfsauth_fini(void);
+extern void	nfsauth_zone_init(nfs_globals_t *);
+extern void	nfsauth_zone_fini(nfs_globals_t *);
+extern void	nfsauth_zone_shutdown(nfs_globals_t *);
 extern int	nfs_setopts(vnode_t *, model_t, struct nfs_args *);
 extern int	nfs_mount_label_policy(vfs_t *, struct netbuf *,
     struct knetconfig *, cred_t *);
 extern boolean_t nfs_has_ctty(void);
+extern nfs_globals_t *nfs_srv_getzg(void);
 extern void	nfs_srv_stop_all(void);
 extern void	nfs_srv_quiesce_all(void);
 extern int	rfs4_dss_setpaths(char *, size_t);
@@ -984,8 +1007,10 @@ extern nvlist_t	*rfs4_dss_paths, *rfs4_dss_oldpaths;
 
 extern kstat_named_t	*global_svstat_ptr[];
 
-extern zone_key_t	rfs4_zone_key;
 extern zone_key_t	nfssrv_zone_key;
+extern list_t		nfssrv_globals_list;
+extern krwlock_t	nfssrv_globals_rwl;
+
 extern krwlock_t	rroklock;
 extern vtype_t		nf_to_vt[];
 extern kstat_named_t	*rfsproccnt_v2_ptr;
@@ -2277,6 +2302,8 @@ extern void	rfs3_commit(COMMIT3args *, COMMIT3res *, struct exportinfo *,
 extern void	*rfs3_commit_getfh(COMMIT3args *);
 extern void	rfs3_srvrinit(void);
 extern void	rfs3_srvrfini(void);
+extern void	rfs3_srv_zone_init(nfs_globals_t *);
+extern void	rfs3_srv_zone_fini(nfs_globals_t *);
 
 extern int	nfs3_validate_caches(vnode_t *, cred_t *);
 extern void	nfs3_cache_post_op_attr(vnode_t *, post_op_attr *, hrtime_t,
