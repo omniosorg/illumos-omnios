@@ -752,7 +752,7 @@ rfs4_cpr_callb(void *arg, int code)
 	rfs4_client_t *cp;
 	int i;
 
-	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nfs4_srv_t *nsrv4 = nfs4_get_srv();
 	rfs4_table_t *table = nsrv4->rfs4_client_tab;
 
 	/*

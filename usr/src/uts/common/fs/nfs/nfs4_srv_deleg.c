@@ -160,7 +160,7 @@ rfs4_rele_deleg_policy(nfs4_srv_t *nsrv4)
 srv_deleg_policy_t
 nfs4_get_deleg_policy()
 {
-	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nfs4_srv_t *nsrv4 = nfs4_get_srv();
 	return (nsrv4->nfs4_deleg_policy);
 }
 
@@ -1270,7 +1270,7 @@ rfs4_grant_delegation(delegreq_t dreq, rfs4_state_t *sp, int *recall)
 	ASSERT(rfs4_dbe_islocked(sp->rs_dbe));
 	ASSERT(rfs4_dbe_islocked(fp->rf_dbe));
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 
 	/* Is the server even providing delegations? */
 	if (nsrv4->nfs4_deleg_policy == SRV_NEVER_DELEGATE || dreq == DELEG_NONE)
@@ -1449,7 +1449,7 @@ rfs4_check_delegated_byfp(int mode, rfs4_file_t *fp,
 {
 	rfs4_deleg_state_t *dsp;
 
-	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nfs4_srv_t *nsrv4 = nfs4_get_srv();
 
 	/* Is delegation enabled? */
 	if (nsrv4->nfs4_deleg_policy == SRV_NEVER_DELEGATE)
@@ -1522,7 +1522,7 @@ rfs4_check_delegated(int mode, vnode_t *vp, bool_t trunc)
 	bool_t create = FALSE;
 	bool_t rc = FALSE;
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 	rfs4_hold_deleg_policy(nsrv4);
 
 	/* Is delegation enabled? */
@@ -1548,7 +1548,7 @@ rfs4_check_delegated(int mode, vnode_t *vp, bool_t trunc)
 void
 rfs4_clear_dont_grant(rfs4_file_t *fp)
 {
-	nfs4_srv_t *nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nfs4_srv_t *nsrv4 = nfs4_get_srv();
 
 	if (nsrv4->nfs4_deleg_policy == SRV_NEVER_DELEGATE)
 		return;
@@ -1888,7 +1888,7 @@ rfs4_disable_delegation(void)
 {
 	nfs4_srv_t *nsrv4;
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 	mutex_enter(&nsrv4->deleg_lock);
 	rfs4_deleg_disabled++;
 	mutex_exit(&nsrv4->deleg_lock);
@@ -1899,7 +1899,7 @@ rfs4_enable_delegation(void)
 {
 	nfs4_srv_t *nsrv4;
 
-	nsrv4 = zone_getspecific(rfs4_zone_key, curzone);
+	nsrv4 = nfs4_get_srv();
 	mutex_enter(&nsrv4->deleg_lock);
 	ASSERT(rfs4_deleg_disabled > 0);
 	rfs4_deleg_disabled--;

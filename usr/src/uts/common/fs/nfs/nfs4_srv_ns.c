@@ -169,6 +169,7 @@ pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid,
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
+	exi->exi_zoneid = ne->ne_globals->nfs_zoneid;
 
 	/*
 	 * Build up the template fhandle
@@ -840,7 +841,18 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
 	ASSERT(curzone == exip->exi_zone || curzone == global_zone);
 
+	/*
+	 * exi_tree can be null for the zone root
+	 * which means we're already at the "top"
+	 * and there's nothing more to "climb".
+	 */
 	tnode = exip->exi_tree;
+	if (tnode == NULL) {
+		/* Should only happen for... */
+		ASSERT(exip == ne->exi_root);
+		return;
+	}
+
 	/*
 	 * The unshared exportinfo was unlinked in unexport().
 	 * Zeroing tree_exi ensures that we will skip it.
