@@ -52,10 +52,8 @@
 
 static struct kmem_cache *exi_cache_handle;
 static void exi_cache_reclaim(void *);
+static void exi_cache_reclaim_zone(nfs_globals_t *);
 static void exi_cache_trim(struct exportinfo *exi);
-static void *nfsauth_zone_init(zoneid_t);
-static void nfsauth_zone_shutdown(zoneid_t zoneid, void *data);
-static void nfsauth_zone_fini(zoneid_t, void *);
 
 extern pri_t minclsyspri;
 
@@ -176,14 +174,21 @@ static void nfsauth_refresh_thread(nfsauth_globals_t *);
 
 static int nfsauth_cache_compar(const void *, const void *);
 
-static zone_key_t	nfsauth_zone_key;
+static nfsauth_globals_t *
+nfsauth_get_zg(void)
+{
+	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfsauth_globals_t *nag = ng->nfs_auth;
+	ASSERT(nag != NULL);
+	return (nag);
+}
 
 void
 mountd_args(uint_t did)
 {
 	nfsauth_globals_t *nag;
 
-	nag = zone_getspecific(nfsauth_zone_key, curzone);
+	nag = nfsauth_get_zg();
 	mutex_enter(&nag->mountd_lock);
 	if (nag->mountd_dh != NULL)
 		door_ki_rele(nag->mountd_dh);
@@ -194,9 +199,6 @@ mountd_args(uint_t did)
 void
 nfsauth_init(void)
 {
-	zone_key_create(&nfsauth_zone_key, nfsauth_zone_init,
-	    nfsauth_zone_shutdown, nfsauth_zone_fini);
-
 	exi_cache_handle = kmem_cache_create("exi_cache_handle",
 	    sizeof (struct auth_cache), 0, NULL, NULL,
 	    exi_cache_reclaim, NULL, NULL, 0);
@@ -208,9 +210,8 @@ nfsauth_fini(void)
 	kmem_cache_destroy(exi_cache_handle);
 }
 
-/*ARGSUSED*/
-static void *
-nfsauth_zone_init(zoneid_t zoneid)
+void
+nfsauth_zone_init(nfs_globals_t *ng)
 {
 	nfsauth_globals_t *nag;
 
@@ -227,15 +228,14 @@ nfsauth_zone_init(zoneid_t zoneid)
 	cv_init(&nag->refreshq_cv, NULL, CV_DEFAULT, NULL);
 	nag->refreshq_thread_state = REFRESHQ_THREAD_NEED_CREATE;
 
-	return (nag);
+	ng->nfs_auth = nag;
 }
 
-/*ARGSUSED*/
-static void
-nfsauth_zone_shutdown(zoneid_t zoneid, void *data)
+void
+nfsauth_zone_shutdown(nfs_globals_t *ng)
 {
 	refreshq_exi_node_t	*ren;
-	nfsauth_globals_t	*nag = data;
+	nfsauth_globals_t	*nag = ng->nfs_auth;
 
 	/* Prevent the nfsauth_refresh_thread from getting new work */
 	mutex_enter(&nag->refreshq_lock);
@@ -270,11 +270,12 @@ nfsauth_zone_shutdown(zoneid_t zoneid, void *data)
 	}
 }
 
-/*ARGSUSED*/
-static void
-nfsauth_zone_fini(zoneid_t zoneid, void *data)
+void
+nfsauth_zone_fini(nfs_globals_t *ng)
 {
-	nfsauth_globals_t *nag = data;
+	nfsauth_globals_t *nag = ng->nfs_auth;
+
+	ng->nfs_auth = NULL;
 
 	list_destroy(&nag->refreshq_queue);
 	cv_destroy(&nag->refreshq_cv);
@@ -878,7 +879,7 @@ nfsauth_cache_get(struct exportinfo *exi, struct svc_req *req, int flavor,
 	ASSERT(cr != NULL);
 
 	ASSERT3P(curzone, ==, exi->exi_zone);
-	nag = zone_getspecific(nfsauth_zone_key, curzone);
+	nag = nfsauth_get_zg();
 
 	/*
 	 * Now check whether this client already
@@ -1455,18 +1456,41 @@ nfsauth_cache_free(struct exportinfo *exi)
 }
 
 /*
- * Called by the kernel memory allocator when
- * memory is low. Free unused cache entries.
- * If that's not enough, the VM system will
- * call again for some more.
+ * Called by the kernel memory allocator when memory is low.
+ * Free unused cache entries. If that's not enough, the VM system
+ * will call again for some more.
+ *
+ * This needs to operate on all zones, so we take a reader lock
+ * on the list of zones and walk the list.  This is OK here
+ * becuase exi_cache_trim doesn't block or cause new objects
+ * to be allocated (basically just frees lots of stuff).
+ * Use care if nfssrv_globals_rwl is taken as reader in any
+ * other cases because it will block nfs_server_zone_init
+ * and nfs_server_zone_fini, which enter as writer.
  */
 /*ARGSUSED*/
 void
 exi_cache_reclaim(void *cdrarg)
 {
+	nfs_globals_t *ng;
+
+	rw_enter(&nfssrv_globals_rwl, RW_READER);
+
+	ng = list_head(&nfssrv_globals_list);
+	while (ng != NULL) {
+		exi_cache_reclaim_zone(ng);
+		ng = list_next(&nfssrv_globals_list, ng);
+	}
+
+	rw_exit(&nfssrv_globals_rwl);
+}
+
+static void
+exi_cache_reclaim_zone(nfs_globals_t *ng)
+{
 	int i;
 	struct exportinfo *exi;
-	nfs_export_t *ne = nfs_get_export();
+	nfs_export_t *ne = ng->nfs_export;
 
 	rw_enter(&ne->exported_lock, RW_READER);
 
@@ -1480,7 +1504,7 @@ exi_cache_reclaim(void *cdrarg)
 	atomic_inc_uint(&nfsauth_cache_reclaim);
 }
 
-void
+static void
 exi_cache_trim(struct exportinfo *exi)
 {
 	struct auth_cache_clnt *c;

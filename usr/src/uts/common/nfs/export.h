@@ -551,7 +551,7 @@ struct exportinfo {
 	uint32_t		exi_volatile_id;
 	struct ex_vol_rename	*exi_vol_rename;
 	kmutex_t		exi_vol_rename_lock;
-#endif /* VOLATILE_FH_TEST */
+#endif /* VOLATILE_FH_TEST -- keep last! */
 };
 #define	exi_zoneid exi_zone->zone_id
 
@@ -633,6 +633,10 @@ extern int	nfsauth_cache_clnt_compar(const void *, const void *);
 extern int	nfs_fhbcmp(char *, char *, int);
 extern void	nfs_exportinit(void);
 extern void	nfs_exportfini(void);
+extern void	nfs_export_zone_init(nfs_globals_t *);
+extern void	nfs_export_zone_fini(nfs_globals_t *);
+extern void	nfs_export_zone_shutdown(nfs_globals_t *);
+extern int	nfs_export_get_rootfh(nfs_globals_t *);
 extern int	chk_clnt_sec(struct exportinfo *, struct svc_req *);
 extern int	makefh(fhandle_t *, struct vnode *, struct exportinfo *);
 extern int	makefh_ol(fhandle_t *, struct exportinfo *, uint_t);
@@ -658,6 +662,8 @@ extern fhandle_t nullfh2;	/* for comparing V2 filehandles */
 typedef struct nfs_export {
 	/* Root of nfs pseudo namespace */
 	treenode_t *ns_root;
+
+	nfs_globals_t		*ne_globals;	/* "up" pointer */
 
 	struct exportinfo *exptable_path_hash[PKP_HASH_SIZE];
 	struct exportinfo *exptable[EXPTABLESIZE];
@@ -698,6 +704,7 @@ extern int	nfs4_vget_pseudo(struct exportinfo *, vnode_t **, fid_t *);
 extern bool_t	nfs_visible_change(struct exportinfo *, vnode_t *,
 		    timespec_t *);
 extern void	tree_update_change(nfs_export_t *, treenode_t *, timespec_t *);
+extern void	rfs4_clean_state_exi(nfs_export_t *, struct exportinfo *);
 
 /*
  * Functions that handle the NFSv4 server namespace security flavors

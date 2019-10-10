@@ -99,8 +99,6 @@ typedef struct nfs_srv {
 static int	sattr_to_vattr(struct nfssattr *, struct vattr *);
 static void	acl_perm(struct vnode *, struct exportinfo *, struct vattr *,
 			cred_t *);
-static void	*rfs_zone_init(zoneid_t zoneid);
-static void	rfs_zone_fini(zoneid_t zoneid, void *data);
 
 
 /*
@@ -113,7 +111,15 @@ static void	rfs_zone_fini(zoneid_t zoneid, void *data);
 #define	IFSOCK		0140000		/* socket */
 
 u_longlong_t nfs2_srv_caller_id;
-static zone_key_t rfs_zone_key;
+
+static nfs_srv_t *
+nfs_get_srv(void)
+{
+	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_srv_t *srv = ng->nfs_srv;
+	ASSERT(srv != NULL);
+	return (srv);
+}
 
 /*
  * Get file attributes.
@@ -1315,8 +1321,8 @@ rfs_write(struct nfswriteargs *wa, struct nfsattrstat *ns,
 	caller_context_t ct;
 	nfs_srv_t *nsrv;
 
-	ASSERT3P(curzone, ==, ((exi == NULL) ? curzone : exi->exi_zone));
-	nsrv = zone_getspecific(rfs_zone_key, curzone);
+	ASSERT(exi == NULL || exi->exi_zoneid == curzone->zone_id);
+	nsrv = nfs_get_srv();
 	if (!nsrv->write_async) {
 		rfs_write_sync(wa, ns, exi, req, cr, ro);
 		return;
@@ -3103,7 +3109,6 @@ void
 rfs_srvrinit(void)
 {
 	nfs2_srv_caller_id = fs_new_caller_id();
-	zone_key_create(&rfs_zone_key, rfs_zone_init, NULL, rfs_zone_fini);
 }
 
 void
@@ -3112,8 +3117,8 @@ rfs_srvrfini(void)
 }
 
 /* ARGSUSED */
-static void *
-rfs_zone_init(zoneid_t zoneid)
+void
+rfs_srv_zone_init(nfs_globals_t *ng)
 {
 	nfs_srv_t *ns;
 
@@ -3122,16 +3127,17 @@ rfs_zone_init(zoneid_t zoneid)
 	mutex_init(&ns->async_write_lock, NULL, MUTEX_DEFAULT, NULL);
 	ns->write_async = 1;
 
-	return (ns);
+	ng->nfs_srv = ns;
 }
 
 /* ARGSUSED */
-static void
-rfs_zone_fini(zoneid_t zoneid, void *data)
+void
+rfs_srv_zone_fini(nfs_globals_t *ng)
 {
-	nfs_srv_t *ns;
+	nfs_srv_t *ns = ng->nfs_srv;
 
-	ns = (nfs_srv_t *)data;
+	ng->nfs_srv = NULL;
+
 	mutex_destroy(&ns->async_write_lock);
 	kmem_free(ns, sizeof (*ns));
 }
