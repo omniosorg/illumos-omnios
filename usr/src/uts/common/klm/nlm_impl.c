@@ -2652,9 +2652,17 @@ nlm_unexport(struct exportinfo *exi)
 
 	rw_enter(&lm_lck, RW_READER);
 	TAILQ_FOREACH(g, &nlm_zones_list, nlm_link) {
-		if (g->nlm_zoneid != exi->exi_zoneid)
-			continue;
-		nlm_zone_unexport(g, exi);
+		if (g->nlm_zoneid == exi->exi_zoneid) {
+			/*
+			 * NOTE: If we want to drop lm_lock before
+			 * calling nlm_zone_unexport(), we should break,
+			 * and have a post-rw_exit() snippit like:
+			 *	if (g != NULL)
+			 *		nlm_zone_unexport(g, exi);
+			 */
+			nlm_zone_unexport(g, exi);
+			break; /* Only going to match once! */
+		}
 	}
 	rw_exit(&lm_lck);
 }
