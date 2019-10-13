@@ -2947,11 +2947,13 @@ rfs_publicfh_mclookup(char *p, vnode_t *dvp, cred_t *cr, vnode_t **vpp,
 			/* Release the reference on the old exi value */
 			ASSERT(*exi != NULL);
 			exi_rele(*exi);
+			*exi = NULL;
 
 			if (error = nfs_check_vpexi(mc_dvp, *vpp, kcred, exi)) {
 				VN_RELE(*vpp);
 				goto publicfh_done;
 			}
+			/* Have a new *exi */
 		}
 	}
 

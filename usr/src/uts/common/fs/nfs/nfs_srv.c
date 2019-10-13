@@ -535,6 +535,7 @@ rfs_lookup(struct nfsdiropargs *da, struct nfsdiropres *dr,
 		publicfh_flag = TRUE;
 
 		exi_rele(exi);
+		exi = NULL;
 
 		error = rfs_publicfh_mclookup(name, dvp, cr, &vp, &exi,
 		    &sec);
