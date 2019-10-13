@@ -883,6 +883,7 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 			mutex_exit(&nfs_exi_id_lock);
 			export_unlink(ne, tnode->tree_exi);
 			exi_rele(tnode->tree_exi);
+			tnode->tree_exi = NULL;
 		}
 
 		/* Release visible in parent's exportinfo */
@@ -968,7 +969,7 @@ untraverse(vnode_t *vp)
  *
  * If d is shared, then c will be put into a's visible list.
  * Note: visible list is per filesystem and is attached to the
- * VROOT exportinfo.
+ * VROOT exportinfo.  Returned exi does NOT have a new hold.
  */
 struct exportinfo *
 get_root_export(struct exportinfo *exip)
