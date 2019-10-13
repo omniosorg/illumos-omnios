@@ -480,6 +480,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 		publicfh_flag = TRUE;
 
 		exi_rele(exi);
+		exi = NULL;
 
 		error = rfs_publicfh_mclookup(name, dvp, cr, &vp,
 		    &exi, &sec);
@@ -563,7 +564,6 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	va.va_mask = AT_ALL;
 	vap = rfs4_delegated_getattr(vp, &va, 0, cr) ? NULL : &va;
 
-	exi_rele(exi);
 	VN_RELE(vp);
 
 	resp->status = NFS3_OK;
@@ -582,6 +582,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	    cred_t *, cr, vnode_t *, dvp, struct exportinfo *, exi,
 	    LOOKUP3res *, resp);
 	VN_RELE(dvp);
+	exi_rele(exi);
 
 	return;
 
