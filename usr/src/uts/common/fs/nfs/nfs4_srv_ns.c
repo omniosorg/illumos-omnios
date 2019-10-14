@@ -660,6 +660,7 @@ treeclimb_export(struct exportinfo *exip)
 		if (error)
 			break;
 
+		ASSERT3U(exip->exi_zoneid, ==, curzone->zone_id);
 		/*
 		 * The root of the file system, or the zone's root for
 		 * in-zone NFS service needs special handling
@@ -907,6 +908,8 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
  * Traverse backward across mountpoint from the
  * root vnode of a filesystem to its mounted-on
  * vnode.
+ *
+ * Callers to this function have confirmed the use of curzone is safe here.
  */
 vnode_t *
 untraverse(vnode_t *vp)
