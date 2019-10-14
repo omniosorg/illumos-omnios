@@ -2978,6 +2978,8 @@ rfs_pathname(
 	struct pathname pn;
 	int error;
 
+	ASSERT3U(crgetzoneid(cr), ==, curzone->zone_id);
+
 	/*
 	 * If pathname starts with '/', then set startdvp to root.
 	 */

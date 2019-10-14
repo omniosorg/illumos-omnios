@@ -135,7 +135,12 @@ rfs4_attr_init()
 	struct statvfs64 sb;
 
 	rfs4_init_compound_state(&cs);
-	cs.vp = ZONE_ROOTVP();
+	/*
+	 * This is global state checking, called once. We might be in
+	 * non-global-zone context here (say a modload happens from a zone
+	 * process) so in this case, we want the global-zone root vnode.
+	 */
+	cs.vp = rootvp;
 	cs.fh.nfs_fh4_val = NULL;
 	cs.cr = kcred;
 
@@ -1303,7 +1308,14 @@ rfs4_get_mntdfileid(nfs4_attr_cmd_t cmd, struct nfs4_svgetit_arg *sarg)
 	vp = sarg->cs->vp;
 	sarg->mntdfid_set = FALSE;
 
-	/* VROOT object or zone's root, must untraverse */
+	/*
+	 * VROOT object or zone's root, must untraverse.
+	 *
+	 * NOTE: Not doing reality checks on curzone vs. compound
+	 * state vnode because it will mismatch once at initialization
+	 * if a non-global-zone triggers the module load, BUT in that case
+	 * the vp is literally "/" which has VROOT set.
+	 */
 	if ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp)) {
 
 		/* extra hold for vp since untraverse might rele */
@@ -1318,7 +1330,7 @@ rfs4_get_mntdfileid(nfs4_attr_cmd_t cmd, struct nfs4_svgetit_arg *sarg)
 		 * another getattr -- just use the one in sarg.
 		 */
 		if (VN_CMP(vp, stubvp)) {
-			ASSERT(VN_CMP(vp, ZONE_ROOTVP()));
+			ASSERT(VN_IS_CURZONEROOT(vp));
 			vap = sarg->vap;
 		} else {
 			va.va_mask = AT_NODEID;
