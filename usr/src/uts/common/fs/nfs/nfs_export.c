@@ -1929,7 +1929,7 @@ unexport(nfs_export_t *ne, struct exportinfo *exi)
 		exi->exi_visible = NULL;
 
 		/* interconnect the existing treenode with the new exportinfo */
-		newexi->exi_zone = exi->exi_zone;
+		newexi->exi_zone = exi->exi_zone; /* XXX KEBE SAYS LOSE ME */
 		newexi->exi_tree = exi->exi_tree;
 		newexi->exi_tree->tree_exi = newexi;
 
