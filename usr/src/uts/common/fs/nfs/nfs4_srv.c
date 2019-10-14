@@ -953,7 +953,7 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 {
 	int error, different_export = 0;
 	vnode_t *dvp, *vp;
-	struct exportinfo *exi = NULL;
+	struct exportinfo *exi;
 	fid_t fid;
 	uint_t count, i;
 	secinfo4 *resok_val;
@@ -964,6 +964,8 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 	nfs_export_t *ne = nfs_get_export();
 
 	dvp = cs->vp;
+	exi = cs->exi;
+	ASSERT(exi != NULL);
 	dotdot = (nm[0] == '.' && nm[1] == '.' && nm[2] == '\0');
 
 	/*
@@ -971,13 +973,13 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 	 * root of a filesystem, or above an export point.
 	 */
 	if (dotdot) {
-
+		ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
 		/*
 		 * If dotdotting at the root of a filesystem, then
 		 * need to traverse back to the mounted-on filesystem
 		 * and do the dotdot lookup there.
 		 */
-		if ((cs->vp->v_flag & VROOT) || VN_IS_CURZONEROOT(cs->vp)) {
+		if ((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp)) {
 
 			/*
 			 * If at the system root, then can
@@ -989,7 +991,7 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 			/*
 			 * Traverse back to the mounted-on filesystem
 			 */
-			dvp = untraverse(cs->vp);
+			dvp = untraverse(dvp);
 
 			/*
 			 * Set the different_export flag so we remember
@@ -1003,7 +1005,7 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 			 * If dotdotting above an export point then set
 			 * the different_export to get new export info.
 			 */
-			different_export = nfs_exported(cs->exi, cs->vp);
+			different_export = nfs_exported(exi, dvp);
 		}
 	}
 
@@ -1022,9 +1024,9 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 	 * check whether this vnode is visible.
 	 */
 	if (!different_export &&
-	    (PSEUDO(cs->exi) || ! is_exported_sec(cs->nfsflavor, cs->exi) ||
+	    (PSEUDO(exi) || !is_exported_sec(cs->nfsflavor, exi) ||
 	    cs->access & CS_ACCESS_LIMITED)) {
-		if (! nfs_visible(cs->exi, vp, &different_export)) {
+		if (! nfs_visible(exi, vp, &different_export)) {
 			VN_RELE(vp);
 			return (puterrno4(ENOENT));
 		}
@@ -1066,6 +1068,7 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 			return (puterrno4(error));
 		}
 
+		/* We'll need to reassign "exi". */
 		if (dotdot)
 			exi = nfs_vptoexi(NULL, vp, cs->cr, &walk, NULL, TRUE);
 		else
@@ -1086,8 +1089,6 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 				return (puterrno4(EACCES));
 			}
 		}
-	} else {
-		exi = cs->exi;
 	}
 	ASSERT(exi != NULL);
 
@@ -2718,7 +2719,8 @@ do_rfs4_op_lookup(char *nm, struct svc_req *req, struct compound_state *cs)
 	 * export point.
 	 */
 	if (dotdot) {
-
+		ASSERT(cs->exi != NULL);
+		ASSERT3U(cs->exi->exi_zoneid, ==, curzone->zone_id);
 		/*
 		 * If dotdotting at the root of a filesystem, then
 		 * need to traverse back to the mounted-on filesystem
@@ -3676,6 +3678,9 @@ rfs4_op_putrootfh(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 
 	cs->cr = crdup(cs->basecr);
 
+	ASSERT(cs->exi != NULL);
+	ASSERT3U(cs->exi->exi_zoneid, ==, curzone->zone_id);
+
 	/*
 	 * Using rootdir, the system root vnode,
 	 * get its fid.
@@ -4257,6 +4262,8 @@ rfs4_op_remove(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 			 * NFS4ERR_EXIST to NFS4ERR_NOTEMPTY to
 			 * transmit over the wire.
 			 */
+			ASSERT(cs->exi != NULL);
+			ASSERT3U(cs->exi->exi_zoneid, ==, curzone->zone_id);
 			if ((error = VOP_RMDIR(dvp, name, ZONE_ROOTVP(), cs->cr,
 			    NULL, 0)) == EEXIST)
 				error = ENOTEMPTY;

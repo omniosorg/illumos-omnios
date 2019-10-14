@@ -719,13 +719,14 @@ vis2exi(treenode_t *tnode)
  * Add or remove the newly exported or unexported security flavors of the
  * given exportinfo from its ancestors upto the system root.
  */
-void
+static void
 srv_secinfo_treeclimb(nfs_export_t *ne, exportinfo_t *exip, secinfo_t *sec,
     int seccnt, bool_t isadd)
 {
 	treenode_t *tnode;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
+	ASSERT3U(exip->exi_zoneid, ==, curzone->zone_id);
 
 	/*
 	 * exi_tree can be null for the zone root
@@ -900,6 +901,7 @@ nfs_export_zone_init(nfs_globals_t *ng)
 {
 	int i;
 	nfs_export_t *ne;
+	zone_t *zone;
 
 	ne = kmem_zalloc(sizeof (*ne), KM_SLEEP);
 
@@ -924,9 +926,16 @@ nfs_export_zone_init(nfs_globals_t *ng)
 	ne->exi_root->exi_count = 1;
 	mutex_init(&ne->exi_root->exi_lock, NULL, MUTEX_DEFAULT, NULL);
 
-	ASSERT(curzone->zone_id == ng->nfs_zoneid);
-	ne->exi_root->exi_vp = ZONE_ROOTVP();
-	ne->exi_root->exi_zoneid = ng->nfs_zoneid;
+	/*
+	 * Because we cannot:
+	 *	ASSERT(curzone->zone_id == ng->nfs_zoneid);
+	 * We grab the zone pointer explicitly (like netstacks do) and
+	 * set the rootvp here.
+	 */
+	zone = zone_find_by_id_nolock(ng->nfs_zoneid);
+	ne->exi_root->exi_vp = zone->zone_rootvp;
+	ne->exi_root->exi_zone = zone;	/* XXX KEBE SAYS lose me, and... */
+	/* ne->exi_root->exi_zoneid = ng->nfs_zoneid; */ /* use me instead! */
 
 	/*
 	 * Fill in ne->exi_rootfid later, in nfs_export_get_rootfid
@@ -2189,6 +2198,7 @@ nfs_vptoexi(vnode_t *dvp, vnode_t *vp, cred_t *cr, int *walk,
 		 * If we're at the root of this filesystem, then
 		 * it's time to stop (with failure).
 		 */
+		ASSERT3P(vp->v_vfsp->vfs_zone, ==, curzone);
 		if ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp)) {
 			error = EINVAL;
 			break;
