@@ -166,10 +166,11 @@ pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid,
 	exi->exi_visible = vis_head;
 	exi->exi_count = 1;
 	/* Caller will set exi_zone... */
+	/* XXX KEBE SAYS Uncomment me or fix in the caller */
+	/* exi->exi_zoneid = ne->ne_globals->nfs_zoneid; */
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
-	exi->exi_zoneid = ne->ne_globals->nfs_zoneid;
 
 	/*
 	 * Build up the template fhandle
@@ -697,6 +698,7 @@ treeclimb_export(struct exportinfo *exip)
 				 */
 				new_exi = pseudo_exportfs(ne, vp, &fid,
 				    vis_head, NULL);
+				/* XXX KEBE SAYS NUKE ME */
 				new_exi->exi_zone = exip->exi_zone;
 				vis_head = NULL;
 			}
