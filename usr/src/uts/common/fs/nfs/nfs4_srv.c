@@ -3678,9 +3678,6 @@ rfs4_op_putrootfh(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 
 	cs->cr = crdup(cs->basecr);
 
-	ASSERT(cs->exi != NULL);
-	ASSERT3U(cs->exi->exi_zoneid, ==, curzone->zone_id);
-
 	/*
 	 * Using rootdir, the system root vnode,
 	 * get its fid.
@@ -4262,8 +4259,6 @@ rfs4_op_remove(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 			 * NFS4ERR_EXIST to NFS4ERR_NOTEMPTY to
 			 * transmit over the wire.
 			 */
-			ASSERT(cs->exi != NULL);
-			ASSERT3U(cs->exi->exi_zoneid, ==, curzone->zone_id);
 			if ((error = VOP_RMDIR(dvp, name, ZONE_ROOTVP(), cs->cr,
 			    NULL, 0)) == EEXIST)
 				error = ENOTEMPTY;
