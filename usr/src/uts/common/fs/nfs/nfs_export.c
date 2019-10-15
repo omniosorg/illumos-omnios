@@ -817,7 +817,6 @@ export_link(nfs_export_t *ne, exportinfo_t *exi)
 	exportinfo_t **bckt;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT(exi->exi_zoneid == ne->ne_globals->nfs_zoneid);
 
 	bckt = &ne->exptable[exptablehash(&exi->exi_fsid, &exi->exi_fid)];
 	exp_hash_link(exi, fid_hash, bckt);
