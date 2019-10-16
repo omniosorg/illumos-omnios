@@ -3873,6 +3873,9 @@ assemble_files(char *root, char *dir, char *target, char *prefix)
 	int ret = BAM_SUCCESS;
 	struct stat st;
 	timespec_t times[2];
+	mode_t sa_mode;
+	uid_t sa_uid;
+	gid_t sa_gid;
 
 	(void) snprintf(path, sizeof (path), "%s/%s", root, dir);
 	(void) snprintf(self_assembly, sizeof (self_assembly),
@@ -3882,8 +3885,31 @@ assemble_files(char *root, char *dir, char *target, char *prefix)
 
 	if (stat(self_assembly, &st) >= 0 && (st.st_mode & S_IFMT) == S_IFREG) {
 		times[0] = times[1] = st.st_mtim;
+		sa_mode = st.st_mode;
+		sa_uid = st.st_uid;
+		sa_gid = st.st_gid;
 	} else {
+		struct passwd *pw;
+		struct group *gp;
+
 		times[1].tv_nsec = 0;
+		sa_mode = DEFAULT_DEV_MODE;
+		if ((pw = getpwnam(DEFAULT_DEV_USER)) != NULL) {
+			sa_uid = pw->pw_uid;
+		} else {
+			bam_error(_("getpwnam: uid for %s failed, "
+			    "defaulting to %d\n"),
+			    DEFAULT_DEV_USER, DEFAULT_DEV_UID);
+			sa_uid = (uid_t)DEFAULT_DEV_UID;
+		}
+		if ((gp = getgrnam(DEFAULT_DEV_GROUP)) != NULL) {
+			sa_gid = gp->gr_gid;
+		} else {
+			bam_error(_("getgrnam: gid for %s failed, "
+			    "defaulting to %d\n"),
+			    DEFAULT_DEV_GROUP, DEFAULT_DEV_GID);
+			sa_gid = (gid_t)DEFAULT_DEV_GID;
+		}
 	}
 
 	if ((files = scandir(path, &filelist, NULL, alphasort)) < 0) {
@@ -3930,6 +3956,25 @@ nextfile:
 	free(filelist);
 
 	if (sysfiles > 0) {
+		/*
+		 * Set up desired attributes. Ignore failures on filesystems
+		 * not supporting these operations - pcfs reports unsupported
+		 * operations as EINVAL.
+		 */
+		ret = chmod(tmpfile, sa_mode);
+		if (ret == -1 && errno != EINVAL && errno != ENOTSUP) {
+			bam_error(_("chmod operation on %s failed - %s\n"),
+			    tmpfile, strerror(errno));
+			return (BAM_ERROR);
+		}
+
+		ret = chown(tmpfile, sa_uid, sa_gid);
+		if (ret == -1 && errno != EINVAL && errno != ENOTSUP) {
+			bam_error(_("chgrp operation on %s failed - %s\n"),
+			    tmpfile, strerror(errno));
+			return (BAM_ERROR);
+		}
+
 		if (rename(tmpfile, self_assembly) < 0) {
 			bam_error(_("failed to rename file: %s: %s\n"), tmpfile,
 			    strerror(errno));
