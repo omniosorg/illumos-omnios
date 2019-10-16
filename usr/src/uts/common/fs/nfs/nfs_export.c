@@ -719,7 +719,6 @@ srv_secinfo_treeclimb(nfs_export_t *ne, exportinfo_t *exip, secinfo_t *sec,
 	treenode_t *tnode;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT3U(exip->exi_zoneid, ==, curzone->zone_id);
 
 	/*
 	 * exi_tree can be null for the zone root
@@ -744,7 +743,7 @@ srv_secinfo_treeclimb(nfs_export_t *ne, exportinfo_t *exip, secinfo_t *sec,
 	 * transferred from the PSEUDO export in exportfs()
 	 */
 	if (isadd && !(exip->exi_vp->v_flag & VROOT) &&
-	    !VN_IS_CURZONEROOT(exip->exi_vp) &&
+	    !VN_CMP(exip->exi_vp, EXI_TO_ZONEROOTVP(exip)) &&
 	    tnode->tree_vis->vis_seccnt > 0) {
 		srv_secinfo_add(&exip->exi_export.ex_secinfo,
 		    &exip->exi_export.ex_seccnt, tnode->tree_vis->vis_secinfo,
