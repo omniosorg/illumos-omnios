@@ -473,6 +473,12 @@ typedef struct treenode {
 } treenode_t;
 
 /*
+ * Now that we have links to chase, we can get the zone rootvp just from
+ * an export.  No current-zone-context needed.
+ */
+#define	EXI_TO_ZONEROOTVP(exi) ((exi)->exi_ne->exi_root->exi_vp)
+
+/*
  * TREE_ROOT checks if the node corresponds to a filesystem root or
  * the zone's root directory.
  * TREE_EXPORTED checks if the node is explicitly shared
@@ -481,7 +487,7 @@ typedef struct treenode {
 #define	TREE_ROOT(t) \
 	((t)->tree_exi != NULL && \
 	(((t)->tree_exi->exi_vp->v_flag & VROOT) || \
-	VN_CMP((t)->tree_exi->exi_zone->zone_rootvp, (t)->tree_exi->exi_vp)))
+	VN_CMP(EXI_TO_ZONEROOTVP((t)->tree_exi), (t)->tree_exi->exi_vp)))
 
 #define	TREE_EXPORTED(t) \
 	((t)->tree_exi && !PSEUDO((t)->tree_exi))
@@ -523,6 +529,7 @@ struct exportinfo {
 	krwlock_t		exi_cache_lock;
 	kmutex_t		exi_lock;
 	uint_t			exi_count;
+	zoneid_t		exi_zoneid;
 	vnode_t			*exi_vp;
 	vnode_t			*exi_dvp;
 	avl_tree_t		*exi_cache[AUTH_TABLESIZE];
@@ -534,26 +541,18 @@ struct exportinfo {
 	int			exi_id;
 	avl_node_t		exi_id_link;
 	/*
-	 * Soft-reference/backpointer to the zone.  The ZSD callbacks we have
-	 * invoke cleanup code that crosses into OTHER cleanup functions that
-	 * may assume same-zone context and attempt to find their own ZSD,
-	 * using "curzone" when in fact "curzone" is global when called from
-	 * NFS's ZSD cleanup (see lm_unexport->nlm_unexport for an example).
-	 *
-	 * During ZSD shutdown or destroy callbacks, the zone structure
-	 * does not have its mutex held, and it has just-enough references
-	 * to not free from underneath us.  This field is not a proper
-	 * referenced-held zone pointer, and only ZSD callbacks should use
-	 * it.
+	 * Soft-reference/backpointer to zone's nfs_export_t.
+	 * This allows us access to the zone's rootvp (stored in
+	 * exi_ne->exi_root->exi_vp) even if the current thread isn't in
+	 * same-zone context.
 	 */
-	struct zone		*exi_zone;
+	struct nfs_export	*exi_ne;
 #ifdef VOLATILE_FH_TEST
 	uint32_t		exi_volatile_id;
 	struct ex_vol_rename	*exi_vol_rename;
 	kmutex_t		exi_vol_rename_lock;
 #endif /* VOLATILE_FH_TEST -- keep last! */
 };
-#define	exi_zoneid exi_zone->zone_id
 
 typedef struct exportinfo exportinfo_t;
 typedef struct exportdata exportdata_t;
@@ -675,7 +674,8 @@ typedef struct nfs_export {
 	krwlock_t exported_lock;
 
 	/* "public" and default (root) location for public filehandle */
-	struct exportinfo *exi_public, *exi_root;
+	struct exportinfo *exi_public;
+	struct exportinfo *exi_root;
 	/* For checking default public file handle */
 	fid_t exi_rootfid;
 	/* For comparing V2 filehandles */
