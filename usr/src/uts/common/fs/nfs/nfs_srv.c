@@ -417,7 +417,7 @@ rfs_climb_crossmnt(vnode_t **dvpp, struct exportinfo **exip, cred_t *cr)
 	struct exportinfo *exi;
 	vnode_t *dvp = *dvpp;
 
-	ASSERT3P((*exip)->exi_zone, ==, curzone);
+	ASSERT3U((*exip)->exi_zoneid, ==, curzone->zone_id);
 	ASSERT((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp));
 
 	VN_HOLD(dvp);
@@ -428,7 +428,7 @@ rfs_climb_crossmnt(vnode_t **dvpp, struct exportinfo **exip, cred_t *cr)
 		return (-1);
 	}
 
-	ASSERT3P(exi->exi_zone, ==, curzone);
+	ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
 	exi_rele(*exip);
 	*exip = exi;
 	VN_RELE(*dvpp);
@@ -489,7 +489,7 @@ rfs_lookup(struct nfsdiropargs *da, struct nfsdiropres *dr,
 	}
 
 	exi_hold(exi);
-	ASSERT3P(exi->exi_zone, ==, curzone);
+	ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
 
 	/*
 	 * Not allow lookup beyond root.
