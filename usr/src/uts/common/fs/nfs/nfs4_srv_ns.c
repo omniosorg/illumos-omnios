@@ -165,9 +165,7 @@ pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid,
 	VN_HOLD(exi->exi_vp);
 	exi->exi_visible = vis_head;
 	exi->exi_count = 1;
-	/* Caller will set exi_zone... */
-	/* XXX KEBE SAYS Uncomment me or fix in the caller */
-	/* exi->exi_zoneid = ne->ne_globals->nfs_zoneid; */
+	exi->exi_zoneid = ne->ne_globals->nfs_zoneid;
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -642,10 +640,11 @@ treeclimb_export(struct exportinfo *exip)
 	struct vattr va;
 	treenode_t *tree_head = NULL;
 	timespec_t now;
-	nfs_export_t *ne = nfs_get_export();
+	nfs_export_t *ne;
 
+	ne = exip->exi_ne;
+	ASSERT3P(ne, ==, nfs_get_export());	/* curzone reality check */
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT3P(curzone, ==, exip->exi_zone);
 
 	gethrestime(&now);
 
@@ -661,12 +660,13 @@ treeclimb_export(struct exportinfo *exip)
 		if (error)
 			break;
 
+		/* XXX KEBE ASKS DO WE NEED THIS?!? */
 		ASSERT3U(exip->exi_zoneid, ==, curzone->zone_id);
 		/*
 		 * The root of the file system, or the zone's root for
 		 * in-zone NFS service needs special handling
 		 */
-		if (vp->v_flag & VROOT || VN_IS_CURZONEROOT(vp)) {
+		if (vp->v_flag & VROOT || vp == EXI_TO_ZONEROOTVP(exip)) {
 			if (!exportdir) {
 				struct exportinfo *exi;
 
@@ -698,8 +698,6 @@ treeclimb_export(struct exportinfo *exip)
 				 */
 				new_exi = pseudo_exportfs(ne, vp, &fid,
 				    vis_head, NULL);
-				/* XXX KEBE SAYS NUKE ME */
-				new_exi->exi_zone = exip->exi_zone;
 				vis_head = NULL;
 			}
 
@@ -842,7 +840,8 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 	treenode_t *connect_point = NULL;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT(curzone == exip->exi_zone || curzone == global_zone);
+	ASSERT(curzone->zone_id == exip->exi_zoneid ||
+	    curzone->zone_id == global_zone->zone_id);
 
 	/*
 	 * exi_tree can be null for the zone root
@@ -1005,7 +1004,7 @@ has_visible(struct exportinfo *exi, vnode_t *vp)
 	 * list.  i.e. if it does not have a visible list, then there is no
 	 * node in this filesystem leads to any other shared node.
 	 */
-	ASSERT3P(curzone, ==, exi->exi_zone);
+	ASSERT3P(curzone->zone_id, ==, exi->exi_zoneid);
 	if (vp_is_exported &&
 	    ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp))) {
 		return (exi->exi_visible ? 1 : 0);

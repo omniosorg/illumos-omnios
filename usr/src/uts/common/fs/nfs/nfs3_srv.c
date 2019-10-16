@@ -445,7 +445,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	}
 
 	fhp = &args->what.dir;
-	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
+	ASSERT3U(curzone->zone_id, ==, exi->exi_zoneid); /* exi is non-NULL */
 	if (strcmp(args->what.name, "..") == 0 &&
 	    EQFID(&exi->exi_fid, FH3TOFIDP(fhp))) {
 		if ((exi->exi_export.ex_flags & EX_NOHIDE) &&
@@ -1336,7 +1336,7 @@ rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
 		goto err;
 	}
 
-	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
+	ASSERT3U(curzone->zone_id, ==, exi->exi_zoneid); /* exi is non-NULL. */
 	ns = nfs3_get_srv();
 
 	if (is_system_labeled()) {
@@ -4139,7 +4139,7 @@ rfs3_commit(COMMIT3args *args, COMMIT3res *resp, struct exportinfo *exi,
 		goto out;
 	}
 
-	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
+	ASSERT3U(curzone->zone_id, ==, exi->exi_zoneid); /* exi is non-NULL. */
 	ns = nfs3_get_srv();
 	bva.va_mask = AT_ALL;
 	error = VOP_GETATTR(vp, &bva, 0, cr, NULL);
