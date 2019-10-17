@@ -1320,7 +1320,7 @@ rfs4_get_mntdfileid(nfs4_attr_cmd_t cmd, struct nfs4_svgetit_arg *sarg)
 
 		/* extra hold for vp since untraverse might rele */
 		VN_HOLD(vp);
-		stubvp = untraverse(vp);
+		stubvp = untraverse(vp, ZONE_ROOTVP());
 
 		/*
 		 * If vp/stubvp are same, we must be at system-or-zone

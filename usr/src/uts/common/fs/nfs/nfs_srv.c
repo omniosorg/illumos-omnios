@@ -416,19 +416,20 @@ rfs_climb_crossmnt(vnode_t **dvpp, struct exportinfo **exip, cred_t *cr)
 {
 	struct exportinfo *exi;
 	vnode_t *dvp = *dvpp;
+	vnode_t *zone_rootvp;
 
-	ASSERT3U((*exip)->exi_zoneid, ==, curzone->zone_id);
-	ASSERT((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp));
+	zone_rootvp = (*exip)->exi_ne->exi_root->exi_vp;
+	ASSERT((dvp->v_flag & VROOT) || VN_CMP(zone_rootvp, dvp));
 
 	VN_HOLD(dvp);
-	dvp = untraverse(dvp);
+	dvp = untraverse(dvp, zone_rootvp);
 	exi = nfs_vptoexi(NULL, dvp, cr, NULL, NULL, FALSE);
 	if (exi == NULL) {
 		VN_RELE(dvp);
 		return (-1);
 	}
 
-	ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
+	ASSERT3U(exi->exi_zoneid, ==, (*exip)->exi_zoneid);
 	exi_rele(*exip);
 	*exip = exi;
 	VN_RELE(*dvpp);

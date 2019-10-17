@@ -651,7 +651,7 @@ extern struct exportinfo *nfs_vptoexi(vnode_t *, vnode_t *, cred_t *, int *,
     int *, bool_t);
 extern int	nfs_check_vpexi(vnode_t *, vnode_t *, cred_t *,
 			struct exportinfo **);
-extern vnode_t *untraverse(vnode_t *);
+extern vnode_t *untraverse(vnode_t *, vnode_t *);
 extern int	vn_is_nfs_reparse(vnode_t *, cred_t *);
 extern int	client_is_downrev(struct svc_req *);
 extern char    *build_symlink(vnode_t *, cred_t *, size_t *);
