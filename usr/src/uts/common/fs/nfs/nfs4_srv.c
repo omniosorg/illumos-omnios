@@ -973,25 +973,27 @@ do_rfs4_op_secinfo(struct compound_state *cs, char *nm, SECINFO4res *resp)
 	 * root of a filesystem, or above an export point.
 	 */
 	if (dotdot) {
-		ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
+		vnode_t *zone_rootvp = ne->exi_root->exi_vp;
+
+		ASSERT3U(exi->exi_zoneid, ==, ne->exi_root->exi_zoneid);
 		/*
 		 * If dotdotting at the root of a filesystem, then
 		 * need to traverse back to the mounted-on filesystem
 		 * and do the dotdot lookup there.
 		 */
-		if ((dvp->v_flag & VROOT) || VN_IS_CURZONEROOT(dvp)) {
+		if ((dvp->v_flag & VROOT) || VN_CMP(dvp, zone_rootvp)) {
 
 			/*
 			 * If at the system root, then can
 			 * go up no further.
 			 */
-			if (VN_CMP(dvp, ZONE_ROOTVP()))
+			if (VN_CMP(dvp, zone_rootvp))
 				return (puterrno4(ENOENT));
 
 			/*
 			 * Traverse back to the mounted-on filesystem
 			 */
-			dvp = untraverse(dvp);
+			dvp = untraverse(dvp, zone_rootvp);
 
 			/*
 			 * Set the different_export flag so we remember
@@ -2719,26 +2721,28 @@ do_rfs4_op_lookup(char *nm, struct svc_req *req, struct compound_state *cs)
 	 * export point.
 	 */
 	if (dotdot) {
+		vnode_t *zone_rootvp;
+
 		ASSERT(cs->exi != NULL);
-		ASSERT3U(cs->exi->exi_zoneid, ==, curzone->zone_id);
+		zone_rootvp = cs->exi->exi_ne->exi_root->exi_vp;
 		/*
 		 * If dotdotting at the root of a filesystem, then
 		 * need to traverse back to the mounted-on filesystem
 		 * and do the dotdot lookup there.
 		 */
-		if ((cs->vp->v_flag & VROOT) || VN_IS_CURZONEROOT(cs->vp)) {
+		if ((cs->vp->v_flag & VROOT) || VN_CMP(cs->vp, zone_rootvp)) {
 
 			/*
 			 * If at the system root, then can
 			 * go up no further.
 			 */
-			if (VN_CMP(cs->vp, ZONE_ROOTVP()))
+			if (VN_CMP(cs->vp, zone_rootvp))
 				return (puterrno4(ENOENT));
 
 			/*
 			 * Traverse back to the mounted-on filesystem
 			 */
-			cs->vp = untraverse(cs->vp);
+			cs->vp = untraverse(cs->vp, zone_rootvp);
 
 			/*
 			 * Set the different_export flag so we remember

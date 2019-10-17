@@ -721,7 +721,7 @@ treeclimb_export(struct exportinfo *exip)
 			 * Traverse across the mountpoint and continue the
 			 * climb on the mounted-on filesystem.
 			 */
-			vp = untraverse(vp);
+			vp = untraverse(vp, ne->exi_root->exi_vp);
 			exportdir = 0;
 			continue;
 		}
@@ -910,17 +910,15 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
  * Traverse backward across mountpoint from the
  * root vnode of a filesystem to its mounted-on
  * vnode.
- *
- * Callers to this function have confirmed the use of curzone is safe here.
  */
 vnode_t *
-untraverse(vnode_t *vp)
+untraverse(vnode_t *vp, vnode_t *zone_rootvp)
 {
 	vnode_t *tvp, *nextvp;
 
 	tvp = vp;
 	for (;;) {
-		if (!(tvp->v_flag & VROOT) && !VN_IS_CURZONEROOT(tvp))
+		if (!(tvp->v_flag & VROOT) && !VN_CMP(tvp, zone_rootvp))
 			break;
 
 		/* lock vfs to prevent unmount of this vfs */
