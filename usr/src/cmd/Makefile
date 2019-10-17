@@ -493,6 +493,7 @@ i386_SUBDIRS=		\
 	diskscan	\
 	nvmeadm		\
 	hyperv		\
+	rdmsr		\
 	rtc		\
 	ucodeadm	\
 	xhci		\
@@ -759,6 +760,7 @@ sparc_MSGSUBDIRS=	\
 	vntsd
 
 i386_MSGSUBDIRS=	\
+	rdmsr		\
 	ucodeadm
 
 #
