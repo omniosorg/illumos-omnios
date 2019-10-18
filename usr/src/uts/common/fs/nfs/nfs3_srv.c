@@ -411,6 +411,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	 * location of the public filehandle.
 	 */
 	if (exi != NULL && (exi->exi_export.ex_flags & EX_PUBLIC)) {
+		ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
 		dvp = ZONE_ROOTVP();
 		VN_HOLD(dvp);
 
@@ -444,7 +445,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	}
 
 	fhp = &args->what.dir;
-	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
+	ASSERT3U(curzone->zone_id, ==, exi->exi_zoneid); /* exi is non-NULL */
 	if (strcmp(args->what.name, "..") == 0 &&
 	    EQFID(&exi->exi_fid, FH3TOFIDP(fhp))) {
 		if ((exi->exi_export.ex_flags & EX_NOHIDE) &&
@@ -479,6 +480,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 		publicfh_flag = TRUE;
 
 		exi_rele(exi);
+		exi = NULL;
 
 		error = rfs_publicfh_mclookup(name, dvp, cr, &vp,
 		    &exi, &sec);
@@ -562,7 +564,6 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	va.va_mask = AT_ALL;
 	vap = rfs4_delegated_getattr(vp, &va, 0, cr) ? NULL : &va;
 
-	exi_rele(exi);
 	VN_RELE(vp);
 
 	resp->status = NFS3_OK;
@@ -581,6 +582,7 @@ rfs3_lookup(LOOKUP3args *args, LOOKUP3res *resp, struct exportinfo *exi,
 	    cred_t *, cr, vnode_t *, dvp, struct exportinfo *, exi,
 	    LOOKUP3res *, resp);
 	VN_RELE(dvp);
+	exi_rele(exi);
 
 	return;
 
@@ -1334,7 +1336,7 @@ rfs3_write(WRITE3args *args, WRITE3res *resp, struct exportinfo *exi,
 		goto err;
 	}
 
-	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
+	ASSERT3U(curzone->zone_id, ==, exi->exi_zoneid); /* exi is non-NULL. */
 	ns = nfs3_get_srv();
 
 	if (is_system_labeled()) {
@@ -2674,6 +2676,7 @@ rfs3_rmdir(RMDIR3args *args, RMDIR3res *resp, struct exportinfo *exi,
 		goto err1;
 	}
 
+	ASSERT3U(exi->exi_zoneid, ==, curzone->zone_id);
 	error = VOP_RMDIR(vp, name, ZONE_ROOTVP(), cr, NULL, 0);
 
 	if (name != args->object.name)
@@ -4136,7 +4139,7 @@ rfs3_commit(COMMIT3args *args, COMMIT3res *resp, struct exportinfo *exi,
 		goto out;
 	}
 
-	ASSERT3P(curzone, ==, exi->exi_zone); /* exi is guaranteed non-NULL. */
+	ASSERT3U(curzone->zone_id, ==, exi->exi_zoneid); /* exi is non-NULL. */
 	ns = nfs3_get_srv();
 	bva.va_mask = AT_ALL;
 	error = VOP_GETATTR(vp, &bva, 0, cr, NULL);

@@ -165,11 +165,10 @@ pseudo_exportfs(nfs_export_t *ne, vnode_t *vp, fid_t *fid,
 	VN_HOLD(exi->exi_vp);
 	exi->exi_visible = vis_head;
 	exi->exi_count = 1;
-	/* Caller will set exi_zone... */
+	exi->exi_zoneid = ne->ne_globals->nfs_zoneid;
 	exi->exi_volatile_dev = (vfssw[vp->v_vfsp->vfs_fstype].vsw_flag &
 	    VSW_VOLATILEDEV) ? 1 : 0;
 	mutex_init(&exi->exi_lock, NULL, MUTEX_DEFAULT, NULL);
-	exi->exi_zoneid = ne->ne_globals->nfs_zoneid;
 
 	/*
 	 * Build up the template fhandle
@@ -641,10 +640,11 @@ treeclimb_export(struct exportinfo *exip)
 	struct vattr va;
 	treenode_t *tree_head = NULL;
 	timespec_t now;
-	nfs_export_t *ne = nfs_get_export();
+	nfs_export_t *ne;
 
+	ne = exip->exi_ne;
+	ASSERT3P(ne, ==, nfs_get_export());	/* curzone reality check */
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT3P(curzone, ==, exip->exi_zone);
 
 	gethrestime(&now);
 
@@ -660,11 +660,13 @@ treeclimb_export(struct exportinfo *exip)
 		if (error)
 			break;
 
+		/* XXX KEBE ASKS DO WE NEED THIS?!? */
+		ASSERT3U(exip->exi_zoneid, ==, curzone->zone_id);
 		/*
 		 * The root of the file system, or the zone's root for
 		 * in-zone NFS service needs special handling
 		 */
-		if (vp->v_flag & VROOT || VN_IS_CURZONEROOT(vp)) {
+		if (vp->v_flag & VROOT || vp == EXI_TO_ZONEROOTVP(exip)) {
 			if (!exportdir) {
 				struct exportinfo *exi;
 
@@ -696,7 +698,6 @@ treeclimb_export(struct exportinfo *exip)
 				 */
 				new_exi = pseudo_exportfs(ne, vp, &fid,
 				    vis_head, NULL);
-				new_exi->exi_zone = exip->exi_zone;
 				vis_head = NULL;
 			}
 
@@ -720,7 +721,7 @@ treeclimb_export(struct exportinfo *exip)
 			 * Traverse across the mountpoint and continue the
 			 * climb on the mounted-on filesystem.
 			 */
-			vp = untraverse(vp);
+			vp = untraverse(vp, ne->exi_root->exi_vp);
 			exportdir = 0;
 			continue;
 		}
@@ -839,7 +840,8 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 	treenode_t *connect_point = NULL;
 
 	ASSERT(RW_WRITE_HELD(&ne->exported_lock));
-	ASSERT(curzone == exip->exi_zone || curzone == global_zone);
+	ASSERT(curzone->zone_id == exip->exi_zoneid ||
+	    curzone->zone_id == global_zone->zone_id);
 
 	/*
 	 * exi_tree can be null for the zone root
@@ -880,6 +882,7 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
 			mutex_exit(&nfs_exi_id_lock);
 			export_unlink(ne, tnode->tree_exi);
 			exi_rele(tnode->tree_exi);
+			tnode->tree_exi = NULL;
 		}
 
 		/* Release visible in parent's exportinfo */
@@ -909,13 +912,13 @@ treeclimb_unexport(nfs_export_t *ne, struct exportinfo *exip)
  * vnode.
  */
 vnode_t *
-untraverse(vnode_t *vp)
+untraverse(vnode_t *vp, vnode_t *zone_rootvp)
 {
 	vnode_t *tvp, *nextvp;
 
 	tvp = vp;
 	for (;;) {
-		if (!(tvp->v_flag & VROOT) && !VN_IS_CURZONEROOT(tvp))
+		if (!(tvp->v_flag & VROOT) && !VN_CMP(tvp, zone_rootvp))
 			break;
 
 		/* lock vfs to prevent unmount of this vfs */
@@ -963,7 +966,7 @@ untraverse(vnode_t *vp)
  *
  * If d is shared, then c will be put into a's visible list.
  * Note: visible list is per filesystem and is attached to the
- * VROOT exportinfo.
+ * VROOT exportinfo.  Returned exi does NOT have a new hold.
  */
 struct exportinfo *
 get_root_export(struct exportinfo *exip)
@@ -999,7 +1002,7 @@ has_visible(struct exportinfo *exi, vnode_t *vp)
 	 * list.  i.e. if it does not have a visible list, then there is no
 	 * node in this filesystem leads to any other shared node.
 	 */
-	ASSERT3P(curzone, ==, exi->exi_zone);
+	ASSERT3P(curzone->zone_id, ==, exi->exi_zoneid);
 	if (vp_is_exported &&
 	    ((vp->v_flag & VROOT) || VN_IS_CURZONEROOT(vp))) {
 		return (exi->exi_visible ? 1 : 0);
