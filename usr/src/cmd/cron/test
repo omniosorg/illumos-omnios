@@ -1,0 +1,12 @@
+#!/bin/sh
+
+grep -v '^#' testdata | while read lower upper string result; do
+	r=`./parsetest $lower $upper "$string "`
+	if [ "$r" = "$result" ]; then
+		printf "%2d-%2d %25s OK %s\n" $lower $upper "$string" "$r"
+	else
+		printf "%2d-%2d %25s Got %s vs. %s\n" $lower $upper \
+		    "$string" "$r" "$result"
+	fi
+done
+
