@@ -43,8 +43,9 @@
 .\" Copyright 1989 AT&T
 .\" Portions Copyright (c) 1992, X/Open Company Limited All Rights Reserved
 .\" Copyright (c) 2009, Sun Microsystems, Inc. All Rights Reserved
+.\" Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 .\"
-.TH CRONTAB 1 "Mar 6, 2017"
+.TH CRONTAB 1 "Oct 22, 2019"
 .SH NAME
 crontab \- user crontab file
 .SH SYNOPSIS
@@ -195,10 +196,16 @@ day of the week (0\(mi6 with 0=Sunday).
 .LP
 Each of these patterns can be either an asterisk (meaning all legal values) or
 a list of elements separated by commas. An element is either a number or two
-numbers separated by a minus sign (meaning an inclusive range). Time specified
-here is interpreted in the currently active timezone. At the top of the crontab
-file this is the timezone which is set system-wide in /etc/default/init. A user
-can add a line such as:
+numbers separated by a minus sign (meaning an inclusive range).
+.LP
+A range or asterisk can optionally be followed by a step value as
+\fI/<number>\fR. For example, \fI2\(mi59/3\fR can be used in the minutes field
+to specify every three minutes starting at 2 past the hour, or \fI*/2\fR in
+the hours field means every two hours.
+.LP
+Time specified here is interpreted in the currently active timezone. At the top
+of the crontab file this is the timezone which is set system-wide in
+/etc/default/init. A user can add a line such as:
 .sp
 .in +2
 .nf
@@ -458,7 +465,33 @@ example:
 would run a command only on Mondays.
 
 .LP
-\fBExample 4 \fRUsing Environment Variables
+\fBExample 4 \fRUsing step values:
+.sp
+.LP
+This example runs a job every hour during the night and every 3 hours during
+working hours.
+
+.sp
+.in +2
+.nf
+\fB0 0-7,8-18/3,19-23 * * *\fR
+.fi
+.in -2
+.sp
+
+.LP
+and to run a job every 2 minutes, use:
+
+.sp
+.in +2
+.nf
+\fB*/2 * * * *\fR
+.fi
+.in -2
+.sp
+
+.LP
+\fBExample 5 \fRUsing Environment Variables
 .sp
 .LP
 The following entries take advantage of \fBcrontab\fR support for certain

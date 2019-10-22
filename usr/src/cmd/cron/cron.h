@@ -71,6 +71,18 @@ struct	message {
 	char	logname[LLEN];
 };
 
+/*
+ * Errors from the crontab field parser.
+ */
+typedef enum {
+	CFIELD_NOERROR = 0,
+	CFIELD_EOLN,
+	CFIELD_UNEXPECT,
+	CFIELD_OUTOFBOUND,
+	CFIELD_EOVERFLOW,
+	CFIELD_ENOMEM
+} cfield_error_t;
+
 #define	CRONDIR		"/var/spool/cron/crontabs"
 #define	ATDIR		"/var/spool/cron/atjobs"
 #define	ACCTFILE	"/var/cron/log"
@@ -104,6 +116,7 @@ extern int	isvalid_shell(const char *shell);
 extern int	isvalid_dir(const char *dir);
 
 extern int	cron_admin(const char *);
+extern char	*next_field(int, int, char *, int *, cfield_error_t *);
 
 #ifdef	__cplusplus
 }
