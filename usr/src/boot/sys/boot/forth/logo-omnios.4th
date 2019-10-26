@@ -77,7 +77,7 @@ variable PNGLogo
 
 : logo ( x y -- )
 	framebuffer? if
-		s" loadfont /boot/fonts/10x18.fnt" evaluate
+		s" loader_font" set_font
 		clear
 		at-bl
 		ooce if

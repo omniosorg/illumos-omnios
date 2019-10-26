@@ -240,7 +240,27 @@ create last_module_option sizeof module.next allot 0 last_module_option !
 			\ variable not set
 			drop
 		else
-			s" set" 2 framebuffer
+			2dup
+			s" off" compare 0= if
+				1 framebuffer
+			else
+				s" set" 2 framebuffer
+			then
+		then
+	else
+		2drop
+	then
+;
+
+\ Set the screen font based on an environment variable.
+\ If the framebuffer is not active or the variable is not set, do nothing
+: set_font ( addr len -- )
+	framebuffer? if
+		getenv dup -1 = if
+			\ variable not set
+			drop
+		else
+			s" screen-font" setenv
 		then
 	else
 		2drop

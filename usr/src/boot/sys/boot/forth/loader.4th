@@ -57,6 +57,7 @@ only forth definitions
   if me then
   clear
   s" boot_resolution" set_resolution
+  s" boot_font" set_font
 ;
 
 : try-menu-unset
