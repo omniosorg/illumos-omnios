@@ -415,13 +415,6 @@ typedef struct vn_vfslocks_entry {
 #define	VTRAVERSE	0x80000
 
 /*
- * Indicates the vnode is a zone's root ("/" in-zone). A zone's root does NOT
- * have to be a filesystem root, even if many zone brands guaranteed that.
- */
-#define	VZONEROOT	0x100000
-
-
-/*
  * Vnode attributes.  A bit-mask is supplied as part of the
  * structure to indicate the attributes the caller wants to
  * set (setattr) or extract (getattr).
