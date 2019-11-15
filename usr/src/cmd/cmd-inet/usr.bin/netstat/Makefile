@@ -36,7 +36,8 @@ include ../../../Makefile.cmd
 # netstat uses libproc to grab processes and extract information about their
 # sockets. In order to be able to grab 64-bit processes, netstat itself must
 # be built 64-bit.
-include ../../../Makefile.cmd.64
+$(BUILD64) include ../../../Makefile.cmd.64
+
 include ../../Makefile.cmd-inet
 
 LOCALSRCS=	$(LOCALOBJS:%.o=%.c)

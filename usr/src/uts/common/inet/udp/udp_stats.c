@@ -335,8 +335,7 @@ udp_snmp_get(queue_t *q, mblk_t *mpctl, boolean_t legacy_req)
 				}
 
 				if ((sie = conn_get_socket_info(connp,
-				    &psie)) !=
-				    NULL) {
+				    &psie)) != NULL) {
 					sie->sie_connidx = v6_conn_idx;
 					(void) snmp_append_data2(
 					    mp6_info_ctl->b_cont,

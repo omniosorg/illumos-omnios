@@ -11,12 +11,15 @@
 
 #
 # Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
-# Copyright 2018, Joyent, Inc.
+# Copyright 2019 Joyent, Inc.
 #
 
-SUBDIRS = modes common digest
+SUBDIRS = modes common digest hmac
+
+all: $(SUBDIRS)
 
 modes: common
 digest: common
+hmac: common
 
 include $(SRC)/test/Makefile.com

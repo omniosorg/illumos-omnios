@@ -28,6 +28,10 @@
  * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
  */
 
+/*
+ * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+ */
+
 #ifndef	_INET_IPCLASSIFIER_H
 #define	_INET_IPCLASSIFIER_H
 

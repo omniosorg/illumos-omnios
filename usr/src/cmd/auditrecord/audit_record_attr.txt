@@ -3,6 +3,7 @@
 # other comments are removed.
 ##
 ## Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+## Copyright 2018 Nexenta Systems, Inc.  All rights reserved.
 ## Copyright 2019 Joyent, Inc.
 ##
 ## CDDL HEADER START
@@ -457,6 +458,36 @@ label=AUE_AUDITON_SQCTRL
 #	subject,tuser10,tuser10,other,root,other,3969,367,255 197121 tmach1
 #	return,failure: Not owner,-1
 #	trailer,176
+
+label=AUE_AUDITON_SETPMASK
+  format=[arg]1:[arg]2
+    comment=3, "setpmask&colon;pid", process
+    comment=3, "setpmask&colon;as_success", audit ID mask:
+    comment=3, "setpmask&colon;as_failure", audit ID mask
+  syscall=auditon: SETPMASK
+
+label=AUE_AUDITON_SETKAUDIT
+  format=arg1:arg2:arg3:inaddr4:arg5:arg6:arg7
+    comment=1, audit user ID, "auid":
+    comment=1, terminal ID, "port":
+    comment=1, type, "type":
+    comment=1, terminal ID, "ip address":
+    comment=1, preselection mask, "as_success":
+    comment=1, preselection mask, "as_failure":
+    comment=1, audit session ID, "asid"
+  syscall=auditon: SETKAUDIT
+
+label=AUE_AUDITON_GETPINFO
+  format=kernel
+  syscall=auditon: GETPINFO
+
+label=AUE_AUDITON_GETKAUDIT
+  format=kernel
+  syscall=auditon: GETKAUDIT
+
+label=AUE_AUDITON_OTHER
+  format=kernel
+  syscall=auditon: OTHER
 
 label=AUE_AUDITON_STERMID
   skip=Not used.
@@ -1484,6 +1515,14 @@ label=AUE_RFSSYS
 
 label=AUE_RMDIR
   format=path:[attr]
+
+label=AUE_SACL
+  title=File Access Audit
+  syscall=none
+  see=none
+  format=head:path:arg1:[text]2:subj
+    comment="access_mask":
+    comment="Windows SID"
 
 label=AUE_SEMCTL
   format=arg1:[ipc]:[ipc_perm]

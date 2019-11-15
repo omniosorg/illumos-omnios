@@ -136,7 +136,7 @@ struct iflist {
 	struct ifstat	tot;
 };
 
-static void fatal(int, char *, ...);
+static void fatal(int, char *, ...) __NORETURN;
 
 static	mib_item_t	*mibget(int sd);
 static	void		mibfree(mib_item_t *firstitem);
@@ -5231,21 +5231,32 @@ ire_report_item_v6(const mib2_ipv6RouteEntry_t *rp6, boolean_t first,
 static mib2_transportMLPEntry_t **
 gather_attrs(const mib_item_t *item, int group, int mib_id, int esize)
 {
-	unsigned int transport_count = 0;
+	size_t transport_count = 0;
 	const mib_item_t *iptr;
 	mib2_transportMLPEntry_t **attrs, *tme;
 
 	for (iptr = item; iptr != NULL; iptr = iptr->next_item) {
-		if (iptr->group == group && iptr->mib_id == mib_id)
-			transport_count += iptr->length / esize;
+		if (iptr->group == group && iptr->mib_id == mib_id) {
+			size_t els = iptr->length / esize;
+			if (transport_count > SIZE_MAX - els) {
+				fprintf(stderr, "Connection table too large\n");
+				return (NULL);
+			} else {
+				transport_count += els;
+			}
+		}
 	}
+
 	if (transport_count == 0)
 		return (NULL);
-	attrs = calloc(transport_count, sizeof (*attrs));
+
+	attrs = recallocarray(NULL, 0, transport_count, sizeof (*attrs));
+
 	if (attrs == NULL) {
-		perror("gather_attrs calloc failed");
+		perror("gather_attrs allocation failed");
 		return (NULL);
 	}
+
 	for (iptr = item; iptr != NULL; iptr = iptr->next_item) {
 		if (iptr->group == group && iptr->mib_id == EXPER_XPORT_MLP) {
 			for (tme = iptr->valp;
@@ -5302,22 +5313,29 @@ sie_report(const mib2_socketInfoEntry_t *sie)
 static mib2_socketInfoEntry_t **
 gather_info(const mib_item_t *item, int group, int mib_id, int esize)
 {
-	unsigned int transport_count = 0;
+	size_t transport_count = 0;
 	const mib_item_t *iptr;
 	mib2_socketInfoEntry_t **info, *sie;
 
 	for (iptr = item; iptr != NULL; iptr = iptr->next_item) {
-		if (iptr->group == group && iptr->mib_id == mib_id)
-			transport_count += iptr->length / esize;
+		if (iptr->group == group && iptr->mib_id == mib_id) {
+			size_t els = iptr->length / esize;
+			if (transport_count > SIZE_MAX - els) {
+				fprintf(stderr, "Connection table too large\n");
+				return (NULL);
+			} else {
+				transport_count += els;
+			}
+		}
 	}
 
 	if (transport_count == 0)
 		return (NULL);
 
-	info = calloc(transport_count, sizeof (*info));
+	info = recallocarray(NULL, 0, transport_count, sizeof (*info));
 
 	if (info == NULL) {
-		perror("gather_info calloc failed");
+		perror("gather_info allocation failed");
 		return (NULL);
 	}
 
@@ -5382,13 +5400,13 @@ static const char tcp_hdr_v4_compat[] =
 #define	TCP_V4_SWIND_F		"%6u"
 #define	TCP_V4_SENDQ		"Send-Q"
 #define	TCP_V4_SENDQ_		"------"
-#define	TCP_V4_SENDQ_F		"%6lu"
+#define	TCP_V4_SENDQ_F		"%6" PRId64
 #define	TCP_V4_RWIND		"Rwind "
 #define	TCP_V4_RWIND_		"------"
 #define	TCP_V4_RWIND_F		"%6u"
 #define	TCP_V4_RECVQ		"Recv-Q"
 #define	TCP_V4_RECVQ_		"------"
-#define	TCP_V4_RECVQ_F		"%6lu"
+#define	TCP_V4_RECVQ_F		"%6" PRId64
 #define	TCP_V4_SNEXT		" Snext  "
 #define	TCP_V4_SNEXT_		"--------"
 #define	TCP_V4_SNEXT_F		"%08x"
@@ -5684,8 +5702,9 @@ tcp_report_item_v4(const mib2_tcpConnEntry_t *tp, boolean_t first,
 	if (Uflag) {
 		ph = process_hash_get(sie, SOCK_STREAM, AF_INET);
 		if (ph->ph_pid == 0 && sie != NULL &&
-		    (sie->sie_flags & MIB2_SOCKINFO_IPV6))
+		    (sie->sie_flags & MIB2_SOCKINFO_IPV6)) {
 			ph = process_hash_get(sie, SOCK_STREAM, AF_INET6);
+		}
 	}
 
 	if (!Uflag && Vflag) {
@@ -7451,14 +7470,13 @@ fail(int do_perror, char *message, ...)
 static void
 fatal(int errcode, char *format, ...)
 {
-	va_list argp;
+	if (format != NULL) {
+		va_list argp;
 
-	if (format == NULL)
-		return;
-
-	va_start(argp, format);
-	(void) vfprintf(stderr, format, argp);
-	va_end(argp);
+		va_start(argp, format);
+		(void) vfprintf(stderr, format, argp);
+		va_end(argp);
+	}
 
 	exit(errcode);
 }

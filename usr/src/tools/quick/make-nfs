@@ -121,7 +121,6 @@ done
 
 do_kern() {
   case $1 in
-  lint) targ=modlintlib ;;
   *) targ=$1 ;;
   esac
   ( unset SOURCEDEBUG ;
@@ -305,12 +304,6 @@ do
     do_lib2 $arg
     do_cmds $arg
     ;;
-  lint)
-    do_kern $arg
-    do_lib1 $arg
-    do_lib2 $arg
-    do_cmds $arg
-    ;;
   clean)
     # intentionally skip: lib1, hdrs, tools
     do_cmds $arg
@@ -332,7 +325,7 @@ do
     do_tar
     ;;
   *)
-    echo "Usage: $0 {install|lint|clean|clobber|tags|tar}";
+    echo "Usage: $0 {install|clean|clobber|tags|tar}";
     exit 1;
     ;;
   esac

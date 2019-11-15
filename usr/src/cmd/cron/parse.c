@@ -172,17 +172,12 @@ next_field(uint_t lower, uint_t upper, char *line, int *cursorp, char **ret)
 			}
 		} else {
 			/* Wrap-around range */
-			uint_t start;
-
 			for (i = num; i <= upper; i += step) {
 				ADDELEMENT(i);
 			}
 
-			start = lower;
-			if (step > 1)
-				start += i - upper - 1;
-
-			for (i = start; i <= num2; i += step) {
+			i -= (upper - lower + 1);
+			for (; i <= num2; i += step) {
 				ADDELEMENT(i);
 			}
 		}

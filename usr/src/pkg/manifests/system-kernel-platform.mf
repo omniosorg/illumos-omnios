@@ -24,6 +24,7 @@
 # Copyright 2012 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2014 Gary Mills
 # Copyright 2019 Peter Tribble.
+# Copyright 2019 Joyent, Inc.
 #
 
 #

@@ -32,6 +32,10 @@
  * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
  */
 
+/*
+ * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+ */
+
 #ifndef _SYS_STRSUBR_H
 #define	_SYS_STRSUBR_H
 

@@ -2760,6 +2760,8 @@ conn_get_socket_info(conn_t *connp, mib2_socketInfoEntry_t *sie)
 	/*
 	 * If the connection is closing, it is not safe to make an upcall or
 	 * access the stream associated with the connection.
+	 * The callers of this function have a reference on connp itself
+	 * so, as long as it is not closing, it's safe to continue.
 	 */
 	mutex_enter(&connp->conn_lock);
 
