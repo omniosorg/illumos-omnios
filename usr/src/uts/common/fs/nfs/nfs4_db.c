@@ -856,9 +856,6 @@ rfs4_dbe_reap(rfs4_table_t *table, time_t cache_time, uint32_t desired)
 				 * table reference.
 				 */
 				if (entry->dbe_refcnt != 1) {
-#ifdef DEBUG
-					rfs4_dbe_debug(entry);
-#endif
 					mutex_exit(entry->dbe_lock);
 					continue;
 				}
