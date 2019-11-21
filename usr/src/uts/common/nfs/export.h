@@ -74,7 +74,7 @@ struct secinfo {
 	int32_t		s_refcnt;	/* reference count for tracking */
 					/* how many children (self included) */
 					/* use this flavor. */
-	int 		s_window;	/* window */
+	int		s_window;	/* window */
 	uint_t		s_rootid;	/* UID to use for authorized roots */
 	int		s_rootcnt;	/* count of root names */
 	caddr_t		*s_rootnames;	/* array of root names */
@@ -89,7 +89,7 @@ struct secinfo32 {
 	int32_t		s_refcnt;	/* reference count for tracking */
 					/* how many children (self included) */
 					/* use this flavor. */
-	int32_t 	s_window;	/* window */
+	int32_t		s_window;	/* window */
 	uint32_t	s_rootid;	/* UID to use for authorized roots */
 	int32_t		s_rootcnt;	/* count of root names */
 	caddr32_t	s_rootnames;	/* array of root names */
