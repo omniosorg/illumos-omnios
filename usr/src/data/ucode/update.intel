@@ -52,23 +52,12 @@ done
 # available in the public git repo above, so we have to restore them by
 # hand here.
 #
-cp intel/00050653-01 $tmp/out/00050653-01
-ln $tmp/out/00050653-01 $tmp/out/00050653-02
-ln $tmp/out/00050653-01 $tmp/out/00050653-04
-ln $tmp/out/00050653-01 $tmp/out/00050653-10
-ln $tmp/out/00050653-01 $tmp/out/00050653-80
 cp intel/00050655-01 $tmp/out/00050655-01
 ln $tmp/out/00050655-01 $tmp/out/00050655-02
 ln $tmp/out/00050655-01 $tmp/out/00050655-04
 ln $tmp/out/00050655-01 $tmp/out/00050655-10
 ln $tmp/out/00050655-01 $tmp/out/00050655-20
 ln $tmp/out/00050655-01 $tmp/out/00050655-80
-cp intel/00050656-01 $tmp/out/00050656-01
-ln $tmp/out/00050656-01 $tmp/out/00050656-02
-ln $tmp/out/00050656-01 $tmp/out/00050656-04
-ln $tmp/out/00050656-01 $tmp/out/00050656-08
-ln $tmp/out/00050656-01 $tmp/out/00050656-10
-ln $tmp/out/00050656-01 $tmp/out/00050656-20
 
 pkgfmt -u $mf
 mv $mf $mf.tmp
