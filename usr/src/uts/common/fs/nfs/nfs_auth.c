@@ -899,8 +899,12 @@ nfsauth_cache_get(struct exportinfo *exi, struct svc_req *req, int flavor,
 
 	claddr = svc_getrpccaller(req->rq_xprt);
 	addr = *claddr;
-	addr.buf = kmem_alloc(addr.maxlen, KM_SLEEP);
-	bcopy(claddr->buf, addr.buf, claddr->len);
+	if (claddr->len != 0) {
+		addr.buf = kmem_alloc(addr.maxlen, KM_SLEEP);
+		bcopy(claddr->buf, addr.buf, claddr->len);
+	} else {
+		addr.buf = NULL;
+	}
 
 	SVC_GETADDRMASK(req->rq_xprt, SVC_TATTR_ADDRMASK, (void **)&taddrmask);
 	ASSERT(taddrmask != NULL);
