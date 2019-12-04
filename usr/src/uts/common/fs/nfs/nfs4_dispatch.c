@@ -545,13 +545,17 @@ rfs4_minorvers_mismatch(struct svc_req *req, SVCXPRT *xprt, void *args)
 	resp = &res_buf;
 
 	/*
-	 * Form a reply tag by copying over the reqeuest tag.
+	 * Form a reply tag by copying over the request tag.
 	 */
-	resp->tag.utf8string_val =
-	    kmem_alloc(argsp->tag.utf8string_len, KM_SLEEP);
 	resp->tag.utf8string_len = argsp->tag.utf8string_len;
-	bcopy(argsp->tag.utf8string_val, resp->tag.utf8string_val,
-	    resp->tag.utf8string_len);
+	if (argsp->tag.utf8string_len != 0) {
+		resp->tag.utf8string_val =
+		    kmem_alloc(argsp->tag.utf8string_len, KM_SLEEP);
+		bcopy(argsp->tag.utf8string_val, resp->tag.utf8string_val,
+		    resp->tag.utf8string_len);
+	} else {
+		resp->tag.utf8string_val = NULL;
+	}
 	resp->array_len = 0;
 	resp->array = NULL;
 	resp->status = NFS4ERR_MINOR_VERS_MISMATCH;
@@ -576,11 +580,15 @@ rfs4_resource_err(struct svc_req *req, COMPOUND4args *argsp)
 	/*
 	 * Form a reply tag by copying over the request tag.
 	 */
-	rbp->tag.utf8string_val =
-	    kmem_alloc(argsp->tag.utf8string_len, KM_SLEEP);
 	rbp->tag.utf8string_len = argsp->tag.utf8string_len;
-	bcopy(argsp->tag.utf8string_val, rbp->tag.utf8string_val,
-	    rbp->tag.utf8string_len);
+	if (argsp->tag.utf8string_len != 0) {
+		rbp->tag.utf8string_val =
+		    kmem_alloc(argsp->tag.utf8string_len, KM_SLEEP);
+		bcopy(argsp->tag.utf8string_val, rbp->tag.utf8string_val,
+		    rbp->tag.utf8string_len);
+	} else {
+		rbp->tag.utf8string_val = NULL;
+	}
 
 	rbp->array_len = 1;
 	rbp->array = kmem_zalloc(rbp->array_len * sizeof (nfs_resop4),

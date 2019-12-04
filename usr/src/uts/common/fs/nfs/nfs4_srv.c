@@ -5801,13 +5801,17 @@ rfs4_compound(COMPOUND4args *args, COMPOUND4res *resp, struct exportinfo *exi,
 		*rv = 0;
 	rfs4_init_compound_state(&cs);
 	/*
-	 * Form a reply tag by copying over the reqeuest tag.
+	 * Form a reply tag by copying over the request tag.
 	 */
-	resp->tag.utf8string_val =
-	    kmem_alloc(args->tag.utf8string_len, KM_SLEEP);
 	resp->tag.utf8string_len = args->tag.utf8string_len;
-	bcopy(args->tag.utf8string_val, resp->tag.utf8string_val,
-	    resp->tag.utf8string_len);
+	if (args->tag.utf8string_len != 0) {
+		resp->tag.utf8string_val =
+		    kmem_alloc(args->tag.utf8string_len, KM_SLEEP);
+		bcopy(args->tag.utf8string_val, resp->tag.utf8string_val,
+		    resp->tag.utf8string_len);
+	} else {
+		resp->tag.utf8string_val = NULL;
+	}
 
 	cs.statusp = &resp->status;
 	cs.req = req;
