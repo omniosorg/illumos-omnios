@@ -1549,8 +1549,8 @@ zpool_enable_datasets(zpool_handle_t *zhp, const char *mntopts, int flags)
 		ret = ms.ms_mntstatus;
 
 	/*
-	 * Initilialize libshare SA_INIT_SHARE_API_SELECTIVE here
-	 * to avoid unneccesary load/unload of the libshare API
+	 * Initialize libshare SA_INIT_SHARE_API_SELECTIVE here
+	 * to avoid unnecessary load/unload of the libshare API
 	 * per shared dataset downstream.
 	 */
 	sharearg.zhandle_arr = cb.cb_handles;
