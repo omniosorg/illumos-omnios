@@ -3545,6 +3545,7 @@ usr/src/man/man3c/wctomb_l.3c
 usr/src/man/man3c/wctrans_l.3c
 usr/src/man/man3c/wctype_l.3c
 usr/src/man/man3c/wcwidth_l.3c
+usr/src/man/man3ext/efi_reserved_sectors.3ext
 usr/src/man/man3head/LIST_CLASS_ENTRY.3head
 usr/src/man/man3head/LIST_CLASS_HEAD.3head
 usr/src/man/man3head/LIST_CONCAT.3head
@@ -4360,6 +4361,7 @@ usr/src/test/zfs-tests/tests/functional/checksum/sha2/amd64/sha2_test
 usr/src/test/zfs-tests/tests/functional/checksum/sha2/i386/sha2_test
 usr/src/test/zfs-tests/tests/functional/checksum/skein/amd64/skein_test
 usr/src/test/zfs-tests/tests/functional/checksum/skein/i386/skein_test
+usr/src/test/zfs-tests/tests/functional/cli_root/zfs_diff/socket
 usr/src/test/zfs-tests/tests/functional/ctime/ctime_001_pos
 usr/src/test/zfs-tests/tests/functional/exec/mmap_exec
 usr/src/test/zfs-tests/tests/functional/libzfs/many_fds
@@ -4397,14 +4399,8 @@ usr/src/tools/ndrgen/ndrgen
 usr/src/tools/ndrgen/ndrgen1
 usr/src/tools/ndrgen/y.tab.c
 usr/src/tools/ndrgen/y.tab.h
-usr/src/tools/onbld/Checks/py2/python2.7/
-usr/src/tools/onbld/Checks/py3/python3.5/
 usr/src/tools/onbld/Checks/py3/python3.7/
-usr/src/tools/onbld/Scm/py2/python2.7/
-usr/src/tools/onbld/Scm/py3/python3.5/
 usr/src/tools/onbld/Scm/py3/python3.7/
-usr/src/tools/onbld/py2/python2.7/
-usr/src/tools/onbld/py3/python3.5/
 usr/src/tools/onbld/py3/python3.7/
 usr/src/tools/proto/
 usr/src/tools/protocmp/protocmp
