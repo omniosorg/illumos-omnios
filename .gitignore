@@ -1145,6 +1145,7 @@ usr/src/cmd/logger/logger
 usr/src/cmd/login/login
 usr/src/cmd/login/logindevperm
 usr/src/cmd/logins/logins
+usr/src/cmd/logname/logname
 usr/src/cmd/look/look
 usr/src/cmd/lp/cmd/lpadmin/lpadmin
 usr/src/cmd/lp/cmd/lpfilter

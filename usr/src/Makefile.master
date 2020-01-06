@@ -28,7 +28,7 @@
 # Copyright 2015 Gary Mills
 # Copyright 2015 Igor Kozhukhov <ikozhukhov@gmail.com>
 # Copyright 2016 Toomas Soome <tsoome@me.com>
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2019, Joyent, Inc.
 # Copyright 2019 RackTop Systems.
 #
@@ -138,6 +138,9 @@ JAVA_ROOT=	/usr/jdk/openjdk1.8.0
 # string in the environment to override.
 BLD_JAVA_6=	$(POUND_SIGN)
 BLD_JAVA_7=	$(POUND_SIGN)
+
+# OmniOS has 64bit Perl only. Disable building of 32bit Perl modules
+BUILDPERL32=	$(POUND_SIGN)
 
 # The python 2 modules are not built by default in OmniOS
 BUILDPY2=	$(POUND_SIGN)

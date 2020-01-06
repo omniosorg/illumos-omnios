@@ -251,7 +251,7 @@ log_init(void)
 	    utsname.release, utsname.version, NBBY * (uint_t)sizeof (void *));
 	printf("Copyright (c) 1983, 2010, Oracle and/or its affiliates. "
 	    "All rights reserved.\n");
-	printf("Copyright (c) 2017-2019 OmniOS Community Edition "
+	printf("Copyright (c) 2017-2020 OmniOS Community Edition "
 	    "(OmniOSce) Association.\n");
 #ifdef DEBUG
 	printf("DEBUG enabled\n");
