@@ -23,7 +23,7 @@
  * Copyright 2013 DEY Storage Systems, Inc.
  * Copyright (c) 2014 Gary Mills
  * Copyright 2015 Nexenta Systems, Inc. All rights reserved.
- * Copyright 2019 Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
  */
 
@@ -940,6 +940,9 @@ doio(int stdin_fd, int appin_fd, int stdout_fd, int stderr_fd, int sig_fd,
 
 		/* event from master side stderr */
 		if (pollfds[1].revents) {
+			if (pollfds[1].revents & POLLHUP)
+				break;
+
 			if (pollfds[1].revents &
 			    (POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI)) {
 				if (process_output(stderr_fd, STDERR_FILENO)
@@ -953,6 +956,9 @@ doio(int stdin_fd, int appin_fd, int stdout_fd, int stderr_fd, int sig_fd,
 
 		/* event from master side stdout */
 		if (pollfds[0].revents) {
+			if (pollfds[0].revents & POLLHUP)
+				break;
+
 			if (pollfds[0].revents &
 			    (POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI)) {
 				if (process_output(stdout_fd, STDOUT_FILENO)

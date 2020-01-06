@@ -700,7 +700,7 @@ main(int argc, char *argv[])
 		    "Copyright (c) 1983, 2010, Oracle and/or its affiliates."
 		    " All rights reserved.\r\n");
 		console(B_FALSE,
-		    "Copyright (c) 2017-2019 OmniOS Community Edition "
+		    "Copyright (c) 2017-2020 OmniOS Community Edition "
 		    "(OmniOSce) Association.\r\n");
 	}
 
