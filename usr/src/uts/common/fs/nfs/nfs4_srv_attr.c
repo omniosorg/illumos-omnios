@@ -1609,6 +1609,10 @@ rfs4_fattr4_fs_locations(nfs4_attr_cmd_t cmd, struct nfs4_svgetit_arg *sarg,
 		break;  /* this attr is supported */
 
 	case NFS4ATTR_GETIT:
+	{
+		kstat_named_t *stat =
+		    sarg->cs->exi->exi_ne->ne_globals->svstat[NFS_V4];
+
 		fsl = fetch_referral(sarg->cs->vp, sarg->cs->cr);
 		if (fsl == NULL)
 			(void) memset(&(na->fs_locations), 0,
@@ -1617,9 +1621,9 @@ rfs4_fattr4_fs_locations(nfs4_attr_cmd_t cmd, struct nfs4_svgetit_arg *sarg,
 			na->fs_locations = *fsl;
 			kmem_free(fsl, sizeof (fs_locations4));
 		}
-		global_svstat_ptr[4][NFS_REFERRALS].value.ui64++;
+		stat[NFS_REFERRALS].value.ui64++;
 		break;
-
+	}
 	case NFS4ATTR_FREEIT:
 		if (sarg->op == NFS4ATTR_SETIT || sarg->op == NFS4ATTR_VERIT)
 			error = EINVAL;

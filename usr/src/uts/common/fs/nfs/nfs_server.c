@@ -195,9 +195,6 @@ static void	rfs4_server_start(nfs_globals_t *, int);
 static void	nullfree(void);
 static void	rfs_dispatch(struct svc_req *, SVCXPRT *);
 static void	acl_dispatch(struct svc_req *, SVCXPRT *);
-static void	common_dispatch(struct svc_req *, SVCXPRT *,
-		rpcvers_t, rpcvers_t, char *,
-		struct rpc_disptable *);
 static	int	checkauth(struct exportinfo *, struct svc_req *, cred_t *, int,
 		bool_t, bool_t *);
 static char	*client_name(struct svc_req *req);
@@ -1334,13 +1331,13 @@ union rfs_res {
 static struct rpc_disptable rfs_disptable[] = {
 	{sizeof (rfsdisptab_v2) / sizeof (rfsdisptab_v2[0]),
 	    rfscallnames_v2,
-	    &rfsproccnt_v2_ptr, rfsdisptab_v2},
+	    rfsdisptab_v2},
 	{sizeof (rfsdisptab_v3) / sizeof (rfsdisptab_v3[0]),
 	    rfscallnames_v3,
-	    &rfsproccnt_v3_ptr, rfsdisptab_v3},
+	    rfsdisptab_v3},
 	{sizeof (rfsdisptab_v4) / sizeof (rfsdisptab_v4[0]),
 	    rfscallnames_v4,
-	    &rfsproccnt_v4_ptr, rfsdisptab_v4},
+	    rfsdisptab_v4},
 };
 
 /*
@@ -1462,7 +1459,6 @@ auth_tooweak(struct svc_req *req, char *res)
 	return (FALSE);
 }
 
-
 static void
 common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
     rpcvers_t max_vers, char *pgmname, struct rpc_disptable *disptable)
@@ -1499,8 +1495,16 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 	char cbuf[INET6_ADDRSTRLEN];	/* to hold both IPv4 and IPv6 addr */
 	bool_t ro = FALSE;
 	nfs_export_t *ne = nfs_get_export();
+	nfs_globals_t *ng = ne->ne_globals;
+	kstat_named_t *svstat, *procstat;
+
+	ASSERT(req->rq_prog == NFS_PROGRAM || req->rq_prog == NFS_ACL_PROGRAM);
 
 	vers = req->rq_vers;
+
+	svstat = ng->svstat[req->rq_vers];
+	procstat = (req->rq_prog == NFS_PROGRAM) ?
+	    ng->rfsproccnt[vers] : ng->aclproccnt[vers];
 
 	if (vers < min_vers || vers > max_vers) {
 		svcerr_progvers(req->rq_xprt, min_vers, max_vers);
@@ -1517,7 +1521,7 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 		goto done;
 	}
 
-	(*(disptable[(int)vers].dis_proccntp))[which].value.ui64++;
+	procstat[which].value.ui64++;
 
 	disp = &disptable[(int)vers].dis_table[which];
 	procnames = disptable[(int)vers].dis_procnames;
@@ -1839,9 +1843,8 @@ done:
 	if (exi != NULL)
 		exi_rele(exi);
 
-	global_svstat_ptr[req->rq_vers][NFS_BADCALLS].value.ui64 += error;
-
-	global_svstat_ptr[req->rq_vers][NFS_CALLS].value.ui64++;
+	svstat[NFS_BADCALLS].value.ui64 += error;
+	svstat[NFS_CALLS].value.ui64++;
 }
 
 static void
@@ -1964,10 +1967,10 @@ static struct rpcdisp acldisptab_v3[] = {
 static struct rpc_disptable acl_disptable[] = {
 	{sizeof (acldisptab_v2) / sizeof (acldisptab_v2[0]),
 		aclcallnames_v2,
-		&aclproccnt_v2_ptr, acldisptab_v2},
+		acldisptab_v2},
 	{sizeof (acldisptab_v3) / sizeof (acldisptab_v3[0]),
 		aclcallnames_v3,
-		&aclproccnt_v3_ptr, acldisptab_v3},
+		acldisptab_v3},
 };
 
 static void
@@ -2649,6 +2652,7 @@ nfs_server_zone_init(zoneid_t zoneid)
 	 * export init must precede srv init calls.
 	 */
 	nfs_export_zone_init(ng);
+	rfs_stat_zone_init(ng);
 	rfs_srv_zone_init(ng);
 	rfs3_srv_zone_init(ng);
 	rfs4_srv_zone_init(ng);
@@ -2697,6 +2701,7 @@ nfs_server_zone_fini(zoneid_t zoneid, void *data)
 	rfs4_srv_zone_fini(ng);
 	rfs3_srv_zone_fini(ng);
 	rfs_srv_zone_fini(ng);
+	rfs_stat_zone_fini(ng);
 	nfs_export_zone_fini(ng);
 
 	mutex_destroy(&ng->nfs_server_upordown_lock);
