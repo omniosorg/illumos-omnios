@@ -16,7 +16,7 @@
  */
 
 /*
- * Quanitize the time spent in each NFSv3 andf NFSv4 operation,
+ * Quantize the time spent in each NFSv3 andf NFSv4 operation,
  * optionally for a specified client, share and zone.
  *
  * Usage: nfs-time.d [<client ip>|all [<share path>|all] [<zone id>]]]
@@ -25,7 +25,7 @@
  *
  * It is valid to specify <client ip> or <share path> as "all"
  * to quantize data for all clients and/or all shares.
- * Ommitting <zone id> will quantize data for all zones.
+ * Omitting <zone id> will quantize data for all zones.
  */
 
 #pragma D option flowindent

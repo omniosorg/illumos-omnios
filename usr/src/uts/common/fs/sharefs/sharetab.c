@@ -220,7 +220,7 @@ sharefs_add(sharetab_globals_t *sg, share_t *sh, sharefs_lens_t *shl)
 		    strlen(sh->sh_opts) + strlen(sh->sh_descr);
 	}
 
-	/* We need to account for field seperators and the EOL */
+	/* We need to account for field separators and the EOL */
 	sh->sh_size += 5;
 
 	/* Now walk down the hash table and add the new entry */
@@ -440,7 +440,7 @@ sharefs(enum sharefs_sys_op opcode, share_t *sh_in, uint32_t iMaxLen)
 {
 	/*
 	 * If we're in the global zone PRIV_SYS_CONFIG gives us the
-	 * priviledges needed to act on sharetab. However if we're in
+	 * privileges needed to act on sharetab. However if we're in
 	 * a non-global zone PRIV_SYS_CONFIG is not allowed. To work
 	 * around this issue PRIV_SYS_NFS is used in this case.
 	 *

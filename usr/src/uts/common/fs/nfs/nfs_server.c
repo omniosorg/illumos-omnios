@@ -32,13 +32,6 @@
  *	Use is subject to license terms.
  */
 
-/*
- * Copyright (c) 2011 Bayard G. Bell. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
- * Copyright 2018 Nexenta Systems, Inc.
- * Copyright (c) 2017 Joyent Inc
- */
-
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/systm.h>
@@ -2624,7 +2617,7 @@ nfs_srvfini(void)
  * objects have exactly the same lifetime.
  *
  * These objects are also kept on a list for two reasons:
- * 1: It makes finding these in  mdb _much_ easier.
+ * 1: It makes finding these in mdb _much_ easier.
  * 2: It allows operating across all zone globals for
  *    functions like nfs_auth.c:exi_cache_reclaim
  */

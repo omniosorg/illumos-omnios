@@ -25,7 +25,7 @@
  *
  * It is valid to specify <client ip> or <share path> as "all"
  * to quantize data for all clients and/or all shares.
- * Ommitting <zone id> will quantize data for all zones.
+ * Omitting <zone id> will quantize data for all zones.
  */
 
 /*

@@ -124,7 +124,7 @@ typedef struct {		/* opaque entry type for later use */
 /*
  * NFSv4 server state databases
  *
- * Initilized when the module is loaded and used by NFSv4 state tables.
+ * Initialized when the module is loaded and used by NFSv4 state tables.
  * These kmem_cache free pools are used globally, the NFSv4 state tables
  * which make use of these kmem_cache free pools are per zone.
  */
