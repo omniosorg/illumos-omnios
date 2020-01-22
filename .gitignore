@@ -1437,17 +1437,11 @@ usr/src/cmd/pcidr/pcidr
 usr/src/cmd/pcieb/pcieb
 usr/src/cmd/pcitool/i386/pcitool
 usr/src/cmd/perl/contrib/Sun/Solaris/Intrs/amd64/
-usr/src/cmd/perl/contrib/Sun/Solaris/Intrs/i386/
 usr/src/cmd/perl/contrib/Sun/Solaris/Kstat/amd64/
-usr/src/cmd/perl/contrib/Sun/Solaris/Kstat/i386/
 usr/src/cmd/perl/contrib/Sun/Solaris/Lgrp/amd64/
-usr/src/cmd/perl/contrib/Sun/Solaris/Lgrp/i386/
 usr/src/cmd/perl/contrib/Sun/Solaris/Project/amd64/
-usr/src/cmd/perl/contrib/Sun/Solaris/Project/i386/
 usr/src/cmd/perl/contrib/Sun/Solaris/Task/amd64/
-usr/src/cmd/perl/contrib/Sun/Solaris/Task/i386/
 usr/src/cmd/perl/contrib/Sun/Solaris/Utils/amd64/
-usr/src/cmd/perl/contrib/Sun/Solaris/Utils/i386/
 usr/src/cmd/pfexec/pfexec
 usr/src/cmd/pfexecd/pfexecd
 usr/src/cmd/pg/pg
@@ -2011,6 +2005,7 @@ usr/src/cmd/sgs/unifdef/i386/unifdef
 usr/src/cmd/sgs/yacc/i386/yacc
 usr/src/cmd/sh/sh
 usr/src/cmd/shcomp/shcomp
+usr/src/cmd/sleep/sleep
 usr/src/cmd/smbios/smbios
 usr/src/cmd/smbsrv/bind-helper/bind-helper
 usr/src/cmd/smbsrv/fksmbd/fksmbd
@@ -4314,6 +4309,8 @@ usr/src/test/util-tests/tests/demangle/gcc-libstdc++
 usr/src/test/util-tests/tests/demangle/llvm-stdcxxabi
 usr/src/test/util-tests/tests/demangle/rust
 usr/src/test/util-tests/tests/iconv/iconv_test
+usr/src/test/util-tests/tests/libcustr/custr_remove
+usr/src/test/util-tests/tests/libcustr/custr_trunc
 usr/src/test/util-tests/tests/libjedec/libjedec_test
 usr/src/test/util-tests/tests/libnvpair_json/print_json
 usr/src/test/util-tests/tests/libsff/libsff_8472

@@ -843,10 +843,11 @@ rfs3_readlink(READLINK3args *args, READLINK3res *resp, struct exportinfo *exi,
 	if (is_referral) {
 		char *s;
 		size_t strsz;
+		kstat_named_t *stat = exi->exi_ne->ne_globals->svstat[NFS_V3];
 
 		/* Get an artificial symlink based on a referral */
 		s = build_symlink(vp, cr, &strsz);
-		global_svstat_ptr[3][NFS_REFERLINKS].value.ui64++;
+		stat[NFS_REFERLINKS].value.ui64++;
 		DTRACE_PROBE2(nfs3serv__func__referral__reflink,
 		    vnode_t *, vp, char *, s);
 		if (s == NULL)

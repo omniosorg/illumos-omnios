@@ -3813,10 +3813,12 @@ rfs4_op_readlink(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 	if (is_referral) {
 		char *s;
 		size_t strsz;
+		kstat_named_t *stat =
+		    cs->exi->exi_ne->ne_globals->svstat[NFS_V4];
 
 		/* Get an artificial symlink based on a referral */
 		s = build_symlink(vp, cs->cr, &strsz);
-		global_svstat_ptr[4][NFS_REFERLINKS].value.ui64++;
+		stat[NFS_REFERLINKS].value.ui64++;
 		DTRACE_PROBE2(nfs4serv__func__referral__reflink,
 		    vnode_t *, vp, char *, s);
 		if (s == NULL)
@@ -5892,6 +5894,7 @@ rfs4_compound(COMPOUND4args *args, COMPOUND4res *resp, struct exportinfo *exi,
 		nfs_argop4 *argop;
 		nfs_resop4 *resop;
 		uint_t op;
+		kstat_named_t *stat = ne->ne_globals->rfsproccnt[NFS_V4];
 
 		argop = &args->array[i];
 		resop = &resp->array[i];
@@ -5903,7 +5906,7 @@ rfs4_compound(COMPOUND4args *args, COMPOUND4res *resp, struct exportinfo *exi,
 			 * Count the individual ops here; NULL and COMPOUND
 			 * are counted in common_dispatch()
 			 */
-			rfsproccnt_v4_ptr[op].value.ui64++;
+			stat[op].value.ui64++;
 
 			NFS4_DEBUG(rfs4_debug > 1,
 			    (CE_NOTE, "Executing %s", rfs4_op_string[op]));
@@ -5920,7 +5923,7 @@ rfs4_compound(COMPOUND4args *args, COMPOUND4res *resp, struct exportinfo *exi,
 			 * day when XDR code doesn't verify v4 opcodes.
 			 */
 			op = OP_ILLEGAL;
-			rfsproccnt_v4_ptr[OP_ILLEGAL_IDX].value.ui64++;
+			stat[OP_ILLEGAL_IDX].value.ui64++;
 
 			rfs4_op_illegal(argop, resop, req, &cs);
 			cs.cont = FALSE;

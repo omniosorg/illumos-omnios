@@ -1155,9 +1155,10 @@ rfs4_state_g_init()
 	/*
 	 * NFSv4 server state databases
 	 *
-	 * Initilized when the module is loaded and used by NFSv4 state tables.
-	 * These kmem_cache free pools are used globally, the NFSv4 state
-	 * tables which make use of these kmem_cache free pools are per zone.
+	 * Initialized when the module is loaded and used by NFSv4 state
+	 * tables.  These kmem_cache free pools are used globally, the NFSv4
+	 * state tables which make use of these kmem_cache free pools are per
+	 * zone.
 	 *
 	 * initialize the global kmem_cache free pools which will be used by
 	 * the NFSv4 state tables.
@@ -1524,6 +1525,7 @@ rfs4_state_zone_fini()
 
 	/* First stop all of the reaper threads in the database */
 	rfs4_database_shutdown(dbp);
+
 	/*
 	 * WARNING: There may be consumers of the rfs4 database still
 	 * active as we destroy these.  IF that's the case, consider putting
