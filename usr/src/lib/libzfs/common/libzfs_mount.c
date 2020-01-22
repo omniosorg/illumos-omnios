@@ -1464,7 +1464,7 @@ zfs_foreach_mountpoint(libzfs_handle_t *hdl, zfs_handle_t **handles,
 	 * of serial vs. parallel mounting.
 	 *
 	 * In OmniOS, this is set by /lib/svc/method/fs-local if the
-	 * config/parallel option of svc:/system/filesystem/local:default
+	 * config/parallel option of svc:/system/filesystem/local
 	 * is set to false.
 	 */
 	boolean_t serial_mount = !parallel ||

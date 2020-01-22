@@ -382,6 +382,7 @@ COMMON_SUBDIRS=		\
 	sgs		\
 	sh		\
 	shcomp		\
+	sleep		\
 	smbios		\
 	smbsrv		\
 	smserverd	\
