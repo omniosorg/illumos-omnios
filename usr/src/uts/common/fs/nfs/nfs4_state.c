@@ -1525,6 +1525,7 @@ rfs4_state_zone_fini()
 
 	/* First stop all of the reaper threads in the database */
 	rfs4_database_shutdown(dbp);
+
 	/*
 	 * WARNING: There may be consumers of the rfs4 database still
 	 * active as we destroy these.  IF that's the case, consider putting
