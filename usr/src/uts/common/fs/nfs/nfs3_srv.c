@@ -95,7 +95,7 @@ u_longlong_t nfs3_srv_caller_id;
 static nfs3_srv_t *
 nfs3_get_srv(void)
 {
-	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_globals_t *ng = nfs_srv_getzg();
 	nfs3_srv_t *srv = ng->nfs3_srv;
 	ASSERT(srv != NULL);
 	return (srv);

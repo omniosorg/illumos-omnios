@@ -503,7 +503,7 @@ static const fs_operation_def_t nfs4_wr_deleg_tmpl[] = {
 nfs4_srv_t *
 nfs4_get_srv(void)
 {
-	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_globals_t *ng = nfs_srv_getzg();
 	nfs4_srv_t *srv = ng->nfs4_srv;
 	ASSERT(srv != NULL);
 	return (srv);

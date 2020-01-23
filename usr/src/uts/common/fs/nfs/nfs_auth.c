@@ -178,7 +178,7 @@ static int nfsauth_cache_compar(const void *, const void *);
 static nfsauth_globals_t *
 nfsauth_get_zg(void)
 {
-	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_globals_t *ng = nfs_srv_getzg();
 	nfsauth_globals_t *nag = ng->nfs_auth;
 	ASSERT(nag != NULL);
 	return (nag);

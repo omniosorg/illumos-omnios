@@ -257,12 +257,23 @@ nvlist_t *rfs4_dss_paths, *rfs4_dss_oldpaths;
 int rfs4_dispatch(struct rpcdisp *, struct svc_req *, SVCXPRT *, char *);
 bool_t rfs4_minorvers_mismatch(struct svc_req *, SVCXPRT *, void *);
 
+/*
+ * Stash NFS zone globals in TSD to avoid some lock contention
+ * from frequent zone_getspecific calls.
+ */
+static uint_t nfs_server_tsd_key;
+
 nfs_globals_t *
 nfs_srv_getzg(void)
 {
 	nfs_globals_t *ng;
 
-	ng = zone_getspecific(nfssrv_zone_key, curzone);
+	ng = tsd_get(nfs_server_tsd_key);
+	if (ng == NULL) {
+		ng = zone_getspecific(nfssrv_zone_key, curzone);
+		(void) tsd_set(nfs_server_tsd_key, ng);
+	}
+
 	return (ng);
 }
 
@@ -1487,8 +1498,8 @@ common_dispatch(struct svc_req *req, SVCXPRT *xprt, rpcvers_t min_vers,
 	char **procnames;
 	char cbuf[INET6_ADDRSTRLEN];	/* to hold both IPv4 and IPv6 addr */
 	bool_t ro = FALSE;
-	nfs_export_t *ne = nfs_get_export();
-	nfs_globals_t *ng = ne->ne_globals;
+	nfs_globals_t *ng = nfs_srv_getzg();
+	nfs_export_t *ne = ng->nfs_export;
 	kstat_named_t *svstat, *procstat;
 
 	ASSERT(req->rq_prog == NFS_PROGRAM || req->rq_prog == NFS_ACL_PROGRAM);
@@ -2565,6 +2576,7 @@ nfs_srvinit(void)
 	rw_init(&nfssrv_globals_rwl, NULL, RW_DEFAULT, NULL);
 	list_create(&nfssrv_globals_list, sizeof (nfs_globals_t),
 	    offsetof (nfs_globals_t, nfs_g_link));
+	tsd_create(&nfs_server_tsd_key, NULL);
 
 	/* The order here is important */
 	nfs_exportinit();
@@ -2604,6 +2616,7 @@ nfs_srvfini(void)
 	nfs_exportfini();
 
 	/* Truly global stuff in this module (not per zone) */
+	tsd_destroy(&nfs_server_tsd_key);
 	list_destroy(&nfssrv_globals_list);
 	rw_destroy(&nfssrv_globals_rwl);
 }

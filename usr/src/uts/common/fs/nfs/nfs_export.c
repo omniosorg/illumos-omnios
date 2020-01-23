@@ -120,7 +120,7 @@ fhandle_t nullfh2;	/* for comparing V2 filehandles */
 extern nfs_export_t *
 nfs_get_export(void)
 {
-	nfs_globals_t *ng = zone_getspecific(nfssrv_zone_key, curzone);
+	nfs_globals_t *ng = nfs_srv_getzg();
 	nfs_export_t *ne = ng->nfs_export;
 	ASSERT(ne != NULL);
 	return (ne);
