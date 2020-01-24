@@ -67,7 +67,7 @@
 	    grouping='require_all'
 	    restart_on='error'
 	    type='service'>
-	    	<service_fmri value='svc:/system/filesystem/minimal' />
+		<service_fmri value='svc:/system/filesystem/minimal' />
 	</dependency>
 
 	<exec_method

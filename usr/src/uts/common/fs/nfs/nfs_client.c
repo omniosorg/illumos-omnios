@@ -24,7 +24,7 @@
  */
 
 /*
- *  	Copyright (c) 1983,1984,1985,1986,1987,1988,1989  AT&T.
+ *	Copyright (c) 1983,1984,1985,1986,1987,1988,1989  AT&T.
  *	All rights reserved.
  */
 
@@ -2804,7 +2804,7 @@ nfs_mi_zonelist_remove(mntinfo_t *mi)
  * NFS Client initialization routine.  This routine should only be called
  * once.  It performs the following tasks:
  *	- Initalize all global locks
- * 	- Call sub-initialization routines (localize access to variables)
+ *	- Call sub-initialization routines (localize access to variables)
  */
 int
 nfs_clntinit(void)
@@ -3357,7 +3357,7 @@ nfs_free_delmapcall(nfs_delmapcall_t *delmap_call)
  * Returns:
  *	0 if the caller wasn't found
  *	1 if the caller was found, removed and freed.  *errp is set to what
- * 	the result of the delmap was.
+ *	the result of the delmap was.
  */
 int
 nfs_find_and_delete_delmapcall(rnode_t *rp, int *errp)

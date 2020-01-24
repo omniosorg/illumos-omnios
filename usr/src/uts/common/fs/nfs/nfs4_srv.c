@@ -120,8 +120,8 @@ static int rdma_setup_read_data4(READ4args *, READ4res *);
  *	sizeof nfsstat4 (4 bytes) +
  *	sizeof verifier4 (8 bytes) +
  *	sizeof entry4list bool (4 bytes) +
- *	sizeof entry4 	(36 bytes) +
- *	sizeof eof bool  (4 bytes)
+ *	sizeof entry4 (36 bytes) +
+ *	sizeof eof bool (4 bytes)
  *
  * RFS4_MINLEN_RDDIR_BUF: minimum length of buffer server will provide to
  *	VOP_READDIR.  Its value is the size of the maximum possible dirent

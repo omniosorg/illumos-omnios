@@ -355,25 +355,25 @@ rfs4_find_dr(struct svc_req *req, rfs4_drc_t *drc, rfs4_dupreq_t **dup)
  *
  * Passed into this function are:-
  *
- * 	disp	A pointer to our dispatch table entry
- * 	req	The request to process
- * 	xprt	The server transport handle
- * 	ap	A pointer to the arguments
+ *	disp	A pointer to our dispatch table entry
+ *	req	The request to process
+ *	xprt	The server transport handle
+ *	ap	A pointer to the arguments
  *
  *
  * When appropriate this function is responsible for inserting
  * the reply into the duplicate cache or replaying an existing
  * cached reply.
  *
- * dr_stat 	reflects the state of the duplicate request that
- * 		has been inserted into or retrieved from the cache
+ * dr_stat	reflects the state of the duplicate request that
+ *		has been inserted into or retrieved from the cache
  *
  * drp		is the duplicate request entry
  *
  */
 int
-rfs4_dispatch(struct rpcdisp *disp, struct svc_req *req,
-		SVCXPRT *xprt, char *ap)
+rfs4_dispatch(struct rpcdisp *disp, struct svc_req *req, SVCXPRT *xprt,
+    char *ap)
 {
 
 	COMPOUND4res	 res_buf;

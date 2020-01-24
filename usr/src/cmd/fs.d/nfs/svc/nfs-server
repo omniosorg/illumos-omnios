@@ -53,7 +53,7 @@ configure_ipfilter()
 
         #
 	# Nothing to do if:
-        # - ipfilter isn't online 
+        # - ipfilter isn't online
 	# - global policy is 'custom'
 	# - service's policy is 'use_global'
         #

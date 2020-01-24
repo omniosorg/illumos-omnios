@@ -39,26 +39,26 @@ extern "C" {
  * NFSv4 Duplicate Request cache.
  */
 typedef struct rfs4_drc {
-	kmutex_t 	lock;
+	kmutex_t	lock;
 	uint32_t	dr_hash;
-	uint32_t 	max_size;
-	uint32_t 	in_use;
+	uint32_t	max_size;
+	uint32_t	in_use;
 	list_t		dr_cache;
-	list_t  	*dr_buckets;
+	list_t		*dr_buckets;
 } rfs4_drc_t;
 
 /*
  * NFSv4 Duplicate request cache entry.
  */
 typedef struct rfs4_dupreq {
-	list_node_t 	dr_bkt_next;
+	list_node_t	dr_bkt_next;
 	list_node_t	dr_next;
 	list_t		*dr_bkt;
 	rfs4_drc_t	*drc;
 	int		dr_state;
 	uint32_t	dr_xid;
 	struct netbuf	dr_addr;
-	COMPOUND4res 	dr_res;
+	COMPOUND4res	dr_res;
 } rfs4_dupreq_t;
 
 /*
@@ -70,7 +70,7 @@ typedef struct rfs4_dupreq {
 #define	NFS4_DUP_PENDING	2
 #define	NFS4_DUP_FREE		3
 
-#define	NFS4_DUP_REPLAY 	4
+#define	NFS4_DUP_REPLAY		4
 #define	NFS4_DUP_INUSE		5
 
 extern uint32_t nfs4_drc_max;

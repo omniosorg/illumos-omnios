@@ -25,7 +25,7 @@
 
 /*
  * Copyright 2018 Nexenta Systems, Inc.
- * Copyright 2019 Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 #include <sys/types.h>

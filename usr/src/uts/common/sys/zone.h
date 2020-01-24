@@ -22,9 +22,8 @@
 /*
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2014 Igor Kozhukhov <ikozhukhov@gmail.com>.
- * Copyright 2019 Joyent, Inc.
  * Copyright 2019 Nexenta Systems, Inc. All rights reserved.
- * Copyright 2014 Igor Kozhukhov <ikozhukhov@gmail.com>.
+ * Copyright 2020 Joyent, Inc.
  */
 
 #ifndef _SYS_ZONE_H

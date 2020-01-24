@@ -24,7 +24,7 @@
  */
 
 /*
- *  	Copyright 1983, 1984, 1985, 1986, 1987, 1988, 1989  AT&T.
+ *	Copyright 1983, 1984, 1985, 1986, 1987, 1988, 1989  AT&T.
  *		All rights reserved.
  */
 
@@ -1011,9 +1011,8 @@ nfs_export_zone_shutdown(nfs_globals_t *ng)
 		}
 	}
 	if (errors > 0) {
-		cmn_err(CE_NOTE,
-		    "NFS: failed un-exports in zone %d",
-		    (int) ng->nfs_zoneid);
+		cmn_err(CE_NOTE, "NFS: failed un-exports in zone %d",
+		    (int)ng->nfs_zoneid);
 	}
 
 	rw_exit(&ne->exported_lock);
@@ -1069,7 +1068,7 @@ nfs_export_zone_fini(nfs_globals_t *ng)
 	if (i > 0) {
 		cmn_err(CE_NOTE,
 		    "NFS: zone %d has %d export IDs left after shutdown",
-		    (int) ng->nfs_zoneid, i);
+		    (int)ng->nfs_zoneid, i);
 	}
 	rw_destroy(&ne->exported_lock);
 	kmem_free(ne, sizeof (*ne));

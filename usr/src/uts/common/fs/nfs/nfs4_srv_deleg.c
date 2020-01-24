@@ -1273,8 +1273,10 @@ rfs4_grant_delegation(delegreq_t dreq, rfs4_state_t *sp, int *recall)
 	nsrv4 = nfs4_get_srv();
 
 	/* Is the server even providing delegations? */
-	if (nsrv4->nfs4_deleg_policy == SRV_NEVER_DELEGATE || dreq == DELEG_NONE)
+	if (nsrv4->nfs4_deleg_policy == SRV_NEVER_DELEGATE ||
+	    dreq == DELEG_NONE) {
 		return (NULL);
+	}
 
 	/* Check to see if delegations have been temporarily disabled */
 	mutex_enter(&nsrv4->deleg_lock);

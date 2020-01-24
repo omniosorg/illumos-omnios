@@ -2575,7 +2575,7 @@ nfs_srvinit(void)
 	/* Truly global stuff in this module (not per zone) */
 	rw_init(&nfssrv_globals_rwl, NULL, RW_DEFAULT, NULL);
 	list_create(&nfssrv_globals_list, sizeof (nfs_globals_t),
-	    offsetof (nfs_globals_t, nfs_g_link));
+	    offsetof(nfs_globals_t, nfs_g_link));
 	tsd_create(&nfs_server_tsd_key, NULL);
 
 	/* The order here is important */
