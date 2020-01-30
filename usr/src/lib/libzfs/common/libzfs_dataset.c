@@ -1315,7 +1315,7 @@ badlabel:
 			 * --------------------------------------------------
 			 * zoned=on	mountpoint (no)	    mountpoint (yes)
 			 *		sharenfs (no)	    sharenfs (yes)
-			 *		sharesmb (no)	    sharesmb (no)
+			 *		sharesmb (no)	    sharesmb (yes)
 			 *
 			 * zoned=off	mountpoint (yes)	N/A
 			 *		sharenfs (yes)
