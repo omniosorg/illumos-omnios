@@ -3909,6 +3909,7 @@ usr/src/man/man3proc/pr_stat64.3proc
 usr/src/man/man3proc/proc_arg_xgrab.3proc
 usr/src/man/man3proc/proc_arg_xpsinfo.3proc
 usr/src/man/man3proc/proc_dmodelname.3proc
+usr/src/man/man3proc/proc_fdinfo_free.3proc
 usr/src/man/man3proc/proc_finistdio.3proc
 usr/src/man/man3proc/proc_flushstdio.3proc
 usr/src/man/man3proc/proc_free_priv.3proc
@@ -4404,7 +4405,6 @@ usr/src/tools/proto/
 usr/src/tools/protocmp/protocmp
 usr/src/tools/protolist/protolist
 usr/src/tools/scripts/Install
-usr/src/tools/scripts/bldenv
 usr/src/tools/scripts/bldenv.1onbld
 usr/src/tools/scripts/bringovercheck
 usr/src/tools/scripts/build_cscope
@@ -4423,7 +4423,6 @@ usr/src/tools/scripts/interface_check
 usr/src/tools/scripts/interface_cmp
 usr/src/tools/scripts/jstyle
 usr/src/tools/scripts/mapfilechk
-usr/src/tools/scripts/nightly
 usr/src/tools/scripts/onu
 usr/src/tools/scripts/onu.sh
 usr/src/tools/scripts/protocmp.terse

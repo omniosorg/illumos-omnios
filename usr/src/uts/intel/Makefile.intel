@@ -785,3 +785,4 @@ DACF_KMODS	+= net_dacf
 DRV_KMODS	+= amdf17nbdf
 DRV_KMODS	+= coretemp
 DRV_KMODS	+= pchtemp
+DRV_KMODS	+= amdnbtemp
