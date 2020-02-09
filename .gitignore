@@ -3981,6 +3981,10 @@ usr/src/man/man9f/avl_numnodes.9f
 usr/src/man/man9f/avl_remove.9f
 usr/src/man/man9f/avl_swap.9f
 usr/src/man/man9f/bcanputnext.9f
+usr/src/man/man9f/ddi_dma_cookie_get.9f
+usr/src/man/man9f/ddi_dma_cookie_one.9f
+usr/src/man/man9f/ddi_dma_ncookies.9f
+usr/src/man/man9f/ddi_dma_nextcookie.9f
 usr/src/man/man9f/ddi_ufm_fini.9f
 usr/src/man/man9f/ddi_ufm_image_set_desc.9f
 usr/src/man/man9f/ddi_ufm_image_set_misc.9f
@@ -4245,6 +4249,8 @@ usr/src/test/os-tests/tests/file-locking/runtests.64
 usr/src/test/os-tests/tests/i386/badseg
 usr/src/test/os-tests/tests/i386/badseg_exec
 usr/src/test/os-tests/tests/i386/ldt
+usr/src/test/os-tests/tests/odirectory.32
+usr/src/test/os-tests/tests/odirectory.64
 usr/src/test/os-tests/tests/pf_key/acquire-compare
 usr/src/test/os-tests/tests/pf_key/acquire-spray
 usr/src/test/os-tests/tests/pf_key/eacq-enabler
