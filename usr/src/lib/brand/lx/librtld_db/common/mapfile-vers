@@ -23,6 +23,7 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 #
 # MAPFILE HEADER START
@@ -38,7 +39,9 @@
 # MAPFILE HEADER END
 #
 
-{
+$mapfile_version 2
+
+SYMBOL_VERSION SUNWprivate_1.1 {
 	global:
 		rtld_db_brand_ops32;
 	local:
@@ -46,13 +49,13 @@
 };
 
 #Externally defined symbols
-{
+SYMBOL_SCOPE {
     global:
-	ps_pauxv =		NODIRECT PARENT;
-	ps_pdmodel =		NODIRECT PARENT;
-	ps_pglobal_lookup =	NODIRECT PARENT;
-	ps_pglobal_sym =	NODIRECT PARENT;
-	ps_plog =		NODIRECT PARENT;
-	ps_pread =		NODIRECT PARENT;
-	ps_pwrite =		NODIRECT PARENT;
+	ps_pauxv		{ FLAGS = NODIRECT PARENT };
+	ps_pdmodel		{ FLAGS = NODIRECT PARENT };
+	ps_pglobal_lookup	{ FLAGS = NODIRECT PARENT };
+	ps_pglobal_sym		{ FLAGS = NODIRECT PARENT };
+	ps_plog			{ FLAGS = NODIRECT PARENT };
+	ps_pread		{ FLAGS = NODIRECT PARENT };
+	ps_pwrite		{ FLAGS = NODIRECT PARENT };
 };

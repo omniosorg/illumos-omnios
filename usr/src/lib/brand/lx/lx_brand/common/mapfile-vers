@@ -23,6 +23,7 @@
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 #
 # MAPFILE HEADER START
@@ -38,10 +39,12 @@
 # MAPFILE HEADER END
 #
 
+$mapfile_version 2
+
 #
 # Scope everything local -- our .init section is our only public interface.
 #
-{
+SYMBOL_VERSION SUNWprivate_1.1 {
 	local:
 		*;
 };
