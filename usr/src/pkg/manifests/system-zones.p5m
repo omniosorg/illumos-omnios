@@ -71,9 +71,6 @@ $(MULTILIB_ONLY)file path=usr/lib/$(ARCH64)/libbrand.so.1
 $(MULTILIB_ONLY)file path=usr/lib/$(ARCH64)/libzonecfg.so.1
 $(MULTILIB_ONLY)file path=usr/lib/$(ARCH64)/libzonestat.so.1
 dir  path=usr/lib/brand
-dir  path=usr/lib/brand/ipkg group=bin
-file path=usr/lib/brand/ipkg/config.xml mode=0444
-file path=usr/lib/brand/ipkg/platform.xml mode=0444
 dir  path=usr/lib/brand/shared group=sys
 file path=usr/lib/brand/shared/common.ksh mode=0444
 file path=usr/lib/brand/shared/query mode=0755

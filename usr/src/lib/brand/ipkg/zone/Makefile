@@ -22,10 +22,12 @@
 #
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+
+#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 
 TEMPLATES=	SUNWdefault.xml SUNWblank.xml
-XMLDOCS=	config.xml platform.xml
 CLOBBERFILES=	$(ROOTXMLDOCS) $(ROOTTEMPLATES)
 
 all:
@@ -33,7 +35,7 @@ all:
 include $(SRC)/cmd/Makefile.cmd
 include ../Makefile.ipkg
 
-install: $(ROOTXMLDOCS) $(ROOTTEMPLATES)
+install: $(ROOTTEMPLATES)
 
 clean:
 

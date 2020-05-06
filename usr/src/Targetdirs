@@ -277,7 +277,6 @@ DIRS=							\
 	/usr/lib					\
 	/usr/lib/abi					\
 	/usr/lib/brand					\
-	/usr/lib/brand/ipkg				\
 	/usr/lib/brand/labeled				\
 	/usr/lib/brand/shared				\
 	/usr/lib/brand/sn1				\
