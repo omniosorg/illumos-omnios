@@ -81,7 +81,8 @@ ctfconvert_usage(const char *fmt, ...)
 	    "                  [-o outfile] input\n"
 	    "\n"
 	    "\t-b  batch process this many dies at a time (default %d)\n"
-	    "\t-i  ignore files not built partially from C sources\n"
+	    "\t-i  attempt to process files not built partially from"
+	    " C sources\n"
 	    "\t-j  use nthrs threads to perform the merge (default %d)\n"
 	    "\t-k  keep around original input file on failure\n"
 	    "\t-l  set output container's label to specified value\n"
@@ -249,7 +250,6 @@ main(int argc, char *argv[])
 	ctf_file_t *ofp;
 	char buf[4096] = "";
 	boolean_t optx = B_FALSE;
-	boolean_t ignore_non_c = B_FALSE;
 	ctf_convert_t *cch;
 
 	ctfconvert_progname = basename(argv[0]);
@@ -269,7 +269,7 @@ main(int argc, char *argv[])
 			break;
 		}
 		case 'i':
-			ignore_non_c = B_TRUE;
+			flags |= CTF_ALLOW_NO_C_SRC;
 			break;
 		case 'j': {
 			long argno;
@@ -376,7 +376,8 @@ main(int argc, char *argv[])
 		 * However, for the benefit of intransigent build environments,
 		 * the -i and -m options can be used to relax this.
 		 */
-		if (err == ECTF_CONVNOCSRC && ignore_non_c) {
+		if (err == ECTF_CONVNOCSRC &&
+		    (flags & CTF_ALLOW_NO_C_SRC) != 0) {
 			exit(CTFCONVERT_OK);
 		}
 

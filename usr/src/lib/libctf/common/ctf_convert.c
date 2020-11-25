@@ -53,8 +53,10 @@ ctf_has_c_source(Elf *elf, char *errmsg, size_t errlen)
 			break;
 	}
 
-	if (scn == NULL)
+	if (scn == NULL) {
+		ctf_dprintf("Could not find symbol table section\n");
 		return (CHR_NO_C_SOURCE);
+	}
 
 	if ((strscn = elf_getscn(elf, shdr.sh_link)) == NULL) {
 		(void) snprintf(errmsg, errlen, "failed to get str section: %s",
@@ -74,6 +76,8 @@ ctf_has_c_source(Elf *elf, char *errmsg, size_t errlen)
 		return (CHR_ERROR);
 	}
 
+	ctf_dprintf("Walking string table looking for .c files\n");
+
 	for (i = 0; i < shdr.sh_size / shdr.sh_entsize; i++) {
 		GElf_Sym sym;
 		const char *file;
@@ -86,13 +90,19 @@ ctf_has_c_source(Elf *elf, char *errmsg, size_t errlen)
 			return (CHR_ERROR);
 		}
 
-		if (GELF_ST_TYPE(sym.st_info) != STT_FILE)
-			continue;
-
 		file = (const char *)((uintptr_t)strdata->d_buf + sym.st_name);
+
+		if (GELF_ST_TYPE(sym.st_info) != STT_FILE) {
+			ctf_dprintf("'%s'\n", file);
+			continue;
+		}
+
+		ctf_dprintf("'%s'; is a file\n", file);
+
 		len = strlen(file);
 		if (len >= 2 && strncmp(".c", &file[len - 2], 2) == 0) {
 			ret = CHR_HAS_C_SOURCE;
+			ctf_dprintf("Found .c file - '%s'\n", file);
 			break;
 		}
 	}
@@ -127,7 +137,9 @@ ctf_elfconvert(ctf_convert_t *cch, int fd, Elf *elf,
 
 	case CHR_NO_C_SOURCE:
 		*errp = ECTF_CONVNOCSRC;
-		return (NULL);
+		if ((cch->cch_flags & CTF_ALLOW_NO_C_SRC) == 0)
+			return (NULL);
+		break;
 
 	default:
 		break;
@@ -143,6 +155,14 @@ ctf_elfconvert(ctf_convert_t *cch, int fd, Elf *elf,
 
 	if (err != 0) {
 		assert(fp == NULL);
+		/*
+		 * If no C source was found but we attempted conversion anyway
+		 * due to CTF_ALLOW_NO_C_SRC, and none of the converters
+		 * was able to process the object, return the original
+		 * ECTF_CONVNOCSRC error.
+		 */
+		if (err == ECTF_CONVNODEBUG && *errp == ECTF_CONVNOCSRC)
+			return (NULL);
 		*errp = err;
 		return (NULL);
 	}
