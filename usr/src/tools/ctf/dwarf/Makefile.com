@@ -107,12 +107,29 @@ DYNFLAGS += '-R$$ORIGIN/../../lib/$(MACH)'
 LDLIBS = -lelf -lc -lz
 NATIVE_LIBS += libelf.so libc.so libz.so
 
+# We can't directly build this library with CTF information as the CTF tools
+# themselves depend upon it, and so aren't built yet. However, we can include
+# DWARF debug data and avoid stripping the objects so they can be converted
+# and re-installed via the 'installctf' target later.
+$(DYNLIB) := CTFMERGE_POST= :
+CTFCONVERT_O= :
+CFLAGS += $(CTF_FLAGS)
+STRIP_STABS = :
+
 .KEEP_STATE:
-.PARALLEL:
+.PARALLEL: $(PICS)
 
 all:	$(DYNLIB)
 
-install: all $(ROOTONBLDLIBMACH)/libdwarf.so.1 $(ROOTONBLDLIBMACH)/libdwarf.so
+install_libs: $(ROOTONBLDLIBMACH)/libdwarf.so.1 $(ROOTONBLDLIBMACH)/libdwarf.so
+install: all install_libs
+
+ctfconvert_lib: FRC
+	-$(CTFCONVERT) -k $(CTFCVTFLAGS) $(DYNLIB)
+	$(STRIP) -x $(DYNLIB)
+	$(TOUCH) $(DYNLIB)
+
+installctf: ctfconvert_lib install
 
 $(ROOTONBLDLIBMACH)/%: %
 	$(INS.file)
@@ -121,11 +138,6 @@ $(ROOTONBLDLIBMACH)/$(LIBLINKS): $(ROOTONBLDLIBMACH)/$(LIBLINKS)$(VERS)
 	$(INS.liblink)
 
 FRC:
-
-# We can't provide CTF information for libdwarf, as the CTF tools themselves
-# depond upon it, and so aren't built yet.
-$(DYNLIB) := CTFMERGE_POST= :
-CTFCONVERT_O= :
 
 include $(SRC)/lib/Makefile.targ
 

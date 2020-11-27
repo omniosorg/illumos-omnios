@@ -116,7 +116,7 @@ static boolean_t
 fix_file(const char *filename, mode_t mode)
 {
 	pid_t pid;
-	int i, rc;
+	int rc;
 	int stat = 0;
 
 	if ((mode & S_IWUSR) == 0) {

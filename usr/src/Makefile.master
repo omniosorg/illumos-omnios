@@ -1095,6 +1095,7 @@ CTFCVTFLAGS=		-L VERSION
 CTFMRGFLAGS=
 
 CTFCONVERT_O		= $(CTFCONVERT) $(CTFCVTFLAGS) $@
+CTFCONVERT_BIN		= $(CTFCONVERT) $(CTFCVTFLAGS) $@
 
 # Rules (normally from make.rules) and macros which are used for post
 # processing files. Normally, these do stripping of the comment section

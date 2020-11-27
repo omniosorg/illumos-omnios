@@ -13,6 +13,7 @@ PROG = ctfdiff
 SRCS = ctfdiff.c
 
 include ../../Makefile.ctf
+include ../../Makefile.ctf.post
 
 CFLAGS += $(CCVERBOSE)
 LDLIBS += -lctf
@@ -41,6 +42,6 @@ $(ROOTONBLDMACHPROG): $(PROG)
 install: $(ROOTONBLDMACHPROG)
 
 clean:
-	$(RM) $(OBJS) $(LINTFILES)
+	$(RM) $(OBJS)
 
 include $(SRC)/tools/Makefile.targ

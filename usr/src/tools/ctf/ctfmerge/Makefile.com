@@ -13,6 +13,7 @@ PROG = ctfmerge
 SRCS = ctfmerge.c
 
 include ../../Makefile.ctf
+include ../../Makefile.ctf.post
 
 CFLAGS += $(CCVERBOSE)
 LDLIBS += -lctf -lelf
@@ -42,6 +43,6 @@ $(ROOTONBLDMACHPROG): $(PROG)
 install: $(ROOTONBLDMACHPROG)
 
 clean:
-	$(RM) $(OBJS) $(LINTFILES)
+	$(RM) $(OBJS)
 
 include $(SRC)/tools/Makefile.targ

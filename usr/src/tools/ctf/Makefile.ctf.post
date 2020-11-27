@@ -1,0 +1,25 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+#
+
+# The CTF tools themselves can't use the usual process for adding CTF
+# debug data because that creates a bootstrap problem. However,
+# 'ctfconvert' can convert linked objects and not just individual
+# compilation units. For these tools, build with debug data then use
+# 'ctfconvert' as a post process step.
+#
+
+CFLAGS += $(CTF_FLAGS)
+STRIP_STABS = :
+POST_PROCESS += ; $(CTFCONVERT_BIN); $(STRIP) -x $@

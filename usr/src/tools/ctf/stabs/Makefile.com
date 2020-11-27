@@ -37,6 +37,7 @@ SRCS = \
 	utils.c
 
 include ../../Makefile.ctf
+include ../../Makefile.ctf.post
 
 LDLIBS += -lctf
 NATIVE_LIBS += libctf.so
@@ -63,6 +64,6 @@ $(ROOTONBLDMACHPROG): $(PROG)
 install: $(ROOTONBLDMACHPROG)
 
 clean:
-	$(RM) $(OBJS) $(LINTFILES)
+	$(RM) $(OBJS)
 
 include ../../Makefile.ctf.targ

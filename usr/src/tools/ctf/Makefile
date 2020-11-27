@@ -24,30 +24,42 @@
 # Use is subject to license terms.
 #
 # Copyright 2019 Joyent, Inc.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 
 include ../Makefile.tools
 
 SUBDIRS = stabs ctfstrip libctf ctfdiff ctfdump ctfmerge ctfconvert
+# There is a bootstrap problem with adding CTF data to these components.
+# To work around this, they are first installed as usual but with embedded
+# DWARF data, and then converted and re-installed in a second pass.
+CTF_POST = dwarf libctf ctfconvert
+INSTALLCTF_SUBDIRS = $(CTF_POST:%=%/installctf)
 
 .PARALLEL: $(SUBDIRS)
+.NO_PARALLEL: $(INSTALLCTF_SUBDIRS)
 
 all	:= TARGET= all
 install	:= TARGET= install
 clean	:= TARGET= clean
 clobber	:= TARGET= clobber
-lint	:= TARGET= lint
 
 .KEEP_STATE:
 
-ctfmerge: libctf
-ctfdiff: libctf
-ctfdump: libctf
+ctfmerge: ctfconvert
+ctfdiff: ctfconvert
+ctfdump: ctfconvert
+stabs: ctfconvert
 ctfconvert: libctf
+ctfstrip: ctfconvert
 
-all clean clobber install lint: dwarf .WAIT $(SUBDIRS)
+all clean clobber: dwarf .WAIT $(SUBDIRS)
+install: dwarf .WAIT $(SUBDIRS) .WAIT $(INSTALLCTF_SUBDIRS)
 
 dwarf $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)
+
+$(INSTALLCTF_SUBDIRS): FRC
+	@cd $(@D); pwd; $(MAKE) $(@F)
 
 FRC:

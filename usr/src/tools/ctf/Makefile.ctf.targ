@@ -23,13 +23,8 @@
 # Copyright 2002 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
-#
 
 %.o: ../../common/%.c
 	$(COMPILE.c) $<
-
-%.ln: ../../common/%.c
-	$(LINT.c) -c $<
 
 include ../../../Makefile.targ
