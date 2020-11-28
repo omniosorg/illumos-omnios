@@ -681,7 +681,7 @@ ctf_dwarf_member_location(ctf_cu_t *cup, Dwarf_Die die, Dwarf_Unsigned *valp)
 			if (sign < 0) {
 				(void) snprintf(cup->cu_errbuf, cup->cu_errlen,
 				    "encountered negative member data "
-				    "location: %d\n", sign);
+				    "location: %lld\n", sign);
 			}
 			*valp = (Dwarf_Unsigned)sign;
 			return (0);
@@ -879,7 +879,7 @@ typedef struct ctf_dwarf_fpent {
 
 typedef struct ctf_dwarf_fpmap {
 	uint_t			cdf_mach;
-	ctf_dwarf_fpent_t	cdf_ents[4];
+	ctf_dwarf_fpent_t	cdf_ents[5];
 } ctf_dwarf_fpmap_t;
 
 static const ctf_dwarf_fpmap_t ctf_dwarf_fpmaps[] = {
@@ -905,6 +905,15 @@ static const ctf_dwarf_fpmap_t ctf_dwarf_fpmaps[] = {
 		{ 4, { CTF_FP_SINGLE, CTF_FP_CPLX, CTF_FP_IMAGRY } },
 		{ 8, { CTF_FP_DOUBLE, CTF_FP_DCPLX, CTF_FP_DIMAGRY } },
 		{ 12, { CTF_FP_LDOUBLE, CTF_FP_LDCPLX, CTF_FP_LDIMAGRY } },
+		/*
+		 * ISO/IEC TS 18661-3:2015 _Float128 type
+		 * The CTF format can encode this type as a 128-bit
+		 * long double, even though a long double is 96 bits in the
+		 * 32-bit data model. Note that tools such as 'mdb' cannot
+		 * currently print these but conversion should not fail if
+		 * one is present.
+		 */
+		{ 16, { CTF_FP_LDOUBLE, CTF_FP_LDCPLX, CTF_FP_LDIMAGRY } },
 		{ 0, { 0 } }
 	} },
 	{ EM_X86_64, {
@@ -985,7 +994,7 @@ ctf_dwarf_float_base(ctf_cu_t *cup, Dwarf_Signed type, ctf_encoding_t *enc)
 	}
 
 	(void) snprintf(cup->cu_errbuf, cup->cu_errlen,
-	    "failed to find valid fp mapping for encoding %d, size %d bits\n",
+	    "failed to find valid fp mapping for encoding %lld, size %d bits\n",
 	    type, enc->cte_bits);
 	return (EINVAL);
 }
@@ -1033,7 +1042,7 @@ ctf_dwarf_dwarf_base(ctf_cu_t *cup, Dwarf_Die die, int *kindp,
 		break;
 	default:
 		(void) snprintf(cup->cu_errbuf, cup->cu_errlen,
-		    "encountered unknown DWARF encoding: %d\n", type);
+		    "encountered unknown DWARF encoding: %lld\n", type);
 		return (ECTF_CONVBKERR);
 	}
 
