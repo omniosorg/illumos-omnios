@@ -32,7 +32,6 @@ SRCS = \
 	fth_enum.c \
 	fth_struct.c \
 	genassym.c \
-	list.c \
 	memory.c \
 	utils.c
 
@@ -42,7 +41,7 @@ include ../../Makefile.ctf.post
 LDLIBS += -lctf
 NATIVE_LIBS += libctf.so
 
-OBJS = $(SRCS:%.c=%.o)
+OBJS = $(SRCS:%.c=%.o) list.o
 
 CERRWARN += $(CNOWARN_UNINIT)
 CERRWARN += -_gcc=-Wno-unused
@@ -57,6 +56,9 @@ $(PROG): $(OBJS)
 	$(POST_PROCESS)
 
 %.o: ../common/%.c
+	$(COMPILE.c) $<
+
+%.o: $(SRC)/common/list/%.c
 	$(COMPILE.c) $<
 
 $(ROOTONBLDMACHPROG): $(PROG)

@@ -78,7 +78,7 @@ ctfconvert_usage(const char *fmt, ...)
 
 	(void) fprintf(stderr, "Usage: %s [-ikms] [-j nthrs] [-l label | "
 	    "-L labelenv] [-b batchsize]\n"
-	    "                  [-o outfile] input\n"
+	    "                  [-o outfile] [-M ignorefile] input\n"
 	    "\n"
 	    "\t-b  batch process this many dies at a time (default %d)\n"
 	    "\t-i  attempt to process files not built partially from"
@@ -88,6 +88,7 @@ ctfconvert_usage(const char *fmt, ...)
 	    "\t-l  set output container's label to specified value\n"
 	    "\t-L  set output container's label to value from environment\n"
 	    "\t-m  allow input to have missing debug info\n"
+	    "\t-M  allow files listed in ignorefile to have missing debug\n"
 	    "\t-o  copy input to outfile and add CTF\n"
 	    "\t-s  allow truncation of data that cannot be fully converted\n",
 	    ctfconvert_progname,
@@ -246,6 +247,7 @@ main(int argc, char *argv[])
 	const char *outfile = NULL;
 	const char *label = NULL;
 	const char *infile = NULL;
+	const char *ignorefile = NULL;
 	char *tmpfile;
 	ctf_file_t *ofp;
 	char buf[4096] = "";
@@ -254,7 +256,7 @@ main(int argc, char *argv[])
 
 	ctfconvert_progname = basename(argv[0]);
 
-	while ((c = getopt(argc, argv, ":b:ij:kl:L:mo:sX")) != -1) {
+	while ((c = getopt(argc, argv, ":b:ij:kl:L:mM:o:sX")) != -1) {
 		switch (c) {
 		case 'b': {
 			long argno;
@@ -294,6 +296,9 @@ main(int argc, char *argv[])
 			break;
 		case 'm':
 			flags |= CTF_ALLOW_MISSING_DEBUG;
+			break;
+		case 'M':
+			ignorefile = optarg;
 			break;
 		case 'o':
 			outfile = optarg;
@@ -361,6 +366,31 @@ main(int argc, char *argv[])
 	if ((err = ctf_convert_set_warncb(cch, ctfconvert_warning, NULL)) != 0)
 		ctfconvert_fatal("Could not set warning callback: %s\n",
 		    strerror(err));
+
+	if (ignorefile != NULL) {
+		char buf[MAXPATHLEN + 1];
+		FILE *fp;
+
+		if ((fp = fopen(ignorefile, "r")) == NULL) {
+			ctfconvert_fatal("Could not open ignorefile '%s': %s\n",
+			    ignorefile, strerror(err));
+		}
+
+		while (fgets(buf, sizeof (buf), fp) != NULL) {
+			char *p = buf;
+
+			if (*p == '#')
+				continue;
+			(void) strsep(&p, "\n\r");
+			if (ctf_convert_add_ignore(cch, buf) != 0) {
+				ctfconvert_fatal(
+				    "Failed to add '%s' to ignore list: %s\n",
+				    buf, strerror(err));
+			}
+		}
+
+		(void) fclose(fp);
+	}
 
 	ofp = ctf_fdconvert(cch, ifd, &err, buf, sizeof (buf));
 

@@ -202,6 +202,7 @@
 #include <libctf_impl.h>
 #include <sys/avl.h>
 #include <sys/debug.h>
+#include <sys/list.h>
 #include <gelf.h>
 #include <libdwarf.h>
 #include <dwarf.h>
@@ -3326,9 +3327,11 @@ ctf_dwarf_init_die(ctf_cu_t *cup)
  * the -m option.
  */
 static boolean_t
-c_source_has_debug(const char *file, ctf_cu_t *cus, size_t nr_cus)
+c_source_has_debug(ctf_convert_t *cch, const char *file,
+    ctf_cu_t *cus, size_t nr_cus)
 {
 	const char *basename = strrchr(file, '/');
+	ctf_convert_filelist_t *ccf;
 
 	if (basename == NULL)
 		basename = file;
@@ -3343,6 +3346,14 @@ c_source_has_debug(const char *file, ctf_cu_t *cus, size_t nr_cus)
 	    strncmp(basename, "crt", strlen("crt")) == 0 ||
 	    strncmp(basename, "values-", strlen("values-")) == 0)
 		return (B_TRUE);
+
+	for (ccf = list_head(&cch->cch_nodebug); ccf != NULL;
+	    ccf = list_next(&cch->cch_nodebug, ccf)) {
+		if (ccf->ccf_basename != NULL &&
+		    strcmp(basename, ccf->ccf_basename) == 0) {
+			return (B_TRUE);
+		}
+	}
 
 	for (size_t i = 0; i < nr_cus; i++) {
 		if (cus[i].cu_name != NULL &&
@@ -3420,7 +3431,7 @@ ctf_dwarf_check_missing(ctf_convert_t *cch, ctf_cu_t *cus, size_t nr_cus,
 		if (len < 2 || strncmp(".c", &file[len - 2], 2) != 0)
 			continue;
 
-		if (!c_source_has_debug(file, cus, nr_cus)) {
+		if (!c_source_has_debug(cch, file, cus, nr_cus)) {
 			if (cch->cch_warncb != NULL) {
 				cch->cch_warncb(
 				    cch->cch_warncb_arg,
