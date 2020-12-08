@@ -92,14 +92,17 @@ typedef enum ctf_convert_flag {
 	 * allows us to continue and convert what we can.
 	 */
 	CTF_ALLOW_TRUNCATION = 0x02,
-
 	/*
-	 * Normally, we return a failure if we can't find any 'file' entries in
-	 * the ELF object's string table which end with '.c'. This flag
-	 * overrides that check and attempts conversion anyway.
+	 * Conversion is not usually attempted for objects that don't appear
+	 * to be built from C sources. This flag overrides this and attempts
+	 * conversion anyway.
 	 */
-	CTF_ALLOW_NO_C_SRC = 0x04
+	CTF_FORCE_CONVERSION = 0x04
 } ctf_convert_flag_t;
+
+#define	CTF_CONVERT_ALL_FLAGS	(CTF_ALLOW_MISSING_DEBUG | \
+				    CTF_ALLOW_TRUNCATION | \
+				    CTF_FORCE_CONVERSION)
 
 /* opaque handle for ctfconvert functions */
 struct ctf_convert_handle;
@@ -109,9 +112,10 @@ extern ctf_convert_t *ctf_convert_init(int *);
 extern void ctf_convert_fini(ctf_convert_t *);
 
 typedef void (*ctf_convert_warn_f)(void *, const char *, ...);
+/* Any warning callback must be MT-Safe if multiple threads are used */
 extern int ctf_convert_set_warncb(ctf_convert_t *, ctf_convert_warn_f, void *);
 extern int ctf_convert_set_batchsize(ctf_convert_t *, uint_t);
-extern int ctf_convert_set_flags(ctf_convert_t *, uint_t);
+extern int ctf_convert_set_flags(ctf_convert_t *, ctf_convert_flag_t);
 extern int ctf_convert_set_label(ctf_convert_t *, const char *);
 extern int ctf_convert_set_nthreads(ctf_convert_t *, uint_t);
 extern int ctf_convert_add_ignore(ctf_convert_t *, const char *);

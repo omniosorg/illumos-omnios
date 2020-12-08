@@ -33,7 +33,7 @@ extern "C" {
 
 typedef struct ctf_convert_filelist {
 	list_node_t ccf_node;
-	const char *ccf_basename;
+	char *ccf_basename;
 } ctf_convert_filelist_t;
 
 struct ctf_convert_handle {

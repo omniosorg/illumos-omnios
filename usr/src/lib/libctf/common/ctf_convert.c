@@ -112,8 +112,8 @@ ctf_has_c_source(Elf *elf, char *errmsg, size_t errlen)
 }
 
 static ctf_file_t *
-ctf_elfconvert(ctf_convert_t *cch, int fd, Elf *elf,
-    int *errp, char *errbuf, size_t errlen)
+ctf_elfconvert(ctf_convert_t *cch, int fd, Elf *elf, int *errp, char *errbuf,
+    size_t errlen)
 {
 	int err, i;
 	ctf_file_t *fp = NULL;
@@ -138,7 +138,7 @@ ctf_elfconvert(ctf_convert_t *cch, int fd, Elf *elf,
 
 	case CHR_NO_C_SOURCE:
 		*errp = ECTF_CONVNOCSRC;
-		if ((cch->cch_flags & CTF_ALLOW_NO_C_SRC) == 0)
+		if ((cch->cch_flags & CTF_FORCE_CONVERSION) == 0)
 			return (NULL);
 		break;
 
@@ -158,7 +158,7 @@ ctf_elfconvert(ctf_convert_t *cch, int fd, Elf *elf,
 		assert(fp == NULL);
 		/*
 		 * If no C source was found but we attempted conversion anyway
-		 * due to CTF_ALLOW_NO_C_SRC, and none of the converters
+		 * due to CTF_FORCE_CONVERSION, and none of the converters
 		 * was able to process the object, return the original
 		 * ECTF_CONVNOCSRC error.
 		 */
@@ -216,7 +216,7 @@ ctf_convert_init(int *errp)
 static void
 ctf_convert_fini_filelist(ctf_convert_filelist_t *ccf)
 {
-	ctf_free((void *)ccf->ccf_basename, strlen(ccf->ccf_basename) + 1);
+	ctf_strfree(ccf->ccf_basename);
 	ctf_free(ccf, sizeof (ctf_convert_filelist_t));
 }
 
@@ -225,10 +225,7 @@ ctf_convert_fini(ctf_convert_t *cch)
 {
 	ctf_convert_filelist_t *ccf;
 
-	if (cch->cch_label != NULL) {
-		size_t len = strlen(cch->cch_label) + 1;
-		ctf_free(cch->cch_label, len);
-	}
+	ctf_strfree(cch->cch_label);
 	while ((ccf = list_remove_head(&cch->cch_nodebug)) != NULL)
 		ctf_convert_fini_filelist(ccf);
 	list_destroy(&cch->cch_nodebug);
@@ -257,6 +254,8 @@ ctf_convert_set_batchsize(ctf_convert_t *cch, uint_t bsize)
 int
 ctf_convert_set_flags(ctf_convert_t *cch, uint_t flags)
 {
+	if ((flags & ~CTF_CONVERT_ALL_FLAGS) != 0)
+		return (EINVAL);
 	cch->cch_flags = flags;
 	return (0);
 }
@@ -271,13 +270,9 @@ ctf_convert_set_label(ctf_convert_t *cch, const char *label)
 
 	dup = ctf_strdup(label);
 	if (dup == NULL)
-		return (EAGAIN);
+		return (ENOMEM);
 
-	if (cch->cch_label != NULL) {
-		size_t len = strlen(cch->cch_label) + 1;
-		ctf_free(cch->cch_label, len);
-	}
-
+	ctf_strfree(cch->cch_label);
 	cch->cch_label = dup;
 	return (0);
 }
@@ -294,6 +289,9 @@ int
 ctf_convert_add_ignore(ctf_convert_t *cch, const char *basename)
 {
 	ctf_convert_filelist_t *ccf;
+
+	if (strchr(basename, '/') != NULL)
+		return (EINVAL);
 
 	ccf = ctf_alloc(sizeof (ctf_convert_filelist_t));
 	if (ccf == NULL)

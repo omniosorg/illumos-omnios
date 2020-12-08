@@ -57,10 +57,14 @@ static void
 ctfconvert_warning(void *arg, const char *fmt, ...)
 {
 	va_list ap;
+	char *buf;
 
-	(void) fprintf(stderr, "%s: WARNING: ", ctfconvert_progname);
 	va_start(ap, fmt);
-	(void) vfprintf(stderr, fmt, ap);
+	if (vasprintf(&buf, fmt, ap) != -1) {
+		(void) fprintf(stderr, "%s: WARNING: %s", ctfconvert_progname,
+		    buf);
+		free(buf);
+	}
 	va_end(ap);
 }
 
@@ -76,13 +80,13 @@ ctfconvert_usage(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	(void) fprintf(stderr, "Usage: %s [-ikms] [-j nthrs] [-l label | "
+	(void) fprintf(stderr, "Usage: %s [-fikms] [-j nthrs] [-l label | "
 	    "-L labelenv] [-b batchsize]\n"
 	    "                  [-o outfile] [-M ignorefile] input\n"
 	    "\n"
 	    "\t-b  batch process this many dies at a time (default %d)\n"
-	    "\t-i  attempt to process files not built partially from"
-	    " C sources\n"
+	    "\t-f  always attempt to convert files\n"
+	    "\t-i  ignore files not built partially from C sources\n"
 	    "\t-j  use nthrs threads to perform the merge (default %d)\n"
 	    "\t-k  keep around original input file on failure\n"
 	    "\t-l  set output container's label to specified value\n"
@@ -241,7 +245,7 @@ main(int argc, char *argv[])
 {
 	int c, ifd, err;
 	boolean_t keep = B_FALSE;
-	uint_t flags = 0;
+	ctf_convert_flag_t flags = 0;
 	uint_t bsize = CTF_CONVERT_DEFAULT_BATCHSIZE;
 	uint_t nthreads = CTF_CONVERT_DEFAULT_NTHREADS;
 	const char *outfile = NULL;
@@ -252,11 +256,12 @@ main(int argc, char *argv[])
 	ctf_file_t *ofp;
 	char buf[4096] = "";
 	boolean_t optx = B_FALSE;
+	boolean_t ignore_non_c = B_FALSE;
 	ctf_convert_t *cch;
 
 	ctfconvert_progname = basename(argv[0]);
 
-	while ((c = getopt(argc, argv, ":b:ij:kl:L:mM:o:sX")) != -1) {
+	while ((c = getopt(argc, argv, ":b:fij:kl:L:mM:o:sX")) != -1) {
 		switch (c) {
 		case 'b': {
 			long argno;
@@ -270,8 +275,11 @@ main(int argc, char *argv[])
 			bsize = (uint_t)argno;
 			break;
 		}
+		case 'f':
+			flags |= CTF_FORCE_CONVERSION;
+			break;
 		case 'i':
-			flags |= CTF_ALLOW_NO_C_SRC;
+			ignore_non_c = B_TRUE;
 			break;
 		case 'j': {
 			long argno;
@@ -368,25 +376,34 @@ main(int argc, char *argv[])
 		    strerror(err));
 
 	if (ignorefile != NULL) {
-		char buf[MAXPATHLEN + 1];
+		char *buf = NULL;
+		ssize_t cnt;
+		size_t len = 0;
 		FILE *fp;
 
 		if ((fp = fopen(ignorefile, "r")) == NULL) {
 			ctfconvert_fatal("Could not open ignorefile '%s': %s\n",
-			    ignorefile, strerror(err));
+			    ignorefile, strerror(errno));
 		}
 
-		while (fgets(buf, sizeof (buf), fp) != NULL) {
+		while ((cnt = getline(&buf, &len, fp)) != -1) {
 			char *p = buf;
 
-			if (*p == '#')
+			if (cnt == 0 || *p == '#')
 				continue;
-			(void) strsep(&p, "\n\r");
-			if (ctf_convert_add_ignore(cch, buf) != 0) {
+
+			(void) strsep(&p, "\n");
+			if ((err = ctf_convert_add_ignore(cch, buf)) != 0) {
 				ctfconvert_fatal(
 				    "Failed to add '%s' to ignore list: %s\n",
 				    buf, strerror(err));
 			}
+		}
+		free(buf);
+		if (cnt == -1 && feof(fp) == 0) {
+			ctfconvert_fatal(
+			    "Error reading from ignorefile '%s': %s\n",
+			    ignorefile, strerror(errno));
 		}
 
 		(void) fclose(fp);
@@ -406,8 +423,7 @@ main(int argc, char *argv[])
 		 * However, for the benefit of intransigent build environments,
 		 * the -i and -m options can be used to relax this.
 		 */
-		if (err == ECTF_CONVNOCSRC &&
-		    (flags & CTF_ALLOW_NO_C_SRC) != 0) {
+		if (err == ECTF_CONVNOCSRC && ignore_non_c) {
 			exit(CTFCONVERT_OK);
 		}
 

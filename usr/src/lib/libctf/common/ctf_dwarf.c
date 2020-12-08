@@ -1151,7 +1151,7 @@ ctf_dwarf_create_base(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp, int isroot,
 	bzero(&enc, sizeof (ctf_encoding_t));
 	enc.cte_bits = sz * 8;
 	if ((ret = ctf_dwarf_parse_int(name, &kind, &enc, &nname)) == 0) {
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		name = nname;
 	} else {
 		if (ret != EINVAL) {
@@ -1166,7 +1166,7 @@ ctf_dwarf_create_base(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp, int isroot,
 		    &enc, &nname)) != 0) {
 			goto out;
 		} else if (nname != NULL) {
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			name = nname;
 		}
 	}
@@ -1179,7 +1179,7 @@ ctf_dwarf_create_base(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp, int isroot,
 		ret = ctf_dwmap_add(cup, id, die, B_FALSE);
 	}
 out:
-	ctf_free(name, strlen(name) + 1);
+	ctf_strfree(name);
 	return (ret);
 }
 
@@ -1439,7 +1439,7 @@ ctf_dwarf_fixup_sou(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t base, boolean_t add)
 		} else if ((ret = ctf_dwarf_member_offset(cup, memb, mid,
 		    &memboff)) != 0) {
 			if (mname != NULL)
-				ctf_free(mname, strlen(mname) + 1);
+				ctf_strfree(mname);
 			return (ret);
 		}
 
@@ -1452,12 +1452,12 @@ ctf_dwarf_fixup_sou(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t base, boolean_t add)
 			    "failed to add member %s: %s\n",
 			    mname, ctf_errmsg(ctf_errno(cup->cu_ctfp)));
 			if (mname != NULL)
-				ctf_free(mname, strlen(mname) + 1);
+				ctf_strfree(mname);
 			return (ECTF_CONVBKERR);
 		}
 
 		if (mname != NULL)
-			ctf_free(mname, strlen(mname) + 1);
+			ctf_strfree(mname);
 
 next:
 		if ((ret = ctf_dwarf_sib(cup, memb, &sib)) != 0)
@@ -1529,7 +1529,7 @@ ctf_dwarf_create_sou(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp,
 	ctf_dprintf("added sou %s (%d) (%ld) forward=%d\n",
 	    name, kind, base, decl == B_TRUE);
 	if (name != NULL)
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 	if (base == CTF_ERR)
 		return (ctf_errno(cup->cu_ctfp));
 	*idp = base;
@@ -1844,33 +1844,28 @@ ctf_dwarf_create_reference(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp,
 	ctf_id_t id;
 	Dwarf_Die tdie;
 	char *name;
-	size_t namelen;
 
 	if ((ret = ctf_dwarf_string(cup, die, DW_AT_name, &name)) != 0 &&
 	    ret != ENOENT)
 		return (ret);
-	if (ret == ENOENT) {
+	if (ret == ENOENT)
 		name = NULL;
-		namelen = 0;
-	} else {
-		namelen = strlen(name);
-	}
 
 	ctf_dprintf("reference kind %d %s\n", kind, name != NULL ? name : "<>");
 
 	if ((ret = ctf_dwarf_refdie(cup, die, DW_AT_type, &tdie)) != 0) {
 		if (ret != ENOENT) {
-			ctf_free(name, namelen);
+			ctf_strfree(name);
 			return (ret);
 		}
 		if ((id = ctf_dwarf_void(cup)) == CTF_ERR) {
-			ctf_free(name, namelen);
+			ctf_strfree(name);
 			return (ctf_errno(cup->cu_ctfp));
 		}
 	} else {
 		if ((ret = ctf_dwarf_convert_type(cup, tdie, &id,
 		    CTF_ADD_NONROOT)) != 0) {
-			ctf_free(name, namelen);
+			ctf_strfree(name);
 			return (ret);
 		}
 	}
@@ -1882,17 +1877,17 @@ ctf_dwarf_create_reference(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp,
 			*idp = id;
 		}
 
-		ctf_free(name, namelen);
+		ctf_strfree(name);
 		return (ret);
 	}
 
 	if ((*idp = ctf_add_reftype(cup->cu_ctfp, isroot, name, id, kind)) ==
 	    CTF_ERR) {
-		ctf_free(name, namelen);
+		ctf_strfree(name);
 		return (ctf_errno(cup->cu_ctfp));
 	}
 
-	ctf_free(name, namelen);
+	ctf_strfree(name);
 	return (ctf_dwmap_add(cup, *idp, die, B_FALSE));
 }
 
@@ -1923,7 +1918,8 @@ ctf_dwarf_create_enum(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp, int isroot)
 	}
 
 	id = ctf_add_enum(cup->cu_ctfp, isroot, enumname, size);
-	ctf_dprintf("added enum %s (%d)\n", enumname, id);
+	ctf_dprintf("added enum %s (%d)\n",
+	    enumname == NULL ? "<anon>" : enumname, id);
 	if (id == CTF_ERR) {
 		ret = ctf_errno(cup->cu_ctfp);
 		goto out;
@@ -1995,7 +1991,7 @@ ctf_dwarf_create_enum(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp, int isroot)
 				    "value\n");
 				ret = ECTF_CONVBKERR;
 			}
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			break;
 		}
 
@@ -2019,16 +2015,16 @@ ctf_dwarf_create_enum(ctf_cu_t *cup, Dwarf_Die die, ctf_id_t *idp, int isroot)
 				    "to %s (%d)\n", name, eval,
 				    enumname == NULL ? "<anon>" : enumname, id);
 			}
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			break;
 		}
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 	}
 
 out:
 
 	if (enumname != NULL)
-		ctf_free(enumname, strlen(enumname) + 1);
+		ctf_strfree(enumname);
 
 	return (ret);
 }
@@ -2249,7 +2245,7 @@ ctf_dwarf_function_count(ctf_cu_t *cup, Dwarf_Die die, ctf_funcinfo_t *fip,
 				fip->ctc_flags |= CTF_FUNC_VARARG;
 			else
 				fip->ctc_argc++;
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 		} else if (tag == DW_TAG_formal_parameter) {
 			fip->ctc_argc++;
 		} else if (tag == DW_TAG_unspecified_parameters &&
@@ -2336,7 +2332,7 @@ ctf_dwarf_convert_function(ctf_cu_t *cup, Dwarf_Die die)
 
 	if ((ret = ctf_dwarf_boolean(cup, die, DW_AT_declaration, &b)) != 0) {
 		if (ret != ENOENT) {
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			return (ret);
 		}
 	} else if (b != 0) {
@@ -2349,12 +2345,12 @@ ctf_dwarf_convert_function(ctf_cu_t *cup, Dwarf_Die die)
 		 */
 		ctf_dprintf("ignoring declaration of function %s (die %llx)\n",
 		    name, ctf_die_offset(cup, die));
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		return (0);
 	}
 
 	if ((cdf = ctf_alloc(sizeof (ctf_dwfunc_t))) == NULL) {
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		return (ENOMEM);
 	}
 	bzero(cdf, sizeof (ctf_dwfunc_t));
@@ -2363,18 +2359,18 @@ ctf_dwarf_convert_function(ctf_cu_t *cup, Dwarf_Die die)
 	if ((ret = ctf_dwarf_refdie(cup, die, DW_AT_type, &tdie)) == 0) {
 		if ((ret = ctf_dwarf_convert_type(cup, tdie,
 		    &(cdf->cdf_fip.ctc_return), CTF_ADD_ROOT)) != 0) {
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			ctf_free(cdf, sizeof (ctf_dwfunc_t));
 			return (ret);
 		}
 	} else if (ret != ENOENT) {
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		ctf_free(cdf, sizeof (ctf_dwfunc_t));
 		return (ret);
 	} else {
 		if ((cdf->cdf_fip.ctc_return = ctf_dwarf_void(cup)) ==
 		    CTF_ERR) {
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			ctf_free(cdf, sizeof (ctf_dwfunc_t));
 			return (ctf_errno(cup->cu_ctfp));
 		}
@@ -2392,7 +2388,7 @@ ctf_dwarf_convert_function(ctf_cu_t *cup, Dwarf_Die die)
 	 */
 	if ((ret = ctf_dwarf_function_count(cup, die, &cdf->cdf_fip,
 	    B_FALSE)) != 0) {
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		ctf_free(cdf, sizeof (ctf_dwfunc_t));
 		return (ret);
 	}
@@ -2402,14 +2398,14 @@ ctf_dwarf_convert_function(ctf_cu_t *cup, Dwarf_Die die)
 		uint_t argc = cdf->cdf_fip.ctc_argc;
 		cdf->cdf_argv = ctf_alloc(sizeof (ctf_id_t) * argc);
 		if (cdf->cdf_argv == NULL) {
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			ctf_free(cdf, sizeof (ctf_dwfunc_t));
 			return (ENOMEM);
 		}
 		if ((ret = ctf_dwarf_convert_fargs(cup, die,
 		    &cdf->cdf_fip, cdf->cdf_argv)) != 0) {
 			ctf_free(cdf->cdf_argv, sizeof (ctf_id_t) * argc);
-			ctf_free(name, strlen(name) + 1);
+			ctf_strfree(name);
 			ctf_free(cdf, sizeof (ctf_dwfunc_t));
 			return (ret);
 		}
@@ -2420,7 +2416,7 @@ ctf_dwarf_convert_function(ctf_cu_t *cup, Dwarf_Die die)
 	if ((ret = ctf_dwarf_isglobal(cup, die, &cdf->cdf_global)) != 0) {
 		ctf_free(cdf->cdf_argv, sizeof (ctf_id_t) *
 		    cdf->cdf_fip.ctc_argc);
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		ctf_free(cdf, sizeof (ctf_dwfunc_t));
 		return (ret);
 	}
@@ -2476,7 +2472,7 @@ ctf_dwarf_convert_variable(ctf_cu_t *cup, Dwarf_Die die)
 		return (0);
 
 	if ((ret = ctf_dwarf_refdie(cup, die, DW_AT_type, &tdie)) != 0) {
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		return (ret);
 	}
 
@@ -2485,7 +2481,7 @@ ctf_dwarf_convert_variable(ctf_cu_t *cup, Dwarf_Die die)
 		return (ret);
 
 	if ((cdv = ctf_alloc(sizeof (ctf_dwvar_t))) == NULL) {
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		return (ENOMEM);
 	}
 
@@ -2494,7 +2490,7 @@ ctf_dwarf_convert_variable(ctf_cu_t *cup, Dwarf_Die die)
 
 	if ((ret = ctf_dwarf_isglobal(cup, die, &cdv->cdv_global)) != 0) {
 		ctf_free(cdv, sizeof (ctf_dwvar_t));
-		ctf_free(name, strlen(name) + 1);
+		ctf_strfree(name);
 		return (ret);
 	}
 
@@ -3080,7 +3076,7 @@ ctf_dwarf_free_die(ctf_cu_t *cup)
 
 	ctf_dprintf("Trying to free name: %p\n", cup->cu_name);
 	if (cup->cu_name != NULL) {
-		ctf_free(cup->cu_name, strlen(cup->cu_name) + 1);
+		ctf_strfree(cup->cu_name);
 		cup->cu_name = NULL;
 	}
 
@@ -3093,7 +3089,7 @@ ctf_dwarf_free_die(ctf_cu_t *cup)
 	ctf_dprintf("Trying to free functions\n");
 	for (cdf = ctf_list_next(&cup->cu_funcs); cdf != NULL; cdf = ndf) {
 		ndf = ctf_list_next(cdf);
-		ctf_free(cdf->cdf_name, strlen(cdf->cdf_name) + 1);
+		ctf_strfree(cdf->cdf_name);
 		if (cdf->cdf_fip.ctc_argc != 0) {
 			ctf_free(cdf->cdf_argv,
 			    sizeof (ctf_id_t) * cdf->cdf_fip.ctc_argc);
@@ -3104,7 +3100,7 @@ ctf_dwarf_free_die(ctf_cu_t *cup)
 	ctf_dprintf("Trying to free variables\n");
 	for (cdv = ctf_list_next(&cup->cu_vars); cdv != NULL; cdv = ndv) {
 		ndv = ctf_list_next(cdv);
-		ctf_free(cdv->cdv_name, strlen(cdv->cdv_name) + 1);
+		ctf_strfree(cdv->cdv_name);
 		ctf_free(cdv, sizeof (ctf_dwvar_t));
 	}
 
@@ -3226,11 +3222,10 @@ ctf_dwarf_preinit_dies(ctf_convert_t *cch, int fd, Elf *elf, Dwarf_Debug dw,
 		}
 
 		if (ctf_dwarf_string(cup, cu, DW_AT_name, &name) == 0) {
-			size_t len = strlen(name) + 1;
 			char *b = basename(name);
 
 			cup->cu_name = strdup(b);
-			ctf_free(name, len);
+			ctf_strfree(name);
 			if (cup->cu_name == NULL)
 				return (ENOMEM);
 		}

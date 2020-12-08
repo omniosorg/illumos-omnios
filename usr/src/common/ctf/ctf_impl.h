@@ -312,6 +312,7 @@ extern void *ctf_alloc(size_t);
 extern void ctf_free(void *, size_t);
 
 extern char *ctf_strdup(const char *);
+extern void ctf_strfree(const char *);
 extern const char *ctf_strerror(int);
 extern void ctf_dprintf(const char *, ...);
 
