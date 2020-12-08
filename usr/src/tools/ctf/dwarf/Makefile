@@ -2,6 +2,7 @@
 # Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+#ident	"%Z%%M%	%I%	%E% SMI"
 
 include		../../Makefile.tools
 
@@ -11,11 +12,13 @@ all	:= TARGET= all
 install	:= TARGET= install
 clean	:= TARGET= clean
 clobber	:= TARGET= clobber
-installctf	:= TARGET= installctf
+lint	:= TARGET= lint
 
 .KEEP_STATE:
 
-install installctf all clean clobber: $(SUBDIRS)
+install all clean clobber: $(SUBDIRS)
+
+lint:
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)

@@ -24,6 +24,8 @@
  * All rights reserved.
  */
 
+#pragma ident	"%Z%%M%	%I%	%E% SMI"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -31,6 +33,8 @@
 #include <errno.h>
 
 #include "utils.h"
+
+/*LINTLIBRARY*/
 
 static const char *pname;
 

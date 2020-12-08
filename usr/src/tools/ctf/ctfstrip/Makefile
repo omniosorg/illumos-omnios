@@ -17,12 +17,15 @@ SRCS = \
 
 CFLAGS += $(CCVERBOSE)
 include $(SRC)/tools/Makefile.tools
-include ../Makefile.ctf.post
+CERRWARN += -_gcc=-Wno-unused-variable
 
 OBJS = $(SRCS:%.c=%.o)
+LINTFILES = $(SRCS:%.c=%.ln)
+
+LINTFLAGS = -mnux -L$(ROOT)/usr/lib
 
 .NO_PARALLEL:
-.PARALLEL: $(OBJS)
+.PARALLEL: $(OBJS) $(LINTFILES)
 
 all: $(PROG)
 
@@ -35,6 +38,9 @@ $(ROOTONBLDMACHPROG): $(PROG)
 install: $(ROOTONBLDMACHPROG)
 
 clean:
-	$(RM) $(OBJS)
+	$(RM) $(OBJS) $(LINTFILES)
+
+lint: $(LINTFILES)
+	$(LINT) $(LINTFLAGS) $(LINTFILES) $(LDLIBS)
 
 include $(SRC)/tools/Makefile.targ

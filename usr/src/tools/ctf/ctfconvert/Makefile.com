@@ -18,13 +18,6 @@ CFLAGS += $(CCVERBOSE)
 LDLIBS += -lctf -lelf
 NATIVE_LIBS += libelf.so libc.so
 
-# We can't directly build this component with CTF information as that presents
-# something of a bootstrap problem. However, we can include
-# DWARF debug data and avoid stripping the objects so they can be converted
-# and re-installed via the 'installctf' target later.
-CFLAGS += $(CTF_FLAGS)
-STRIP_STABS = :
-
 LDFLAGS = \
 	-L$(ROOTONBLDLIBMACH) \
 	'-R$$ORIGIN/../../lib/$(MACH)' \
@@ -45,19 +38,9 @@ $(PROG): $(OBJS)
 
 $(ROOTONBLDMACHPROG): $(PROG)
 
-install_prog: $(ROOTONBLDMACHPROG)
-install: all install_prog
-
-ctfconvert_prog: FRC
-	-$(CTFCONVERT) -k $(CTFCVTFLAGS) $(PROG)
-	$(STRIP) -x $(PROG)
-	$(TOUCH) $(PROG)
-
-installctf: ctfconvert_prog install
+install: $(ROOTONBLDMACHPROG)
 
 clean:
-	$(RM) $(OBJS)
-
-FRC:
+	$(RM) $(OBJS) $(LINTFILES)
 
 include $(SRC)/tools/Makefile.targ

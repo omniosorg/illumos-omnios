@@ -32,11 +32,11 @@ all	:= TARGET= all
 install	:= TARGET= install
 clean	:= TARGET= clean
 clobber	:= TARGET= clobber
-installctf := TARGET = installctf
+lint	:= TARGET= lint
 
 .KEEP_STATE:
 
-install all clean clobber installctf: $(SUBDIRS)
+install all clean clobber lint: $(SUBDIRS)
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)

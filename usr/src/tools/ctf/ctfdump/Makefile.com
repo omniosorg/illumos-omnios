@@ -14,7 +14,6 @@ PROG = ctfdump
 SRCS = ctfdump.c
 
 include ../../Makefile.ctf
-include ../../Makefile.ctf.post
 
 CSTD = $(CSTD_GNU99)
 C99LMODE = -Xc99=%all
@@ -45,6 +44,6 @@ $(ROOTONBLDMACHPROG): $(PROG)
 install: $(ROOTONBLDMACHPROG)
 
 clean:
-	$(RM) $(OBJS)
+	$(RM) $(OBJS) $(LINTFILES)
 
 include $(SRC)/tools/Makefile.targ
