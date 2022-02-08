@@ -4,7 +4,6 @@
  * Copyright (c) 2015 Tycho Nightingale <tycho.nightingale@pluribusnetworks.com>
  * Copyright (c) 2015 Leon Dang
  * Copyright 2020 Joyent, Inc.
- * Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +26,18 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ */
+/*
+ * This file and its contents are supplied under the terms of the
+ * Common Development and Distribution License ("CDDL"), version 1.0.
+ * You may only use this file in accordance with the terms of version
+ * 1.0 of the CDDL.
+ *
+ * A full copy of the text of the CDDL should have accompanied this
+ * source.  A copy of the CDDL is also available via the Internet at
+ * http://www.illumos.org/license/CDDL.
+ *
+ * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/cdefs.h>
@@ -65,9 +76,7 @@ __FBSDID("$FreeBSD$");
 
 #include <zlib.h>
 
-#ifndef __FreeBSD__
 #include <sys/debug.h>
-#endif
 
 #include "bhyvegc.h"
 #include "debug.h"
@@ -112,6 +121,27 @@ static int rfb_debug = 0;
 #define AUTH_FAILED_UNAUTH	1
 #define AUTH_FAILED_ERROR	2
 
+struct rfb_pixfmt {
+	uint8_t		bpp;
+	uint8_t		depth;
+	uint8_t		bigendian;
+	uint8_t		truecolor;
+	uint16_t	red_max;
+	uint16_t	green_max;
+	uint16_t	blue_max;
+	uint8_t		red_shift;
+	uint8_t		green_shift;
+	uint8_t		blue_shift;
+	uint8_t		pad[3];
+};
+
+struct rfb_srvr_info {
+	uint16_t		width;
+	uint16_t		height;
+	struct rfb_pixfmt	pixfmt;
+	uint32_t		namelen;
+};
+
 struct rfb_softc {
 	int		sfd;
 	pthread_t	tid;
@@ -147,31 +177,11 @@ struct rfb_softc {
 	int		hw_crc;
 	uint32_t	*crc;		/* WxH crc cells */
 	uint32_t	*crc_tmp;	/* buffer to store single crc row */
-	int		crc_width, crc_height;
-#ifndef __FreeBSD__
-	const char	*name;
-#endif
-};
-
-struct rfb_pixfmt {
-	uint8_t		bpp;
-	uint8_t		depth;
-	uint8_t		bigendian;
-	uint8_t		truecolor;
-	uint16_t	red_max;
-	uint16_t	green_max;
-	uint16_t	blue_max;
-	uint8_t		red_shift;
-	uint8_t		green_shift;
-	uint8_t		blue_shift;
-	uint8_t		pad[3];
-};
-
-struct rfb_srvr_info {
-	uint16_t		width;
-	uint16_t		height;
-	struct rfb_pixfmt	pixfmt;
-	uint32_t		namelen;
+	const char		*name;
+	struct rfb_srvr_info	sinfo;
+	struct bhyvegc_image	gc;
+	bool			crc_reset;
+	bool			custom_pixfmt;
 };
 
 struct rfb_pixfmt_msg {
@@ -257,44 +267,33 @@ struct rfb_cuttext_msg {
 };
 
 static void
-#ifndef __FreeBSD__
 rfb_send_server_init_msg(int cfd, struct rfb_softc *rc)
-#else
-rfb_send_server_init_msg(int cfd)
-#endif
 {
 	struct bhyvegc_image *gc_image;
-	struct rfb_srvr_info sinfo;
 
 	gc_image = console_get_image();
 
-	sinfo.width = htons(gc_image->width);
-	sinfo.height = htons(gc_image->height);
-	sinfo.pixfmt.bpp = 32;
-	sinfo.pixfmt.depth = 32;
-	sinfo.pixfmt.bigendian = 0;
-	sinfo.pixfmt.truecolor = 1;
-	sinfo.pixfmt.red_max = htons(255);
-	sinfo.pixfmt.green_max = htons(255);
-	sinfo.pixfmt.blue_max = htons(255);
-	sinfo.pixfmt.red_shift = 16;
-	sinfo.pixfmt.green_shift = 8;
-	sinfo.pixfmt.blue_shift = 0;
-	sinfo.pixfmt.pad[0] = 0;
-	sinfo.pixfmt.pad[1] = 0;
-	sinfo.pixfmt.pad[2] = 0;
+	rc->sinfo.width = htons(gc_image->width);
+	rc->sinfo.height = htons(gc_image->height);
+	rc->sinfo.pixfmt.bpp = 32;
+	rc->sinfo.pixfmt.depth = 32;
+	rc->sinfo.pixfmt.bigendian = 0;
+	rc->sinfo.pixfmt.truecolor = 1;
+	rc->sinfo.pixfmt.red_max = htons(255);
+	rc->sinfo.pixfmt.green_max = htons(255);
+	rc->sinfo.pixfmt.blue_max = htons(255);
+	rc->sinfo.pixfmt.red_shift = 16;
+	rc->sinfo.pixfmt.green_shift = 8;
+	rc->sinfo.pixfmt.blue_shift = 0;
+	rc->sinfo.pixfmt.pad[0] = 0;
+	rc->sinfo.pixfmt.pad[1] = 0;
+	rc->sinfo.pixfmt.pad[2] = 0;
 
-#ifndef __FreeBSD__
 	const char *name = rc->name != NULL ? rc->name : "bhyve";
 
-	sinfo.namelen = htonl(strlen(name));
-	(void)stream_write(cfd, &sinfo, sizeof(sinfo));
+	rc->sinfo.namelen = htonl(strlen(name));
+	(void)stream_write(cfd, &rc->sinfo, sizeof(rc->sinfo));
 	(void)stream_write(cfd, name, strlen(name));
-#else
-	sinfo.namelen = htonl(strlen("bhyve"));
-	(void)stream_write(cfd, &sinfo, sizeof(sinfo));
-	(void)stream_write(cfd, "bhyve", strlen("bhyve"));
-#endif
 }
 
 static void
@@ -302,6 +301,8 @@ rfb_send_resize_update_msg(struct rfb_softc *rc, int cfd)
 {
 	struct rfb_srvr_updt_msg supdt_msg;
 	struct rfb_srvr_rect_hdr srect_hdr;
+
+	DPRINTF(("Screen resize %dx%d", rc->width, rc->height));
 
 	/* Number of rectangles: 1 */
 	supdt_msg.type = 0;
@@ -339,14 +340,62 @@ rfb_send_extended_keyevent_update_msg(struct rfb_softc *rc, int cfd)
 	stream_write(cfd, &srect_hdr, sizeof(struct rfb_srvr_rect_hdr));
 }
 
-static void
+static bool
 rfb_recv_set_pixfmt_msg(struct rfb_softc *rc, int cfd)
 {
 	struct rfb_pixfmt_msg pixfmt_msg;
+	struct rfb_pixfmt *newpx = &pixfmt_msg.pixfmt;
+	struct rfb_pixfmt *oldpx = &rc->sinfo.pixfmt;
+	bool okay = true;
 
 	(void)stream_read(cfd, ((void *)&pixfmt_msg)+1, sizeof(pixfmt_msg)-1);
-}
 
+	/*
+	 * The client has sent its desired pixel format. The protocol does not
+	 * have a mechanism to reject this, we are supposed to just start using
+	 * the requested format from the next update.
+	 *
+	 * At present, we can only support alternative rgb-shift values and
+	 * will accept (and ignore) a new depth value.
+	 */
+
+	if (oldpx->bpp != newpx->bpp || oldpx->bigendian != newpx->bigendian ||
+	    oldpx->truecolor != newpx->truecolor) {
+		WPRINTF(("client requested unsupported pixfmt "
+		    "bpp=%u,depth=%u,bigendian=%u,truecolor=%d",
+		    newpx->bpp, newpx->depth, newpx->bigendian,
+		    newpx->truecolor));
+		okay = false;
+	}
+	if (oldpx->red_max != newpx->red_max ||
+	    oldpx->green_max != newpx->green_max ||
+	    oldpx->blue_max != newpx->blue_max) {
+		WPRINTF(("client requested unsupported pixfmt maximums "
+		    "r=%u,g=%u,b=%u",
+		    newpx->red_max, newpx->green_max, newpx->blue_max));
+		okay = false;
+	}
+
+	if (okay) {
+		DPRINTF(("pixfmt r=%d, g=%d, b=%d, depth=%u",
+		    newpx->red_shift, newpx->green_shift, newpx->blue_shift,
+		    newpx->depth));
+
+		if (newpx->red_shift != 16 || newpx->green_shift != 8 ||
+		    newpx->blue_shift != 0) {
+			rc->custom_pixfmt = true;
+			DPRINTF(("Using custom pixfmt"));
+		} else {
+			rc->custom_pixfmt = false;
+			DPRINTF(("Using native pixfmt"));
+		}
+
+		rc->sinfo.pixfmt = pixfmt_msg.pixfmt;
+		rc->pending = rc->crc_reset = true;
+	}
+
+	return (okay);
+}
 
 static void
 rfb_recv_set_encodings_msg(struct rfb_softc *rc, int cfd)
@@ -413,6 +462,27 @@ rfb_send_update_header(struct rfb_softc *rc, int cfd, int numrects)
 	    sizeof(struct rfb_srvr_updt_msg));
 }
 
+static void
+recalc_colours(struct rfb_softc *rc, struct bhyvegc_image *gc,
+    int x1, int y1, int x2, int y2)
+{
+	struct rfb_pixfmt *px = &rc->sinfo.pixfmt;
+
+	for (uint_t y = y1; y < gc->height && y < y2; y++) {
+		for (uint_t x = x1; x < gc->width && x < x2; x++) {
+			uint32_t p;
+
+			p = gc->data[y * gc->width + x];
+
+			rc->gc.data[y * gc->width + x] =
+			    0xff000000 |
+			    (((p >> 16) & 0xff) << px->red_shift) |
+			    (((p >> 8) & 0xff) << px->green_shift) |
+			    ((p & 0xff) << px->blue_shift);
+		}
+	}
+}
+
 static int
 rfb_send_rect(struct rfb_softc *rc, int cfd, struct bhyvegc_image *gc,
               int x, int y, int w, int h)
@@ -434,13 +504,19 @@ rfb_send_rect(struct rfb_softc *rc, int cfd, struct bhyvegc_image *gc,
 	srect_hdr.width = htons(w);
 	srect_hdr.height = htons(h);
 
+	uint32_t *data = gc->data;
+	if (rc->custom_pixfmt) {
+		recalc_colours(rc, gc, x, y, x + w, y + h);
+		data = rc->gc.data;
+	}
+
 	h = y + h;
 	w *= sizeof(uint32_t);
 	if (rc->enc_zlib_ok) {
 		zbufp = rc->zbuf;
 		rc->zstream.total_in = 0;
 		rc->zstream.total_out = 0;
-		for (p = &gc->data[y * gc->width + x]; y < h; y++) {
+		for (p = &data[y * gc->width + x]; y < h; y++) {
 			rc->zstream.next_in = (Bytef *)p;
 			rc->zstream.avail_in = w;
 			rc->zstream.next_out = (Bytef *)zbufp;
@@ -476,7 +552,7 @@ doraw:
 
 	total = 0;
 	zbufp = rc->zbuf;
-	for (p = &gc->data[y * gc->width + x]; y < h; y++) {
+	for (p = &data[y * gc->width + x]; y < h; y++) {
 		memcpy(zbufp, p, w);
 		zbufp += w;
 		total += w;
@@ -521,8 +597,14 @@ rfb_send_all(struct rfb_softc *rc, int cfd, struct bhyvegc_image *gc)
 	srect_hdr.y = 0;
 	srect_hdr.width = htons(gc->width);
 	srect_hdr.height = htons(gc->height);
+
+	uint32_t *data = gc->data;
+	if (rc->custom_pixfmt) {
+		recalc_colours(rc, gc, 0, 0, gc->width, gc->height);
+		data = rc->gc.data;
+	}
 	if (rc->enc_zlib_ok) {
-		rc->zstream.next_in = (Bytef *)gc->data;
+		rc->zstream.next_in = (Bytef *)data;
 		rc->zstream.avail_in = gc->width * gc->height *
 		                   sizeof(uint32_t);
 		rc->zstream.next_out = (Bytef *)rc->zbuf;
@@ -561,7 +643,7 @@ doraw:
 	if (nwrite <= 0)
 		return (nwrite);
 
-	nwrite = stream_write(cfd, gc->data,
+	nwrite = stream_write(cfd, data,
 	               gc->width * gc->height * sizeof(uint32_t));
 
 	return (nwrite);
@@ -586,6 +668,7 @@ rfb_send_screen(struct rfb_softc *rc, int cfd)
 	uint32_t *crc_p, *orig_crc;
 	int changes;
 	bool expected;
+	bool sendall = false;
 
 	/* Return if another thread sending */
 	expected = false;
@@ -601,42 +684,56 @@ rfb_send_screen(struct rfb_softc *rc, int cfd)
 	console_refresh();
 	gc_image = console_get_image();
 
-	/* Clear old CRC values when the size changes */
-	if (rc->crc_width != gc_image->width ||
-	    rc->crc_height != gc_image->height) {
-		memset(rc->crc, 0, sizeof(uint32_t) *
-		    howmany(RFB_MAX_WIDTH, PIX_PER_CELL) *
-		    howmany(RFB_MAX_HEIGHT, PIX_PER_CELL));
-		rc->crc_width = gc_image->width;
-		rc->crc_height = gc_image->height;
-	}
-
 	/* A size update counts as an update in itself */
 	if (rc->width != gc_image->width ||
 	    rc->height != gc_image->height) {
 		rc->width = gc_image->width;
 		rc->height = gc_image->height;
+		rc->crc_reset = true;
+		rc->update_all = true;
+
 		if (rc->enc_resize_ok) {
 			rfb_send_resize_update_msg(rc, cfd);
-			rc->update_all = true;
 			goto done;
 		}
 	}
 
-	if (atomic_exchange(&rc->update_all, false) == true) {
-		retval = rfb_send_all(rc, cfd, gc_image);
-		goto done;
+	/* Clear old CRC values */
+	if (rc->crc_reset) {
+		memset(rc->crc, 0, sizeof(uint32_t) *
+		    howmany(RFB_MAX_WIDTH, PIX_PER_CELL) *
+		    howmany(RFB_MAX_HEIGHT, PIX_PER_CELL));
+		rc->crc_reset = false;
 	}
+
+	if (rc->custom_pixfmt && (
+	    rc->gc.data == NULL || rc->gc.width != rc->width ||
+	    rc->gc.height != rc->height)) {
+		rc->gc.data = reallocarray(rc->gc.data,
+		    rc->width * rc->height, sizeof (uint32_t));
+		if (rc->gc.data == NULL) {
+			retval = -1;
+			goto done;
+		}
+		rc->gc.width = rc->width;
+		rc->gc.height = rc->height;
+	} else if (!rc->custom_pixfmt && rc->gc.data != NULL) {
+		free(rc->gc.data);
+		rc->gc.data = NULL;
+	}
+
+	if (atomic_exchange(&rc->update_all, false) == true)
+		sendall = true;
 
 	/*
 	 * Calculate the checksum for each 32x32 cell. Send each that
 	 * has changed since the last scan.
 	 */
 
-	w = rc->crc_width;
-	h = rc->crc_height;
-	xcells = howmany(rc->crc_width, PIX_PER_CELL);
-	ycells = howmany(rc->crc_height, PIX_PER_CELL);
+	w = gc_image->width;
+	h = gc_image->height;
+	xcells = howmany(w, PIX_PER_CELL);
+	ycells = howmany(h, PIX_PER_CELL);
 
 	rem_x = w & PIXCELL_MASK;
 
@@ -697,13 +794,14 @@ rfb_send_screen(struct rfb_softc *rc, int cfd)
 	* Restore the pending flag since it was unconditionally cleared
 	* above.
 	*/
-	if (!changes) {
+	if (!sendall && !changes) {
 		rc->pending = true;
 		goto done;
 	}
 
 	/* If number of changes is > THRESH percent, send the whole screen */
-	if (((changes * 100) / (xcells * ycells)) >= RFB_SEND_ALL_THRESH) {
+	if (sendall ||
+	    ((changes * 100) / (xcells * ycells)) >= RFB_SEND_ALL_THRESH) {
 		retval = rfb_send_all(rc, cfd, gc_image);
 		goto done;
 	}
@@ -905,18 +1003,12 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 
 	/* 1b. Read client version */
 	len = stream_read(cfd, buf, VERSION_LENGTH);
-#ifdef __FreeBSD__
-	if (len == VERSION_LENGTH && !strncmp(vbuf, buf, VERSION_LENGTH - 2)) {
-		client_ver = buf[VERSION_LENGTH - 2];
-	}
-#else
 	/* Work around gcc7 maybe-uninitialized warning */
 	client_ver = CVERS_3_3;
 	if (len == VERSION_LENGTH && !strncmp(vbuf, (char *)buf,
 	    VERSION_LENGTH - 2)) {
 		client_ver = buf[VERSION_LENGTH - 2];
 	}
-#endif
 	if (client_ver != CVERS_3_8 && client_ver != CVERS_3_7) {
 		/* only recognize 3.3, 3.7 & 3.8. Others dflt to 3.3 */
 		client_ver = CVERS_3_3;
@@ -949,12 +1041,8 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 		if (buf[0] != auth_type) {
 			/* deny */
 			sres = htonl(1);
-#ifdef __FreeBSD__
-			message = "Auth failed: authentication type mismatch";
-#else
 			message = (unsigned char *)
 			    "Auth failed: authentication type mismatch";
-#endif
 			goto report_and_done;
 		}
 		break;
@@ -978,11 +1066,7 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 		 * The client then sends the resulting 16-bytes response.
 		 */
 #ifndef NO_OPENSSL
-#ifdef __FreeBSD__
-		strncpy(keystr, rc->password, PASSWD_LENGTH);
-#else
 		strncpy((char *)keystr, rc->password, PASSWD_LENGTH);
-#endif
 
 		/* VNC clients encrypts the challenge with all the bit fields
 		 * in each byte of the password mirrored.
@@ -1017,12 +1101,8 @@ rfb_handle(struct rfb_softc *rc, int cfd)
 				&ks, DES_ENCRYPT);
 
 		if (memcmp(crypt_expected, buf, AUTH_LENGTH) != 0) {
-#ifdef __FreeBSD__
-			message = "Auth Failed: Invalid Password.";
-#else
 			message =
 			    (unsigned char *)"Auth Failed: Invalid Password.";
-#endif
 			sres = htonl(1);
 		} else {
 			sres = 0;
@@ -1045,16 +1125,10 @@ report_and_done:
 		if (sres) {
 			/* 3.7 does not want string explaining cause */
 			if (client_ver == CVERS_3_8) {
-#ifdef __FreeBSD__
-				be32enc(buf, strlen(message));
-				stream_write(cfd, buf, 4);
-				stream_write(cfd, message, strlen(message));
-#else
 				be32enc(buf, strlen((char *)message));
 				stream_write(cfd, buf, 4);
 				stream_write(cfd, message,
 				    strlen((char *)message));
-#endif
 			}
 			goto done;
 		}
@@ -1075,11 +1149,7 @@ report_and_done:
 	len = stream_read(cfd, buf, 1);
 
 	/* 4a. Write server-init info */
-#ifndef __FreeBSD__
 	rfb_send_server_init_msg(cfd, rc);
-#else
-	rfb_send_server_init_msg(cfd);
-#endif
 
 	if (!rc->zbuf) {
 		rc->zbuf = malloc(RFB_ZLIB_BUFSZ + 16);
@@ -1100,7 +1170,8 @@ report_and_done:
 
 		switch (buf[0]) {
 		case CS_SET_PIXEL_FORMAT:
-			rfb_recv_set_pixfmt_msg(rc, cfd);
+			if (!rfb_recv_set_pixfmt_msg(rc, cfd))
+				goto done;
 			break;
 		case CS_SET_ENCODINGS:
 			rfb_recv_set_encodings_msg(rc, cfd);
@@ -1186,11 +1257,7 @@ sse42_supported(void)
 }
 
 int
-#ifndef __FreeBSD__
 rfb_init(char *hostname, int port, int wait, char *password, const char *name)
-#else
-rfb_init(char *hostname, int port, int wait, char *password)
-#endif
 {
 	int e;
 	char servname[6];
@@ -1209,15 +1276,11 @@ rfb_init(char *hostname, int port, int wait, char *password)
 	    howmany(RFB_MAX_HEIGHT, PIX_PER_CELL);
 	rc->crc = calloc(cnt, sizeof(uint32_t));
 	rc->crc_tmp = calloc(cnt, sizeof(uint32_t));
-	rc->crc_width = RFB_MAX_WIDTH;
-	rc->crc_height = RFB_MAX_HEIGHT;
 	rc->sfd = -1;
 
 	rc->password = password;
 
-#ifndef __FreeBSD__
 	rc->name = name;
-#endif
 
 	snprintf(servname, sizeof(servname), "%d", port ? port : 5900);
 
@@ -1295,7 +1358,6 @@ rfb_init(char *hostname, int port, int wait, char *password)
 	return (-1);
 }
 
-#ifndef __FreeBSD__
 int
 rfb_init_unix(const char *path, int wait, char *password, const char *name)
 {
@@ -1318,8 +1380,6 @@ rfb_init_unix(const char *path, int wait, char *password, const char *name)
 		perror("calloc");
 		goto fail;
 	}
-	rc->crc_width = RFB_MAX_WIDTH;
-	rc->crc_height = RFB_MAX_HEIGHT;
 
 	rc->password = password;
 	rc->name = name;
@@ -1377,4 +1437,3 @@ fail:
 	free(rc);
 	return (-1);
 }
-#endif
