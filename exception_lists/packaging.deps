@@ -33,6 +33,7 @@ pkg:/runtime/python-310
 pkg:/runtime/python-35
 pkg:/runtime/python-39
 pkg:/security/sudo
+pkg:/service/network/samba
 pkg:/shell/bash
 pkg:/shell/expect
 pkg:/system/bhyve/firmware
