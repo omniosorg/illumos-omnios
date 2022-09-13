@@ -1742,6 +1742,7 @@ usr/src/cmd/sgs/demo_rdb/i386/rdb
 usr/src/cmd/sgs/demo_rdb/sparc/Makefile.demo
 usr/src/cmd/sgs/demo_rdb/sparcv9/Makefile.demo
 usr/src/cmd/sgs/dump/amd64/dump
+usr/src/cmd/sgs/elfcap.chk/elfcap.chk
 usr/src/cmd/sgs/elfdump/amd64/check_struct_layout
 usr/src/cmd/sgs/elfdump/amd64/elfdump
 usr/src/cmd/sgs/elfdump/amd64/gen_struct_layout
