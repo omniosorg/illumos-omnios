@@ -34,6 +34,6 @@ include $(SRC)/Makefile.master.64
 # XX64 all the stuff below this line should go away once the tools are fixed
 $(SPARC_BLD)ALWAYS_DEFS	+= -D__sparc -D__sparcv9 -D_SYSCALL32_IMPL
 $(SPARC_BLD)AS_DEFS	+= -D__sparc -D__sparcv9
-$(SPARC_BLD)CPPFLAGS	+= -D__sparc -D__sparcv9 -D_SYSCALL32 
+$(SPARC_BLD)CPPFLAGS	+= -D__sparc -D__sparcv9 -D_SYSCALL32
 $(SPARC_BLD)ASFLAGS	+= -D__sparc -D__sparcv9
 $(SPARC_BLD)LINTFLAGS64	+= -errchk=longptr64 -m64

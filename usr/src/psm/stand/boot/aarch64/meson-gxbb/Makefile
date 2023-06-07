@@ -30,7 +30,7 @@ BOARD=	meson-gxbb
 include ../Makefile.com
 ROOT_PSM_DIR=$(ROOT_PLAT_DIR)/Amlogic,meson-gxbb
 
-.DELETE_ON_ERROR:
+.KEEP_STATE:
 
 all: $(NFSBOOT_BIN) $(DTB)
 $(NFS_SRT0) $(NFS_OBJS):  $(ASSYM_H)
@@ -42,9 +42,7 @@ CERRWARN += -_gcc=-Wno-unused-function
 CERRWARN += -_gcc=-Wno-unused-variable
 CERRWARN += -_gcc=-Wno-unused-but-set-variable
 
-include $(TOPDIR)/psm/Makefile.psm.64
 include $(BOOTSRCDIR)/Makefile.rules
-
 include ../Makefile.targ
 
 $(ROOT_PSM_NFSBOOT): $(NFSBOOT_BIN) $(ROOT_PSM_DIR)
@@ -56,4 +54,5 @@ $(ROOT_PSM_DTB): $(DTB) $(ROOT_PSM_DIR)
 	$(INS.file) $(DTB)
 
 %.dtb: dts/%.dts
-	$(ANSI_CPP) -nostdinc -I dts $(CPPINCS) -undef -x assembler-with-cpp $< | $(DTC) -o $@ -O dtb
+	$(ANSI_CPP) -nostdinc -I dts $(CPPINCS) -undef \
+		-x assembler-with-cpp $< | $(DTC) -o $@ -O dtb

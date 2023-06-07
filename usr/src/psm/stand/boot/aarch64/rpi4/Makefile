@@ -29,7 +29,7 @@ BOARD=	rpi4
 include ../Makefile.com
 ROOT_PSM_DIR=$(ROOT_PLAT_DIR)/RaspberryPi,4
 
-.DELETE_ON_ERROR:
+.KEEP_STATE:
 
 all: $(NFSBOOT_BIN)
 $(NFS_SRT0) $(NFS_OBJS):  $(ASSYM_H)
@@ -41,9 +41,7 @@ CERRWARN += -_gcc=-Wno-unused-function
 CERRWARN += -_gcc=-Wno-unused-variable
 CERRWARN += -_gcc=-Wno-unused-but-set-variable
 
-include $(TOPDIR)/psm/Makefile.psm.64
 include $(BOOTSRCDIR)/Makefile.rules
-
 include ../Makefile.targ
 
 $(ROOT_PSM_NFSBOOT): $(NFSBOOT_BIN) $(ROOT_PSM_DIR)
