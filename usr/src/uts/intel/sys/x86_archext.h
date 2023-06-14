@@ -32,7 +32,7 @@
  * Copyright 2012 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
  * Copyright 2014 Josef 'Jeff' Sipek <jeffpc@josefsipek.net>
  * Copyright 2018 Nexenta Systems, Inc.
- * Copyright 2022 Oxide Computer Company
+ * Copyright 2023 Oxide Computer Company
  */
 
 #ifndef _SYS_X86_ARCHEXT_H
@@ -227,6 +227,78 @@ extern "C" {
 #define	CPUID_AMD_EDX_VMCB_CLEAN	0x000000020 /* AMD: VMCB clean bits */
 #define	CPUID_AMD_EDX_FLUSH_ASID	0x000000040 /* AMD: flush by ASID */
 #define	CPUID_AMD_EDX_DECODE_ASSISTS	0x000000080 /* AMD: decode assists */
+
+/*
+ * AMD Encrypted Memory Capabilities -- 0x8000_001F
+ *
+ * %ecx is the number of encrypted guests.
+ * %edx is the minimum ASID value for SEV enabled, SEV-ES disabled guests
+ */
+#define	CPUID_AMD_8X1F_EAX_NVS		(1 << 29) /* VIRT_RMPUPDATE MSR */
+#define	CPUID_AMD_8X1F_EAX_SCP		(1 << 28) /* SVSM Comm Page MSR */
+#define	CPUID_AMD_8X1F_EAX_SMT_PROT	(1 << 25) /* SMT Protection */
+#define	CPUID_AMD_8X1F_EAX_VMSAR_PROT	(1 << 24) /* VMSA Reg Protection */
+#define	CPUID_AMD_8X1F_EAX_IBSVGC	(1 << 19) /* IBS Virt. for SEV-ES */
+#define	CPUID_AMD_8X1F_EAX_VIRT_TOM	(1 << 18) /* Virt TOM MSR */
+#define	CPUID_AMD_8X1F_EAX_VMGEXIT	(1 << 17) /* VMGEXIT Parameter */
+#define	CPUID_AMD_8X1F_EAX_VTE		(1 << 16) /* Virt Transparent Enc. */
+#define	CPUID_AMD_8X1F_EAX_NO_IBS	(1 << 15) /* No IBS by host */
+#define	CPUID_AMD_8X1F_EAX_DBGSWP	(1 << 14) /* Debug state for SEV-ES */
+#define	CPUID_AMD_8X1F_EAX_ALT_INJ	(1 << 13) /* Alternate Injection */
+#define	CPUID_AMD_8X1F_EAX_RES_INJ	(1 << 12) /* Restricted Injection */
+#define	CPUID_AMD_8X1F_EAX_64B_HOST	(1 << 11) /* SEV requires amd64 */
+#define	CPUID_AMD_8X1F_EAX_HWECC	(1 << 10) /* HW cache coherency req */
+#define	CPUID_AMD_8X1F_EAX_TSC_AUX	(1 << 9) /* TSC AUX Virtualization */
+#define	CPUID_AMD_8X1F_EAX_SEC_TSC	(1 << 8) /* Secure TSC */
+#define	CPUID_AMD_8X1F_EAX_VSSS		(1 << 7) /* VMPL Super. Shadow Stack */
+#define	CPUID_AMD_8X1F_EAX_RMPQUERY	(1 << 6) /* RMPQUERY Instr */
+#define	CPUID_AMD_8X1F_EAX_VMPL		(1 << 5) /* VM Permission Levels */
+#define	CPUID_AMD_8X1F_EAX_SEV_SNP	(1 << 4) /* SEV Secure Nested Paging */
+#define	CPUID_AMD_8X1F_EAX_SEV_ES	(1 << 3) /* SEV Encrypted State */
+#define	CPUID_AMD_8X1F_EAX_PAGE_FLUSH	(1 << 2) /* Page Flush MSR */
+#define	CPUID_AMD_8X1F_EAX_SEV		(1 << 1) /* Secure Encrypted Virt. */
+#define	CPUID_AMD_8X1F_EAX_SME		(1 << 0) /* Secure Memory Encrypt. */
+
+#define	CPUID_AMD_8X1F_EBX_NVMPL(r)	bitx32(r, 15, 12) /* num VM Perm lvl */
+#define	CPUID_AMD_8X1F_EBX_PAR(r)	bitx32(r, 11, 6) /* paddr bit rem */
+#define	CPUID_AMD_8X1F_EBX_CBIT(r)	bitx32(r, 5, 0)	/* C-bit loc in PTE */
+
+/*
+ * AMD Platform QoS Extended Features -- 0x8000_0020
+ */
+#define	CPUID_AMD_8X20_EBX_L3RR		(1 << 4) /* L3 Range Reservations */
+
+/*
+ * AMD Extended Feature 2 -- 0x8000_0021
+ */
+#define	CPUID_AMD_8X21_EAX_CPUID_DIS	(1 << 17) /* CPUID dis for CPL > 0 */
+#define	CPUID_AMD_8X21_EAX_PREFETCH	(1 << 13) /* Prefetch control MSR  */
+#define	CPUID_AMD_8X21_EAX_NO_SMMCTL	(1 << 9) /* No SMM_CTL MSR */
+#define	CPUID_AMD_8X21_EAX_AIBRS	(1 << 8) /* Automatic IBRS */
+#define	CPUID_AMD_8X21_EAX_UAI		(1 << 7) /* Upper Address Ignore */
+#define	CPUID_AMD_8X21_EAX_SMM_PGLK	(1 << 3) /* SMM Page config lock */
+#define	CPUID_AMD_8X21_EAX_LFENCE_SER	(1 << 2) /* LFENCE is dispatch serial */
+#define	CPUID_AMD_8X21_EAX_NO_NDBP	(1 << 0) /* No nested data #BP */
+
+#define	CPUID_AMD_8X21_EBX_MPS(r)	bitx32(11, 0) /* MCU Patch size x 16B */
+
+/*
+ * AMD Extended Performance Monitoring and Debug -- 0x8000_0022
+ */
+#define	CPUID_AMD_8X22_LBR_FRZ	(1 << 2)	/* Freeze PMC / LBR on ovflw */
+#define	CPUID_AMD_8X22_LBR_STK	(1 << 1)	/* Last Branch Record Stack */
+#define	CPUID_AMD_8X22_EAX_PMV2	(1 << 0)	/* Perfmon v2 */
+
+#define	CPUID_AMD_8X22_EBX_NPMC_NB(r)	bitx32(r, 15, 10) /* # NB PMC */
+#define	CPUID_AMD_8X22_EBX_LBR_SZ(r)	bitx32(r, 9, 4) /* # LBR Stack ents. */
+#define	CPUID_AMD_8X22_EBX_NPMC_CORE(r)	bitx32(r, 3, 0)	/* # core PMC */
+
+/*
+ * AMD Secure Multi-key Encryption -- 0x8000_00023
+ */
+#define	CPUID_AMD_8X23_EAX_MEMHMK	(1 << 0) /* Secure Host Multi-Key Mem */
+
+#define	CPUID_AMD_8x23_EBX_MAX_HMK(r)	bitx32(r, 15, 0) /* Max HMK IDs */
 
 /*
  * Intel now seems to have claimed part of the "extended" function
@@ -796,6 +868,7 @@ extern "C" {
 #define	X86FSET_AVX512_BITALG	105
 #define	X86FSET_AVX512_VBMI2	106
 #define	X86FSET_AVX512_BF16	107
+#define	X86FSET_AUTO_IBRS	108
 
 /*
  * Intel Deep C-State invariant TSC in leaf 0x80000007.
@@ -1349,7 +1422,7 @@ typedef enum x86_uarchrev {
 
 /*
  * xgetbv/xsetbv support
- * See section 13.3 in vol. 1 of the Intel devlopers manual.
+ * See section 13.3 in vol. 1 of the Intel Developer's manual.
  */
 
 #define	XFEATURE_ENABLED_MASK	0x0
@@ -1357,13 +1430,27 @@ typedef enum x86_uarchrev {
  * XFEATURE_ENABLED_MASK values (eax)
  * See setup_xfem().
  */
-#define	XFEATURE_LEGACY_FP	0x1
-#define	XFEATURE_SSE		0x2
-#define	XFEATURE_AVX		0x4
-#define	XFEATURE_MPX		0x18	/* 2 bits, both 0 or 1 */
-#define	XFEATURE_AVX512		0xe0	/* 3 bits, all 0 or 1 */
+#define	XFEATURE_LEGACY_FP	(1 << 0)
+#define	XFEATURE_SSE		(1 << 1)
+#define	XFEATURE_AVX		(1 << 2)
+/*
+ * MPX is meant to be all or nothing, therefore for most of the kernel prefer
+ * the XFEATURE_MPX definition over the individual state bits.
+ */
+#define	XFEATURE_MPX_BNDREGS	(1 << 3)
+#define	XFEATURE_MPX_BNDCSR	(1 << 4)
+#define	XFEATURE_MPX		(XFEATURE_MPX_BNDREGS | XFEATURE_MPX_BNDCSR)
+/*
+ * AX512 is meant to be all or nothing, therefore for most of the kernel prefer
+ * the XFEATURE_AVX512 definition over the individual state bits.
+ */
+#define	XFEATURE_AVX512_OPMASK	(1 << 5)
+#define	XFEATURE_AVX512_ZMM	(1 << 6)
+#define	XFEATURE_AVX512_HI_ZMM	(1 << 7)
+#define	XFEATURE_AVX512		(XFEATURE_AVX512_OPMASK | \
+	XFEATURE_AVX512_ZMM | XFEATURE_AVX512_HI_ZMM)
 	/* bit 8 unused */
-#define	XFEATURE_PKRU		0x200
+#define	XFEATURE_PKRU		(1 << 9)
 #define	XFEATURE_FP_ALL	\
 	(XFEATURE_LEGACY_FP | XFEATURE_SSE | XFEATURE_AVX | XFEATURE_MPX | \
 	XFEATURE_AVX512 | XFEATURE_PKRU)
@@ -1383,7 +1470,7 @@ typedef enum x86_uarchrev {
 
 #if defined(_KERNEL) || defined(_KMEMUSER)
 
-#define	NUM_X86_FEATURES	108
+#define	NUM_X86_FEATURES	109
 extern uchar_t x86_featureset[];
 
 extern void free_x86_featureset(void *featureset);
@@ -1488,8 +1575,9 @@ extern uint_t cpuid_get_procnodeid(struct cpu *cpu);
 extern uint_t cpuid_get_procnodes_per_pkg(struct cpu *cpu);
 extern uint_t cpuid_get_compunitid(struct cpu *cpu);
 extern uint_t cpuid_get_cores_per_compunit(struct cpu *cpu);
-extern size_t cpuid_get_xsave_size();
-extern boolean_t cpuid_need_fp_excp_handling();
+extern size_t cpuid_get_xsave_size(void);
+extern void cpuid_get_xsave_info(uint64_t, size_t *, size_t *);
+extern boolean_t cpuid_need_fp_excp_handling(void);
 extern int cpuid_is_cmt(struct cpu *);
 extern int cpuid_syscall32_insn(struct cpu *);
 extern int getl2cacheinfo(struct cpu *, int *, int *, int *);
