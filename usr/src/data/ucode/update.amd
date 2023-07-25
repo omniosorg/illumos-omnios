@@ -36,7 +36,7 @@ export LC_ALL=C.UTF-8
 set -e
 set -o pipefail
 
-mf=../../pkg/manifests/system-microcode-amd.p5m
+mf=../../pkg/manifests/system-microcode-amd.mf
 [[ -f $mf ]] || {
 	echo "Run from usr/src/data/ucode" 2>&1
 	exit 1
@@ -144,10 +144,10 @@ for f in amd/*; do
 	bf=${f##*/}
 	[[ $bf = THIRDPARTYLICENSE* ]] && continue
 	[[ $bf = Makefile* ]] && continue
-	echo "file path=$FW/$bf group=sys mode=0444 reboot-needed=true" >> $mf
+	echo "file path=$FW/$bf group=sys mode=0444 preserve=true reboot-needed=true" >> $mf
 done
 
 sed -i "/pkg.fmri.*microcode\/amd@/s/@[0-9]*/@$ver/" $mf
 
-$PKGFMT -fv2 $mf
+$PKGFMT -fv1 $mf
 
