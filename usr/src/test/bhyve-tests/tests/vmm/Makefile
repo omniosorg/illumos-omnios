@@ -29,7 +29,8 @@ PROG =	mem_partial \
 	default_capabs \
 	datarw_constraints \
 	pause_resume \
-	import_vlapic
+	import_vlapic \
+	maxcpu
 
 COMMON_OBJS =	common.o
 CLEAN_OBJS =	$(PROG:%=%.o)
