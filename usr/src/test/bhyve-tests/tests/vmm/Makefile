@@ -26,7 +26,8 @@ PROG =	mem_partial \
 	self_destruct \
 	drv_hold \
 	cpuid_ioctl \
-	datarw_constraints
+	datarw_constraints \
+	maxcpu
 
 COMMON_OBJS =	common.o
 CLEAN_OBJS =	$(PROG:%=%.o)
