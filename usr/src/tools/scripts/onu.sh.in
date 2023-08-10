@@ -157,7 +157,7 @@ update()
 	prepare_image
 
 	banner "Running image-update"
-	do_cmd pkg -R $root update --no-index -fr -C0
+	do_cmd pkg -R $root update --no-index -fr -C0 $update_args
 
 	finalise_image
 }
@@ -191,6 +191,7 @@ reposonly=0
 remove_entire=0
 gateonu=0
 persist=0
+update_args=""
 
 while getopts :c:d:eOprs:t:U:u:vZ i ; do
 	case $i in
@@ -235,7 +236,10 @@ while getopts :c:d:eOprs:t:U:u:vZ i ; do
 done
 shift `expr $OPTIND - 1`
 
-[ -n "$1" ] && usage
+# Pass remaining arguments to pkg update.
+if [ -n "$1" ]; then
+	update_args="$*"
+fi
 
 if [ "$reposonly" -eq 1 ]; then
 	[ -n "$sourcebe" ] && usage
