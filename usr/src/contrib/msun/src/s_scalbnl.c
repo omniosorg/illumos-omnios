@@ -45,5 +45,6 @@ long double scalbnl(long double x, int n)
 	return x * u.e;
 }
 __strong_reference(scalbnl, ldexpl);
+__weak_reference(scalbnl, __ldexpl);
 #endif
 

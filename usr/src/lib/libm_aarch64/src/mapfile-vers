@@ -58,12 +58,15 @@ global:
 	__atan2f;
 	__floorf;
 	__frexpf;
+	__frexpl;
 	__ldexpf;
+	__ldexpl;
 	__log10f;
 	__cosf;
 	__expf;
 	__logf;
 	__powf;
+	__powl;
 	__sinf;
 	__tanf;
 

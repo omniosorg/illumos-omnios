@@ -54,3 +54,4 @@ frexp(double x, int *eptr)
 #if (LDBL_MANT_DIG == 53)
 __weak_reference(frexp, frexpl);
 #endif
+__weak_reference(frexp, __frexpl);

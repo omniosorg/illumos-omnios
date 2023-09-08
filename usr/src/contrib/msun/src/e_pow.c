@@ -312,3 +312,4 @@ __ieee754_pow(double x, double y)
 #if (LDBL_MANT_DIG == 53)
 __weak_reference(pow, powl);
 #endif
+__weak_reference(pow, __powl);
