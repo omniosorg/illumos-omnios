@@ -70,7 +70,8 @@ LDFLAGS		+= $(MAPFILE.NGB:%=-Wl,-M%)
 CPPFLAGS	+= -I. -DIPFILTER_LOOKUP -DIPFILTER_LOG
 
 ipfstat.o	:=	CPPFLAGS += -DSTATETOP
-ipfstat		:=	LDLIBS += -lcurses
+ipfstat		:=	LDLIBS += -lncurses
+ipfstat		:=	NATIVE_LIBS += libncurses.so
 
 ipf		:=	LDLIBS += -lsocket -lnsl
 ipf		:=	OBJS += $(IPF_OBJS)
