@@ -19,15 +19,13 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# uts/i86xpv/pcie/Makefile
+#
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# Copyright (c) 2018, Joyent, Inc.
-
-#
-#	This makefile drives the production of the bofi driver
-#	kernel module.
-#
+# Copyright 2019 Joyent, Inc.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 #
 #	Path to the base of the uts directory tree (usually /usr/src/uts).
@@ -37,44 +35,33 @@ UTSBASE	= ../..
 #
 #	Define the module and object file sets.
 #
-MODULE		= bofi
-OBJECTS		= $(BOFI_OBJS:%=$(OBJS_DIR)/%)
-ROOTMODULE	= $(ROOT_DRV_DIR)/$(MODULE)
-CONF_SRCDIR	= $(UTSBASE)/common/io
+MODULE		= pcie
+OBJECTS		= $(PCIE_MISC_OBJS:%=$(OBJS_DIR)/%) \
+		  $(PCI_STRING_OBJS:%=$(OBJS_DIR)/%)
+ROOTMODULE	= $(ROOT_PSM_MISC_DIR)/$(MODULE)
 
 #
 #	Include common rules.
 #
-include $(UTSBASE)/intel/Makefile.intel
+include $(UTSBASE)/i86xpv/Makefile.i86xpv
 
 #
-#	Override defaults.
+#	Dependency
 #
-FILEMODE	= 644
+LDFLAGS		+= -Nmisc/acpica -Nmisc/busra -Nmisc/pci_prd
 
 #
 #	Define targets
 #
-ALL_TARGET	= $(BINARY) $(SRC_CONFILE)
-INSTALL_TARGET	= $(BINARY) $(ROOTMODULE) $(ROOT_CONFFILE)
+ALL_TARGET	= $(BINARY)
+INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 
-#
-#	Override defaults to build a unique, local modstubs.o.
-#
-MODSTUBS_DIR	 = $(OBJS_DIR)
-$(MODSTUBS_O)	:= AS_CPPFLAGS += -DBOFI_MODULE
-CLEANFILES	+= $(MODSTUBS_O)
-
-CERRWARN	+= $(CNOWARN_UNINIT)
+CPPFLAGS	+= -I$(SRC)/common/pci
+CERRWARN	+= -_gcc=-Wno-unused-value
+CERRWARN	+= -_gcc=-Wno-unused-function # safe
 
 # needs work
-$(OBJS_DIR)/bofi.o := SMOFF += signed_integer_overflow_check,deref_check
-
-#
-# For now, disable these warnings; maintainers should endeavor
-# to investigate and remove these for maximum coverage.
-# Please do not carry these forward to new Makefiles.
-#
+SMOFF += all_func_returns,deref_check
 
 #
 #	Default build targets.
@@ -94,4 +81,4 @@ install:	$(INSTALL_DEPS)
 #
 #	Include common targets.
 #
-include $(UTSBASE)/intel/Makefile.targ
+include $(UTSBASE)/i86xpv/Makefile.targ
