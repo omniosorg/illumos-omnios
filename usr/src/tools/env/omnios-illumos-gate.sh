@@ -5,7 +5,7 @@
 # Enable the non-DEBUG build
 NIGHTLY_OPTIONS=${NIGHTLY_OPTIONS/F/}
 
-export PERL_VERSION=5.36
+export PERL_VERSION=5.38
 export PERL_PKGVERS=
 export PERL_VARIANT=-thread-multi
 export BUILDPERL32='#'
