@@ -1373,6 +1373,7 @@ usr/src/cmd/mdb/intel/modules/amd_opteron/amd64/kmod/
 usr/src/cmd/mdb/intel/modules/generic_cpu/amd64/kmod/
 usr/src/cmd/mdb/intel/modules/i40e/amd64/kmod/
 usr/src/cmd/mdb/intel/modules/sata/amd64/kmod/
+usr/src/cmd/mdb/intel/modules/vmm/amd64/kmod/
 usr/src/cmd/mdb/intel/modules/xhci/amd64/kmod/
 usr/src/cmd/mdb/tools/scripts/hdr2map
 usr/src/cmd/mdb/tools/scripts/map2linktest
@@ -1638,8 +1639,7 @@ usr/src/cmd/saf/pmadm
 usr/src/cmd/saf/sac
 usr/src/cmd/saf/sacadm
 usr/src/cmd/sasinfo/sasinfo
-usr/src/cmd/savecore/amd64/savecore
-usr/src/cmd/savecore/i386/savecore
+usr/src/cmd/savecore/savecore
 usr/src/cmd/sbdadm/sbdadm
 usr/src/cmd/script/script
 usr/src/cmd/scsi/sestopo/i386/sestopo
