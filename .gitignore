@@ -2006,6 +2006,7 @@ usr/src/cmd/smserverd/smed_xdr.c
 usr/src/cmd/soelim/soelim
 usr/src/cmd/sort/sort
 usr/src/cmd/sort/sort.xpg4
+usr/src/cmd/spd/spd
 usr/src/cmd/spell/compress
 usr/src/cmd/spell/hashcheck
 usr/src/cmd/spell/hashmake
@@ -8538,7 +8539,9 @@ usr/src/test/bhyve-tests/tests/inst_emul/payload_exit_paging
 usr/src/test/bhyve-tests/tests/inst_emul/payload_imul
 usr/src/test/bhyve-tests/tests/inst_emul/payload_page_dirty
 usr/src/test/bhyve-tests/tests/inst_emul/payload_rdmsr
+usr/src/test/bhyve-tests/tests/inst_emul/payload_suspend_info
 usr/src/test/bhyve-tests/tests/inst_emul/payload_triple_fault
+usr/src/test/bhyve-tests/tests/inst_emul/payload_vcpu_barrier
 usr/src/test/bhyve-tests/tests/inst_emul/payload_wrmsr
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_cpuid.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_exit_consistent.s
@@ -8546,10 +8549,14 @@ usr/src/test/bhyve-tests/tests/inst_emul/pobj_exit_paging.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_imul.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_page_dirty.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_rdmsr.s
+usr/src/test/bhyve-tests/tests/inst_emul/pobj_suspend_info.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_triple_fault.s
+usr/src/test/bhyve-tests/tests/inst_emul/pobj_vcpu_barrier.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_wrmsr.s
 usr/src/test/bhyve-tests/tests/inst_emul/rdmsr
+usr/src/test/bhyve-tests/tests/inst_emul/suspend_info
 usr/src/test/bhyve-tests/tests/inst_emul/triple_fault
+usr/src/test/bhyve-tests/tests/inst_emul/vcpu_barrier
 usr/src/test/bhyve-tests/tests/inst_emul/wrmsr
 usr/src/test/bhyve-tests/tests/kdev/guest_tsc_adjust
 usr/src/test/bhyve-tests/tests/kdev/payload_guest_tsc_adjust
@@ -8979,6 +8986,8 @@ usr/src/test/util-tests/tests/demangle/rust
 usr/src/test/util-tests/tests/iconv/iconv_test
 usr/src/test/util-tests/tests/libcustr/custr_remove
 usr/src/test/util-tests/tests/libcustr/custr_trunc
+usr/src/test/util-tests/tests/libjedec/libjedec_spd
+usr/src/test/util-tests/tests/libjedec/libjedec_temp
 usr/src/test/util-tests/tests/libjedec/libjedec_test
 usr/src/test/util-tests/tests/libnvpair_json/print_json
 usr/src/test/util-tests/tests/libsff/libsff_8472
