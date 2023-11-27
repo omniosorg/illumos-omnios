@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2013, Anish Gupta (akgupt3@gmail.com)
  * All rights reserved.
@@ -41,7 +41,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -1466,7 +1465,7 @@ svm_vmexit(struct svm_softc *svm_sc, int vcpu, struct vm_exit *vmexit)
 		vmm_stat_incr(svm_sc->vm, vcpu, VMEXIT_INOUT, 1);
 		break;
 	case VMCB_EXIT_SHUTDOWN:
-		(void) vm_suspend(svm_sc->vm, VM_SUSPEND_TRIPLEFAULT);
+		(void) vm_suspend(svm_sc->vm, VM_SUSPEND_TRIPLEFAULT, vcpu);
 		handled = 1;
 		break;
 	case VMCB_EXIT_INVLPGA:

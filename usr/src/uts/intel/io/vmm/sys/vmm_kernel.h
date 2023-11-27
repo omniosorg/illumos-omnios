@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2011 NetApp, Inc.
  * All rights reserved.
@@ -24,8 +24,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 /*
  * This file and its contents are supplied under the terms of the
@@ -194,7 +192,7 @@ int vm_set_run_state(struct vm *vm, int vcpuid, uint32_t state,
 int vm_get_fpu(struct vm *vm, int vcpuid, void *buf, size_t len);
 int vm_set_fpu(struct vm *vm, int vcpuid, void *buf, size_t len);
 int vm_run(struct vm *vm, int vcpuid, const struct vm_entry *);
-int vm_suspend(struct vm *vm, enum vm_suspend_how how);
+int vm_suspend(struct vm *, enum vm_suspend_how, int);
 int vm_inject_nmi(struct vm *vm, int vcpu);
 bool vm_nmi_pending(struct vm *vm, int vcpuid);
 void vm_nmi_clear(struct vm *vm, int vcpuid);
@@ -229,12 +227,12 @@ int vm_service_mmio_write(struct vm *vm, int cpuid, uint64_t gpa, uint64_t wval,
 #ifdef _SYS__CPUSET_H_
 cpuset_t vm_active_cpus(struct vm *vm);
 cpuset_t vm_debug_cpus(struct vm *vm);
-cpuset_t vm_suspended_cpus(struct vm *vm);
 #endif	/* _SYS__CPUSET_H_ */
 
 bool vcpu_entry_bailout_checks(struct vm *vm, int vcpuid, uint64_t rip);
 bool vcpu_run_state_pending(struct vm *vm, int vcpuid);
 int vcpu_arch_reset(struct vm *vm, int vcpuid, bool init_only);
+int vm_vcpu_barrier(struct vm *, int);
 
 /*
  * Return true if device indicated by bus/slot/func is supposed to be a

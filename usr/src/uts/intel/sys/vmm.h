@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2011 NetApp, Inc.
  * All rights reserved.
@@ -24,8 +24,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 /*
  * This file and its contents are supplied under the terms of the
@@ -239,7 +237,7 @@ enum vm_exitcode {
 	VM_EXITCODE_MONITOR,
 	VM_EXITCODE_MWAIT,
 	VM_EXITCODE_SVM,
-	VM_EXITCODE_REQIDLE,
+	VM_EXITCODE_DEPRECATED2, /* formerly REQIDLE */
 	VM_EXITCODE_DEBUG,
 	VM_EXITCODE_VMINSN,
 	VM_EXITCODE_BPT,
@@ -377,6 +375,17 @@ struct vm_exit {
 		} ioapic_eoi;
 		struct {
 			enum vm_suspend_how how;
+			/*
+			 * Source vcpuid for suspend status.  Typically -1,
+			 * except for triple-fault events which occur on a
+			 * specific faulting vCPU.
+			 */
+			int source;
+			/*
+			 * When suspend status was set on VM, measured in
+			 * nanoseconds since VM boot.
+			 */
+			uint64_t when;
 		} suspended;
 		struct vm_task_switch task_switch;
 	} u;

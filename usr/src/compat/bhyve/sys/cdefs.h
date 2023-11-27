@@ -101,4 +101,8 @@
 #endif
 #endif
 
+#ifndef __DECONST
+#define	__DECONST(type, var)	((type)(uintptr_t)(const void *)(var))
+#endif
+
 #endif	/* _COMPAT_FREEBSD_SYS_CDEFS_H_ */

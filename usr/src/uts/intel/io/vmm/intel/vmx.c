@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2011 NetApp, Inc.
  * All rights reserved.
@@ -25,8 +25,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 /*
  * This file and its contents are supplied under the terms of the
@@ -45,7 +43,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -2275,7 +2272,7 @@ vmx_exit_process(struct vmx *vmx, int vcpu, struct vm_exit *vmexit)
 
 	switch (reason) {
 	case EXIT_REASON_TRIPLE_FAULT:
-		(void) vm_suspend(vmx->vm, VM_SUSPEND_TRIPLEFAULT);
+		(void) vm_suspend(vmx->vm, VM_SUSPEND_TRIPLEFAULT, vcpu);
 		handled = HANDLED;
 		break;
 	case EXIT_REASON_TASK_SWITCH:

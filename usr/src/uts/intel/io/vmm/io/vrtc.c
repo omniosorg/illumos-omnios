@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2014, Neel Natu (neel@freebsd.org)
  * All rights reserved.
@@ -32,7 +32,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -863,6 +862,14 @@ vrtc_regc_read(struct vrtc *vrtc)
 	/* Clear the IRQ flag, and any asserted events */
 	const uint8_t val = rtc->reg_c;
 	rtc->reg_c = 0;
+
+	/*
+	 * Since callout scheduling is suppressed when the IRQ flag is asserted,
+	 * it may need to be re-scheduled when the flag is read/cleared.
+	 */
+	if ((val & RTCIR_INT) != 0) {
+		vrtc_callout_reschedule(vrtc);
+	}
 
 	return (val);
 }
