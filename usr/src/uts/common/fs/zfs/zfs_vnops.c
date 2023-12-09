@@ -1413,15 +1413,15 @@ zfs_lookup(vnode_t *dvp, char *nm, vnode_t **vpp, struct pathname *pnp,
 	znode_t *zdp = VTOZ(dvp);
 	zfsvfs_t *zfsvfs = zdp->z_zfsvfs;
 	int	error = 0;
-	boolean_t skipaclchk = ((flags & ATTR_NOACLCHECK) != 0);
+	boolean_t skipaclchk = ((flags & LOOKUP_NOACLCHECK) != 0);
 
 	/*
-	 * ATTR_NOACLCHECK is specified to skip EXECUTE checks for
+	 * LOOKUP_NOACLCHECK is specified to skip EXECUTE checks for
 	 * consumers (like SMB) that bypass traverse checking.
 	 * Turn it off here so it can't accidentally be used
 	 * for other checks.
 	 */
-	flags &= ~ATTR_NOACLCHECK;
+	flags &= ~LOOKUP_NOACLCHECK;
 
 	/*
 	 * Fast path lookup, however we must skip DNLC lookup
@@ -5611,6 +5611,13 @@ zfs_reqzcbuf(vnode_t *vp, enum uio_rw ioflag, xuio_t *xuio, cred_t *cr,
 		return (SET_ERROR(EINVAL));
 	}
 
+	/*
+	 * Note: Setting UIO_XUIO in uio_extflg tells the caller to
+	 * return any loaned buffers by calling VOP_RETZCBUF, so
+	 * after we do this we MUST expect a zfs_retzcbuf call.
+	 * Note that for UIO_READ, XUIO_XUZC_PRIV is not set
+	 * until zfs_read calls dmu_xuio_init.
+	 */
 	uio->uio_extflg = UIO_XUIO;
 	XUIO_XUZC_RW(xuio) = ioflag;
 	ZFS_EXIT(zfsvfs);
@@ -5626,6 +5633,10 @@ zfs_retzcbuf(vnode_t *vp, xuio_t *xuio, cred_t *cr, caller_context_t *ct)
 	int ioflag = XUIO_XUZC_RW(xuio);
 
 	ASSERT(xuio->xu_type == UIOTYPE_ZEROCOPY);
+
+	/* In case zfs_read never calls dmu_xuio_init */
+	if (XUIO_XUZC_PRIV(xuio) == NULL)
+		return (0);
 
 	i = dmu_xuio_cnt(xuio);
 	while (i-- > 0) {

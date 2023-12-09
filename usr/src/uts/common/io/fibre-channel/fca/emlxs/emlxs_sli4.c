@@ -355,7 +355,7 @@ emlxs_sli4_online(emlxs_hba_t *hba)
 	hba->channel_fcp = 0; /* First channel */
 
 	/* Gen6 chips only support P2P topologies */
-	if ((hba->model_info.flags & EMLXS_FC_GEN6) &&
+	if ((hba->model_info.chip == EMLXS_LANCERG6_CHIP) &&
 	    cfg[CFG_TOPOLOGY].current != 2) {
 		EMLXS_MSGF(EMLXS_CONTEXT, &emlxs_init_msg,
 		    "Loop topologies are not supported by this HBA. "
