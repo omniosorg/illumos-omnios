@@ -6532,6 +6532,7 @@ usr/src/man/man3proc/proc_finistdio.3proc
 usr/src/man/man3proc/proc_flushstdio.3proc
 usr/src/man/man3proc/proc_free_priv.3proc
 usr/src/man/man3proc/proc_get_ldt.3proc
+usr/src/man/man3proc/proc_get_lwpstatus.3proc
 usr/src/man/man3proc/proc_lwp_range_valid.3proc
 usr/src/man/man3proc/proc_signame.3proc
 usr/src/man/man3proc/proc_sigset2str.3proc
@@ -8986,9 +8987,12 @@ usr/src/test/util-tests/tests/demangle/rust
 usr/src/test/util-tests/tests/iconv/iconv_test
 usr/src/test/util-tests/tests/libcustr/custr_remove
 usr/src/test/util-tests/tests/libcustr/custr_trunc
-usr/src/test/util-tests/tests/libjedec/libjedec_spd
-usr/src/test/util-tests/tests/libjedec/libjedec_temp
-usr/src/test/util-tests/tests/libjedec/libjedec_test
+usr/src/test/util-tests/tests/libjedec/libjedec_spd.32
+usr/src/test/util-tests/tests/libjedec/libjedec_spd.64
+usr/src/test/util-tests/tests/libjedec/libjedec_temp.32
+usr/src/test/util-tests/tests/libjedec/libjedec_temp.64
+usr/src/test/util-tests/tests/libjedec/libjedec_test.32
+usr/src/test/util-tests/tests/libjedec/libjedec_test.64
 usr/src/test/util-tests/tests/libnvpair_json/print_json
 usr/src/test/util-tests/tests/libsff/libsff_8472
 usr/src/test/util-tests/tests/libsff/libsff_8636_diag
