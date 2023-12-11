@@ -28,6 +28,7 @@ pkg:/runtime/java
 pkg:/runtime/java/openjdk11
 pkg:/runtime/java/openjdk8
 pkg:/runtime/java/runtime64
+pkg:/runtime/perl
 pkg:/runtime/python-27
 pkg:/runtime/python-310
 pkg:/runtime/python-311
