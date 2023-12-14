@@ -22,9 +22,7 @@
 /* Copyright 2015 QLogic Corporation */
 
 /*
- * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
- */
-/*
+ * Copyright (c) 2008, 2011, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2016 by Delphix. All rights reserved.
  * Copyright (c) 2008, 2011, Oracle and/or its affiliates. All rights reserved.
