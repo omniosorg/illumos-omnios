@@ -2236,8 +2236,7 @@ usr/src/cmd/troff/troff.d/makedev
 usr/src/cmd/troff/troff.d/ta
 usr/src/cmd/troff/troff.d/troff
 usr/src/cmd/true/true
-usr/src/cmd/truss/amd64/truss
-usr/src/cmd/truss/i386/truss
+usr/src/cmd/truss/truss
 usr/src/cmd/tsol/atohexlabel/atohexlabel
 usr/src/cmd/tsol/getlabel/getlabel
 usr/src/cmd/tsol/getzonepath/getzonepath
