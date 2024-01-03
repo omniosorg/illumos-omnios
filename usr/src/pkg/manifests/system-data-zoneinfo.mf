@@ -18,7 +18,7 @@
 #
 
 set name=pkg.fmri \
-    value=pkg:/system/data/zoneinfo@2023.3,$(PKGVERS_BUILTON)-$(PKGVERS_BRANCH)
+    value=pkg:/system/data/zoneinfo@2023.4,$(PKGVERS_BUILTON)-$(PKGVERS_BRANCH)
 set name=pkg.description value="timezone information"
 set name=pkg.summary value="Timezone Information"
 set name=info.classification value=org.opensolaris.category.2008:System/Core
@@ -197,6 +197,20 @@ file path=usr/share/lib/zoneinfo/Antarctica/Mawson
 file path=usr/share/lib/zoneinfo/Antarctica/Palmer
 file path=usr/share/lib/zoneinfo/Antarctica/Rothera
 file path=usr/share/lib/zoneinfo/Antarctica/Troll
+<<<<<<< HEAD:usr/src/pkg/manifests/system-data-zoneinfo.mf
+||||||| parent of b4eb54e1208 (16137 Update tzdata to 2023d):usr/src/pkg/manifests/system-data-zoneinfo.p5m
+hardlink path=usr/share/lib/zoneinfo/Antarctica/Vostok target=../Asia/Urumqi
+dir  path=usr/share/lib/zoneinfo/Arctic
+hardlink path=usr/share/lib/zoneinfo/Arctic/Longyearbyen target=../Europe/Berlin
+dir  path=usr/share/lib/zoneinfo/Asia
+hardlink path=usr/share/lib/zoneinfo/Asia/Aden target=Riyadh
+=======
+file path=usr/share/lib/zoneinfo/Antarctica/Vostok
+dir  path=usr/share/lib/zoneinfo/Arctic
+hardlink path=usr/share/lib/zoneinfo/Arctic/Longyearbyen target=../Europe/Berlin
+dir  path=usr/share/lib/zoneinfo/Asia
+hardlink path=usr/share/lib/zoneinfo/Asia/Aden target=Riyadh
+>>>>>>> b4eb54e1208 (16137 Update tzdata to 2023d):usr/src/pkg/manifests/system-data-zoneinfo.p5m
 file path=usr/share/lib/zoneinfo/Asia/Almaty
 file path=usr/share/lib/zoneinfo/Asia/Amman
 file path=usr/share/lib/zoneinfo/Asia/Anadyr
