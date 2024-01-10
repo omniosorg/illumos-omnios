@@ -1181,7 +1181,6 @@ static const struct pci_devemu passthru = {
 };
 PCI_EMUL_SET(passthru);
 
-
 /*
  * This isn't the right place for these functions which, on FreeBSD, can
  * read or write from arbitrary devices. They are not supported on illumos;
