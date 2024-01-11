@@ -38,8 +38,6 @@
 #define __GNUC_PREREQ__(ma, mi) 0
 #endif
 
-#define	__FBSDID(s)
-
 #ifdef	__GNUC__
 #define	asm		__asm
 #define	inline		__inline

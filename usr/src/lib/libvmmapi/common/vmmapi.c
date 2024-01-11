@@ -780,10 +780,14 @@ vcpu_ioctl(struct vcpu *vcpu, u_long cmd, void *arg)
 #else
 /*
  * Rather than use the fragile function above, we continue to explicitly set
- * the vcpu field in the command struct, but use the following definition for
- * the invocations, to continue to minimise the upstream diff.
+ * the vcpu field in the command struct, and use the following function to
+ * wrap the invocations, to continue to minimise the upstream diff.
  */
-#define	vcpu_ioctl(vcpu, cmd, arg)	ioctl((vcpu)->ctx->fd, (cmd), (arg))
+static int
+vcpu_ioctl(struct vcpu *vcpu, u_long cmd, void *arg)
+{
+	return (ioctl(vcpu->ctx->fd, cmd, arg));
+}
 #endif
 
 int
