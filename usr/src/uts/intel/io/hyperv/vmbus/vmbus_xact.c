@@ -37,6 +37,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright 2022 Racktop Systems, Inc.
  */
 
 #include <sys/param.h>
@@ -217,8 +218,10 @@ vmbus_xact_get(struct vmbus_xact_ctx *ctx, size_t req_len)
 {
 	struct vmbus_xact *xact;
 
-	if (req_len > ctx->xc_req_size)
-		panic("invalid request size %llu", (u_longlong_t)req_len);
+	if (req_len > ctx->xc_req_size) {
+		cmn_err(CE_PANIC, "invalid request size %llu",
+		    (u_longlong_t)req_len);
+	}
 
 	xact = vmbus_xact_get1(ctx, VMBUS_XACT_CTXF_DESTROY);
 	if (xact == NULL)
@@ -246,14 +249,12 @@ vmbus_xact_put(struct vmbus_xact *xact)
 void *
 vmbus_xact_req_data(const struct vmbus_xact *xact)
 {
-
 	return (xact->x_req);
 }
 
 paddr_t
 vmbus_xact_req_paddr(const struct vmbus_xact *xact)
 {
-
 	return (xact->x_req_dma.hv_paddr);
 }
 
@@ -261,8 +262,10 @@ void *
 vmbus_xact_priv(const struct vmbus_xact *xact, size_t priv_len)
 {
 
-	if (priv_len > xact->x_ctx->xc_priv_size)
-		panic("invalid priv size %llu", (u_longlong_t)priv_len);
+	if (priv_len > xact->x_ctx->xc_priv_size) {
+		cmn_err(CE_PANIC, "invalid priv size %llu",
+		    (u_longlong_t)priv_len);
+	}
 	return (xact->x_priv);
 }
 
@@ -306,7 +309,8 @@ vmbus_xact_return(struct vmbus_xact *xact, size_t *resp_len)
 		 * Orphaned and no response was received yet; fake up
 		 * an one byte response.
 		 */
-		printf("vmbus: xact ctx was orphaned w/ pending xact\n");
+		cmn_err(CE_WARN, "%s: xact ctx was orphaned with pending xact",
+		    __func__);
 		vmbus_xact_save_resp(ctx->xc_active, &b, sizeof (b));
 	}
 	ASSERT3P(xact->x_resp, !=, NULL);
@@ -349,14 +353,12 @@ vmbus_xact_wait1(struct vmbus_xact *xact, size_t *resp_len,
 const void *
 vmbus_xact_wait(struct vmbus_xact *xact, size_t *resp_len)
 {
-
 	return (vmbus_xact_wait1(xact, resp_len, B_TRUE /* can sleep */));
 }
 
 const void *
 vmbus_xact_busywait(struct vmbus_xact *xact, size_t *resp_len)
 {
-
 	return (vmbus_xact_wait1(xact, resp_len, B_FALSE /* can't sleep */));
 }
 
@@ -442,7 +444,7 @@ vmbus_xact_ctx_wakeup(struct vmbus_xact_ctx *ctx, const void *data, size_t dlen)
 		do_wakeup = 1;
 	} else {
 		ASSERT(ctx->xc_flags & VMBUS_XACT_CTXF_DESTROY);
-		printf("vmbus: drop xact response\n");
+		cmn_err(CE_NOTE, "%s: drop xact response\n", __func__);
 	}
 
 	if (do_wakeup)

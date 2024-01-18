@@ -22,6 +22,7 @@
  * Copyright (c) 2009-2010, Intel Corporation.
  * All rights reserved.
  * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2024 Racktop Systems, Inc.
  */
 
 #include <sys/types.h>
@@ -33,12 +34,17 @@
 #include <sys/acpidev.h>
 #include <sys/acpidev_impl.h>
 #include <sys/pci.h>
+#include <sys/x86_archext.h>
+#include <sys/sysmacros.h>
+#include <sys/framebuffer.h>
 
 static ACPI_STATUS acpidev_device_probe(acpidev_walk_info_t *infop);
 static acpidev_filter_result_t acpidev_device_filter(acpidev_walk_info_t *infop,
     char *devname, int maxlen);
 static acpidev_filter_result_t acpidev_device_filter_usb(acpidev_walk_info_t *,
     ACPI_HANDLE, acpidev_filter_rule_t *, char *, int);
+static acpidev_filter_result_t acpidev_device_filter_hyperv(
+    acpidev_walk_info_t *, ACPI_HANDLE, acpidev_filter_rule_t *, char *, int);
 static ACPI_STATUS acpidev_device_init(acpidev_walk_info_t *infop);
 
 static uint32_t acpidev_device_unitaddr = 0;
@@ -101,6 +107,16 @@ static acpidev_filter_rule_t acpidev_device_filters[] = {
 		INT_MAX,
 		NULL,
 		NULL
+	},
+	{
+		acpidev_device_filter_hyperv,
+		0,
+		ACPIDEV_FILTER_SKIP,
+		&acpidev_class_list_device,
+		2,
+		3,
+		NULL,
+		NULL,
 	},
 	{	/* Scan other device objects not directly under ACPI root */
 		NULL,
@@ -213,6 +229,92 @@ acpidev_device_filter_usb(acpidev_walk_info_t *infop, ACPI_HANDLE hdl,
 	}
 
 	ddi_prop_free(compat);
+	return (ACPIDEV_FILTER_SKIP);
+}
+
+static acpidev_filter_result_t
+acpidev_device_filter_hyperv(acpidev_walk_info_t *infop, ACPI_HANDLE hdl,
+    acpidev_filter_rule_t *afrp, char *devname, int len)
+{
+	ACPI_DEVICE_INFO	*ainfo = infop->awi_info;
+
+	if ((get_hwenv() & HW_MICROSOFT) == 0)
+		return (ACPIDEV_FILTER_SKIP);
+
+	if (devname == NULL)
+		return (ACPIDEV_FILTER_SKIP);
+
+	/*
+	 * We've encountered devnames (so far) of 'VMBS' and 'VMB8' in
+	 * the field. In all instances, the _HID for the VMBus device has
+	 * been "VMBus", so that appears to be the safer value to use
+	 * to identify if the VMBus is present. Similarly, the _DDN is
+	 * 'VMBUS'. In some instances AcpiGetObjectInfo() seems to set
+	 * HardwareId.String to the _DDN instead of the _HID, so we
+	 * check for either.
+	 */
+	if ((ainfo->Valid & ACPI_VALID_HID) == 0 ||
+	    (strcmp(ainfo->HardwareId.String, "VMBus") != 0 &&
+	    (strcmp(ainfo->HardwareId.String, "VMBUS") != 0)))
+		return (ACPIDEV_FILTER_SKIP);
+
+	/*
+	 * For historical reasons, the vmbus lives off the root nexus. As a
+	 * result, we have to create the node ourself and not let the acpidev
+	 * framework create it under the fw tree so device paths do not change.
+	 * Certain vmbus children (e.g. hv_netvsc) will cause undesirable
+	 * behavior if their device paths move across an update.
+	 */
+	dev_info_t *vmb_dip = NULL;
+	dev_info_t *root_dip = ddi_root_node();
+	boolean_t is_gen2 = B_FALSE;
+
+	/*
+	 * Per some conversations with people at Microsoft on Hyper-V,
+	 * most platforms distinguish between Gen1 and Gen2 VMs
+	 * based on how they boot. Gen2 VMs always use EFI while
+	 * Gen1 VMs always use BIOS. Looking for an EFI property
+	 * on the root nexus is the best way we have to tell if
+	 * we booted via EFI or not.
+	 */
+	if (ddi_prop_exists(DDI_DEV_T_ANY, root_dip, DDI_PROP_DONTPASS,
+	    "efi-version")) {
+		is_gen2 = B_TRUE;
+	}
+
+	ndi_devi_enter(root_dip);
+
+	if (is_gen2) {
+		dev_info_t *isa_dip = NULL;
+
+		/* There shouldn't be an PCI-LPC bridge in a Gen2 VM */
+		VERIFY3P(ddi_find_devinfo("isa", -1, 0), ==, NULL);
+
+		/* Create an isa bridge off the root nexus */
+		ndi_devi_alloc_sleep(root_dip, "isa", (pnode_t)DEVI_SID_NODEID,
+		    &isa_dip);
+		(void) ndi_prop_update_string(DDI_DEV_T_NONE, isa_dip,
+		    OBP_DEVICETYPE, "isa");
+		(void) ndi_prop_update_string(DDI_DEV_T_NONE, isa_dip,
+		    "bus-type", "isa");
+		(void) ndi_devi_bind_driver(isa_dip, 0);
+	}
+
+	ndi_devi_alloc_sleep(root_dip, "hv_vmbus",
+	    (pnode_t)DEVI_SID_NODEID, &vmb_dip);
+	(void) ndi_prop_update_string(DDI_DEV_T_NONE, vmb_dip,
+	    OBP_DEVICETYPE, "vmbus");
+	(void) ndi_prop_update_string(DDI_DEV_T_NONE, vmb_dip, "model",
+	    "Hyper-V Virtual Machine Bus");
+	(void) ndi_devi_bind_driver(vmb_dip, 0);
+
+	ndi_devi_exit(root_dip);
+
+	/*
+	 * Since we're doing our own thing with creating nodes here,
+	 * we tell the framework not to do anything else with this
+	 * node.
+	 */
 	return (ACPIDEV_FILTER_SKIP);
 }
 

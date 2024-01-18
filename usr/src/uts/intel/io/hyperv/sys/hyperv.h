@@ -70,6 +70,8 @@ struct hyperv_guid {
 #define	HYPERV_GUID_STRLEN	40
 
 void		hyperv_guid2str(const struct hyperv_guid *, char *, size_t);
+boolean_t	hyperv_str2guid(const char *s, struct hyperv_guid *);
+boolean_t	hyperv_isgen2(void);
 
 extern uint64_t	hyperv_privs_mask;
 extern uint16_t	hyperv_ver_major;

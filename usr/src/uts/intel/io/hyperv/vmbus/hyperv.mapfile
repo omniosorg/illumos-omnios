@@ -38,7 +38,9 @@ SYMBOL_VERSION ILLUMOSprivate {
 	hyperv_dmamem_alloc;
 	hyperv_dmamem_free;
 	hyperv_guid2str;
+	hyperv_isgen2;
 	hyperv_privs_mask;
+	hyperv_str2guid;
 
 	hyperv_svc_branch;
 	hyperv_svc_number;

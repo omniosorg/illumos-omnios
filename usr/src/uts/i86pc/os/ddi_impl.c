@@ -25,7 +25,6 @@
  * Copyright 2014 Pluribus Networks, Inc.
  * Copyright 2016 Nexenta Systems, Inc.
  * Copyright 2018 Joyent, Inc.
- * Copyright 2022 Racktop Systems, Inc.
  */
 
 /*
@@ -233,10 +232,7 @@ configure(void)
 			(void) i_ddi_attach_hw_nodes("isa");
 	}
 #else
-	dev_info_t *isa_dip = ddi_find_devinfo("isa", -1, 0);
-
-	if (pseudo_isa ||
-	    (isa_dip != NULL && ddi_get_parent(isa_dip) == ddi_root_node())) {
+	if (pseudo_isa) {
 		(void) i_ddi_attach_pseudo_node("isa");
 	} else {
 		(void) i_ddi_attach_hw_nodes("isa");
@@ -2741,6 +2737,7 @@ impl_bus_initialprobe(void)
 
 	if (modload("drv", "isa") < 0)
 		panic("failed to load drv/isa");
+
 #endif
 
 	probe = bus_probes;

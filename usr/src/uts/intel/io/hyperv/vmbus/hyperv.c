@@ -292,6 +292,113 @@ hyperv_guid2str(const struct hyperv_guid *guid, char *buf, size_t sz)
 	    d[10], d[11], d[12], d[13], d[14], d[15]);
 }
 
+static int
+hyperv_parse_nibble(char c)
+{
+	if (c >= 'A' && c <= 'F') {
+		return (c - 'A' + 10);
+	}
+	if (c >= 'a' && c <= 'f') {
+		return (c - 'a' + 10);
+	}
+	if (c >= '0' && c <= '9') {
+		return (c - '0');
+	}
+
+	return (-1);
+}
+
+static boolean_t
+hyperv_parse_byte(const char *s, uint8_t *vp)
+{
+	int hi, lo;
+
+	if (s[0] == '\0')
+		return (B_FALSE);
+	hi = hyperv_parse_nibble(s[0]);
+	if (hi == -1)
+		return (B_FALSE);
+
+	if (s[1] == '\0')
+		return (B_FALSE);
+	lo = hyperv_parse_nibble(s[1]);
+	if (lo == -1)
+		return (B_FALSE);
+
+	*vp = (uint8_t)hi << 4 | ((uint8_t)lo & 0x0f);
+	return (B_TRUE);
+}
+
+boolean_t
+hyperv_str2guid(const char *s, struct hyperv_guid *guid)
+{
+	/* This matches the byte order used in hyperv_guid2str. */
+	static const uint_t guidpos[] = {
+		3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15
+	};
+
+	/* How the bytes are grouped */
+	static const uint_t groups[] = { 8, 13, 18, 23 };
+
+	uint_t guidx = 0, sidx = 0, grpidx = 0;
+	uint8_t byte;
+
+	while (s[sidx] != '\0' && guidx < ARRAY_SIZE(guidpos)) {
+		if (s[sidx] == '-') {
+			if (sidx != groups[grpidx])
+			       return (B_FALSE);
+			sidx++;
+			grpidx++;
+			continue;
+		}
+
+		/*
+		 * We expect the hex values are zero padded, so we always
+		 * parse a 2-character hex value into a single byte.
+		 */
+		if (!hyperv_parse_byte(s + sidx, &byte))
+			return (B_FALSE);
+		sidx += 2;
+
+		guid->hv_guid[guidpos[guidx++]] = byte;
+	}
+
+#ifdef DEBUG
+	char check[HYPERV_GUID_STRLEN] = { 0 };
+
+	hyperv_guid2str(guid, check, sizeof (check));
+	if (strcmp(s, check) != 0) {
+		cmn_err(CE_PANIC, "%s parsed '%s' as '%s'", __func__,
+		    s, check);
+	}
+#endif
+
+	return (B_TRUE);
+}
+
+/*
+ * Based on conversations with Microsoft engineers about Hyper-V, the
+ * way other platforms distinguish between Gen1 and Gen2 VMs is by their
+ * boot method. Gen1 VMs always use BIOS while Gen2 always uses EFI.
+ * Currently, the easiest way for us to tell if we've booted via EFI is
+ * by looking for the presense of the efi-version property on the root
+ * nexus.
+ *
+ * NOTE: This check is also duplicated within the acipica filter code
+ * to cons up the EFI framebuffer and ISA bus (as nothing else will in Gen2
+ * VMs).
+ */
+boolean_t
+hyperv_isgen2(void)
+{
+	if (ddi_prop_exists(DDI_DEV_T_ANY, ddi_root_node(), DDI_PROP_DONTPASS,
+	    "efi-version") != 0) {
+		return (B_TRUE);
+	}
+
+	return (B_FALSE);
+}
+
 void
 do_cpuid(uint32_t eax, struct cpuid_regs *cp)
 {

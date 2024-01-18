@@ -51,7 +51,6 @@
 #include <sys/vmbus.h>
 #include <vmbus/hyperv_reg.h>
 
-
 /*
  * Hyper-V SynIC message format.
  */
@@ -214,7 +213,12 @@ struct vmbus_chanpkt_prplist {
 #define	VMBUS_CHANMSG_TYPE_CONNECT		14	/* REQ */
 #define	VMBUS_CHANMSG_TYPE_CONNECT_RESP		15	/* RESP */
 #define	VMBUS_CHANMSG_TYPE_DISCONNECT		16	/* REQ */
-#define	VMBUS_CHANMSG_TYPE_MAX			22
+#define	VMBUS_CHANMSG_TYPE_DISCONNECT_RESP	17	/* RESP */
+#define	VMBUS_CHANMSG_TYPE_TL_CONNECT		21	/* REQ */
+#define	VMBUS_CHANMSG_TYPE_MODIFYCHANNEL	22	/* REQ */
+#define	VMBUS_CHANMSG_TYPE_TL_CONNECT_RESP	23	/* RESP */
+#define	VMBUS_CHANMSG_TYPE_MODIFYCHANNEL_RESP	24	/* RESP */
+#define	VMBUS_CHANMSG_TYPE_MAX			25
 
 struct vmbus_chanmsg_hdr {
 	uint32_t	chm_type;	/* VMBUS_CHANMSG_TYPE_ */

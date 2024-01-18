@@ -59,6 +59,9 @@
  * 3.0   --  Windows 8.1
  * 4.0   --  Windows 10
  * 5.0   --  Newer Windows 10
+ * 5.1   --  Windows 10 RS4
+ * 5.2   --  Windows Server 2019, RS5
+ * 5.3   --  Windows Server 2022
  */
 #define	VMBUS_VERSION_WS2008		((0 << 16) | (13))
 #define	VMBUS_VERSION_WIN7		((1 << 16) | (1))
@@ -66,12 +69,15 @@
 #define	VMBUS_VERSION_WIN8_1		((3 << 16) | (0))
 #define	VMBUS_VERSION_WIN10		((4 << 16) | (0))
 #define	VMBUS_VERSION_WIN10_V5		((5 << 16) | (0))
+#define	VMBUS_VERSION_WIN10_V5_1	((5 << 16) | (1))
+#define	VMBUS_VERSION_WIN10_V5_2	((5 << 16) | (2))
+#define	VMBUS_VERSION_WIN10_V5_3	((5 << 16) | (3))
 
 #define	VMBUS_VERSION_MAJOR(ver)	(((uint32_t)(ver)) >> 16)
 #define	VMBUS_VERSION_MINOR(ver)	(((uint32_t)(ver)) & 0xffff)
 
-#define	VMBUS_DEVICEID		"deviceid"
-#define	VMBUS_CLASSID		"classid"
+#define	VMBUS_DEVICEID		"device-id"
+#define	VMBUS_CLASSID		"class-id"
 #define	VMBUS_VERSION		"version"
 #define	VMBUS_STATE		"state"
 #define	VMBUS_STATE_ONLINE	"online"
@@ -215,11 +221,10 @@ void		vmbus_chan_cpu_rr(struct vmbus_channel *chan);
 void		vmbus_chan_set_readbatch(struct vmbus_channel *chan,
 		    boolean_t on);
 
-struct vmbus_channel **
-		vmbus_subchan_get(struct vmbus_channel *pri_chan,
-		    int subchan_cnt);
+struct vmbus_channel **vmbus_subchan_get(struct vmbus_channel *pri_chan,
+		    uint_t subchan_cnt);
 void		vmbus_subchan_rel(struct vmbus_channel **subchan,
-		    int subchan_cnt);
+		    uint_t subchan_cnt);
 void		vmbus_subchan_drain(struct vmbus_channel *pri_chan);
 
 int		vmbus_chan_recv(struct vmbus_channel *chan, void *data,
