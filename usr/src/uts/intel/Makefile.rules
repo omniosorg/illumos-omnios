@@ -25,6 +25,7 @@
 # Copyright 2017 Nexenta Systems, Inc.
 # Copyright (c) 2017 by Delphix. All rights reserved.
 # Copyright 2023 Oxide Computer Company
+# Copyright 2022 Racktop Systems, Inc.
 #
 
 #
@@ -240,6 +241,10 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/intel/io/vmxnet3s/%.c
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/intel/io/hyperv/storvsc/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
+$(OBJS_DIR)/%.o:		$(UTSBASE)/intel/io/hyperv/kbd/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 

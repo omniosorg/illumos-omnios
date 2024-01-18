@@ -11,6 +11,7 @@
 
 #
 # Copyright (c) 2017 by Delphix. All rights reserved.
+# Copyright 2022 Racktop Systems, Inc.
 #
 
 #
@@ -29,6 +30,7 @@ dir  path=kernel group=sys
 dir  path=kernel/drv group=sys
 dir  path=kernel/drv/$(ARCH64) group=sys
 file path=kernel/drv/$(ARCH64)/hv_heartbeat group=sys
+file path=kernel/drv/$(ARCH64)/hv_kbd group=sys
 file path=kernel/drv/$(ARCH64)/hv_kvp group=sys
 file path=kernel/drv/$(ARCH64)/hv_netvsc group=sys
 file path=kernel/drv/$(ARCH64)/hv_shutdown group=sys
@@ -41,6 +43,8 @@ dir  path=kernel/misc group=sys
 dir  path=kernel/misc/$(ARCH64) group=sys
 file path=kernel/misc/$(ARCH64)/hyperv group=sys mode=0755
 $(i386_ONLY)driver name=hv_heartbeat
+$(i386_ONLY)driver name=hv_kbd \
+    alias=hv_vmbus,f912ad6d-2b17-48ea-bd65-f927a61c7684
 $(i386_ONLY)driver name=hv_kvp perms="* 0600 root sys"
 $(i386_ONLY)driver name=hv_netvsc
 $(i386_ONLY)driver name=hv_shutdown
@@ -48,6 +52,8 @@ $(i386_ONLY)driver name=hv_storvsc class=scsi-self-identifying
 $(i386_ONLY)driver name=hv_timesync
 $(i386_ONLY)driver name=hv_vmbus
 license lic_CDDL license=lic_CDDL
+license usr/src/uts/intel/io/hyperv/kbd/THIRDPARTYLICENSE \
+    license=usr/src/uts/intel/io/hyperv/kbd/THIRDPARTYLICENSE
 license usr/src/uts/intel/io/hyperv/netvsc/THIRDPARTYLICENSE \
     license=usr/src/uts/intel/io/hyperv/netvsc/THIRDPARTYLICENSE
 license usr/src/uts/intel/io/hyperv/storvsc/THIRDPARTYLICENSE \

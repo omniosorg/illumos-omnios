@@ -26,6 +26,7 @@
 # Copyright (c) 2017 by Delphix. All rights reserved.
 # Copyright 2019 Peter Tribble.
 # Copyright 2023 Oxide Computer Company
+# Copyright 2022 Racktop Systems, Inc.
 #
 
 #
@@ -458,6 +459,11 @@ HV_STORVSC_OBJS = \
 #
 HV_HEARTBEAT_OBJS = \
 	vmbus_heartbeat.o
+
+HV_KBD_OBJS = \
+	hv_kbd.o \
+	keyprocess.o \
+	keytables.o
 
 HV_KVP_OBJS = \
 	hv_kvp.o

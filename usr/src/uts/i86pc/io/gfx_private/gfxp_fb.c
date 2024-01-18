@@ -128,7 +128,7 @@ gfxp_check_for_console(dev_info_t *devi, struct gfxp_fb_softc *softc,
 		char	*parent_type = NULL;
 
 		error = ddi_prop_lookup_string(DDI_DEV_T_ANY, pdevi,
-		    DDI_PROP_DONTPASS, "device_type", &parent_type);
+		    DDI_PROP_DONTPASS, OBP_DEVICETYPE, &parent_type);
 		if (error != DDI_SUCCESS) {
 			return;
 		}
@@ -218,7 +218,7 @@ gfxp_fb_attach(dev_info_t *devi, ddi_attach_cmd_t cmd, gfxp_fb_softc_ptr_t ptr)
 	mutex_init(&(softc->lock), NULL, MUTEX_DRIVER, NULL);
 
 	error = ddi_prop_lookup_string(DDI_DEV_T_ANY, ddi_get_parent(devi),
-	    DDI_PROP_DONTPASS, "device_type", &parent_type);
+	    DDI_PROP_DONTPASS, OBP_DEVICETYPE, &parent_type);
 	if (error != DDI_SUCCESS) {
 		cmn_err(CE_WARN, MYNAME ": can't determine parent type.");
 		goto fail;

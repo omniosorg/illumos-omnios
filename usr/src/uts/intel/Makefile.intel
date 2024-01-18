@@ -382,6 +382,7 @@ DRV_KMODS	+= hv_vmbus
 DRV_KMODS	+= hv_heartbeat
 DRV_KMODS	+= hv_timesync
 DRV_KMODS	+= hv_shutdown
+DRV_KMODS	+= hv_kbd
 DRV_KMODS	+= hv_kvp
 DRV_KMODS	+= hv_storvsc
 DRV_KMODS	+= hv_netvsc

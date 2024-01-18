@@ -2735,6 +2735,8 @@ impl_bus_initialprobe(void)
 
 	(void) modload("misc", "acpidev");
 
+	(void) modload("drv", "hv_vmbus");
+
 	if (modload("drv", "isa") < 0)
 		panic("failed to load drv/isa");
 

@@ -1459,6 +1459,16 @@ vmbus_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 
 	ret = vmbus_scan(vmbus_sc);
 
+	/*
+	 * If we are a gen2 VM, we must explicitly attach the framebuffer
+	 * device so consplat will use it.
+	 */
+	if (hyperv_isgen2()) {
+		dev_info_t *hv_fb_dip = ddi_find_devinfo(OBP_DISPLAY, -1, 0);
+
+		(void) i_ddi_attach_node_hierarchy(hv_fb_dip);
+	}
+
 	return (ret);
 }
 

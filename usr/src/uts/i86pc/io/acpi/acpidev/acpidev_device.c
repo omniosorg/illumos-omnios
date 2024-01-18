@@ -285,7 +285,27 @@ acpidev_device_filter_hyperv(acpidev_walk_info_t *infop, ACPI_HANDLE hdl,
 	ndi_devi_enter(root_dip);
 
 	if (is_gen2) {
+		dev_info_t *fb_dip = NULL;
 		dev_info_t *isa_dip = NULL;
+		char *compat[] = { "vgatext" };
+		struct regspec reg = {
+			.regspec_bustype = 0,	/* MMIO */
+			.regspec_addr = fb_info.paddr,
+			.regspec_size = fb_info.fb_size,
+		};
+
+		/* Create the EFI fb console off the root nexus */
+		ndi_devi_alloc_sleep(root_dip, OBP_DISPLAY,
+		    (pnode_t)DEVI_SID_NODEID, &fb_dip);
+		(void) ndi_prop_update_string(DDI_DEV_T_NONE, fb_dip,
+		    OBP_DEVICETYPE, OBP_DISPLAY);
+		(void) ndi_prop_update_string_array(DDI_DEV_T_NONE,
+		    fb_dip, OBP_COMPATIBLE, compat, ARRAY_SIZE(compat));
+		(void) ndi_prop_update_string(DDI_DEV_T_NONE, fb_dip,
+		    "model", "Hyper-V EFI Virtual Frame Buffer");
+		(void) ndi_prop_update_int_array(DDI_DEV_T_NONE, fb_dip,
+		    OBP_REG, (int *)&reg, 3);
+		(void) ndi_devi_bind_driver(fb_dip, 0);
 
 		/* There shouldn't be an PCI-LPC bridge in a Gen2 VM */
 		VERIFY3P(ddi_find_devinfo("isa", -1, 0), ==, NULL);
