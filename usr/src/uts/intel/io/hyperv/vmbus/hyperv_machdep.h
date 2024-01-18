@@ -37,6 +37,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright 2023 RackTop Systems, Inc.
  */
 
 #ifndef _HYPERV_MACHDEP_H_
@@ -44,7 +45,7 @@
 
 #include <sys/param.h>
 
-uint64_t	hypercall_md(volatile void *hc_addr, uint64_t in_val,
+uint64_t	hypercall_md(uint64_t in_val,
 		    uint64_t in_paddr, uint64_t out_paddr);
 
 #endif	/* !_HYPERV_MACHDEP_H_ */

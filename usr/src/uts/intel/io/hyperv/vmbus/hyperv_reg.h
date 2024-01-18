@@ -138,6 +138,16 @@
 #define	CPUID_LEAF_HV_RECOMMENDS	0x40000004
 #define	CPUID_LEAF_HV_LIMITS		0x40000005
 #define	CPUID_LEAF_HV_HWFEATURES	0x40000006
+#define	CPUID_LEAF_HV_CPUMGMT		0x40000007
+#define	CPUID_LEAF_HV_SVM		0x40000008
+#define	CPUID_LEAF_HV_NESTED		0x40000009
+#define	CPUID_LEAF_HV_NESTED_FEAT	0x4000000a
+
+#define	CPU_RECOMMEND_PHYSADDR_BITS(x)	((x) & 0x3f)
+#define	CPUSVM_MAX_PASID(x) ((x) >> 11)
+
+#define	CPUNEST_VMCS_HI(x) (((x) >> 8) & 0xff)
+#define	CPUNEST_VMCS_LO(x) ((x) & 0xff)
 
 /*
  * Hyper-V Monitor Notification Facility

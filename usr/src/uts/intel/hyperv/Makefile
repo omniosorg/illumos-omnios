@@ -11,13 +11,16 @@
 
 #
 # Copyright (c) 2017 by Delphix. All rights reserved.
-#
+# Copyright 2023 RackTop Systems, Inc.
 
 UTSBASE=	../..
 
 MODULE=		hyperv
 OBJECTS=	$(HV_HYPERV_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE=	$(ROOT_MISC_DIR)/$(MODULE)
+CONF_SRCDIR=	$(UTSBASE)/intel/io/hyperv/vmbus
+
+MAPFILE=	$(CONF_SRCDIR)/$(MODULE).mapfile
 
 include		$(UTSBASE)/intel/Makefile.intel
 
@@ -25,6 +28,8 @@ ALL_TARGET=	$(BINARY)
 INSTALL_TARGET=	$(BINARY) $(ROOTMODULE)
 
 INC_PATH +=	-I$(UTSBASE)/intel/io/hyperv
+
+LDFLAGS +=	-M $(MAPFILE)
 
 .KEEP_STATE:
 

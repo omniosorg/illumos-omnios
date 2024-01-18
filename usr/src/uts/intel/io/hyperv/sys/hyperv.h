@@ -39,7 +39,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
- * Copyright 2021 Racktop Systems, Inc.
+ * Copyright 2023 Racktop Systems, Inc.
  */
 
 #ifndef _SYS_HYPERV_H
@@ -69,10 +69,18 @@ struct hyperv_guid {
 
 #define	HYPERV_GUID_STRLEN	40
 
-int		hyperv_guid2str(const struct hyperv_guid *, char *, size_t);
+void		hyperv_guid2str(const struct hyperv_guid *, char *, size_t);
 
-extern uint_t	hyperv_features;	/* CPUID_HV_MSR_ */
-extern uint_t	hyperv_ver_major;
+extern uint64_t	hyperv_privs_mask;
+extern uint16_t	hyperv_ver_major;
+extern uint16_t hyperv_ver_minor;
+extern uint32_t	hyperv_svc_number;
+extern uint8_t	hyperv_svc_branch;
+
+/*
+ * Vmbus version after negotiation with host.
+ */
+extern uint32_t vmbus_current_version;
 
 /*
  * Vmbus version after negotiation with host.

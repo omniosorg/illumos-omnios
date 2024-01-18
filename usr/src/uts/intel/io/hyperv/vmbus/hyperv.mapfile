@@ -1,0 +1,55 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2023 RackTop Systems, Inc.
+#
+
+#
+# MAPFILE HEADER START
+#
+# WARNING:  STOP NOW.  DO NOT MODIFY THIS FILE.
+# Object versioning must comply with the rules detailed in
+#
+#	usr/src/lib/README.mapfiles
+#
+# You should not be making modifications here until you've read the most current
+# copy of that file. If you need help, contact a gatekeeper for guidance.
+#
+# MAPFILE HEADER END
+#
+
+$mapfile_version 2
+
+SYMBOL_VERSION ILLUMOSprivate {
+    global:
+	# Symbols exported for other modules
+	hypercall_post_message;
+	hypercall_signal_event;
+
+	hyperv_dmamem_alloc;
+	hyperv_dmamem_free;
+	hyperv_guid2str;
+	hyperv_privs_mask;
+
+	hyperv_svc_branch;
+	hyperv_svc_number;
+	hyperv_ver_major;
+	hyperv_ver_minor;
+
+	# DDI Interfaces
+	_fini;
+	_init;
+	_info;
+
+    local:
+	*;
+};
