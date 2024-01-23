@@ -1,5 +1,3 @@
-#! /usr/bin/ksh
-#
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -12,6 +10,12 @@
 #
 
 #
-# Copyright 2024 <contributor>
+# Copyright 2014 Garrett D'Amore <garrett@damore.org>
 #
 
+include $(SRC)/Makefile.master
+
+PROG = fexecve_test
+ARCHPROG = fexecve_test
+
+include ../Makefile.com

@@ -10,24 +10,15 @@
  */
 
 /*
- * Copyright 2024 <contributor>
+ * Copyright 2024 Oxide Computer Company
  */
 
-#ifndef _PROTOTYPE_H
-#define	_PROTOTYPE_H
+#include "lint.h"
+#include <sys/types.h>
+#include <sys/execx.h>
 
-/*
- * Describe the purpose of the file here.
- */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* Put your definitions in here */
-
-#ifdef __cplusplus
+int
+fexecve(int fd, char *const argv[], char *const envp[])
+{
+	return (execvex((uintptr_t)fd, argv, envp, EXEC_DESCRIPTOR));
 }
-#endif
-
-#endif /* _PROTOTYPE_H */
