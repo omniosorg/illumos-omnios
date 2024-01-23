@@ -3427,6 +3427,7 @@ usr/src/man/man2/fchmodat.2
 usr/src/man/man2/fchown.2
 usr/src/man/man2/fchownat.2
 usr/src/man/man2/fchroot.2
+usr/src/man/man2/fexecve.2
 usr/src/man/man2/fork1.2
 usr/src/man/man2/forkall.2
 usr/src/man/man2/forkallx.2
@@ -8705,6 +8706,9 @@ usr/src/test/libc-tests/tests/endian.64
 usr/src/test/libc-tests/tests/env-7076.32
 usr/src/test/libc-tests/tests/env-7076.64
 usr/src/test/libc-tests/tests/err/err
+usr/src/test/libc-tests/tests/fexecve/fexecve_test
+usr/src/test/libc-tests/tests/fexecve/fexecve_test.amd64
+usr/src/test/libc-tests/tests/fexecve/fexecve_test.i386
 usr/src/test/libc-tests/tests/fnmatch.32
 usr/src/test/libc-tests/tests/fnmatch.64
 usr/src/test/libc-tests/tests/fpround/fpround_test
