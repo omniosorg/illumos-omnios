@@ -24,6 +24,8 @@
  *
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright 2024 Racktop Systems, Inc.
  */
 
 /*
@@ -47,6 +49,7 @@
 #include <sys/pci.h>
 #include <sys/framebuffer.h>
 #include <sys/boot_console.h>
+#include <sys/x86_archext.h>
 #if defined(__xpv)
 #include <sys/hypervisor.h>
 #endif
@@ -190,6 +193,38 @@ plat_devpath(char *name, char *path)
 	return (path);
 }
 
+static char *
+hyperv_kbdpath(char *buf)
+{
+	dev_info_t *isa_dip;
+	dev_info_t *vmb_dip;
+
+	if (get_hwenv() != HW_MICROSOFT)
+		return (NULL);
+
+	if ((isa_dip = ddi_find_devinfo("isa", -1, 0)) == NULL)
+		return (NULL);
+
+	/*
+	 * This is a bit of a hack, but for Gen2 VMs we need to determine
+	 * the path of the hv keyboard device. The device path is always
+	 * going to be unique per VM, so we have to online the vmbus
+	 * driver so it can enumerate its children. We rely on the acpidev
+	 * filter instantiating the ISA bus under the root nexus (as well
+	 * as the VM type) for Gen2 VMs to determine if we need to online
+	 * the vmbus driver now or not.
+	 */
+	if (ddi_get_parent(isa_dip) != ddi_root_node())
+		return (NULL);
+
+	vmb_dip = ddi_find_devinfo("hv_vmbus", -1, 0);
+	VERIFY3P(vmb_dip, !=, NULL);
+
+	(void) ndi_devi_online(vmb_dip, 0);
+
+	return (plat_devpath("hv_kbd", buf));
+}
+
 /*
  * Return generic path to keyboard device from the alias.
  */
@@ -204,6 +239,9 @@ plat_kbdpath(void)
 	 */
 	if (pseudo_isa)
 		return ("/isa/i8042@1,60/keyboard@0");
+
+	if (hyperv_kbdpath(kbpath) != NULL)
+		return (kbpath);
 
 	if (plat_devpath("kb8042", kbpath) == NULL)
 		return (NULL);
@@ -328,7 +366,8 @@ find_fb_dev(dev_info_t *dip, void *param)
 	    "device_type", &parent_type) != DDI_SUCCESS)
 		return (DDI_WALK_PRUNECHILD);
 
-	if ((strcmp(parent_type, "isa") == 0) ||
+	if ((pdip == ddi_root_node()) ||
+	    (strcmp(parent_type, "isa") == 0) ||
 	    (strcmp(parent_type, "eisa") == 0)) {
 		p->found_dip = dip;
 		ddi_prop_free(parent_type);

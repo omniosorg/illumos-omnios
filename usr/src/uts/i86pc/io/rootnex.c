@@ -27,6 +27,7 @@
  * Copyright 2012 Garrett D'Amore <garrett@damore.org>.  All rights reserved.
  * Copyright 2017 Joyent, Inc.
  * Copyright 2020 Ryan Zezeski
+ * Copyright 2022 Racktop Systems, Inc.
  */
 
 /*
@@ -598,6 +599,17 @@ rootnex_add_props(dev_info_t *dip)
 		(void) e_ddi_prop_update_int(DDI_DEV_T_NONE, dip,
 		    rpp[i].prop_name, rpp[i].prop_value);
 	}
+
+	/*
+	 * The gfxp_fb_attach() routine requires the parents of the
+	 * framebuffer device to have the device_type property defined (or
+	 * it will ignore the device as a possible candidate for the OS
+	 * console). Some systems (e.g. Hyper-V Gen2 VMs) the fb console
+	 * hangs off the root nexus, so device_type must be set for the rootnex
+	 * device.
+	 */
+	(void) e_ddi_prop_update_string(DDI_DEV_T_NONE, dip, OBP_DEVICETYPE,
+	    "rootnex");
 }
 
 

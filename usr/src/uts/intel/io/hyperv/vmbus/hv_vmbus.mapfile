@@ -1,0 +1,93 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2023 RackTop Systems, Inc.
+#
+
+#
+# MAPFILE HEADER START
+#
+# WARNING:  STOP NOW.  DO NOT MODIFY THIS FILE.
+# Object versioning must comply with the rules detailed in
+#
+#	usr/src/lib/README.mapfiles
+#
+# You should not be making modifications here until you've read the most current
+# copy of that file. If you need help, contact a gatekeeper for guidance.
+#
+# MAPFILE HEADER END
+#
+
+$mapfile_version 2
+
+SYMBOL_VERSION ILLUMOSprivate {
+    global:
+	vmbus_chan_close;
+	vmbus_chan_close_direct;
+	vmbus_chan_cpu_rr;
+	vmbus_chan_cpu_set;
+	vmbus_chan_gpadl_connect;
+	vmbus_chan_gpadl_disconnect;
+	vmbus_chan_id;
+	vmbus_chan_intr_drain;
+	vmbus_chan_is_revoked;
+	vmbus_chan_open;
+	vmbus_chan_open_br;
+	vmbus_chan_prplist_nelem;
+	vmbus_chan_recv;
+	vmbus_chan_recv_pkt;
+	vmbus_chan_rx_empty;
+	vmbus_chan_set_orphan;
+	vmbus_chan_set_readbatch;
+	vmbus_chan_send;
+	vmbus_chan_send_prplist;
+	vmbus_chan_send_sglist;
+	vmbus_chan_subidx;
+	vmbus_chan_tx_empty;
+	vmbus_chan_unset_orphan;
+	vmbus_chan_xact_wait;
+
+	vmbus_current_version;
+
+	vmbus_ic_attach;
+	vmbus_ic_detach;
+	vmbus_ic_negomsg;
+	vmbus_ic_sendresp;
+
+	vmbus_probe_guid;
+
+	vmbus_subchan_drain;
+	vmbus_subchan_get;
+	vmbus_subchan_rel;
+
+	vmbus_walk_children;
+
+	vmbus_xact_activate;
+	vmbus_xact_ctx_create;
+	vmbus_xact_ctx_destroy;
+	vmbus_xact_ctx_orphan;
+	vmbus_xact_ctx_wakeup;
+	vmbus_xact_deactivate;
+	vmbus_xact_get;
+	vmbus_xact_put;
+	vmbus_xact_req_data;
+	vmbus_xact_req_paddr;
+	vmbus_xact_wakeup;
+
+	# DDI Interaces
+	_fini;
+	_init;
+	_info;
+
+    local:
+	*;
+};

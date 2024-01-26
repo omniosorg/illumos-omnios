@@ -37,15 +37,16 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright 2023 Racktop Systems, Inc.
  */
 
 #ifndef _VMBUS_VAR_H_
 #define	_VMBUS_VAR_H_
 
+#include <sys/list.h>
 #include <sys/param.h>
 #include <sys/sunddi.h>
 #include <sys/param.h>
-#include <sys/queue.h>
 
 #include <sys/hyperv_busdma.h>
 #include <sys/hyperv_illumos.h>
@@ -86,6 +87,12 @@ struct vmbus_pcpu_data {
 	ddi_taskq_t		*message_tq;	/* message taskq */
 } __aligned(64);
 
+typedef enum vmbus_scan_e {
+	VMBUS_SCAN_NONE,
+	VMBUS_SCAN_INPROGRESS,
+	VMBUS_SCAN_COMPLETE,
+} vmbus_scan_t;
+
 struct vmbus_softc {
 	void			(*vmbus_event_proc)(struct vmbus_softc *, int);
 	ulong_t			*vmbus_tx_evtflags;
@@ -96,7 +103,7 @@ struct vmbus_softc {
 						/* compat evtflgs from host */
 	struct vmbus_channel	**vmbus_chmap;
 	struct vmbus_xact_ctx	*vmbus_xc;
-	struct vmbus_pcpu_data	vmbus_pcpu[256]; /* XXXX NCPU */
+	struct vmbus_pcpu_data	vmbus_pcpu[NCPU]; /* XXXX */
 
 	/*
 	 * Rarely used fields
@@ -117,7 +124,7 @@ struct vmbus_softc {
 	struct hyperv_dma	vmbus_mnf1_dma;
 	struct hyperv_dma	vmbus_mnf2_dma;
 
-	boolean_t		vmbus_scandone;
+	vmbus_scan_t		vmbus_scan_status;
 	kcondvar_t		vmbus_scandone_cv;
 	struct task		vmbus_scandone_task;
 
@@ -126,11 +133,13 @@ struct vmbus_softc {
 
 	/* Primary channels */
 	kmutex_t		vmbus_prichan_lock;
-	TAILQ_HEAD(, vmbus_channel) vmbus_prichans;
+	list_t			vmbus_prichans;
+	uint_t			vmbus_nprichans;
 
 	/* Complete channel list */
 	kmutex_t		vmbus_chan_lock;
-	TAILQ_HEAD(, vmbus_channel) vmbus_chans;
+	list_t			vmbus_chans;
+	uint_t			vmbus_nchans;
 };
 
 #define	VMBUS_FLAG_ATTACHED	0x0001	/* vmbus was attached */
@@ -138,6 +147,19 @@ struct vmbus_softc {
 
 #define	VMBUS_PCPU_GET(sc, field, cpu)	(sc)->vmbus_pcpu[(cpu)].field
 #define	VMBUS_PCPU_PTR(sc, field, cpu)	&(sc)->vmbus_pcpu[(cpu)].field
+
+#ifdef DEBUG
+extern int vmbus_debug;
+
+#define	VMBUS_DEBUG(sc, ...)						\
+	do {								\
+		if (__predict_false(vmbus_debug > 0)) {			\
+			dev_err((sc)->vmbus_dev, CE_CONT, __VA_ARGS__);	\
+		}							\
+	} while (0)
+#else
+#define	VMBUS_DEBUG(sc, ...)
+#endif
 
 struct vmbus_channel;
 struct trapframe;

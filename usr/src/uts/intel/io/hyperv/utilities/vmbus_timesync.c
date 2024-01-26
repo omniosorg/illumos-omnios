@@ -67,7 +67,7 @@
 
 #define	VMBUS_TIMESYNC_DORTT(sc)       \
 	(VMBUS_TIMESYNC_MSGVER4((sc)) && \
-	(hyperv_features & CPUID_HV_MSR_TIME_REFCNT))
+	(hyperv_privs_mask & CPUID_HV_MSR_TIME_REFCNT))
 
 const struct vmbus_ic_desc vmbus_timesync_descs[] = {
 	{

@@ -52,6 +52,8 @@
 #include <sys/inttypes.h>
 #include <sys/cmn_err.h>
 #include <sys/reboot.h>
+#include <sys/sysmacros.h>
+#include <sys/ilstr.h>
 
 #include <sys/x86_archext.h>
 
@@ -100,8 +102,13 @@
 		    "%s: Invalid alignment", __func__);		\
 		break;						\
 	case HYPERCALL_STATUS_INSUFFICIENT_BUFFERS:		\
+		/*
+		 * This can happen due to bursty activity.	\
+		 * vmbus will retry, so only log when		\
+		 * verbose is set.				\
+		 */						\
 		hyperv_log(CE_WARN,				\
-		    "%s: Insufficient buffers", __func__);	\
+		    "?%s: Insufficient buffers", __func__);	\
 		break;						\
 	case HYPERCALL_STATUS_INSUFFICIENT_MEMORY:		\
 		hyperv_log(CE_WARN,				\
@@ -126,43 +133,127 @@
 #define	HYPERCALL_LOG_STATUS(status)
 #endif
 
-struct hypercall_ctx {
-	caddr_t		hc_addr;
-	hv_dma_t	hc_dma;
+typedef struct hvbit {
+	uint8_t		hvb_bit;
+	const char	*hvb_desc;
+} hvbit_t;
+
+static hvbit_t hyperv_access_tbl[] = {
+	{ 0, "AccessVpRunTimeReg" },
+	{ 1, "AccessPartitionReferenceCounter" },
+	{ 2, "AccessSynicRegs" },
+	{ 3, "AccessSyntheticTimerRegs" },
+	{ 4, "AccessIntrCtrlRegs" },
+	{ 5, "AccessHypercallMsrs" },
+	{ 6, "AccessVpIndex" },
+	{ 7, "AccessResetReg" },
+	{ 8, "AccessStatsReg" },
+	{ 9, "AccessPartitionReferenceTsc" },
+	{ 10, "AccessGuestIdleReg" },
+	{ 11, "AccessFrequencyRegs" },
+	{ 12, "AccessDebugRegs" },
+	{ 13, "AccessReenlightenmentControls" },
+	/* 14-31 Reserved */
+	{ 32, "CreatePartitions" },
+	{ 33, "AccessPartitionId" },
+	{ 34, "AccessMemoryPool" },
+	/* 35 Reserved */
+	{ 36, "PostMessages" },
+	{ 37, "SignalEvents" },
+	{ 38, "CreatePort" },
+	{ 39, "ConnectPort" },
+	{ 40, "AccessStats" },
+	/* 41-42 Reserved */
+	{ 43, "Debugging" },
+	{ 44, "CpuManagement" },
+	/* 45-47 Reserved */
+	{ 48, "AccessVSM" },
+	{ 49, "AccessVPRegisters" },
+	/* 50-51 Reserved */
+	{ 52, "EnabledExtendedHypercalls" },
+	{ 53, "StartVirtualProcessor" },
 };
-static struct hypercall_ctx	hypercall_context;
 
-uint_t		hyperv_recommends;
+static hvbit_t hyperv_features_tbl[] = {
+	/* 0 Deprecated */
+	{ 1, "Guest debugging support" },
+	{ 2, "Performance Monitor support" },
+	{ 3, "Physical CPU dynamic partitioning events" },
+	{ 4, "Hypercall inputs using XMM registers" },
+	{ 5, "Virtual guest idle state" },
+	{ 6, "Hypervisor sleep state" },
+	{ 7, "NUMA distances" },
+	{ 8, "Timer frequencies" },
+	{ 9, "Synthetic machine checks" },
+	{ 10, "Guest crash MSR" },
+	{ 11, "Debug MSR" },
+	{ 12, "NPIEP" },
+	{ 13, "DisableHypervisorAvailable" },
+	{ 14, "ExtendedGvaRangesForFlushVirtualAddressListAvailable" },
+	{ 15, "Hypercall return using XMM registers" },
+	/* 16 Reserved */
+	{ 17, "SintPollingModeAvailable" },
+	{ 18, "HypercallMsrLockAvailable" },
+	{ 19, "Use direct synthetic timers" },
+	{ 20, "PAT register available for VSM" },
+	{ 21, "Sbndcfgs register available for VSM" },
+	/* 22 Reserved */
+	{ 23, "Synthetic time unhalted timer" },
+	/* 24-25 Reserved */
+	{ 26, "Last Branch Record (LBR)" },
+};
 
-/*
- * Hyper-V Feature identification obtained by
- * reading the CPUID_LEAF_HV_FEATURES cpuid.
- * Results are in the following registers:
- * hyperv_features (EAX):
- *   This indicates which features are available to this partition
- *   based upon current partition privileges.
- * hyperv_features1 (EBX):
- *   This indicates which flags were specified at partition creation.
- * hyperv_pm_features (ECX):
- *   This contains power management related information.
- * hyperv_features3 (EDX):
- *   This indicates which miscellaneous features are available to the partition.
- */
-uint_t			hyperv_ver_major;
-uint_t			hyperv_features;
-static uint_t		hyperv_features1;
-static uint_t		hyperv_pm_features;
-static uint_t		hyperv_features3;
+static hvbit_t hyperv_recommendations_tbl[] = {
+	{ 0, "Use hypercall for address space switches" },
+	{ 1, "Use hypercall for local TLB flushes" },
+	{ 2, "Use hypercall for remote TLB flushes" },
+	{ 3, "Use MSRs for accessing APIC EOI, ICR, and TPR" },
+	{ 4, "Use MSR for system reset" },
+	{ 5, "Use relaxed timing (no watchdog timeouts)" },
+	{ 6, "Use DMA remapping" },
+	{ 7, "Use interrupt remapping" },
+	/* 8 Reserved */
+	{ 9, "Deprecate AutoEOI" },
+	{ 10, "Use SyntheticClusterIpi hypercall" },
+	{ 11, "Use ExProcessorMasks interface" },
+	{ 12, "Is nested hypervisor" },
+	{ 13, "Use INT for MBEC system calls" },
+	{ 14, "Use enlightened VMCS interface" },
+	{ 15, "UseSyncedTimeline" },
+	/* 16 Reserved */
+	{ 17, "UseDirectLocalFlushEntire" },
+	{ 18, "NoNonArchitecturalCoreSharing" },
+};
 
-static boolean_t		hyperv_identify(void);
-static void			hypercall_memfree(void);
+uint16_t		hyperv_ver_major;
+uint16_t		hyperv_ver_minor;
+uint32_t		hyperv_build;
+uint32_t		hyperv_svc_pack;
+uint32_t		hyperv_svc_number;
+uint8_t			hyperv_svc_branch;
+
+uint64_t		hyperv_privs_mask;
+uint32_t		hyperv_features;
+uint32_t		hyperv_recommendations;
+uint32_t		hyperv_max_vcpu;
+uint32_t		hyperv_max_lcpu;
+uint32_t		hyperv_max_intr;
+uint32_t		hyperv_hw_features;
+
+static boolean_t	hyperv_is_init;
+
+static int		hypercall_create(void);
+static void		hypercall_destroy(void);
+static boolean_t	hyperv_identify(void);
+static void		hyperv_show_features(uint64_t, const char *,
+    const hvbit_t *, size_t);
 
 hv_status_t
 hypercall_post_message(paddr_t msg_paddr)
 {
 	hv_status_t status;
-	status = hypercall_md(hypercall_context.hc_addr,
-	    HYPERCALL_POST_MESSAGE, msg_paddr, 0) & HYPERCALL_STATUS_MASK;
+	status = hypercall_md(HYPERCALL_POST_MESSAGE, msg_paddr, 0);
+	status &= HYPERCALL_STATUS_MASK;
 	HYPERCALL_LOG_STATUS(status);
 	return (status);
 }
@@ -171,8 +262,8 @@ hv_status_t
 hypercall_signal_event(paddr_t monprm_paddr)
 {
 	hv_status_t status;
-	status = hypercall_md(hypercall_context.hc_addr,
-	    HYPERCALL_SIGNAL_EVENT, monprm_paddr, 0) & HYPERCALL_STATUS_MASK;
+	status = hypercall_md(HYPERCALL_SIGNAL_EVENT, monprm_paddr, 0);
+	status &= HYPERCALL_STATUS_MASK;
 	HYPERCALL_LOG_STATUS(status);
 	return (status);
 }
@@ -182,23 +273,130 @@ hv_status_t
 hv_vmbus_get_partitionid(uint64_t part_paddr)
 {
 	hv_status_t status;
-	status = hypercall_md(hypercall_context.hc_addr,
-	    HV_CALL_GET_PARTITIONID, 0, part_paddr) & HYPERCALL_STATUS_MASK;
+	status = hypercall_md(HV_CALL_GET_PARTITIONID, 0, part_paddr);
+	status &= HYPERCALL_STATUS_MASK;
 	HYPERCALL_LOG_STATUS(status);
 	return (status);
 }
 
-int
+void
 hyperv_guid2str(const struct hyperv_guid *guid, char *buf, size_t sz)
 {
 	const uint8_t *d = guid->hv_guid;
 
-	return snprintf(buf, sz, "%02x%02x%02x%02x-"
+	(void) snprintf(buf, sz, "%02x%02x%02x%02x-"
 	    "%02x%02x-%02x%02x-%02x%02x-"
 	    "%02x%02x%02x%02x%02x%02x",
 	    d[3], d[2], d[1], d[0],
 	    d[5], d[4], d[7], d[6], d[8], d[9],
 	    d[10], d[11], d[12], d[13], d[14], d[15]);
+}
+
+static int
+hyperv_parse_nibble(char c)
+{
+	if (c >= 'A' && c <= 'F') {
+		return (c - 'A' + 10);
+	}
+	if (c >= 'a' && c <= 'f') {
+		return (c - 'a' + 10);
+	}
+	if (c >= '0' && c <= '9') {
+		return (c - '0');
+	}
+
+	return (-1);
+}
+
+static boolean_t
+hyperv_parse_byte(const char *s, uint8_t *vp)
+{
+	int hi, lo;
+
+	if (s[0] == '\0')
+		return (B_FALSE);
+	hi = hyperv_parse_nibble(s[0]);
+	if (hi == -1)
+		return (B_FALSE);
+
+	if (s[1] == '\0')
+		return (B_FALSE);
+	lo = hyperv_parse_nibble(s[1]);
+	if (lo == -1)
+		return (B_FALSE);
+
+	*vp = (uint8_t)hi << 4 | ((uint8_t)lo & 0x0f);
+	return (B_TRUE);
+}
+
+boolean_t
+hyperv_str2guid(const char *s, struct hyperv_guid *guid)
+{
+	/* This matches the byte order used in hyperv_guid2str. */
+	static const uint_t guidpos[] = {
+		3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15
+	};
+
+	/* How the bytes are grouped */
+	static const uint_t groups[] = { 8, 13, 18, 23 };
+
+	uint_t guidx = 0, sidx = 0, grpidx = 0;
+	uint8_t byte;
+
+	while (s[sidx] != '\0' && guidx < ARRAY_SIZE(guidpos)) {
+		if (s[sidx] == '-') {
+			if (sidx != groups[grpidx])
+			       return (B_FALSE);
+			sidx++;
+			grpidx++;
+			continue;
+		}
+
+		/*
+		 * We expect the hex values are zero padded, so we always
+		 * parse a 2-character hex value into a single byte.
+		 */
+		if (!hyperv_parse_byte(s + sidx, &byte))
+			return (B_FALSE);
+		sidx += 2;
+
+		guid->hv_guid[guidpos[guidx++]] = byte;
+	}
+
+#ifdef DEBUG
+	char check[HYPERV_GUID_STRLEN] = { 0 };
+
+	hyperv_guid2str(guid, check, sizeof (check));
+	if (strcmp(s, check) != 0) {
+		cmn_err(CE_PANIC, "%s parsed '%s' as '%s'", __func__,
+		    s, check);
+	}
+#endif
+
+	return (B_TRUE);
+}
+
+/*
+ * Based on conversations with Microsoft engineers about Hyper-V, the
+ * way other platforms distinguish between Gen1 and Gen2 VMs is by their
+ * boot method. Gen1 VMs always use BIOS while Gen2 always uses EFI.
+ * Currently, the easiest way for us to tell if we've booted via EFI is
+ * by looking for the presense of the efi-version property on the root
+ * nexus.
+ *
+ * NOTE: This check is also duplicated within the acipica filter code
+ * to cons up the EFI framebuffer and ISA bus (as nothing else will in Gen2
+ * VMs).
+ */
+boolean_t
+hyperv_isgen2(void)
+{
+	if (ddi_prop_exists(DDI_DEV_T_ANY, ddi_root_node(), DDI_PROP_DONTPASS,
+	    "efi-version") != 0) {
+		return (B_TRUE);
+	}
+
+	return (B_FALSE);
 }
 
 void
@@ -209,9 +407,8 @@ do_cpuid(uint32_t eax, struct cpuid_regs *cp)
 
 	(void) __cpuid_insn(cp);
 
-	cmn_err(CE_CONT,
-	    "?do_cpuid: cpuid leaf=0x%08x, eax=0x%08x, ebx=0x%08x, "
-	    "ecx=0x%08x, edx=0x%08x\n", eax,
+	hyperv_log(CE_CONT, "?%s: leaf=0x%08x eax=0x%08x ebx=0x%08x"
+	    "ecx=0x%08x, edx=0x%08x\n", __func__, eax,
 	    cp->cp_eax, cp->cp_ebx, cp->cp_ecx, cp->cp_edx);
 }
 
@@ -227,18 +424,18 @@ hyperv_identify(void)
 
 	if ((get_hwenv() & HW_MICROSOFT) == 0) {
 		cmn_err(CE_CONT,
-		    "?hyperv_identify: NOT Hyper-V environment: 0x%x",
+		    "?%s: NOT Hyper-V environment: 0x%x", __func__,
 		    get_hwenv());
 		return (B_FALSE);
 	}
 
-	cmn_err(CE_CONT, "?hyperv_identify: Checking Hyper-V features...\n");
+	hyperv_log(CE_CONT, "?%s: Checking Hyper-V features...\n", __func__);
 
 	do_cpuid(CPUID_LEAF_HV_MAXLEAF, &regs);
 	maxleaf = regs.cp_eax;
 	if (maxleaf < CPUID_LEAF_HV_LIMITS) {
 		cmn_err(CE_WARN,
-		    "hyperv_identify: max leaves mismatch, maxleaf=0x%08x",
+		    "%s: cpuid max leaves mismatch, maxleaf=0x%08x", __func__,
 		    maxleaf);
 		return (B_FALSE);
 	}
@@ -246,7 +443,7 @@ hyperv_identify(void)
 	do_cpuid(CPUID_LEAF_HV_INTERFACE, &regs);
 	if (regs.cp_eax != CPUID_HV_IFACE_HYPERV) {
 		cmn_err(CE_WARN,
-		    "hyperv_identify: Hyper-V signature mismatch=0x%08x",
+		    "%s: Hyper-V signature mismatch=0x%08x", __func__,
 		    regs.cp_eax);
 		return (B_FALSE);
 	}
@@ -258,107 +455,59 @@ hyperv_identify(void)
 		 * is faking Hyper-V.
 		 */
 		cmn_err(CE_WARN,
-		    "hyperv_identify: Hypercall Interface not supported, "
-		    "please contact your system administrator!");
+		    "%s: Hypercall Interface not supported, "
+		    "please contact your system administrator!", __func__);
 		return (B_FALSE);
 	}
 
-	hyperv_features = regs.cp_eax;
-	hyperv_features1 = regs.cp_ebx;
-	hyperv_pm_features = regs.cp_ecx;
-	hyperv_features3 = regs.cp_edx;
+	hyperv_privs_mask = ((uint64_t)regs.cp_ebx << 32) | regs.cp_eax;
+	hyperv_features = regs.cp_edx;
 
 	do_cpuid(CPUID_LEAF_HV_IDENTITY, &regs);
 
 	hyperv_ver_major = regs.cp_ebx >> 16;
-	cmn_err(CE_CONT, "?Hyper-V Version: %d.%d.%d [SP%d]\n",
-	    hyperv_ver_major, regs.cp_ebx & 0xffff,
-	    regs.cp_eax, regs.cp_ecx);
+	hyperv_ver_minor = regs.cp_ebx & 0xffff;
+	hyperv_build = regs.cp_eax;
+	hyperv_svc_pack = regs.cp_ecx;
+	hyperv_svc_number = regs.cp_edx & 0x00ffffff;
+	hyperv_svc_branch = regs.cp_edx >> 24;
+
+	cmn_err(CE_CONT, "?Hyper-V Version: %u.%u.%u [SP%u]\n",
+	    hyperv_ver_major, hyperv_ver_minor, hyperv_build, hyperv_svc_pack);
 
 	/*
 	 * Hyper-V version numbering is based on Linux source code, in
 	 * function ms_hyperv_init_platform().
 	 */
-	cmn_err(CE_CONT, "?Hyper-V Host Build: %d-%d.%d-%d-%d.%d\n",
-	    regs.cp_eax, hyperv_ver_major,
-	    regs.cp_ebx & 0xffff, regs.cp_ecx,
-	    regs.cp_edx >> 24, regs.cp_edx & 0xffffff);
+	cmn_err(CE_CONT, "?Hyper-V Host Build: %u-%u.%u-%u-%u.%u\n",
+	    hyperv_build,
+	    hyperv_ver_major, hyperv_ver_minor,
+	    hyperv_svc_pack,
+	    hyperv_svc_branch, hyperv_svc_number);
 
-	if (boothowto & RB_VERBOSE) {
-		printf("  Features=0x%b\n", hyperv_features,
-		    "\020"
-		    "\001VPRUNTIME"	/* MSR_HV_VP_RUNTIME */
-		    "\002TMREFCNT"	/* MSR_HV_TIME_REF_COUNT */
-		    "\003SYNIC"		/* MSRs for SynIC */
-		    "\004SYNTM"		/* MSRs for SynTimer */
-		    "\005APIC"		/* MSR_HV_{EOI,ICR,TPR} */
-		    "\006HYPERCALL"	/* MSR_HV_{GUEST_OS_ID,HYPERCALL} */
-		    "\007VPINDEX"	/* MSR_HV_VP_INDEX */
-		    "\010RESET"		/* MSR_HV_RESET */
-		    "\011STATS"		/* MSR_HV_STATS_ */
-		    "\012REFTSC"	/* MSR_HV_REFERENCE_TSC */
-		    "\013IDLE"		/* MSR_HV_GUEST_IDLE */
-		    "\014TMFREQ"	/* MSR_HV_{TSC,APIC}_FREQUENCY */
-		    "\015DEBUG");	/* MSR_HV_SYNTH_DEBUG_ */
-		printf("  Features1=0x%b\n", hyperv_features1,
-		    "\020"
-		    "\001CreatePartitions"
-		    "\002AccessPartitionId"
-		    "\003AccessMemoryPool"
-		    "\004AdjustMessageBuffers"
-		    "\005PostMessages"
-		    "\006SignalEvents"
-		    "\007CreatePort"
-		    "\008ConnectPort"
-		    "\009AccessStats"
-		    "\012Debugging"
-		    "\013CpuManagement"
-		    "\014ConfigureProfiler"
-		    "\015EnableExpandedStackwalking");
-		printf("  Features2(PM)=0x%b [C%u]\n",
-		    (hyperv_pm_features & ~CPUPM_HV_CSTATE_MASK),
-		    "\020"
-		    "\005C3HPET",	/* HPET is required for C3 state */
-		    CPUPM_HV_CSTATE(hyperv_pm_features));
-		printf("  Features3=0x%b\n", hyperv_features3,
-		    "\020"
-		    "\001MWAIT"		/* MWAIT */
-		    "\002DEBUG"		/* guest debug support */
-		    "\003PERFMON"	/* performance monitor */
-		    "\004PCPUDPE"	/* phys CPU dynamic partition event */
-		    "\005XMMHC"		/* hypercall input through XMM regs */
-		    "\006IDLE"		/* guest idle support */
-		    "\007SLEEP"		/* hypervisor sleep support */
-		    "\010NUMA"		/* NUMA distance query support */
-		    "\011TMFREQ"	/* timer frequency query (TSC, LAPIC) */
-		    "\012SYNCMC"	/* inject synthetic machine checks */
-		    "\013CRASH"		/* MSRs for guest crash */
-		    "\014DEBUGMSR"	/* MSRs for guest debug */
-		    "\015NPIEP"		/* NPIEP */
-		    "\016HVDIS");	/* disabling hypervisor */
-	} else {
-		cmn_err(CE_CONT, "?Features=0x%x", hyperv_features);
-		cmn_err(CE_CONT, "?Features1=0x%x", hyperv_features1);
-		cmn_err(CE_CONT, "?Features2(PM)=0x%x",
-		    hyperv_pm_features & ~CPUPM_HV_CSTATE_MASK);
-		cmn_err(CE_CONT, "?Features3=0x%x", hyperv_features3);
-	}
+	hyperv_show_features(hyperv_privs_mask, "Hyper-V guest access",
+	    hyperv_access_tbl, ARRAY_SIZE(hyperv_access_tbl));
+	hyperv_show_features(hyperv_features, "Hyper-V features",
+	    hyperv_features_tbl, ARRAY_SIZE(hyperv_features_tbl));
 
 	do_cpuid(CPUID_LEAF_HV_RECOMMENDS, &regs);
-	hyperv_recommends = regs.cp_eax;
-	cmn_err(CE_CONT, "?hyperv_identify:  Recommends: %08x %08x\n",
-	    regs.cp_eax, regs.cp_ebx);
+	hyperv_recommendations = regs.cp_eax;
+
+	hyperv_show_features(hyperv_recommendations,
+	    "Hyper-V guest recommendations", hyperv_recommendations_tbl,
+	    ARRAY_SIZE(hyperv_recommendations_tbl));
+	cmn_err(CE_CONT, "?Hyper-V recommended spinlock retries: %d\n",
+	    (int)regs.cp_ebx);
+	cmn_err(CE_CONT, "?Hyper-V physical address bits implemented: %u\n",
+	    CPU_RECOMMEND_PHYSADDR_BITS(regs.cp_ecx));
 
 	do_cpuid(CPUID_LEAF_HV_LIMITS, &regs);
-	cmn_err(CE_CONT, "?hyperv_identify:  Limits: Vcpu:%d Lcpu:%d Int:%d\n",
-	    regs.cp_eax, regs.cp_ebx, regs.cp_ecx);
+	hyperv_max_vcpu = regs.cp_eax;
+	hyperv_max_lcpu = regs.cp_ebx;
+	hyperv_max_intr = regs.cp_ecx;
 
-	if (maxleaf >= CPUID_LEAF_HV_HWFEATURES) {
-		do_cpuid(CPUID_LEAF_HV_HWFEATURES, &regs);
-		cmn_err(CE_CONT,
-		    "?hyperv_identify:  HW Features: %08x, AMD: %08x\n",
-		    regs.cp_eax, regs.cp_edx);
-	}
+	cmn_err(CE_CONT, "?Hyper-V limits: Vcpu: %u Lcpu: %u Intrs: %u\n",
+	    hyperv_max_vcpu, hyperv_max_lcpu, hyperv_max_intr);
 
 	return (B_TRUE);
 }
@@ -366,25 +515,21 @@ hyperv_identify(void)
 static int
 hyperv_init(void)
 {
-	cmn_err(CE_CONT, "?hyperv_init: Checking Hyper-V support...\n");
+	hyperv_log(CE_CONT, "?hyperv_init: Checking Hyper-V support...\n");
 	if (!hyperv_identify()) {
-		cmn_err(CE_CONT,
+		hyperv_log(CE_CONT,
 		    "?hyperv_init: Hyper-V not supported on this environment");
 		return (-1);
 	}
 
 	/* Set guest id */
 	wrmsr(MSR_HV_GUEST_OS_ID, MSR_HV_GUESTID_ILLUMOS);
+
+	if (hypercall_create() != 0)
+		return (-1);
+
 	return (0);
 }
-
-static void
-hypercall_memfree(void)
-{
-	hyperv_dmamem_free(&hypercall_context.hc_dma);
-	hypercall_context.hc_addr = NULL;
-}
-
 
 /*
  * Enable Hypercall interface
@@ -400,33 +545,36 @@ hypercall_memfree(void)
  *   with the GPA (guest physical address) of the above page.
  */
 int
-hypercall_create(dev_info_t *dip)
+hypercall_create(void)
 {
-	uint64_t hc, hc_orig;
+	/*
+	 * The kernel has a page of text called 'hypercall_page'. Xen
+	 * overlays/populates the page with the specific instructions to
+	 * issue Xen hypercalls/syscalls. Hyper-V does essentially the
+	 * exact same thing (the difference being the register calling
+	 * convention). Since there can be only one Hypervisor, we
+	 * use the hypercall_page for the same purpose.
+	 */
+	extern void *hypercall_page(void);
 
-	if (dip == NULL || (get_hwenv() & HW_MICROSOFT) == 0)
+	uint64_t hc, hc_orig;
+	pfn_t pfn;
+
+	if ((get_hwenv() & HW_MICROSOFT) == 0)
 		return (DDI_FAILURE);
 
-	dev_err(dip, CE_CONT, "?hypercall_create: Enabling Hypercall "
-	    "interface...\n");
+	cmn_err(CE_CONT, "?%s: Enabling Hypercall interface...\n", __func__);
+
+	pfn = hat_getpfnum(kas.a_hat, (caddr_t)hypercall_page);
+	ASSERT3U(pfn, !=, PFN_INVALID);
 
 	/* Get the 'reserved' bits, which requires preservation. */
 	hc_orig = rdmsr(MSR_HV_HYPERCALL);
-	dev_err(dip, CE_CONT,
-	    "?hypercall_create: Current Hypercall MSR: 0x%"PRId64"\n", hc_orig);
+	cmn_err(CE_CONT, "?%s: Current Hypercall MSR: 0x%016" PRIx64 "\n",
+	    __func__, hc_orig);
 
-	/* Create a hypercall page */
-	hypercall_context.hc_addr = hyperv_dmamem_alloc(dip,
-	    PAGE_SIZE, 0, PAGE_SIZE, &hypercall_context.hc_dma, DDI_DMA_RDWR);
-	if (hypercall_context.hc_addr == NULL) {
-		dev_err(dip, CE_WARN,
-		    "hypercall_create: Hypercall Page allocation failed");
-		goto fail;
-	}
-
-	dev_err(dip, CE_CONT,
-	    "?hypercall_create: Hypercall Page allocation done: 0x%p\n",
-	    (void *)hypercall_context.hc_addr);
+	cmn_err(CE_CONT, "?%s: hypercall_page va: 0x%p pa: 0x%p\n",
+	    __func__, hypercall_page, (caddr_t)(pfn << PAGE_SHIFT));
 
 	/*
 	 * Setup the Hypercall page.
@@ -434,14 +582,12 @@ hypercall_create(dev_info_t *dip)
 	 * NOTE: 'reserved' bits (11:1) MUST be preserved.
 	 * And bit 0 must be set to 1 to indicate enable Hypercall Page.
 	 */
-	hc = ((hypercall_context.hc_dma.hv_paddr >> PAGE_SHIFT) <<
-	    MSR_HV_HYPERCALL_PGSHIFT) |
+	hc = (pfn << MSR_HV_HYPERCALL_PGSHIFT) |
 	    (hc_orig & MSR_HV_HYPERCALL_RSVD_MASK) |
 	    MSR_HV_HYPERCALL_ENABLE;
 
-	dev_err(dip, CE_CONT,
-	    "?hypercall_create: Programming Hypercall MSR: 0x%"PRId64"\n", hc);
-
+	cmn_err(CE_CONT, "?%s: Programming Hypercall MSR: 0x%016" PRIx64 "\n",
+	    __func__, hc);
 	wrmsr(MSR_HV_HYPERCALL, hc);
 
 	/*
@@ -450,21 +596,22 @@ hypercall_create(dev_info_t *dip)
 	hc = rdmsr(MSR_HV_HYPERCALL);
 
 	if ((hc & MSR_HV_HYPERCALL_ENABLE) == 0) {
-		dev_err(dip, CE_CONT,
-		    "?hypercall_create: Verify Hypercall MSR: 0x%"PRId64
-		    "failed\n", hc);
-		hypercall_memfree();
+		cmn_err(CE_CONT, "?%s: Verify Hypercall MSR: 0x%016" PRIx64
+		    "failed\n", __func__, hc);
 		goto fail;
 	}
 
-	dev_err(dip, CE_CONT,
-	    "?hypercall_create: Verified Hypercall MSR: 0x%"PRId64"\n", hc);
-	dev_err(dip, CE_CONT,
-	    "?hypercall_create: Enabling Hypercall interface - SUCCESS !\n");
+	cmn_err(CE_CONT, "?%s: Verified Hypercall MSR: 0x%016" PRId64 "\n",
+	    __func__, hc);
+	cmn_err(CE_CONT, "?%s: Enabling Hypercall interface - SUCCESS !\n",
+	    __func__);
+
+	hyperv_is_init = B_TRUE;
 	return (DDI_SUCCESS);
+
 fail:
-	dev_err(dip, CE_WARN,
-	    "hypercall_create: Enabling Hypercall interface - FAILED.");
+	cmn_err(CE_WARN, "%s: Enabling Hypercall interface - FAILED.",
+	    __func__);
 	return (DDI_FAILURE);
 }
 
@@ -472,23 +619,49 @@ fail:
  * Disable Hypercall interface
  */
 void
-hypercall_destroy()
+hypercall_destroy(void)
 {
 	uint64_t hc;
 
-	if (hypercall_context.hc_addr == NULL)
+	if (!hyperv_is_init)
 		return;
 
-	cmn_err(CE_CONT,
-	    "?hypercall_destroy: Disabling Hypercall interface...");
+	cmn_err(CE_CONT, "?%s: Disabling Hypercall interface...\n", __func__);
 
 	/* Disable Hypercall */
 	hc = rdmsr(MSR_HV_HYPERCALL);
 	wrmsr(MSR_HV_HYPERCALL, (hc & MSR_HV_HYPERCALL_RSVD_MASK));
-	hypercall_memfree();
 
-	cmn_err(CE_CONT,
-	    "?hypercall_destroy: Disabling Hypercall interface - done.");
+	cmn_err(CE_CONT, "?%s: Disabling Hypercall interface - done.\n",
+	    __func__);
+}
+
+static void
+hyperv_show_features(uint64_t val, const char *desc, const hvbit_t *fields,
+    size_t nfields)
+{
+	if ((boothowto & RB_VERBOSE) == 0)
+		return;
+
+	char buf[512] = { 0 };
+	ilstr_t ils;
+	uint_t i;
+
+	ilstr_init_prealloc(&ils, buf, sizeof (buf));
+
+	ilstr_append_str(&ils, desc);
+	ilstr_aprintf(&ils, "%s: 0x%08x\n", desc, val);
+
+	for (i = 0; i < nfields; i++) {
+		uint64_t mask = (uint64_t)1 << fields[i].hvb_bit;
+
+		if ((val & mask) == 0)
+			continue;
+
+		ilstr_aprintf(&ils, "\t%s\n", fields[i].hvb_desc);
+	}
+
+	cmn_err(CE_CONT, "?%s", buf);
 }
 
 static struct modldrv hyperv_modldrv = {
@@ -516,6 +689,8 @@ int
 _fini(void)
 {
 	int error;
+
+	hypercall_destroy();
 
 	error = mod_remove(&modlinkage);
 	return (error);

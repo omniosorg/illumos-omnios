@@ -37,6 +37,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright 2023 RackTop Systems, Inc.
  */
 
 #ifndef	_HYPERV_VAR_H_
@@ -53,8 +54,6 @@ typedef enum {
 	HV_CALL_SIGNAL_EVENT	= 0x005d,
 } hv_vmbus_call_code;
 
-int		hypercall_create(dev_info_t *);
-void		hypercall_destroy(void);
 hv_status_t	hypercall_post_message(paddr_t msg_paddr);
 hv_status_t	hypercall_signal_event(paddr_t monprm_paddr);
 
