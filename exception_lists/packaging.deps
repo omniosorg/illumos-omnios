@@ -33,6 +33,7 @@ pkg:/runtime/perl
 pkg:/runtime/python-27
 pkg:/runtime/python-310
 pkg:/runtime/python-311
+pkg:/runtime/python-312
 pkg:/runtime/python-35
 pkg:/runtime/python-39
 pkg:/security/sudo
