@@ -31,7 +31,15 @@
 static boolean_t
 tsc_calibrate_vmware(uint64_t *freqp)
 {
-	if (get_hwenv() != HW_VMWARE)
+	int hwenv = get_hwenv();
+
+	/*
+	 * This MSR is also supported by KVM and qemu will enable the KVM
+	 * support by default. In the event it is not enabled we will skip this
+	 * time source based on the maximum VM leaf returned and try to use
+	 * a less preferred one.
+	 */
+	if (hwenv != HW_VMWARE && hwenv != HW_KVM)
 		return (B_FALSE);
 
 	struct cpuid_regs regs = { 0 };
