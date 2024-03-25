@@ -25,6 +25,7 @@
 
 /*
  * Copyright 2020 Joyent, Inc.
+ * Copyright 2024 MNX Cloud, Inc.
  */
 
 /*
@@ -177,6 +178,16 @@
 	 * information about this.
 	 */
 	call	x86_rsb_stuff
+
+        /*
+         * Take another moment to potentially clear the branch history buffer
+         * (BHB). This is done to prevent recent discoveries that branch
+         * history can also be trained to exploit certain compiler-generated
+         * instruction sequences (known as "gadgets") to leak data
+         * speculatively.  As with x86_rsb_stuff, see retpoline.s, and this
+         * may not be sufficient.
+         */
+        call    x86_bhb_clear
 
 	/*
 	 * Save non-volatile registers, and set return address for current
