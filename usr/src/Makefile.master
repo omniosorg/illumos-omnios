@@ -112,10 +112,10 @@ ONBLD_TOOLS=		$(BUILD_TOOLS)/onbld
 
 # define runtime JAVA_HOME, primarily for cmd/pools/poold
 #JAVA_HOME=	/usr/java
-JAVA_HOME=	/usr/jdk/openjdk11.0
+JAVA_HOME=	/usr/jdk/openjdk17.0
 # define buildtime JAVA_ROOT
 #JAVA_ROOT=	/usr/java
-JAVA_ROOT=	/usr/jdk/openjdk11.0
+JAVA_ROOT=	/usr/jdk/openjdk17.0
 # Build uses java8 by default.  Pass the variable below set to empty
 # string in the environment to override.
 # Use java11 by default in OmniOS.
