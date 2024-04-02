@@ -201,7 +201,7 @@ main(int argc, char *argv[])
 {
 	struct sigaction act;
 	sigset_t set;
-	char c;
+	int c;
 	void *arg = NULL;
 	boolean_t run_in_foreground = B_FALSE;
 
