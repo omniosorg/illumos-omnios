@@ -770,6 +770,7 @@ extern "C" {
 #define	X86FSET_LFENCE_SER	102
 #define	X86FSET_RFDS_NO		103
 #define	X86FSET_RFDS_CLEAR	104
+#define	X86FSET_PBRSB_NO	105
 
 /*
  * Intel Deep C-State invariant TSC in leaf 0x80000007.
@@ -1209,7 +1210,7 @@ extern "C" {
 
 #if defined(_KERNEL) || defined(_KMEMUSER)
 
-#define	NUM_X86_FEATURES	105
+#define	NUM_X86_FEATURES	106
 extern uchar_t x86_featureset[];
 
 extern void free_x86_featureset(void *featureset);
@@ -1234,6 +1235,7 @@ extern const char CyrixInstead[];
  */
 extern void (*spec_uarch_flush)(void);
 extern void x86_rsb_stuff(void);
+extern void x86_rsb_stuff_vmexit(void);
 extern void x86_md_clear(void);
 
 #endif
