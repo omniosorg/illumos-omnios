@@ -496,8 +496,7 @@ usr/src/cmd/connstat/connstat
 usr/src/cmd/consadm/i386/consadm
 usr/src/cmd/coreadm/coreadm
 usr/src/cmd/cpc/cpustat/cpustat
-usr/src/cmd/cpc/cputrack/amd64/cputrack
-usr/src/cmd/cpc/cputrack/i386/cputrack
+usr/src/cmd/cpc/cputrack/cputrack
 usr/src/cmd/cpio/cpio
 usr/src/cmd/cron/at
 usr/src/cmd/cron/at.xpg4
