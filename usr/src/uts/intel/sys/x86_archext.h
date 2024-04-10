@@ -370,6 +370,8 @@ extern "C" {
 #define	CPUID_INTC_EDX_7_0_ALL_AVX512 \
 	(CPUID_INTC_EDX_7_0_AVX5124NNIW | CPUID_INTC_EDX_7_0_AVX5124FMAPS)
 
+#define	CPUID_INTC_EDX_7_2_BHI_CTRL	(1U << 4U)	/* BHI controls */
+
 /*
  * Intel also uses cpuid leaf 0xd to report additional instructions and features
  * when the sub-leaf in %ecx == 1. We label these using the same convention as
@@ -771,6 +773,8 @@ extern "C" {
 #define	X86FSET_RFDS_NO		103
 #define	X86FSET_RFDS_CLEAR	104
 #define	X86FSET_PBRSB_NO	105
+#define	X86FSET_BHI_NO		106
+#define	X86FSET_BHI_CTRL	107
 
 /*
  * Intel Deep C-State invariant TSC in leaf 0x80000007.
@@ -1210,7 +1214,7 @@ extern "C" {
 
 #if defined(_KERNEL) || defined(_KMEMUSER)
 
-#define	NUM_X86_FEATURES	106
+#define	NUM_X86_FEATURES	108
 extern uchar_t x86_featureset[];
 
 extern void free_x86_featureset(void *featureset);
@@ -1236,6 +1240,7 @@ extern const char CyrixInstead[];
 extern void (*spec_uarch_flush)(void);
 extern void x86_rsb_stuff(void);
 extern void x86_rsb_stuff_vmexit(void);
+extern void x86_bhb_clear(void);
 extern void x86_md_clear(void);
 
 #endif
