@@ -3086,7 +3086,7 @@ cpuid_learn_and_patch_bhi(x86_spectrev2_mitigation_t v2mit, cpu_t *cpu,
  * present.
  */
 static void
-cpuid_patch_rsb(x86_spectrev2_mitigation_t mit, bool intel_pbrsb_no)
+cpuid_patch_rsb(x86_spectrev2_mitigation_t mit, boolean_t intel_pbrsb_no)
 {
 	const uint8_t ret = RET_INSTR;
 	uint8_t *stuff = (uint8_t *)x86_rsb_stuff;
