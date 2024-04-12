@@ -507,6 +507,8 @@ extern "C" {
 #define	CPUID_INTC_EAX_7_1_LAM		0x02000000	/* Linear addr mask */
 /* bits 27-31 are reserved */
 
+#define	CPUID_INTC_EDX_7_2_BHI_CTRL	(1U << 4U)	/* BHI controls */
+
 /*
  * Intel also uses cpuid leaf 0xd to report additional instructions and features
  * when the sub-leaf in %ecx == 1. We label these using the same convention as
@@ -935,6 +937,8 @@ extern "C" {
 #define	X86FSET_RFDS_NO		109
 #define	X86FSET_RFDS_CLEAR	110
 #define	X86FSET_PBRSB_NO	111
+#define	X86FSET_BHI_NO		112
+#define	X86FSET_BHI_CTRL	113
 
 /*
  * Intel Deep C-State invariant TSC in leaf 0x80000007.
@@ -1103,6 +1107,8 @@ typedef enum x86_processor_family {
 	X86_PF_AMD_RAPHAEL,
 	X86_PF_AMD_PHOENIX,
 	X86_PF_AMD_BERGAMO,
+	X86_PF_AMD_TURIN,
+	X86_PF_AMD_DENSE_TURIN,
 
 	X86_PF_ANY = 0xff
 } x86_processor_family_t;
@@ -1276,6 +1282,11 @@ typedef enum x86_chiprev {
 	_DECL_CHIPREV(AMD, BERGAMO, A2, 0x0008),
 	_DECL_CHIPREV(AMD, BERGAMO, ANY, _X86_CHIPREV_REV_MATCH_ALL),
 
+	_DECL_CHIPREV(AMD, TURIN, UNKNOWN, 0x0001),
+	_DECL_CHIPREV(AMD, TURIN, ANY, _X86_CHIPREV_REV_MATCH_ALL),
+	_DECL_CHIPREV(AMD, DENSE_TURIN, UNKNOWN, 0x0001),
+	_DECL_CHIPREV(AMD, DENSE_TURIN, ANY, _X86_CHIPREV_REV_MATCH_ALL),
+
 	/* Keep at the end */
 	X86_CHIPREV_ANY = _X86_CHIPREV_MKREV(_X86_VENDOR_MATCH_ALL, X86_PF_ANY,
 	    _X86_CHIPREV_REV_MATCH_ALL)
@@ -1306,6 +1317,7 @@ typedef enum x86_uarch {
 	X86_UARCH_AMD_ZEN2,
 	X86_UARCH_AMD_ZEN3,
 	X86_UARCH_AMD_ZEN4,
+	X86_UARCH_AMD_ZEN5,
 
 	X86_UARCH_ANY = 0xff
 } x86_uarch_t;
@@ -1353,6 +1365,9 @@ typedef enum x86_uarchrev {
 	_DECL_UARCHREV(AMD, ZEN4, B1, 0x0020),
 	_DECL_UARCHREV(AMD, ZEN4, B2, 0x0040),
 	_DECL_UARCHREV(AMD, ZEN4, ANY, _X86_UARCHREV_REV_MATCH_ALL),
+
+	_DECL_UARCHREV(AMD, ZEN5, UNKNOWN, 0x0001),
+	_DECL_UARCHREV(AMD, ZEN5, ANY, _X86_UARCHREV_REV_MATCH_ALL),
 
 	/* Keep at the end */
 	_X86_UARCHREV_ANY = _X86_UARCHREV_MKREV(_X86_VENDOR_MATCH_ALL,
@@ -1587,7 +1602,7 @@ typedef enum x86_uarchrev {
 
 #if defined(_KERNEL) || defined(_KMEMUSER)
 
-#define	NUM_X86_FEATURES	112
+#define	NUM_X86_FEATURES	114
 extern uchar_t x86_featureset[];
 
 extern void free_x86_featureset(void *featureset);
@@ -1606,11 +1621,12 @@ extern uint_t pentiumpro_bug4046376;
 
 /*
  * These functions are all used to perform various side-channel mitigations.
- * Please see uts/i86pc/os/cpuid.c for more information.
+ * Please see uts/intel/os/cpuid.c for more information.
  */
 extern void (*spec_uarch_flush)(void);
 extern void x86_rsb_stuff(void);
 extern void x86_rsb_stuff_vmexit(void);
+extern void x86_bhb_clear(void);
 extern void x86_md_clear(void);
 
 #endif
