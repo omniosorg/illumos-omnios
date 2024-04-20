@@ -3508,6 +3508,8 @@ usr/src/man/man3avl/AVL_PREV.3avl
 usr/src/man/man3avl/avl_insert_here.3avl
 usr/src/man/man3avl/avl_last.3avl
 usr/src/man/man3avl/avl_remove.3avl
+usr/src/man/man3avl/avl_update_gt.3avl
+usr/src/man/man3avl/avl_update_lt.3avl
 usr/src/man/man3bsm/au_close.3bsm
 usr/src/man/man3bsm/au_to_arg.3bsm
 usr/src/man/man3bsm/au_to_arg32.3bsm
@@ -4249,6 +4251,8 @@ usr/src/man/man3c/strdup.3c
 usr/src/man/man3c/strdupa.3c
 usr/src/man/man3c/strerror_l.3c
 usr/src/man/man3c/strerror_r.3c
+usr/src/man/man3c/strerrordesc_np.3c
+usr/src/man/man3c/strerrorname_np.3c
 usr/src/man/man3c/strfmon_l.3c
 usr/src/man/man3c/strftime_l.3c
 usr/src/man/man3c/strlcat.3c
@@ -8794,7 +8798,8 @@ usr/src/test/libc-tests/tests/stdio/test_mbrtowc.32
 usr/src/test/libc-tests/tests/stdio/test_mbrtowc.64
 usr/src/test/libc-tests/tests/strcoll-strxfrm-6907.32
 usr/src/test/libc-tests/tests/strcoll-strxfrm-6907.64
-usr/src/test/libc-tests/tests/strerror/strerror
+usr/src/test/libc-tests/tests/strerror.32
+usr/src/test/libc-tests/tests/strerror.64
 usr/src/test/libc-tests/tests/strtonum.32
 usr/src/test/libc-tests/tests/strtonum.64
 usr/src/test/libc-tests/tests/symbols/setup
@@ -9435,6 +9440,7 @@ usr/src/uts/intel/opteron_pcbe/opteron_pcbe_f17h_zen1.c
 usr/src/uts/intel/opteron_pcbe/opteron_pcbe_f17h_zen2.c
 usr/src/uts/intel/opteron_pcbe/opteron_pcbe_f19h_zen3.c
 usr/src/uts/intel/opteron_pcbe/opteron_pcbe_f19h_zen4.c
+usr/src/uts/intel/opteron_pcbe/opteron_pcbe_f1ah_zen5.c
 usr/src/uts/intel/os/priv_names
 usr/src/uts/intel/sha1/sha1-x86_64.S
 usr/src/uts/intel/sha2/sha256-x86_64.S
