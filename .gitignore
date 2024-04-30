@@ -679,7 +679,6 @@ usr/src/cmd/dtrace/demo/writetimeq.d
 usr/src/cmd/dtrace/demo/xioctl.d
 usr/src/cmd/dtrace/demo/xterm.d
 usr/src/cmd/dtrace/demo/xwork.d
-usr/src/cmd/dtrace/i386/dtrace
 usr/src/cmd/dtrace/test/cmd/baddof/baddof
 usr/src/cmd/dtrace/test/cmd/badioctl/badioctl
 usr/src/cmd/dtrace/test/cmd/chkargs/amd64/chkargs
@@ -861,7 +860,8 @@ usr/src/cmd/fs.d/nfs/rquotad/rquotad
 usr/src/cmd/fs.d/nfs/share/sharetab
 usr/src/cmd/fs.d/nfs/showmount/showmount
 usr/src/cmd/fs.d/nfs/statd/statd
-usr/src/cmd/fs.d/nfs/tests/test_svc_tp_create
+usr/src/cmd/fs.d/nfs/tests/rpcsec_gss_conn/rpcsec_gss_conn
+usr/src/cmd/fs.d/nfs/tests/test_svc_tp_create/test_svc_tp_create
 usr/src/cmd/fs.d/nfs/umount/umount
 usr/src/cmd/fs.d/objfs/mount
 usr/src/cmd/fs.d/pcfs/fsck/fsck
@@ -1045,8 +1045,7 @@ usr/src/cmd/initpkg/umountall
 usr/src/cmd/initpkg/vfstab
 usr/src/cmd/install.d/install.d
 usr/src/cmd/intrd/intrd
-usr/src/cmd/intrstat/amd64/intrstat
-usr/src/cmd/intrstat/i386/intrstat
+usr/src/cmd/intrstat/intrstat
 usr/src/cmd/ipcrm/ipcrm
 usr/src/cmd/ipcs/ipcs
 usr/src/cmd/ipdadm/ipdadm
@@ -1141,12 +1140,9 @@ usr/src/cmd/kvmstat/kvmstat
 usr/src/cmd/last/last
 usr/src/cmd/last/wtmpx
 usr/src/cmd/lastcomm/lastcomm
-usr/src/cmd/latencytop/amd64/latencytop
-usr/src/cmd/latencytop/amd64/latencytop_d
-usr/src/cmd/latencytop/amd64/latencytop_trans
-usr/src/cmd/latencytop/i386/latencytop
-usr/src/cmd/latencytop/i386/latencytop_d
-usr/src/cmd/latencytop/i386/latencytop_trans
+usr/src/cmd/latencytop/latencytop
+usr/src/cmd/latencytop/latencytop_d
+usr/src/cmd/latencytop/latencytop_trans
 usr/src/cmd/ldap/i386/idsconfig
 usr/src/cmd/ldap/i386/ldapaddent
 usr/src/cmd/ldap/i386/ldapclient
@@ -1170,8 +1166,7 @@ usr/src/cmd/localedef/localedef
 usr/src/cmd/localedef/parser.tab.c
 usr/src/cmd/localedef/parser.tab.h
 usr/src/cmd/locator/locator
-usr/src/cmd/lockstat/amd64/lockstat
-usr/src/cmd/lockstat/i386/lockstat
+usr/src/cmd/lockstat/lockstat
 usr/src/cmd/lofiadm/lofiadm
 usr/src/cmd/logadm/logadm
 usr/src/cmd/logger/logger
@@ -1487,8 +1482,7 @@ usr/src/cmd/picl/picld/picld
 usr/src/cmd/picl/prtpicl/prtpicl
 usr/src/cmd/platexec/platexec
 usr/src/cmd/plimit/plimit
-usr/src/cmd/plockstat/amd64/plockstat
-usr/src/cmd/plockstat/i386/plockstat
+usr/src/cmd/plockstat/plockstat
 usr/src/cmd/policykit/polkit-is-privileged
 usr/src/cmd/pools/pooladm/pooladm
 usr/src/cmd/pools/poolbind/poolbind
@@ -1503,7 +1497,6 @@ usr/src/cmd/power/power.conf
 usr/src/cmd/power/powerd
 usr/src/cmd/power/sys-suspend
 usr/src/cmd/powertop/amd64/powertop
-usr/src/cmd/powertop/i386/powertop
 usr/src/cmd/ppgsz/ppgsz
 usr/src/cmd/pptadm/pptadm
 usr/src/cmd/pr/pr
@@ -8982,6 +8975,8 @@ usr/src/test/os-tests/tests/ksensor/ksensor_sread.64
 usr/src/test/os-tests/tests/ksid/ksid.32
 usr/src/test/os-tests/tests/ksid/ksid.64
 usr/src/test/os-tests/tests/libtopo/digraph-test
+usr/src/test/os-tests/tests/minttl/minttl
+usr/src/test/os-tests/tests/minttl/minttl_err
 usr/src/test/os-tests/tests/odirectory.32
 usr/src/test/os-tests/tests/odirectory.64
 usr/src/test/os-tests/tests/pf_key/15146
@@ -9033,6 +9028,7 @@ usr/src/test/os-tests/tests/syscall/fchmodat.32
 usr/src/test/os-tests/tests/syscall/fchmodat.64
 usr/src/test/os-tests/tests/syscall/open.32
 usr/src/test/os-tests/tests/syscall/open.64
+usr/src/test/os-tests/tests/tcpsig/tcpsig
 usr/src/test/os-tests/tests/timer/timer_limit
 usr/src/test/os-tests/tests/uccid/atrparse
 usr/src/test/os-tests/tests/uccid/excl-badread
