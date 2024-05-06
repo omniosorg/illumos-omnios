@@ -26,8 +26,7 @@ export TOOLS_PYTHON=/usr/bin/python$PYTHON3_VERSION
 export ON_CLOSED_BINS=/opt/onbld/closed
 
 # On OmniOS, gcc resides in /opt/gcc-<version> - adjust variables
-export GNUC_ROOT=/opt/gcc-7/
-for name in PRIMARY_CC PRIMARY_CCC SHADOW_CCS SHADOW_CCCS; do
+for name in GNUC_ROOT PRIMARY_CC PRIMARY_CCC SHADOW_CCS SHADOW_CCCS; do
         typeset -n var=$name
         var="`echo $var | sed '
                 s^/usr/gcc^/opt/gcc^
