@@ -1,4 +1,3 @@
-
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -11,29 +10,29 @@
 #
 
 #
-# Copyright 2012, Richard Lowe.
+# Copyright 2024 RackTop Systems, Inc.
 #
-
 include $(SRC)/Makefile.master
-include $(SRC)/Makefile.master.64
 
-.KEEP_STATE:
+SRCS = default.run
+ROOTOPTPKG = $(ROOT)/opt/libsec-tests
+RUNFILES = $(ROOTOPTPKG)/runfiles
+CMDS = $(SRCS:%=$(RUNFILES)/%)
+$(CMDS) := FILEMODE = 0444
 
-OBJECTS = testmatch.o data.o
-PROG = testmatch
+include $(SRC)/test/Makefile.com
 
-LDLIBS64 += -lsaveargs
+all: $(SRCS)
 
-AS_CPPFLAGS += -D_ASM
-
-$(PROG): $(OBJECTS)
-	$(LINK.c) -o $@ $(OBJECTS) $(LDLIBS64)
-
-clean:
-	$(RM) $(OBJECTS) $(PROG)
+install: $(CMDS)
 
 clobber: clean
+	$(RM) $(CMDS)
 
-all: $(PROG)
+$(CMDS): $(RUNFILES) $(SRCS)
 
-install: all
+$(RUNFILES):
+	$(INS.dir)
+
+$(RUNFILES)/%: %
+	$(INS.file)
