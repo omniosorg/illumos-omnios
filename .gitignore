@@ -8831,6 +8831,8 @@ usr/src/test/libmlrpc-tests/tests/netrlogon/krb5_pac_tests/krb5_pac_decode
 usr/src/test/libmlrpc-tests/tests/netrlogon/krb5_pac_tests/run_krb5_pac_tests
 usr/src/test/libmlrpc-tests/tests/netrlogon/samlogon_tests/run_samlogon_tests
 usr/src/test/libmlrpc-tests/tests/netrlogon/samlogon_tests/samlogon
+usr/src/test/libsec-tests/cmd/acl_fromtext
+usr/src/test/libsec-tests/cmd/acl_totext
 usr/src/test/nvme-tests/tests/ioctl/bad-lock.32
 usr/src/test/nvme-tests/tests/ioctl/bad-lock.64
 usr/src/test/nvme-tests/tests/ioctl/bad-lock.o.32
@@ -9002,6 +9004,15 @@ usr/src/test/os-tests/tests/portfs/file_assoc.32
 usr/src/test/os-tests/tests/portfs/file_assoc.64
 usr/src/test/os-tests/tests/regression/illumos-15031
 usr/src/test/os-tests/tests/regression/illumos-15036
+usr/src/test/os-tests/tests/saveargs/functional/align
+usr/src/test/os-tests/tests/saveargs/functional/basic
+usr/src/test/os-tests/tests/saveargs/functional/big-struct-ret
+usr/src/test/os-tests/tests/saveargs/functional/big-struct-ret-and-spill
+usr/src/test/os-tests/tests/saveargs/functional/functional
+usr/src/test/os-tests/tests/saveargs/functional/small-struct-ret
+usr/src/test/os-tests/tests/saveargs/functional/small-struct-ret-and-spill
+usr/src/test/os-tests/tests/saveargs/functional/stack-spill
+usr/src/test/os-tests/tests/saveargs/testmatch/testmatch
 usr/src/test/os-tests/tests/sdevfs/sdevfs_eisdir
 usr/src/test/os-tests/tests/secflags/addrs-32
 usr/src/test/os-tests/tests/secflags/addrs-64
