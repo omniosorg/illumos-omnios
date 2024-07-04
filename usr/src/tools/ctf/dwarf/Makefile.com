@@ -140,4 +140,3 @@ $(ROOTONBLDLIBMACH)/$(LIBLINKS): $(ROOTONBLDLIBMACH)/$(LIBLINKS)$(VERS)
 FRC:
 
 include $(SRC)/lib/Makefile.targ
-
