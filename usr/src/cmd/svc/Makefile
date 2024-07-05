@@ -27,12 +27,25 @@
 
 include ../Makefile.cmd
 
-SUBDIR_CMD=	lsvcrun mfstscan servinfo svcadm svccfg svcprop svcs \
-		rootisramdisk
-SUBDIR_DAEMON=	configd startd
-SUBDIR_REPO=	milestone profile seed
-SUBDIR_MISC=	shell smfcron
-SUBDIRS=	$(SUBDIR_CMD) $(SUBDIR_DAEMON) $(SUBDIR_REPO) $(SUBDIR_MISC)
+SUBDIR_CMD=		\
+	lsvcrun		\
+	mfstscan	\
+	rootisramdisk	\
+	servinfo	\
+	svcadm		\
+	svccfg		\
+	svcprop		\
+	svcs
+
+SUBDIRS=		\
+	configd		\
+	milestone	\
+	profile		\
+	seed		\
+	shell		\
+	smfcron		\
+	startd		\
+	$(SUBDIR_CMD)
 
 all :=		TARGET = all
 install :=	TARGET = install
@@ -63,8 +76,6 @@ install: $(ROOTDTDS) $(ROOTCLASSACTIONS)
 all install clean clobber: $(SUBDIRS)
 
 _msg: $(SUBDIR_CMD) startd
-
-seed: svccfg configd
 
 $(SUBDIRS): FRC
 	@cd $@; pwd; $(MAKE) $(TARGET)

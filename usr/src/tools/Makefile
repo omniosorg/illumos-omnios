@@ -66,7 +66,8 @@ COMMON_SUBDIRS=		\
 	protocmp	\
 	protolist	\
 	scripts		\
-	sgs
+	sgs		\
+	svc
 
 #
 #  special versions of commands for use only in build
