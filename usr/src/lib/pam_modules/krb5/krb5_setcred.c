@@ -23,7 +23,7 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <libintl.h>
@@ -579,11 +579,8 @@ error:
 	if (renewed_cred != NULL)
 		krb5_free_creds(kmd->kcontext, renewed_cred);
 
-	if (client_name != NULL)
-		free(client_name);
-
-	if (username)
-		free(username);
+	free(client_name);
+	free(username);
 
 	krb5_free_cred_contents(kmd->kcontext, &creds);
 
@@ -605,7 +602,7 @@ attempt_delete_initcred(krb5_module_data_t *kmd)
 		    "credentials (initcreds)");
 	}
 	krb5_free_cred_contents(kmd->kcontext, &kmd->initcreds);
-	(void) memset((char *)&kmd->initcreds, 0, sizeof (krb5_creds));
+	explicit_bzero(&kmd->initcreds, sizeof (krb5_creds));
 	kmd->auth_status = PAM_AUTHINFO_UNAVAIL;
 	return (PAM_SUCCESS);
 }

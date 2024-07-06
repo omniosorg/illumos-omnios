@@ -23,7 +23,7 @@
  * Copyright 2003 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <security/pam_appl.h>
@@ -67,7 +67,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	const char *user;
 	const struct pam_conv *pam_convp;
 	int err, result = PAM_AUTH_ERR;
-	struct pam_response *ret_resp = (struct pam_response *)0;
+	struct pam_response *ret_resp = NULL;
 	char messages[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE];
 	int debug = 0;
 	int try_first_pass = 0;
@@ -120,14 +120,13 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (firstpass && (use_first_pass || try_first_pass)) {
 
-		if ((first_pass_good ||
-			strncmp(firstpass, the_password,
-				strlen(the_password)) == 0) &&
-				!first_pass_bad) {
-					result = PAM_SUCCESS;
-					goto out;
+		if ((first_pass_good || strncmp(firstpass, the_password,
+		    strlen(the_password)) == 0) && !first_pass_bad) {
+			result = PAM_SUCCESS;
+			goto out;
 		}
-		if (use_first_pass) goto out;
+		if (use_first_pass)
+			goto out;
 	}
 
 	/*
@@ -135,14 +134,14 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	 */
 	if (firstpass) {
 		(void) snprintf(messages[0], sizeof (messages[0]),
-			dgettext(TEXT_DOMAIN, "TEST Password: "));
+		    dgettext(TEXT_DOMAIN, "TEST Password: "));
 	} else {
 		(void) snprintf(messages[0], sizeof (messages[0]),
-			dgettext(TEXT_DOMAIN, "Password: "));
+		    dgettext(TEXT_DOMAIN, "Password: "));
 	}
 	num_msg = 1;
 	err = __get_authtok(pam_convp->conv,
-				num_msg, messages, NULL, &ret_resp);
+	    num_msg, messages, NULL, &ret_resp);
 
 	if (err != PAM_SUCCESS) {
 		result = err;
@@ -171,8 +170,8 @@ out:
 		if (ret_resp != 0) {
 			if (ret_resp->resp != 0) {
 				/* avoid leaving password cleartext around */
-				(void) memset(ret_resp->resp, 0,
-					strlen(ret_resp->resp));
+				explicit_bzero(ret_resp->resp,
+				    strlen(ret_resp->resp));
 			}
 			__free_resp(num_msg, ret_resp);
 			ret_resp = 0;

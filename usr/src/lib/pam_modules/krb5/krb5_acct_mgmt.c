@@ -22,7 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <kadm5/admin.h>
@@ -58,14 +58,13 @@ fetch_princ_entry(
 	const char *princ_str,
 	kadm5_principal_ent_rec *prent,	/* out */
 	int debug)
-
 {
 	kadm5_ret_t		code;
-	krb5_principal 		princ = 0;
-	char 			admin_realm[1024];
+	krb5_principal		princ = 0;
+	char			admin_realm[1024];
 	char			kprinc[2*MAXHOSTNAMELEN];
 	char			*cpw_service, *password;
-	void 			*server_handle;
+	void			*server_handle;
 	krb5_context		context;
 	kadm5_config_params	params;
 
@@ -90,27 +89,24 @@ fetch_princ_entry(
 		return (PAM_AUTH_ERR);
 	}
 
-	(void) strlcpy(admin_realm,
-		    krb5_princ_realm(context, princ)->data,
-		    sizeof (admin_realm));
+	(void) strlcpy(admin_realm, krb5_princ_realm(context, princ)->data,
+	    sizeof (admin_realm));
 
-	(void) memset((char *)&params, 0, sizeof (params));
+	(void) memset(&params, 0, sizeof (params));
 	params.mask |= KADM5_CONFIG_REALM;
 	params.realm = admin_realm;
 
 	if (kadm5_get_cpw_host_srv_name(context, admin_realm, &cpw_service)) {
 		__pam_log(LOG_AUTH | LOG_ERR,
-			"PAM-KRB5 (acct):  unable to get host based "
-			"service name for realm '%s'",
-			admin_realm);
+		    "PAM-KRB5 (acct):  unable to get host based "
+		    "service name for realm '%s'",
+		    admin_realm);
 		krb5_free_principal(context, princ);
 		return (PAM_SYSTEM_ERR);
 	}
 
-	code = kadm5_init_with_password(kprinc, password, cpw_service,
-					&params, KADM5_STRUCT_VERSION,
-					KADM5_API_VERSION_2, NULL,
-					&server_handle);
+	code = kadm5_init_with_password(kprinc, password, cpw_service, &params,
+	    KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &server_handle);
 	if (code != 0) {
 		if (debug)
 			__pam_log(LOG_AUTH | LOG_DEBUG,
@@ -118,28 +114,29 @@ fetch_princ_entry(
 			    "init_with_pw failed: code = %d", code);
 		krb5_free_principal(context, princ);
 		return ((code == KADM5_BAD_PASSWORD) ?
-			PAM_AUTH_ERR : PAM_SYSTEM_ERR);
+		    PAM_AUTH_ERR : PAM_SYSTEM_ERR);
 	}
 
 	if (_kadm5_get_kpasswd_protocol(server_handle) != KRB5_CHGPWD_RPCSEC) {
-		if (debug)
+		if (debug) {
 			__pam_log(LOG_AUTH | LOG_DEBUG,
 			    "PAM-KRB5 (acct): fetch_princ_entry: "
 			    "non-RPCSEC_GSS chpw server, can't get "
 			    "princ entry");
+		}
 		(void) kadm5_destroy(server_handle);
 		krb5_free_principal(context, princ);
 		return (PAM_SYSTEM_ERR);
 	}
 
 	code = kadm5_get_principal(server_handle, princ, prent,
-				KADM5_PRINCIPAL_NORMAL_MASK);
+	    KADM5_PRINCIPAL_NORMAL_MASK);
 
 	if (code != 0) {
 		(void) kadm5_destroy(server_handle);
 		krb5_free_principal(context, princ);
 		return ((code == KADM5_UNK_PRINC) ?
-			PAM_USER_UNKNOWN : PAM_SYSTEM_ERR);
+		    PAM_USER_UNKNOWN : PAM_SYSTEM_ERR);
 	}
 
 	(void) kadm5_destroy(server_handle);
@@ -164,12 +161,8 @@ fetch_princ_entry(
  * using the kadm protocol.
  */
 static int
-exp_warn(
-	pam_handle_t *pamh,
-	const char *user,
-	krb5_module_data_t *kmd,
-	int debug)
-
+exp_warn(pam_handle_t *pamh, const char *user, krb5_module_data_t *kmd,
+    int debug)
 {
 	int err;
 	kadm5_principal_ent_rec prent;
@@ -218,55 +211,52 @@ exp_warn(
 		(void) memset(&prent, 0, sizeof (prent));
 		if ((err = fetch_princ_entry(kmd, user, &prent, debug))
 		    != PAM_SUCCESS) {
-			if (debug)
+			if (debug) {
 				__pam_log(LOG_AUTH | LOG_DEBUG,
-				"PAM-KRB5 (acct): exp_warn: fetch_pr failed %d",
-				err);
+				    "PAM-KRB5 (acct): exp_warn: "
+				    "fetch_pr failed %d", err);
+			}
 			goto out;
 		}
-		if (prent.princ_expire_time != 0 && prent.pw_expiration != 0)
+		if (prent.princ_expire_time != 0 && prent.pw_expiration != 0) {
 			expiration = min(prent.princ_expire_time,
-				prent.pw_expiration);
-		else
+			    prent.pw_expiration);
+		} else {
 			expiration = prent.princ_expire_time ?
-				prent.princ_expire_time : prent.pw_expiration;
+			    prent.princ_expire_time : prent.pw_expiration;
+		}
 	}
 
-	if (debug)
+	if (debug) {
 		__pam_log(LOG_AUTH | LOG_DEBUG,
 		    "PAM-KRB5 (acct): exp_warn: "
 		    "princ/pw_exp exp=%ld, now =%ld, days=%ld",
-		    expiration,
-		    now,
-		    expiration > 0
-		    ? ((expiration - now) / DAY)
-		    : 0);
+		    expiration, now,
+		    expiration > 0 ? ((expiration - now) / DAY) : 0);
+	}
 
 	/* warn user if principal's pw is set to expire */
 	if (expiration > 0) {
 		days = (expiration - now) / DAY;
-		if (days <= 0)
-			(void) snprintf(messages[0],
-				sizeof (messages[0]),
-				dgettext(TEXT_DOMAIN,
-				"Your Kerberos account/password will expire "
-				"within 24 hours.\n"));
-		else if (days == 1)
-			(void) snprintf(messages[0],
-				sizeof (messages[0]),
-				dgettext(TEXT_DOMAIN,
-				"Your Kerberos account/password will expire "
-				"in 1 day.\n"));
-		else
-			(void) snprintf(messages[0],
-				sizeof (messages[0]),
-				dgettext(TEXT_DOMAIN,
-				"Your Kerberos account/password will expire in "
-				"%d days.\n"),
-				(int)days);
+		if (days <= 0) {
+			(void) snprintf(messages[0], sizeof (messages[0]),
+			    dgettext(TEXT_DOMAIN,
+			    "Your Kerberos account/password will expire "
+			    "within 24 hours.\n"));
+		} else if (days == 1) {
+			(void) snprintf(messages[0], sizeof (messages[0]),
+			    dgettext(TEXT_DOMAIN,
+			    "Your Kerberos account/password will expire "
+			    "in 1 day.\n"));
+		} else {
+			(void) snprintf(messages[0], sizeof (messages[0]),
+			    dgettext(TEXT_DOMAIN,
+			    "Your Kerberos account/password will expire in "
+			    "%d days.\n"), (int)days);
+		}
 
 		(void) __pam_display_msg(pamh, PAM_TEXT_INFO, 1,
-					messages, NULL);
+		    messages, NULL);
 	}
 
 	/* things went smooth */
@@ -281,9 +271,10 @@ out:
 
 exit:
 
-	if (debug)
+	if (debug) {
 		__pam_log(LOG_AUTH | LOG_DEBUG,
 		    "PAM-KRB5 (acct): exp_warn end: err = %d", err);
+	}
 
 	return (err);
 }
@@ -339,11 +330,12 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		 * return PAM_IGNORE.
 		 */
 		if (strcmp(rep_data->type, KRB5_REPOSITORY_NAME) != 0) {
-			if (debug)
+			if (debug) {
 				__pam_log(LOG_AUTH | LOG_DEBUG,
-					"PAM-KRB5 (acct): wrong"
-					"repository found (%s), returning "
-					"PAM_IGNORE", rep_data->type);
+				    "PAM-KRB5 (acct): wrong"
+				    "repository found (%s), returning "
+				    "PAM_IGNORE", rep_data->type);
+			}
 			return (PAM_IGNORE);
 		}
 	}
@@ -359,11 +351,12 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* get pam_krb5_migrate specific data */
 	err = pam_get_data(pamh, KRB5_AUTOMIGRATE_DATA,
-					(const void **)&userdata);
+	    (const void **)&userdata);
 	if (err != PAM_SUCCESS) {
-		if (debug)
+		if (debug) {
 			__pam_log(LOG_AUTH | LOG_DEBUG, "PAM-KRB5 (acct): "
-				"no module data for KRB5_AUTOMIGRATE_DATA");
+			    "no module data for KRB5_AUTOMIGRATE_DATA");
+		}
 	} else {
 		/*
 		 * We try and reauthenticate, since this user has a
@@ -371,14 +364,16 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		 * auth module. That way, this new user will have fresh
 		 * creds (assuming pam_sm_authenticate() succeeds).
 		 */
-		if (strcmp(user, userdata) == 0)
+		if (strcmp(user, userdata) == 0) {
 			(void) pam_sm_authenticate(pamh, flags, argc, argv);
-		else
-			if (debug)
+		} else {
+			if (debug) {
 				__pam_log(LOG_AUTH | LOG_DEBUG,
-				"PAM-KRB5 (acct): PAM_USER %s"
-				"does not match user %s from pam_get_data()",
-				user, (char *)userdata);
+				    "PAM-KRB5 (acct): PAM_USER %s does "
+				    "not match user %s from pam_get_data()",
+				    user, (char *)userdata);
+			}
+		}
 	}
 
 	/* get krb5 module data  */
@@ -397,8 +392,8 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			goto out;
 		} else {
 			__pam_log(LOG_AUTH | LOG_ERR,
-				    "PAM-KRB5 (acct): get module"
-				    " data failed: err=%d",
+			    "PAM-KRB5 (acct): get module"
+			    " data failed: err=%d",
 			    err);
 		}
 		goto out;
@@ -442,10 +437,10 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if (kmd->age_status == PAM_NEW_AUTHTOK_REQD) {
 		if (!nowarn) {
 			(void) snprintf(messages[0], sizeof (messages[0]),
-				dgettext(TEXT_DOMAIN,
-				"Your Kerberos password has expired.\n"));
+			    dgettext(TEXT_DOMAIN,
+			    "Your Kerberos password has expired.\n"));
 			(void) __pam_display_msg(pamh, PAM_TEXT_INFO,
-					1, messages, NULL);
+			    1, messages, NULL);
 		}
 		err = PAM_NEW_AUTHTOK_REQD;
 		goto out;

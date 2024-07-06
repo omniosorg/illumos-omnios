@@ -22,7 +22,7 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/varargs.h>
@@ -126,7 +126,7 @@ read_authtok(pam_handle_t *pamh, int debug)
 		}
 		res = PAM_PERM_DENIED;
 	} else {
-		(void) memset(pwd, 0, strlen(pwd));
+		explicit_bzero(pwd, strlen(pwd));
 		free(pwd);
 	}
 out:
@@ -180,7 +180,7 @@ verify_authtok(pam_handle_t *pamh, int debug)
 			    "%s: They don't match."), service);
 		}
 		(void) pam_set_item(pamh, PAM_AUTHTOK, NULL);
-		(void) memset(pwd, 0, strlen(pwd));
+		explicit_bzero(pwd, strlen(pwd));
 		free(pwd);
 		return (PAM_AUTHTOK_ERR);
 	}
@@ -189,7 +189,7 @@ verify_authtok(pam_handle_t *pamh, int debug)
 		__pam_log(LOG_AUTH | LOG_DEBUG,
 		    "pam_authtok_get: new password verified");
 
-	(void) memset(pwd, 0, strlen(pwd));
+	explicit_bzero(pwd, strlen(pwd));
 	free(pwd);
 	return (PAM_IGNORE);
 }
@@ -332,7 +332,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (password != NULL) {
 		(void) pam_set_item(pamh, PAM_AUTHTOK, (const void *)password);
-		(void) memset(password, 0, strlen(password));
+		explicit_bzero(password, strlen(password));
 		free(password);
 	} else if (debug) {
 		__pam_log(LOG_AUTH | LOG_DEBUG,

@@ -22,7 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright (c) 2016 by Delphix. All rights reserved.
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
@@ -101,7 +101,7 @@ struct pwdefaults {
 	uint_t minalpha;	/* minimum alpha characters required */
 	uint_t minupper;	/* minimum uppercase characters required */
 	uint_t minlower;	/* minimum lowercase characters required */
-	uint_t minnonalpha; 	/* minimum special (non alpha) required */
+	uint_t minnonalpha;	/* minimum special (non alpha) required */
 	uint_t maxrepeat;	/* maximum number of repeating chars allowed */
 	uint_t minspecial;	/* punctuation characters */
 	uint_t mindigit;	/* minimum number of digits required */
@@ -367,10 +367,10 @@ free_passwd_defaults(struct pwdefaults *p)
  * of string "s", i.e. "ABCDE" vs. "DCBAE".
  */
 static int
-check_circular(s, t)
-	char *s, *t;
+check_circular(const char *s, const char *t)
 {
 	char c, *p, *o, *r, *buff, *ubuff, *pubuff;
+	const char *cp;
 	unsigned int i, j, k, l, m;
 	size_t len;
 	int ret = 0;
@@ -392,12 +392,12 @@ check_circular(s, t)
 
 	m = 2;
 	o = &ubuff[0];
-	for (p = s; c = *p++; *o++ = c)
+	for (cp = s; c = *cp++; *o++ = c)
 		if (islower(c))
 			c = toupper(c);
 	*o = '\0';
 	o = &pubuff[0];
-	for (p = t; c = *p++; *o++ = c)
+	for (cp = t; c = *cp++; *o++ = c)
 		if (islower(c))
 			c = toupper(c);
 
@@ -427,9 +427,9 @@ check_circular(s, t)
 			*--p = *r++;	/* reverse test-string for m==0 pass */
 	}
 out:
-	(void) memset(buff, 0, len);
-	(void) memset(ubuff, 0, len);
-	(void) memset(pubuff, 0, len);
+	explicit_bzero(buff, len);
+	explicit_bzero(ubuff, len);
+	explicit_bzero(pubuff, len);
 	free(buff);
 	free(ubuff);
 	free(pubuff);
