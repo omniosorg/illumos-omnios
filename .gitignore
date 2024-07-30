@@ -4086,14 +4086,18 @@ usr/src/man/man3c/pthread_barrier_init.3c
 usr/src/man/man3c/pthread_barrierattr_init.3c
 usr/src/man/man3c/pthread_barrierattr_setpshared.3c
 usr/src/man/man3c/pthread_cond_broadcast.3c
+usr/src/man/man3c/pthread_cond_clockwait.3c
 usr/src/man/man3c/pthread_cond_destroy.3c
+usr/src/man/man3c/pthread_cond_relclockwait_np.3c
 usr/src/man/man3c/pthread_cond_reltimedwait_np.3c
 usr/src/man/man3c/pthread_cond_timedwait.3c
 usr/src/man/man3c/pthread_condattr_destroy.3c
 usr/src/man/man3c/pthread_condattr_setclock.3c
 usr/src/man/man3c/pthread_condattr_setpshared.3c
 usr/src/man/man3c/pthread_key_create_once_np.3c
+usr/src/man/man3c/pthread_mutex_clocklock.3c
 usr/src/man/man3c/pthread_mutex_destroy.3c
+usr/src/man/man3c/pthread_mutex_relclocklock_np.3c
 usr/src/man/man3c/pthread_mutex_reltimedlock_np.3c
 usr/src/man/man3c/pthread_mutex_setprioceiling.3c
 usr/src/man/man3c/pthread_mutex_trylock.3c
@@ -4104,7 +4108,11 @@ usr/src/man/man3c/pthread_mutexattr_setprotocol.3c
 usr/src/man/man3c/pthread_mutexattr_setpshared.3c
 usr/src/man/man3c/pthread_mutexattr_setrobust.3c
 usr/src/man/man3c/pthread_mutexattr_settype.3c
+usr/src/man/man3c/pthread_rwlock_clockrdlock.3c
+usr/src/man/man3c/pthread_rwlock_clockwrlock.3c
 usr/src/man/man3c/pthread_rwlock_destroy.3c
+usr/src/man/man3c/pthread_rwlock_relclockrdlock_np.3c
+usr/src/man/man3c/pthread_rwlock_relclockwrlock_np.3c
 usr/src/man/man3c/pthread_rwlock_reltimedrdlock_np.3c
 usr/src/man/man3c/pthread_rwlock_reltimedwrlock_np.3c
 usr/src/man/man3c/pthread_rwlock_tryrdlock.3c
@@ -4117,6 +4125,7 @@ usr/src/man/man3c/pthread_setschedparam.3c
 usr/src/man/man3c/pthread_setspecific.3c
 usr/src/man/man3c/pthread_spin_init.3c
 usr/src/man/man3c/pthread_spin_trylock.3c
+usr/src/man/man3c/ptsname_r.3c
 usr/src/man/man3c/putc.3c
 usr/src/man/man3c/putc_unlocked.3c
 usr/src/man/man3c/putchar.3c
@@ -4174,6 +4183,8 @@ usr/src/man/man3c/schedctl_start.3c
 usr/src/man/man3c/schedctl_stop.3c
 usr/src/man/man3c/seconvert.3c
 usr/src/man/man3c/seed48.3c
+usr/src/man/man3c/sem_clockwait.3c
+usr/src/man/man3c/sem_relclockwait_np.3c
 usr/src/man/man3c/sem_reltimedwait_np.3c
 usr/src/man/man3c/sem_trywait.3c
 usr/src/man/man3c/sema_destroy.3c
@@ -8705,6 +8716,8 @@ usr/src/test/libc-tests/tests/c11_tss.64
 usr/src/test/libc-tests/tests/call_once.32
 usr/src/test/libc-tests/tests/call_once.64
 usr/src/test/libc-tests/tests/catopen/catopen
+usr/src/test/libc-tests/tests/clocklock/clock_lock.32
+usr/src/test/libc-tests/tests/clocklock/clock_lock.64
 usr/src/test/libc-tests/tests/closefrom.32
 usr/src/test/libc-tests/tests/closefrom.64
 usr/src/test/libc-tests/tests/endian.32
@@ -8747,6 +8760,8 @@ usr/src/test/libc-tests/tests/printf-9511.64
 usr/src/test/libc-tests/tests/priv_gettext/priv_gettext
 usr/src/test/libc-tests/tests/psignal-5097.32
 usr/src/test/libc-tests/tests/psignal-5097.64
+usr/src/test/libc-tests/tests/ptsname.32
+usr/src/test/libc-tests/tests/ptsname.64
 usr/src/test/libc-tests/tests/qsort/qsort_test
 usr/src/test/libc-tests/tests/qsort/qsort_test.amd64
 usr/src/test/libc-tests/tests/qsort/qsort_test.i386
@@ -8987,6 +9002,9 @@ usr/src/test/os-tests/tests/ksid/ksid.64
 usr/src/test/os-tests/tests/libtopo/digraph-test
 usr/src/test/os-tests/tests/minttl/minttl
 usr/src/test/os-tests/tests/minttl/minttl_err
+usr/src/test/os-tests/tests/oclo/oclo
+usr/src/test/os-tests/tests/oclo/oclo_errors
+usr/src/test/os-tests/tests/oclo/ocloexec_verify
 usr/src/test/os-tests/tests/odirectory.32
 usr/src/test/os-tests/tests/odirectory.64
 usr/src/test/os-tests/tests/pf_key/15146
@@ -9038,6 +9056,7 @@ usr/src/test/os-tests/tests/sockfs/recvmsg.32
 usr/src/test/os-tests/tests/sockfs/recvmsg.64
 usr/src/test/os-tests/tests/sockfs/rights.32
 usr/src/test/os-tests/tests/sockfs/rights.64
+usr/src/test/os-tests/tests/sockfs/so_protocol
 usr/src/test/os-tests/tests/sockfs/sockpair
 usr/src/test/os-tests/tests/spoof-ras/spoof-ras
 usr/src/test/os-tests/tests/stackalign/stackalign.32
