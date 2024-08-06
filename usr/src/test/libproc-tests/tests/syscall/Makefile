@@ -8,35 +8,21 @@
 # source.  A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 #
-# Copyright (c) 2018, Joyent, Inc.
+
+#
+# Copyright 2024 Oxide Computer Company
 #
 
-include ../Makefile.cmd
+PROGS = \
+	pr_inject \
+	pr_target
 
-SUBDIRS= acpidump acpixtract iasl
+SCRIPTS = \
+	pr_inject
 
-all:=		TARGET= all
-install:=	TARGET= install
-clean:=		TARGET= clean
-clobber:=	TARGET= clobber
-_msg:=          TARGET= catalog
+TESTDIR = syscall
 
+include $(SRC)/test/libproc-tests/Makefile.com
 
-.KEEP_STATE:
-
-.PARALLEL:	$(SUBDIRS)
-
-all:		$(SUBDIRS)
-
-_msg:
-
-install: $(SUBDIRS)
-
-clean: $(SUBDIRS)
-
-clobber: $(SUBDIRS)
-
-$(SUBDIRS): FRC
-	@cd $@; pwd; $(MAKE) $(TARGET)
-
-FRC:
+pr_inject.32 := LDLIBS += -lproc
+pr_inject.64 := LDLIBS64 += -lproc

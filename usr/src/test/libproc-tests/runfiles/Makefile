@@ -8,35 +8,34 @@
 # source.  A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 #
-# Copyright (c) 2018, Joyent, Inc.
+
+#
+# Copyright 2024 Oxide Computer Company
 #
 
-include ../Makefile.cmd
+include $(SRC)/Makefile.master
 
-SUBDIRS= acpidump acpixtract iasl
+RUNFILES = \
+	default.run
 
-all:=		TARGET= all
-install:=	TARGET= install
-clean:=		TARGET= clean
-clobber:=	TARGET= clobber
-_msg:=          TARGET= catalog
+ROOTOPTPKG = $(ROOT)/opt/libproc-tests
+ROOTRUNDIR = $(ROOTOPTPKG)/runfiles
 
+ROOTRUNFILES = $(RUNFILES:%=$(ROOTRUNDIR)/%)
+$(ROOTRUNFILES) := FILEMODE = 0444
 
-.KEEP_STATE:
+all: $(SRCS)
 
-.PARALLEL:	$(SUBDIRS)
+install: $(ROOTRUNFILES)
 
-all:		$(SUBDIRS)
+clean:
 
-_msg:
+clobber:
 
-install: $(SUBDIRS)
+$(ROOTRUNFILES): $(ROOTRUNDIR)
 
-clean: $(SUBDIRS)
+$(ROOTRUNDIR):
+	$(INS.dir)
 
-clobber: $(SUBDIRS)
-
-$(SUBDIRS): FRC
-	@cd $@; pwd; $(MAKE) $(TARGET)
-
-FRC:
+$(ROOTRUNDIR)/%: %
+	$(INS.file)

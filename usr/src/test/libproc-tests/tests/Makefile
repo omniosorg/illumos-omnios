@@ -8,35 +8,13 @@
 # source.  A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 #
-# Copyright (c) 2018, Joyent, Inc.
+
+#
+# Copyright 2024 Oxide Computer Company
 #
 
-include ../Makefile.cmd
+.PARALLEL: $(SUBDIRS)
 
-SUBDIRS= acpidump acpixtract iasl
+SUBDIRS = syscall
 
-all:=		TARGET= all
-install:=	TARGET= install
-clean:=		TARGET= clean
-clobber:=	TARGET= clobber
-_msg:=          TARGET= catalog
-
-
-.KEEP_STATE:
-
-.PARALLEL:	$(SUBDIRS)
-
-all:		$(SUBDIRS)
-
-_msg:
-
-install: $(SUBDIRS)
-
-clean: $(SUBDIRS)
-
-clobber: $(SUBDIRS)
-
-$(SUBDIRS): FRC
-	@cd $@; pwd; $(MAKE) $(TARGET)
-
-FRC:
+include $(SRC)/test/Makefile.com
