@@ -8843,6 +8843,14 @@ usr/src/test/libmlrpc-tests/tests/netrlogon/krb5_pac_tests/krb5_pac_decode
 usr/src/test/libmlrpc-tests/tests/netrlogon/krb5_pac_tests/run_krb5_pac_tests
 usr/src/test/libmlrpc-tests/tests/netrlogon/samlogon_tests/run_samlogon_tests
 usr/src/test/libmlrpc-tests/tests/netrlogon/samlogon_tests/samlogon
+usr/src/test/libproc-tests/tests/syscall/pr_inject.32
+usr/src/test/libproc-tests/tests/syscall/pr_inject.64
+usr/src/test/libproc-tests/tests/syscall/pr_inject.o.32
+usr/src/test/libproc-tests/tests/syscall/pr_inject.o.64
+usr/src/test/libproc-tests/tests/syscall/pr_target.32
+usr/src/test/libproc-tests/tests/syscall/pr_target.64
+usr/src/test/libproc-tests/tests/syscall/pr_target.o.32
+usr/src/test/libproc-tests/tests/syscall/pr_target.o.64
 usr/src/test/libsec-tests/cmd/acl_fromtext
 usr/src/test/libsec-tests/cmd/acl_totext
 usr/src/test/nvme-tests/tests/ioctl/bad-lock.32
