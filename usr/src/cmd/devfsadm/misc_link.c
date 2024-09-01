@@ -25,7 +25,7 @@
  * Copyright (c) 2017 by Delphix. All rights reserved.
  * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
  * Copyright 2022 Garrett D'Amore <garrett@damore.org>
- * Copyright 2022 Oxide Computer Company
+ * Copyright 2023 Oxide Computer Company
  */
 
 #include <regex.h>
@@ -225,6 +225,9 @@ static devfsadm_create_t misc_cbt[] = {
 	},
 	{ "9p", "ddi_pseudo", "vio9p",
 	    TYPE_EXACT | DRV_EXACT, ILEVEL_0, vio9p_create,
+	},
+	{ "pseudo", "ddi_pseudo", "ktest",
+	    TYPE_EXACT | DRV_EXACT, ILEVEL_0, minor_name
 	},
 };
 
