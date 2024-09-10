@@ -11,7 +11,7 @@
 
 /*
  * Copyright 2019 Joyent, Inc.
- * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <err.h>
+#include <sys/stdbool.h>
 
 #include <sys/vmm.h>
 #include <sys/cpuid_drv.h>
@@ -41,7 +42,7 @@
 #define	VMX_CTL_ONE_SETTING(val, flag)  \
 	(((val) & ((uint64_t)(flag) << 32)) != 0)
 
-boolean_t g_status = B_FALSE;
+bool g_status = false;
 int g_fd;
 
 uint64_t
@@ -86,10 +87,10 @@ note(char *fmt, ...)
 	printf("\n");
 }
 
-static inline boolean_t
-check_onectl(uint64_t msr, boolean_t required, uint32_t bit, char *descr)
+static bool
+check_onectl(uint64_t msr, bool required, uint32_t bit, char *descr)
 {
-	boolean_t ret = VMX_CTL_ONE_SETTING(msr, bit);
+	bool ret = VMX_CTL_ONE_SETTING(msr, bit);
 
 	if (ret) {
 		note("VMX supports %s", descr);
@@ -102,19 +103,19 @@ check_onectl(uint64_t msr, boolean_t required, uint32_t bit, char *descr)
 
 #define	REQUIRE(msr, req, bit, descr) \
 	if (!check_onectl((msr), (req), (bit), (descr)) && (req)) \
-		ret = B_FALSE
+		ret = false
 
-boolean_t
+bool
 vmx_check(void)
 {
 	struct cpuid_regs *cp;
 	uint64_t msr;
-	boolean_t ret = B_TRUE;
+	bool ret = true;
 
 	cp = cpuid(1);
 	if ((cp->cp_ecx & CPUID_INTC_ECX_VMX) == 0) {
 		note("CPU does not support VMX");
-		return (B_FALSE);
+		return (false);
 	}
 	note("CPU supports VMX");
 
@@ -122,7 +123,7 @@ vmx_check(void)
 	if ((msr & IA32_FEAT_CTRL_LOCK) != 0 &&
 	    (msr & IA32_FEAT_CTRL_VMX_EN) == 0) {
 		note("VMX support not enabled in BIOS (essential)");
-		return (B_FALSE);
+		return (false);
 	}
 	note("VMX support is enabled in BIOS");
 
@@ -130,11 +131,11 @@ vmx_check(void)
 	msr = rdmsr(MSR_IA32_VMX_BASIC);
 	if ((msr & IA32_VMX_BASIC_INS_OUTS) == 0) {
 		note("VMX does not support INS/OUTS (essential)");
-		ret = B_FALSE;
+		ret = false;
 	}
 
-	boolean_t query_true_ctl = B_FALSE;
-	boolean_t ept = B_FALSE;
+	bool query_true_ctl = false;
+	bool ept = false;
 
 	/*
 	 * Bit 55 in the VMX_BASIC MSR determines how VMX control information
@@ -145,40 +146,40 @@ vmx_check(void)
 	msr = rdmsr(query_true_ctl ?
 	    MSR_IA32_VMX_TRUE_PROCBASED_CTLS : MSR_IA32_VMX_PROCBASED_CTLS);
 
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_TSC_OFFSET, "TSC Offsetting");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_MWAIT_EXITING, "VM Exit on MWAIT");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_MONITOR_EXITING, "VM Exit on MONITOR");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_CR8_LOAD_EXITING, "VM Exit on CR8 Load");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_CR8_STORE_EXITING, "VM Exit on CR8 Store");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_IO_EXITING, "Unconditional I/O exiting");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_MSR_BITMAPS, "MSR bitmap");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_INT_WINDOW_EXITING, "Interrupt-window exiting");
-	REQUIRE(msr, B_TRUE,
+	REQUIRE(msr, true,
 	    PROCBASED_NMI_WINDOW_EXITING, "NMI-window exiting");
 
 	/* Check for EPT and VPID support */
-	if (check_onectl(msr, B_TRUE, IA32_VMX_PROCBASED_2ND_CTLS,
+	if (check_onectl(msr, true, IA32_VMX_PROCBASED_2ND_CTLS,
 	    "Secondary VMX controls")) {
 		msr = rdmsr(MSR_IA32_VMX_PROCBASED2_CTLS);
-		if (check_onectl(msr, B_FALSE, IA32_VMX_PROCBASED2_EPT, "EPT"))
-			ept = B_TRUE;
-		(void) check_onectl(msr, B_FALSE,
+		if (check_onectl(msr, false, IA32_VMX_PROCBASED2_EPT, "EPT"))
+			ept = true;
+		(void) check_onectl(msr, false,
 		    IA32_VMX_PROCBASED2_VPID, "VPID");
 
-		if (!check_onectl(msr, B_TRUE,
+		if (!check_onectl(msr, true,
 		    PROCBASED2_UNRESTRICTED_GUEST, "Unrestricted Guest")) {
-			ret = B_FALSE;
+			ret = false;
 		}
 	} else {
-		ret = B_FALSE;
+		ret = false;
 	}
 
 	/* Check for INVEPT support */
@@ -194,59 +195,75 @@ vmx_check(void)
 
 	return (ret);
 }
+#undef REQUIRE
 
-int
+static inline bool
+check_onebit(uint32_t val, bool required, uint32_t bit, char *descr)
+{
+	bool ret = (val & bit) != 0;
+
+	if (ret) {
+		note("SVM supports %s", descr);
+	} else {
+		note("SVM does not support %s (%s)", descr,
+		    required ? "essential" : "optional");
+	}
+	return (ret);
+}
+
+#define	REQUIRE(val, req, bit, descr) \
+	if (!check_onebit((val), (req), (bit), (descr)) && (req)) \
+		ret = false
+
+bool
 svm_check(void)
 {
 	struct cpuid_regs *cp;
 	uint64_t msr;
+	bool ret = true;
 
 	cp = cpuid(0x80000001);
 	if ((cp->cp_ecx & CPUID_AMD_ECX_SVM) == 0) {
 		note("CPU does not support SVM");
-		return (B_FALSE);
+		return (false);
 	}
 	note("CPU supports SVM");
 
 	msr = rdmsr(MSR_AMD_VM_CR);
 	if ((msr & AMD_VM_CR_SVMDIS) != 0) {
 		note("SVM support not enabled in BIOS (essential)");
-		return (B_FALSE);
+		return (false);
 	}
 	note("SVM support is enabled in BIOS");
 
+	/* AMD SVM features */
 	cp = cpuid(0x8000000a);
 	const uint32_t nasid = cp->cp_ebx;
 	const uint32_t feat = cp->cp_edx;
 
 	if (nasid == 0) {
 		note("Not enough ASIDs for guests (essential)");
-		return (B_FALSE);
+		ret = false;
 	}
-	if ((feat & CPUID_AMD_EDX_NESTED_PAGING) == 0) {
-		note("CPU does not support nested paging (essential)");
-		return (B_FALSE);
-	}
-	if ((feat & CPUID_AMD_EDX_NRIPS) == 0) {
-		note("CPU does not support NRIP save (essential)");
-		return (B_FALSE);
-	}
+	REQUIRE(feat, true, CPUID_AMD_EDX_NESTED_PAGING, "nested paging");
+	REQUIRE(feat, true, CPUID_AMD_EDX_NRIPS, "NRIP save");
+	REQUIRE(feat, true, CPUID_AMD_EDX_DECODE_ASSISTS, "decode assists");
 
-	return (B_TRUE);
+	return (ret);
 }
 
 int
 main(int argc, char **argv)
 {
 	struct cpuid_regs *cp;
-	boolean_t support = B_FALSE;
+	bool support = false;
 	int errflg = 0;
 	int c;
 
 	while ((c = getopt(argc, argv, "s")) != EOF) {
 		switch (c) {
 		case 's':
-			g_status = B_TRUE;
+			g_status = true;
 			break;
 		case '?':
 		default:
