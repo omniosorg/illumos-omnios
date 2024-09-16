@@ -9093,6 +9093,8 @@ usr/src/test/os-tests/tests/sockfs/rights.32
 usr/src/test/os-tests/tests/sockfs/rights.64
 usr/src/test/os-tests/tests/sockfs/so_protocol
 usr/src/test/os-tests/tests/sockfs/sockpair
+usr/src/test/os-tests/tests/sockfs/timeouts.32
+usr/src/test/os-tests/tests/sockfs/timeouts.64
 usr/src/test/os-tests/tests/spoof-ras/spoof-ras
 usr/src/test/os-tests/tests/stackalign/stackalign.32
 usr/src/test/os-tests/tests/stackalign/stackalign.64
