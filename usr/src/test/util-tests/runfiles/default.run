@@ -33,6 +33,9 @@ user = root
 [/opt/util-tests/tests/set-linkprop]
 user = root
 
+[/opt/util-tests/tests/show-class-confusion]
+user = root
+
 [/opt/util-tests/tests/libsff/libsff]
 [/opt/util-tests/tests/libjedec_vendors.32]
 [/opt/util-tests/tests/libjedec_temp.32]
@@ -115,3 +118,10 @@ user = root
 
 [/opt/util-tests/tests/ar/artest]
 [/opt/util-tests/tests/cpio/cpio_test]
+
+#
+# This test ndeds to run as an explicitly unprivileged user to ensure that the
+# mv checks around permissions don't fire due to super-user privileges.
+#
+[/opt/util-tests/tests/cpmvln/overwrite]
+user = nobody
