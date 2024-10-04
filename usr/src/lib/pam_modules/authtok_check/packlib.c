@@ -5,6 +5,7 @@
 
 /*
  * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -227,7 +228,7 @@ PutPW(PWDICT *pwp, char *string)
 			ostr = nstr;
 		}
 
-		(void) memset(pwp->data, '\0', sizeof (pwp->data));
+		explicit_bzero(pwp->data, sizeof (pwp->data));
 		pwp->count = 0;
 	}
 	return (0);

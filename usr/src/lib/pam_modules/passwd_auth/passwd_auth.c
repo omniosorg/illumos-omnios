@@ -22,7 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
@@ -308,20 +308,17 @@ setitem:
 	retval = pam_set_item(pamh, PAM_AUTHTOK, (void *)password);
 
 out:
-	if (password) {
-		(void) memset(password, 0, strlen(password));
+	if (password != NULL) {
+		explicit_bzero(password, strlen(password));
 		free(password);
 	}
-	if (rep_passwd) {
-		(void) memset(rep_passwd, 0, strlen(rep_passwd));
+	if (rep_passwd != NULL) {
+		explicit_bzero(rep_passwd, strlen(rep_passwd));
 		free(rep_passwd);
 	}
-	if (pwu_rep)
-		free(pwu_rep);
-	if (auth_user)
-		free(auth_user);
-	if (repository_name)
-		free(repository_name);
+	free(pwu_rep);
+	free(auth_user);
+	free(repository_name);
 
 	return (retval);
 }

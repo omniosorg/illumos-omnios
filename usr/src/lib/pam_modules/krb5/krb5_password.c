@@ -22,7 +22,7 @@
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <kadm5/admin.h>
@@ -317,28 +317,25 @@ out:
 }
 
 int
-krb5_verifypw(
-	const char 	*princ_str,
-	char	*old_password,
-	int debug)
+krb5_verifypw(const char *princ_str, char *old_password, int debug)
 {
 	kadm5_ret_t		code;
-	krb5_principal 		princ = 0;
-	char 			admin_realm[1024];
+	krb5_principal		princ = 0;
+	char			admin_realm[1024];
 	char			kprinc[2*MAXHOSTNAMELEN];
 	char			*cpw_service;
-	void 			*server_handle;
+	void			*server_handle;
 	krb5_context		context;
 	kadm5_config_params	params;
 
-	(void) memset((char *)&params, 0, sizeof (params));
+	(void) memset(&params, 0, sizeof (params));
 
 	if (code = krb5_init_secure_context(&context)) {
 		return (6);
 	}
 
 	if ((code = get_kmd_kuser(context, princ_str, kprinc,
-	    2*MAXHOSTNAMELEN)) != 0) {
+	    2 * MAXHOSTNAMELEN)) != 0) {
 		return (code);
 	}
 
@@ -399,8 +396,8 @@ krb5_verifypw(
  * Arguments:
  *
  *	princ_str	principal name to use, optional
- *	old_password 	old password
- *	new_password  	new password
+ *	old_password	old password
+ *	new_password	new password
  *
  * Returns:
  *                      exit status of PAM_SUCCESS for success
@@ -423,21 +420,21 @@ krb5_changepw(
 	int debug)
 {
 	kadm5_ret_t		code;
-	krb5_principal 		princ = 0;
-	char 			msg_ret[1024], admin_realm[1024];
+	krb5_principal		princ = 0;
+	char			msg_ret[1024], admin_realm[1024];
 	char			kprinc[2*MAXHOSTNAMELEN];
 	char			*cpw_service;
-	void 			*server_handle;
+	void			*server_handle;
 	krb5_context		context;
 	kadm5_config_params	params;
 
-	(void) memset((char *)&params, 0, sizeof (params));
+	(void) memset(&params, 0, sizeof (params));
 
 	if (krb5_init_secure_context(&context) != 0)
 		return (PAM_SYSTEM_ERR);
 
 	if ((code = get_kmd_kuser(context, princ_str, kprinc,
-	    2*MAXHOSTNAMELEN)) != 0) {
+	    2 * MAXHOSTNAMELEN)) != 0) {
 		return (code);
 	}
 
@@ -514,7 +511,7 @@ krb5_changepw(
 
 static void
 display_msgs(pam_handle_t *pamh,
-	int msg_style, int nmsg, char msgs[][PAM_MAX_MSG_SIZE])
+    int msg_style, int nmsg, char msgs[][PAM_MAX_MSG_SIZE])
 {
 	(void) __pam_display_msg(pamh, msg_style, nmsg, msgs, NULL);
 }

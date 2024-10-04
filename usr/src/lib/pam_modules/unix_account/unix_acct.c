@@ -22,7 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright (c) 2016 by Delphix. All rights reserved.
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 
@@ -85,9 +85,7 @@ unix_cleanup(
  */
 
 static int
-check_for_login_inactivity(
-	uid_t		pw_uid,
-	struct 	spwd 	*shpwd)
+check_for_login_inactivity(uid_t pw_uid, struct spwd *shpwd)
 {
 	int		fdl;
 	int		retval;
@@ -148,9 +146,7 @@ check_for_login_inactivity(
  */
 
 static int
-new_password_check(shpwd, flags)
-	struct 	spwd 	*shpwd;
-	int 		flags;
+new_password_check(struct spwd *shpwd, int flags)
 {
 	time_t	now  = DAY_NOW;
 
@@ -161,16 +157,12 @@ new_password_check(shpwd, flags)
 	 * according to its password aging information
 	 */
 
-	if ((flags & PAM_DISALLOW_NULL_AUTHTOK) != 0) {
-		if (shpwd->sp_pwdp[0] == '\0') {
-			if (((shpwd->sp_max == -1) ||
-				((time_t)shpwd->sp_lstchg > now) ||
-				((now >= (time_t)(shpwd->sp_lstchg +
-							shpwd->sp_min)) &&
-				(shpwd->sp_max >= shpwd->sp_min)))) {
-					return (PAM_NEW_AUTHTOK_REQD);
-			}
-		}
+	if ((flags & PAM_DISALLOW_NULL_AUTHTOK) != 0 &&
+	    shpwd->sp_pwdp[0] == '\0' &&
+	    (shpwd->sp_max == -1 || (time_t)shpwd->sp_lstchg > now ||
+	    (now >= (time_t)(shpwd->sp_lstchg + shpwd->sp_min) &&
+	    shpwd->sp_max >= shpwd->sp_min))) {
+		return (PAM_NEW_AUTHTOK_REQD);
 	}
 	return (PAM_SUCCESS);
 }
@@ -181,11 +173,11 @@ new_password_check(shpwd, flags)
  */
 static	int
 perform_passwd_aging_check(
-	pam_handle_t *pamh,
-	struct 	spwd 	*shpwd,
-	int	flags)
+	pam_handle_t	*pamh,
+	struct spwd	*shpwd,
+	int		flags)
 {
-	time_t 	now = DAY_NOW;
+	time_t	now = DAY_NOW;
 	int	idledays = -1;
 	char	*ptr;
 	char	messages[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE];
@@ -242,10 +234,10 @@ perform_passwd_aging_check(
 
 static void
 warn_user_passwd_will_expire(
-	pam_handle_t *pamh,
-	struct 	spwd shpwd)
+	pam_handle_t	*pamh,
+	struct spwd	shpwd)
 {
-	time_t 	now	= DAY_NOW;
+	time_t	now = DAY_NOW;
 	char	messages[PAM_MAX_NUM_MSG][PAM_MAX_MSG_SIZE];
 	time_t	days;
 
@@ -276,8 +268,8 @@ warn_user_passwd_will_expire(
 }
 
 /*
- * pam_sm_acct_mgmt	- 	main account managment routine.
- *			  Returns: module error or specific error on failure
+ * pam_sm_acct_mgmt	- main account managment routine.
+ *			Returns: module error or specific error on failure
  */
 
 int
@@ -543,7 +535,7 @@ out:
 		if (pwu_rep != PWU_DEFAULT_REP)
 			free(pwu_rep);
 		if (shpwd.sp_pwdp) {
-			(void) memset(shpwd.sp_pwdp, 0, strlen(shpwd.sp_pwdp));
+			explicit_bzero(shpwd.sp_pwdp, strlen(shpwd.sp_pwdp));
 			free(shpwd.sp_pwdp);
 		}
 

@@ -22,7 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <stdlib.h>
@@ -347,7 +347,7 @@ out:
 	 */
 	free(scratch);
 
-	(void) memset(short_pass, '\0', sizeof (short_pass));
+	explicit_bzero(short_pass, sizeof (short_pass));
 
 	return (result);
 }
@@ -551,8 +551,8 @@ pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 void
 rpc_cleanup(pam_handle_t *pamh, void *data, int pam_status)
 {
-	if (data) {
-		(void) memset(data, 0, strlen(data));
+	if (data != NULL) {
+		explicit_bzero(data, strlen(data));
 		free(data);
 	}
 }

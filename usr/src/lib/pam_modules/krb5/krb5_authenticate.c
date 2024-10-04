@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <security/pam_appl.h>
@@ -259,7 +259,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	kmd->kcontext = NULL;
 	kmd->password = NULL;
 	kmd->age_status = PAM_SUCCESS;
-	(void) memset((char *)&kmd->initcreds, 0, sizeof (krb5_creds));
+	(void) memset(&kmd->initcreds, 0, sizeof (krb5_creds));
 	kmd->auth_calls = 1;
 	kmd->preauth_type = do_pkinit ? KRB_PKINIT : KRB_PASSWD;
 
@@ -479,7 +479,7 @@ cleanup:
 		}
 		if (ret_respp[i].resp) {
 			/* 0 out sensitive data before free() */
-			(void) memset(ret_respp[i].resp, 0,
+			explicit_bzero(ret_respp[i].resp,
 			    strlen(ret_respp[i].resp));
 			free(ret_respp[i].resp);
 		}
@@ -654,7 +654,7 @@ attempt_krb5_auth(
 
 	krb5_get_init_creds_opt_set_tkt_life(opts, lifetime);
 
-	if (proxiable_flag) { 		/* Set in config file */
+	if (proxiable_flag) {		/* Set in config file */
 		if (kmd->debug)
 			__pam_log(LOG_AUTH | LOG_DEBUG,
 			    "PAM-KRB5 (auth): Proxiable tickets "
@@ -945,7 +945,7 @@ out_err:
 		    "pam_authenticate()");
 
 	krb5_free_cred_contents(kmd->kcontext, &kmd->initcreds);
-	(void) memset((char *)&kmd->initcreds, 0, sizeof (krb5_creds));
+	explicit_bzero(&kmd->initcreds, sizeof (krb5_creds));
 
 out:
 	if (server)
@@ -1006,19 +1006,16 @@ krb5_cleanup(pam_handle_t *pamh, void *data, int pam_status)
 	if (kmd->ccache)
 		(void) krb5_cc_close(kmd->kcontext, kmd->ccache);
 
-	if (kmd->password) {
-		(void) memset(kmd->password, 0, strlen(kmd->password));
+	if (kmd->password != NULL) {
+		explicit_bzero(kmd->password, strlen(kmd->password));
 		free(kmd->password);
 	}
 
-	if (kmd->user)
-		free(kmd->user);
-
-	if (kmd->env)
-		free(kmd->env);
+	free(kmd->user);
+	free(kmd->env);
 
 	krb5_free_cred_contents(kmd->kcontext, &kmd->initcreds);
-	(void) memset((char *)&kmd->initcreds, 0, sizeof (krb5_creds));
+	explicit_bzero(&kmd->initcreds, sizeof (krb5_creds));
 
 	free(kmd);
 }

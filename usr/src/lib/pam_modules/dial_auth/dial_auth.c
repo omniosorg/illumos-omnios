@@ -22,7 +22,7 @@
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <crypt.h>
@@ -73,16 +73,15 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			syslog(LOG_DEBUG, "illegal option %s", argv[i]);
 	}
 
-	if ((retcode = pam_get_user(pamh, &user, NULL))
-					!= PAM_SUCCESS ||
-	    (retcode = pam_get_item(pamh, PAM_TTY, (const void **)&ttyn))
-					!= PAM_SUCCESS)
+	if ((retcode = pam_get_user(pamh, &user, NULL)) != PAM_SUCCESS ||
+	    (retcode = pam_get_item(pamh, PAM_TTY, (const void **)&ttyn)) !=
+	    PAM_SUCCESS)
 		return (retcode);
 
 	if (debug) {
 		syslog(LOG_DEBUG,
-			"Dialpass authenticate user = %s, ttyn = %s",
-			user ? user : "NULL", ttyn ? ttyn : "NULL");
+		    "Dialpass authenticate user = %s, ttyn = %s",
+		    user != NULL ? user : "NULL", ttyn != NULL ? ttyn : "NULL");
 	}
 
 	if (ttyn == NULL || *ttyn == '\0') {
@@ -114,13 +113,13 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		syslog(LOG_ERR, "pam_dial_auth: %s without %s, returning %s.",
 		    DIAL_FILE, DPASS_FILE,
 		    pam_strerror(pamh, PAM_SYSTEM_ERR));
-		(void) memset(line, 0, sizeof (line));
+		explicit_bzero(line, sizeof (line));
 		return (PAM_SYSTEM_ERR);
 	}
 
 	if (p1 == NULL) {
 		(void) fclose(fp);
-		(void) memset(line, 0, sizeof (line));
+		explicit_bzero(line, sizeof (line));
 		return (PAM_IGNORE);
 	}
 
@@ -142,7 +141,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		p2 = NULL;
 	}
 
-	(void) memset(line, 0, sizeof (line));
+	explicit_bzero(line, sizeof (line));
 	(void) fclose(fp);
 
 	if (p2 == NULL)
@@ -157,11 +156,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 
 		if (strcmp(crypt(password, p2), p2) != 0) {
-			(void) memset(password, 0, strlen(password));
+			explicit_bzero(password, strlen(password));
 			free(password);
 			return (PAM_AUTH_ERR);
 		}
-		(void) memset(password, 0, strlen(password));
+		explicit_bzero(password, strlen(password));
 		free(password);
 	}
 
