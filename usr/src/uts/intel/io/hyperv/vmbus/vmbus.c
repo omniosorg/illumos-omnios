@@ -1042,7 +1042,7 @@ vmbus_intr_setup_cpu(cpu_setup_t what, int cpu, void *arg)
 		return (0);
 	}
 
-	if (VMBUS_PCPU_PTR(sc, event_tq, cpu) != NULL) {
+	if (VMBUS_PCPU_GET(sc, event_tq, cpu) != NULL) {
 		char tq_name[MAXPATHLEN];
 
 		/* Allocate an interrupt counter for Hyper-V interrupt */
