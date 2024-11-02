@@ -302,9 +302,9 @@ usr/src/cmd/bc/lib.b
 usr/src/cmd/bdiff/bdiff
 usr/src/cmd/beadm/beadm
 usr/src/cmd/bhhwcompat/bhhwcompat
-usr/src/cmd/bhyve/bhyve
-usr/src/cmd/bhyve/mevent_test
+usr/src/cmd/bhyve/amd64/bhyve
 usr/src/cmd/bhyve/test/tests/mevent/lists_delete
+usr/src/cmd/bhyve/test/tests/mevent/mevent_test
 usr/src/cmd/bhyve/test/tests/mevent/read_disable
 usr/src/cmd/bhyve/test/tests/mevent/read_pause
 usr/src/cmd/bhyve/test/tests/mevent/read_requeue
@@ -8504,6 +8504,7 @@ usr/src/man/man9f/va_copy.9f
 usr/src/man/man9f/va_end.9f
 usr/src/man/man9f/va_start.9f
 usr/src/man/man9f/vcmn_err.9f
+usr/src/man/man9f/vdev_err.9f
 usr/src/man/man9f/vmem_destroy.9f
 usr/src/man/man9f/vmem_free.9f
 usr/src/man/man9f/vmem_size.9f
@@ -8936,6 +8937,10 @@ usr/src/test/nvme-tests/tests/libnvme/ns-info.32
 usr/src/test/nvme-tests/tests/libnvme/ns-info.64
 usr/src/test/nvme-tests/tests/libnvme/ns-info.o.32
 usr/src/test/nvme-tests/tests/libnvme/ns-info.o.64
+usr/src/test/nvme-tests/tests/libnvme/pev.32
+usr/src/test/nvme-tests/tests/libnvme/pev.64
+usr/src/test/nvme-tests/tests/libnvme/pev.o.32
+usr/src/test/nvme-tests/tests/libnvme/pev.o.64
 usr/src/test/nvme-tests/tests/libnvme/sctostr.32
 usr/src/test/nvme-tests/tests/libnvme/sctostr.64
 usr/src/test/nvme-tests/tests/libnvme/sctostr.o.32
@@ -9156,6 +9161,8 @@ usr/src/test/smbsrv-tests/tests/smb_sid/large_sids_kern
 usr/src/test/smbsrv-tests/tests/smb_sid/large_sids_lib
 usr/src/test/smbsrv-tests/tests/smb_sid/smb_sid.c
 usr/src/test/util-tests/tests/bunyan/btest
+usr/src/test/util-tests/tests/cpmvln/checker
+usr/src/test/util-tests/tests/cpmvln/mkobj
 usr/src/test/util-tests/tests/ctf/check-array
 usr/src/test/util-tests/tests/ctf/check-enum
 usr/src/test/util-tests/tests/ctf/check-float-32
