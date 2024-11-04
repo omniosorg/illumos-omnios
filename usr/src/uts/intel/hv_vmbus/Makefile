@@ -34,8 +34,6 @@ CPPFLAGS +=	-D_MACHDEP
 LDFLAGS	+=	-N misc/hyperv
 +LDFLAGS +=	-M $(MAPFILE)
 
-$(OBJS_DIR)/vmbus_chan.o := CERRWARN += -_gcc10=-Wno-address-of-packed-member
-
 .KEEP_STATE:
 
 all:		$(ALL_DEPS)
