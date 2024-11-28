@@ -8757,7 +8757,9 @@ usr/src/test/bhyve-tests/tests/kdev/wrmsr_tsc
 usr/src/test/bhyve-tests/tests/perf/entry_exit
 usr/src/test/bhyve-tests/tests/perf/payload_entry_exit
 usr/src/test/bhyve-tests/tests/perf/pobj_entry_exit.s
+usr/src/test/bhyve-tests/tests/viona/create_delete
 usr/src/test/bhyve-tests/tests/viona/interface_version
+usr/src/test/bhyve-tests/tests/viona/link_params
 usr/src/test/bhyve-tests/tests/vmm/auto_destruct
 usr/src/test/bhyve-tests/tests/vmm/check_iommu
 usr/src/test/bhyve-tests/tests/vmm/cpuid_ioctl
@@ -9414,6 +9416,7 @@ usr/src/tools/geniconvtbl/lex.yy.c
 usr/src/tools/geniconvtbl/y.tab.c
 usr/src/tools/geniconvtbl/y.tab.h
 usr/src/tools/install.bin/install.bin
+usr/src/tools/lex/lex
 usr/src/tools/lintdump/lintdump
 usr/src/tools/localedef/localedef
 usr/src/tools/localedef/parser.tab.c
