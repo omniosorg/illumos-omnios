@@ -983,7 +983,7 @@ isa_alloc_intr_fixed(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
 	} else {
 		/*
 		 * No APIX module; fall back to the old scheme where the
-		 * interrupt vector is allocated during ddi_enable_intr() call.
+		 * interrupt vector is allocated during ddi_intr_enable() call.
 		 */
 		hdlp->ih_pri = ispec->intrspec_pri;
 		*(int *)result = hdlp->ih_scratch1;
@@ -1024,7 +1024,7 @@ isa_free_intr_fixed(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp)
 		/*
 		 * No APIX module; fall back to the old scheme where
 		 * the interrupt vector was already freed during
-		 * ddi_disable_intr() call.
+		 * ddi_intr_disable() call.
 		 */
 		ret = DDI_SUCCESS;
 	}
