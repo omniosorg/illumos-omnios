@@ -82,8 +82,8 @@ export CODEMGR_WS="`git rev-parse --show-toplevel`"
 export GNUC_ROOT=/usr/gcc/10
 export PRIMARY_CC=gcc10,$GNUC_ROOT/bin/gcc,gnu
 export PRIMARY_CCC=gcc10,$GNUC_ROOT/bin/g++,gnu
-export SHADOW_CCS=gcc7,/usr/gcc/7/bin/gcc,gnu
-export SHADOW_CCCS=gcc7,/usr/gcc/7/bin/g++,gnu
+export SHADOW_CCS=gcc14,/usr/gcc/14/bin/gcc,gnu
+export SHADOW_CCCS=gcc14,/usr/gcc/14/bin/g++,gnu
 
 # comment to disable smatch
 export ENABLE_SMATCH=1
