@@ -16,21 +16,6 @@ for name in PRIMARY_CC PRIMARY_CCC SHADOW_CCS SHADOW_CCCS; do
         '`"
 done
 
-# OmniOS is built with a gcc-10 primary compiler and gcc-7 secondary. This is
-# currently the inverse of illumos-gate. The illumos-gate switch to gcc-10 is
-# https://www.illumos.org/issues/14421
-export GNUC_ROOT=/opt/gcc-10/
-for name in PRIMARY_CC PRIMARY_CCC; do
-        typeset -n var=$name
-        var="${var//gcc-7/gcc-10}"
-        var="${var//gcc7/gcc10}"
-done
-for name in SHADOW_CCS SHADOW_CCCS; do
-        typeset -n var=$name
-        var="${var//gcc-10/gcc-7}"
-        var="${var//gcc10/gcc7}"
-done
-
 ENABLE_SMB_PRINTING='#'
 
 _branch=`git -C $CODEMGR_WS rev-parse --abbrev-ref HEAD`
