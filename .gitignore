@@ -9148,6 +9148,8 @@ usr/src/test/os-tests/tests/file-locking/runtests.32
 usr/src/test/os-tests/tests/file-locking/runtests.64
 usr/src/test/os-tests/tests/getcontext_extd.32
 usr/src/test/os-tests/tests/getcontext_extd.64
+usr/src/test/os-tests/tests/hexdump/hexdump_basic.32
+usr/src/test/os-tests/tests/hexdump/hexdump_basic.64
 usr/src/test/os-tests/tests/i386/badseg
 usr/src/test/os-tests/tests/i386/badseg_exec
 usr/src/test/os-tests/tests/i386/ldt
