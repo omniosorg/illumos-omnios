@@ -10,8 +10,9 @@ export PERL_PKGVERS=
 export PERL_VARIANT=-thread-multi
 export BUILDPERL32='#'
 
-export JAVA_ROOT=/usr/jdk/openjdk11.0
+export JAVA_ROOT=/usr/jdk/openjdk17.0
 export JAVA_HOME=$JAVA_ROOT
+# The options for Java 11 are also suitable for 17
 export BLD_JAVA_11=
 
 export BUILDPY2='#'
