@@ -1,4 +1,3 @@
-#! /usr/bin/sh
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -11,6 +10,13 @@
 #
 
 #
-# Copyright 2025 <contributor>
+# Copyright 2024 Oxide Computer Company
 #
 
+# A Makefile fragment suitable for including in consumers of the common
+# hexdump code. The including Makefile should add $(HEXDUMP_OBJS) to its own
+# list of objects.
+
+HEXDUMP_OBJS=	\
+	hexdump.o \
+	ilstr.o
