@@ -119,7 +119,7 @@ CPPFLAGS += -Dalloca=__builtin_alloca
 CPPFLAGS +=	-I$(SRC)/common/ficl -I../../libficl \
 		-I../../common -I../common \
 		-I../btx/lib \
-		-I$(SRC)/uts/intel/sys/acpi \
+		-I$(SRC)/uts/common/sys/acpi \
 		-I.
 # the location of libstand
 CPPFLAGS +=	-I../../libsa

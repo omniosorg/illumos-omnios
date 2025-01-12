@@ -46,7 +46,7 @@
 ./usr/src/lib/libsqlite
 ./usr/src/cmd/tcpd
 ./usr/src/grub
-./usr/src/uts/intel/sys/acpi
+./usr/src/uts/common/sys/acpi
 
 #
 # Ignore any files built as part of the nightly program itself.

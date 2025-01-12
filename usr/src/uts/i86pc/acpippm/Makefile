@@ -45,7 +45,7 @@ MODULE		= acpippm
 OBJECTS		= $(ACPIPPM_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(ROOT_PSM_DRV_DIR)/$(MODULE)
 CONF_SRCDIR	= $(UTSBASE)/i86pc/io
-INC_PATH	+= -I$(UTSBASE)/i86pc/sys/acpi
+INC_PATH	+= -I$(UTSBASE)/common/sys/acpi
 
 #
 #	Include common rules.

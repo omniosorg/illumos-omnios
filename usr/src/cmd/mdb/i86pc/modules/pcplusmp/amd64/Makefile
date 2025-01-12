@@ -41,5 +41,6 @@ CPPFLAGS += -I../../../../common
 CPPFLAGS += -I../../common
 CPPFLAGS += -I$(SRC)/uts/intel
 CPPFLAGS += -I$(SRC)/uts/i86pc
+CPPFLAGS += -I$(SRC)/uts/common
 
 CERRWARN += -_gcc=-Wno-unused-function

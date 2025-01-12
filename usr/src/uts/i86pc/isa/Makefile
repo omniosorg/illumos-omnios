@@ -42,7 +42,7 @@ UTSBASE	= ../..
 MODULE		= isa
 OBJECTS		= $(ISANEXUS_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(ROOT_PSM_DRV_DIR)/$(MODULE)
-INC_PATH        += -I$(UTSBASE)/i86pc/sys/acpi
+INC_PATH        += -I$(UTSBASE)/common/sys/acpi
 
 #
 #	Include common rules.

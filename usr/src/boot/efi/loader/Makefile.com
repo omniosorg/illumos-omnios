@@ -57,7 +57,7 @@ CPPFLAGS +=	-I../../include
 CPPFLAGS +=	-I../../include/$(MACHINE)
 CPPFLAGS +=	-I$(ZFSSRC)
 CPPFLAGS +=	-I../../../sys/cddl/boot/zfs
-CPPFLAGS +=	-I$(SRC)/uts/intel/sys/acpi
+CPPFLAGS +=	-I$(SRC)/uts/common/sys/acpi
 CPPFLAGS +=	-I$(PNGLITE)
 CPPFLAGS +=	-DNO_PCI -DEFI
 

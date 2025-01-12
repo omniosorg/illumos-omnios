@@ -23,6 +23,6 @@ SHAREDSRCS	= topo_port.c
 
 include ../../Makefile.plugin
 
-CPPFLAGS	+= -I../shared  -I$(SRC)/uts/intel/sys/acpi -DACPI_APPLICATION
+CPPFLAGS	+= -I../shared  -I$(SRC)/uts/common/sys/acpi -DACPI_APPLICATION
 CPPFLAGS	+= -D_POSIX_PTHREAD_SEMANTICS
 LDLIBS		+= -ldevinfo

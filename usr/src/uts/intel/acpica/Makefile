@@ -22,7 +22,7 @@ UTSBASE		= ../..
 MODULE		= acpica
 OBJECTS		= $(ACPICA_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(ROOT_MISC_DIR)/$(MODULE)
-INC_PATH        += -I$(UTSBASE)/intel/sys/acpi
+INC_PATH        += -I$(UTSBASE)/common/sys/acpi
 INC_PATH	+= -I$(UTSBASE)/i86pc
 INC_PATH	+= -I$(SRC)/common
 

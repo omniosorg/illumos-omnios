@@ -104,7 +104,7 @@ INTERMEDIATES = \
 # too much noise
 SMATCH=off
 
-CPPFLAGS += -I$(SRC)/uts/intel/sys/acpi -DACPI_ASL_COMPILER -I.
+CPPFLAGS += -I$(SRC)/uts/common/sys/acpi -DACPI_ASL_COMPILER -I.
 CPPFLAGS += -DACPI_DATE=\"`$(ECHO) $(VERSION) | sed -e 's/ /_/g'`\"
 
 LEX_C_FILES = aslcompilerlex.c dtparserlex.c prparserlex.c

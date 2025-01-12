@@ -19,7 +19,7 @@ of the ACPI source code lives in the following directories:
 
    usr/src/uts/common/acpica		Common to kernel and commands
    usr/src/uts/intel/io/acpica		Kernel
-   usr/src/uts/intel/sys/acpi		Headers
+   usr/src/uts/common/sys/acpi		Headers
    usr/src/cmd/acpi			Commands
 
 We maintain an ACPI repository that has the tools to sync up the ACPI

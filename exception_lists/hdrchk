@@ -370,17 +370,17 @@ usr/src/uts/common/io/udmf/dm9601reg.h
 usr/src/uts/common/io/upf/adm8511reg.h
 usr/src/uts/common/io/urf/rtl8150reg.h
 usr/src/uts/common/sys/scsi/adapters/mpi/*
-usr/src/uts/intel/sys/acpi/acdebug.h
-usr/src/uts/intel/sys/acpi/acdisasm.h
-usr/src/uts/intel/sys/acpi/acevents.h
-usr/src/uts/intel/sys/acpi/acinterp.h
-usr/src/uts/intel/sys/acpi/acmacros.h
-usr/src/uts/intel/sys/acpi/acnames.h
-usr/src/uts/intel/sys/acpi/acpredef.h
-usr/src/uts/intel/sys/acpi/acresrc.h
-usr/src/uts/intel/sys/acpi/acstruct.h
-usr/src/uts/intel/sys/acpi/amlresrc.h
-usr/src/uts/intel/sys/acpi/platform/acwin64.h
+usr/src/uts/common/sys/acpi/acdebug.h
+usr/src/uts/common/sys/acpi/acdisasm.h
+usr/src/uts/common/sys/acpi/acevents.h
+usr/src/uts/common/sys/acpi/acinterp.h
+usr/src/uts/common/sys/acpi/acmacros.h
+usr/src/uts/common/sys/acpi/acnames.h
+usr/src/uts/common/sys/acpi/acpredef.h
+usr/src/uts/common/sys/acpi/acresrc.h
+usr/src/uts/common/sys/acpi/acstruct.h
+usr/src/uts/common/sys/acpi/amlresrc.h
+usr/src/uts/common/sys/acpi/platform/acwin64.h
 
 # bhyve sources
 syntax: glob

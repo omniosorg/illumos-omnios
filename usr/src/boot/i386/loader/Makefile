@@ -20,7 +20,7 @@ include $(SRC)/boot/Makefile.version
 include $(SRC)/boot/Makefile.inc
 
 CPPFLAGS +=	-I../../include -I../../sys
-CPPFLAGS +=	-I$(SRC)/uts/intel/sys/acpi
+CPPFLAGS +=	-I$(SRC)/uts/common/sys/acpi
 CPPFLAGS +=	-I$(ZLIB)
 LOADER=		loader
 NEWVERSWHAT=	"ZFS enabled bootstrap loader" x86
