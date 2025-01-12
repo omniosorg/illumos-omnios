@@ -220,7 +220,7 @@ dev_cleanup(void)
 	    (devsw[i]->dv_cleanup)();
 }
 
-#ifndef BOOT2
+#if !defined(BOOT2) && (defined(__i386) || defined(__amd64))
 /*
  * outb ( port# c -- )
  * Store a byte to I/O port number port#

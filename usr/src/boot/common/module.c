@@ -753,6 +753,15 @@ mod_load(char *modname, struct mod_depend *verinfo, int argc, char *argv[])
 	int err;
 	char *filename;
 
+	/*
+	 * On aarch64 systems the first loaded module must be the kernel.
+	 */
+#if defined(__aarch64__)
+	if (file_findfile(NULL, NULL) == NULL) {
+		return (mod_loadkld(modname, argc, argv));
+	}
+#endif
+
 	if (file_havepath(modname)) {
 		printf("Warning: mod_load() called instead of mod_loadkld() "
 		    "for module '%s'\n", modname);
