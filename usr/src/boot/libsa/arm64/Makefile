@@ -12,6 +12,7 @@
 #
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright 2016 RackTop Systems.
+# Copyright 2025 Michael van der Westhuizen
 #
 
 include $(SRC)/boot/Makefile.master
@@ -23,29 +24,16 @@ all install:    $(DYNLIB)
 
 include ../Makefile.com
 
-.KEEP_STATE:
-
-ASFLAGS +=	$(amd64_XARCH) -I$(SRC)/uts/common -I$(ROOT)/usr/include -D_ASM
-ASFLAGS64 +=	$(amd64_XARCH) -I$(SRC)/uts/common -I$(ROOT)/usr/include -D_ASM
-CFLAGS +=	-m64 -_gcc=-mtune=opteron $(CFLAGS64)
-CCASFLAGS +=	-m64
+ASFLAGS =	$(aarch64_XARCH) -I$(SRC)/uts/common -D_ASM
+ASFLAGS64 =	$(aarch64_XARCH) -I$(SRC)/uts/common -D_ASM
+CFLAGS +=	$(CFLAGS64)
 
 # _setjmp/_longjmp
-SRCS += $(SASRC)/amd64/_setjmp.S
+SRCS += $(SASRC)/$(MACH64)/_setjmp.S
 OBJECTS += _setjmp.o
-SRCS += sha1-x86_64.S
-OBJECTS += sha1-x86_64.o
 
-SRCS += $(SASRC)/x86/hypervisor.c
-OBJECTS += hypervisor.o
-
-CLEANFILES += sha1-x86_64.S sha1-x86_64.s
-
-pics/%.o: $(SASRC)/amd64/%.S
+pics/%.o: $(SASRC)/$(MACH64)/%.S
 	$(COMPILE.S) -o $@ $<
-
-pics/%.o: $(SASRC)/x86/%.c
-	$(COMPILE.c) -o $@ $<
 
 include $(BOOTSRC)/Makefile.lib
 
