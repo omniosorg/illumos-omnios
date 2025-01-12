@@ -14,7 +14,7 @@
 # Copyright 2016 RackTop Systems.
 #
 
-include $(SRC)/Makefile.master
+include $(SRC)/boot/Makefile.master
 
 MACHINE=	$(MACH64)
 DYNLIB=		libficl_pics.a

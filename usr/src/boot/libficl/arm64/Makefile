@@ -10,25 +10,22 @@
 #
 
 #
-# Copyright 2018 Toomas Soome <tsoome@me.com>
+# Copyright 2016 Toomas Soome <tsoome@me.com>
+# Copyright 2016 RackTop Systems.
+# Copyright 2025 Michael van der Westhuizen
 #
 
 include $(SRC)/boot/Makefile.master
 
-install all: softcore.c
+MACHINE=	$(MACH64)
+DYNLIB=		libficl_pics.a
 
-SOFTCORE=	$(SRC)/common/ficl/softcore
-PROG=		$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/makesoftcore
+all install: $(DYNLIB)
 
-#
-# not needed: file access
-#
-FR = softcore.fr ifbrack.fr prefix.fr ficl.fr jhlocal.fr marker.fr
-FR += freebsd.fr ficllocal.fr oo.fr classes.fr string.fr wordsets.fr
-SOURCES=	$(FR:%=$(SOFTCORE)/%)
+include ../Makefile.com
 
-softcore.c: $(SOURCES)
-	$(PROG) $(SOURCES)
+CFLAGS += $(CFLAGS64)
 
-clobber clean:
-	$(RM) softcore.c
+include $(BOOTSRC)/Makefile.lib
+
+FRC:
