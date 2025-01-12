@@ -13,7 +13,7 @@
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 #
 
-include $(SRC)/Makefile.master
+include $(SRC)/boot/Makefile.master
 include $(SRC)/boot/Makefile.inc
 
 install:

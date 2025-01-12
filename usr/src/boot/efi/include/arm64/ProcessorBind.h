@@ -91,8 +91,13 @@ typedef signed char       INT8;
 //
 // Assume standard AARCH64 alignment.
 //
+#ifndef	ACPI_THREAD_ID			/* ACPI's definitions are fine */
+#if !defined(ACPI_USE_SYSTEM_INTTYPES)
+#define	ACPI_USE_SYSTEM_INTTYPES	/* Tell ACPI we've defined types */
+#endif
 typedef unsigned long long  UINT64;
 typedef long long           INT64;
+#endif
 typedef unsigned int        UINT32;
 typedef int                 INT32;
 typedef unsigned short      UINT16;

@@ -457,8 +457,13 @@ efi_framebuffer_setup(void)
 	}
 	shadow_sz = EFI_SIZE_TO_PAGES(efifb.fb_width * efifb.fb_height *
 	    sizeof (*shadow_fb));
+#if defined(__aarch64__)
+	status = BS->AllocatePages(AllocateAnyPages, EfiLoaderData,
+	    shadow_sz, (EFI_PHYSICAL_ADDRESS *)&shadow_fb);
+#else
 	status = BS->AllocatePages(AllocateMaxAddress, EfiLoaderData,
 	    shadow_sz, (EFI_PHYSICAL_ADDRESS *)&shadow_fb);
+#endif
 	if (status != EFI_SUCCESS)
 		shadow_fb = NULL;
 
