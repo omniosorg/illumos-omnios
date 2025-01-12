@@ -43,19 +43,29 @@ LZ4=		$(SRC)/common/lz4
 # set standard values
 AS_CPPFLAGS=
 CPPFLAGS=	-D_STANDALONE -_gcc=-nostdinc
-CFLAGS64=	-_gcc=-mno-red-zone
+i386_CFLAGS64=	-_gcc=-mno-red-zone
+aarch64_CFLAGS64=
+CFLAGS64=	$($(MACH)_CFLAGS64)
 
-CFLAGS=		-_gcc=-Os -_gcc=-ffreestanding -_gcc=-fno-builtin
+i386_CFLAGS=	-_gcc=-mno-mmx -_gcc=-mno-3dnow -_gcc=-mno-sse -_gcc=-mno-sse2
+i386_CFLAGS +=	-_gcc=-mno-sse3 -_gcc=-msoft-float
+i386_CFLAGS +=	-_gcc=-mno-avx -_gcc=-mno-aes
+aarch64_CFLAGS=
+CFLAGS=		$($(MACH)_CFLAGS)
+CFLAGS +=	-_gcc=-Os -_gcc=-ffreestanding -_gcc=-fno-builtin
 CFLAGS +=	-_gcc=-ffunction-sections -_gcc=-fdata-sections
-CFLAGS +=	-_gcc=-mno-mmx -_gcc=-mno-3dnow -_gcc=-mno-sse -_gcc=-mno-sse2
-CFLAGS +=	-_gcc=-mno-sse3 -_gcc=-msoft-float
-CFLAGS +=	-_gcc=-mno-avx -_gcc=-mno-aes
 CFLAGS +=	-_gcc=-Wall -_gcc=-Werror
 CFLAGS +=	$(CCNOAUTOINLINE) $(CCNOREORDER) $(CSTD_GNU99)
 CFLAGS +=	$(CSOURCEDEBUGFLAGS)
-CCASFLAGS=	-Wa,--divide
-ASFLAGS=	-Wa,--divide
-ASFLAGS64=	-Wa,--divide
+i386_CCASFLAGS=	-Wa,--divide
+aarch64_CCASFLAGS=
+CCASFLAGS =	$($(MACH)_CCASFLAGS)
+i386_ASFLAGS=	-Wa,--divide
+aarch64_ASFLAGS=
+ASFLAGS=	$($(MACH)_ASFLAGS)
+i386_ASFLAGS64=	-Wa,--divide
+aarch64_ASFLAGS64=
+ASFLAGS64=	$($(MACH)_ASFLAGS64)
 
 SMATCH_ =
 SMATCH_on =

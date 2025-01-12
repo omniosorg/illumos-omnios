@@ -15,9 +15,11 @@
 
 .KEEP_STATE:
 
-include $(SRC)/Makefile.master
+include $(SRC)/boot/Makefile.master
 
-INSTDIRS = i386 efi forth
+i386_INSTDIRS = i386
+aarch64_INSTDIRS =
+INSTDIRS = $($(MACH)_INSTDIRS) efi forth
 SUBDIRS = libsa libficl $(INSTDIRS)
 
 all	:=	TARGET = all

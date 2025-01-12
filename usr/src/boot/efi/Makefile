@@ -15,9 +15,12 @@
 
 .KEEP_STATE:
 
-include $(SRC)/Makefile.master
+include $(SRC)/boot/Makefile.master
 
-SUBDIRS = libefi loader
+i386_SUBDIRS =
+aarch64_SUBDIRS =
+
+SUBDIRS = libefi $($(MACH)_SUBDIRS) loader
 
 all install clean clobber: $(SUBDIRS)
 
@@ -26,7 +29,7 @@ clean	:=	TARGET = clean
 clobber	:=	TARGET = clobber
 install	:=	TARGET = install
 
-loader:	libefi
+loader:	libefi $($(MACH)_SUBDIRS)
 
 .PARALLEL:
 $(SUBDIRS): FRC
