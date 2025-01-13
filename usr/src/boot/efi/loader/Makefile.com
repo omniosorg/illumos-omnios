@@ -139,8 +139,15 @@ loader.bin: loader.sym
 DPLIBEFI=	../../libefi/$(MACHINE)/libefi.a
 LIBEFI=		-L../../libefi/$(MACHINE) -lefi
 
-DPADD=		$(DPLIBFICL) $(DPLIBEFI) $(DPLIBSA) $(LDSCRIPT)
-LDADD=		$(LIBFICL) $(LIBEFI) $(LIBSA)
+aarch64_DPLIBMMIOUART=	../../libmmio_uart/$(MACHINE)/libmmio_uart.a
+aarch64_LIBMMIOUART=	-L../../libmmio_uart/$(MACHINE) -lmmio_uart
+DPLIBMMIOUART=		$($(MACH)_DPLIBMMIOUART)
+LIBMMIOUART=		$($(MACH)_LIBMMIOUART)
+
+DPADD=		$(DPLIBFICL) $(DPLIBMMIOUART) \
+		$(DPLIBEFI) $(DPLIBSA) $(LDSCRIPT)
+LDADD=		$(LIBFICL) $(LIBMMIOUART) \
+		$(LIBEFI) $(LIBSA)
 
 loader.sym:	$(OBJS) $(DPADD)
 	$(GLD) $(LDFLAGS) -o $@ $(OBJS) $(LDADD)
