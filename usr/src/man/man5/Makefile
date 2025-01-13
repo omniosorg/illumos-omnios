@@ -204,7 +204,8 @@ i386_MANFILES=	bhyve_config.5			\
 		loader.conf.5			\
 		sysbus.5
 
-aarch64_MANFILES=	fdt.5
+aarch64_MANFILES=	fdt.5			\
+			loader.conf.5
 
 MANLINKS=	addresses.5			\
 		devid_cache.5			\

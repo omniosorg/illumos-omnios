@@ -138,6 +138,18 @@ _MANFILES=	Intro.7			\
 
 sparc_MANFILES=
 
+aarch64_MANFILES=			\
+		beastie.4th.7		\
+		brand.4th.7		\
+		check-password.4th.7	\
+		color.4th.7		\
+		delay.4th.7		\
+		loader.4th.7		\
+		loader.7		\
+		menu.4th.7		\
+		menusets.4th.7		\
+		version.4th.7
+
 i386_MANFILES=	beastie.4th.7		\
 		brand.4th.7		\
 		check-password.4th.7	\
