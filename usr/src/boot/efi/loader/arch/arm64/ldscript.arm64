@@ -26,7 +26,6 @@ SECTIONS
     *(.data .data.* .gnu.linkonce.d.*)
     *(.data1)
     *(.plabel)
-
     . = ALIGN(16);
     __bss_start = .;
     *(.sbss .sbss.* .gnu.linkonce.sb.*)
@@ -43,7 +42,7 @@ SECTIONS
     *(set_Xcommand_set)
     __stop_set_Xcommand_set = .;
   }
-  set_Xficl_compile_set : {
+  set_Xficl_compile_set	: {
     __start_set_Xficl_compile_set = .;
     *(set_Xficl_compile_set)
     __stop_set_Xficl_compile_set = .;
@@ -70,7 +69,7 @@ SECTIONS
     *(.rela.sbss2 .rela.sbss2.* .rela.gnu.linkonce.sb2.*)
     *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
     *(.rela.plt)
-    *(.relset_*)
+    *(.relset_* .relaset_*)
     *(.rela.dyn .rela.dyn.*)
   }
   . = ALIGN(16);
@@ -80,6 +79,7 @@ SECTIONS
   _edata = .;
 
   /* Unused sections */
+  .interp	: { *(.interp) }
   .dynstr	: { *(.dynstr) }
   .hash		: { *(.hash) }
 }
