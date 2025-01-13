@@ -168,6 +168,17 @@ cons_probe(void)
 	if (active == -1)
 		active = 0;
 
+#if defined(__aarch64__)
+	if (getenv("default-uart-name") == NULL) {
+		if (consoles[active] != NULL) {
+			setenv("default-uart-name",
+			    consoles[active]->c_name, 1);
+		} else {
+			setenv("default-uart-name", "text", 1);
+		}
+	}
+#endif
+
 	/* Check to see if a console preference has already been registered */
 	list = NULL;
 	prefconsole = getenv("console");

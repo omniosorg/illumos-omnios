@@ -12,6 +12,7 @@
 #
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright 2016 RackTop Systems.
+# Copyright 2025 Michael van der Westhuizen
 #
 
 include $(SRC)/boot/Makefile.master
@@ -23,16 +24,12 @@ all:		$(EFIPROG)
 
 include ../Makefile.com
 
-EFI_TARGET=	pei-x86-64
+EFI_TARGET=	binary
 LDFLAGS +=	-znocombreloc
 
 efi_main.o := CPPFLAGS += -DLOADER_EFI=L\"loader64.efi\"
-CFLAGS +=	-m64 -_gcc=-mtune=opteron $(CFLAGS64)
-CCASFLAGS +=	-m64
+CFLAGS +=	$(CFLAGS64) -_gcc=-mgeneral-regs-only
 
-CLEANFILES +=	machine x86 $(EFIPROG)
+CLEANFILES +=	machine $(EFIPROG)
 
-$(OBJS):	machine x86
-
-%.o: ../../../i386/libi386/%.c
-	$(COMPILE.c) $<
+$(OBJS):	machine

@@ -47,6 +47,8 @@
 
 #if defined(__amd64__)
 #include <machine/specialreg.h>
+#endif
+#if defined(__amd64__) || defined(__aarch64__)
 #include "framebuffer.h"
 #endif
 
@@ -247,7 +249,7 @@ bi_load_efi_data(struct preloaded_file *kfp)
 	UINT32 mmver;
 	struct efi_map_header *efihdr;
 
-#if defined(__amd64__)
+#if defined(__amd64__) || defined(__aarch64__)
 	struct efi_fb efifb;
 
 	if (efi_find_framebuffer(&efifb) == 0) {
@@ -393,6 +395,23 @@ bi_load(char *args, vm_offset_t *modulep, vm_offset_t *kernendp)
 	/* Pad to a page boundary. */
 	addr = roundup(addr, PAGE_SIZE);
 
+	/*
+	 * On Arm systems we don't just spill off the end of the allocated
+	 * memory arena, we rather allocate a rather generous 8MiB for the
+	 * module data and build the data we'll pass to the kernel in that
+	 * memory.
+	 *
+	 * XXXARM: This is yet another over-generous but later unchecked
+	 * memory buffer. This one only exists to get around the way the
+	 * loader code uses memory (where the loader staging area seems to
+	 * traditionally be a contiguous zone above 1MiB on an old-school
+	 * PC). Either way, this is pretty terrible.
+	 */
+#if defined(__aarch64__)
+	size_t req_sz = (PAGE_SIZE * 8192);
+	addr = efi_loadaddr(LOAD_MEM, &req_sz, addr);
+#endif
+
 	/* Copy our environment. */
 	envp = addr;
 	addr = bi_copyenv(addr);
@@ -427,6 +446,10 @@ bi_load(char *args, vm_offset_t *modulep, vm_offset_t *kernendp)
 #endif
 	file_addmetadata(kfp, MODINFOMD_KERNEND, sizeof (kernend), &kernend);
 	file_addmetadata(kfp, MODINFOMD_FW_HANDLE, sizeof (ST), &ST);
+
+#if defined(__aarch64__)
+	build_font_module();
+#endif
 
 	bi_load_efi_data(kfp);
 

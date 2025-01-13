@@ -84,10 +84,16 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_table)
 	RS = ST->RuntimeServices;
 
 	heapsize = 64 * 1024 * 1024;
+#if defined(__amd64__) || defined(__i386__)
 	/* 4GB upper limit, try to leave some space from 1MB */
 	heap = 0x0000000100000000;
 	status = BS->AllocatePages(AllocateMaxAddress, EfiLoaderData,
 	    EFI_SIZE_TO_PAGES(heapsize), &heap);
+#else
+	heap = 0x0;
+	status = BS->AllocatePages(AllocateAnyPages, EfiLoaderData,
+	    EFI_SIZE_TO_PAGES(heapsize), &heap);
+#endif
 	if (status != EFI_SUCCESS)
 		BS->Exit(IH, status, 0, NULL);
 

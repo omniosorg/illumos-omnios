@@ -67,12 +67,21 @@ extern struct console nullconsole;
 extern struct console spinconsole;
 
 struct console_template ct_list[] = {
+#if defined(__aarch64__)
+	[0] = { .ct_dev = &efi_console, .ct_init = NULL },
+	[1] = { .ct_dev = &nullconsole, .ct_init = NULL },
+	[2] = { .ct_dev = &spinconsole, .ct_init = NULL },
+	[3] = { .ct_dev = NULL, .ct_init = NULL },
+#elif (defined(__amd64__) || defined(__i386__))
 	[0] = { .ct_dev = &efi_console, .ct_init = NULL },
 	[1] = { .ct_dev = NULL, .ct_init = efi_serial_ini },
 	[2] = { .ct_dev = NULL, .ct_init = efi_isa_ini },
 	[3] = { .ct_dev = &nullconsole, .ct_init = NULL },
 	[4] = { .ct_dev = &spinconsole, .ct_init = NULL },
 	[5] = { .ct_dev = NULL, .ct_init = NULL },
+#else
+#error Unhandled loader architecture
+#endif
 };
 
 struct console **consoles;

@@ -19,6 +19,11 @@ include $(SRC)/boot/Makefile.inc
 PROG=		loader.sym
 
 # architecture-specific loader code
+i386_OBJS=\
+	memmap.o \
+	multiboot2.o
+aarch64_OBJS=
+
 OBJS=	\
 	acpi.o \
 	autoload.o \
@@ -30,9 +35,7 @@ OBJS=	\
 	$(FONT).o \
 	framebuffer.o \
 	main.o \
-	memmap.o \
 	mb_header.o \
-	multiboot2.o \
 	nvstore.o \
 	self_reloc.o \
 	tem.o \
@@ -74,8 +77,11 @@ OBJS += boot.o commands.o console.o devopen.o interp.o \
 	interp_backslash.o interp_parse.o ls.o misc.o \
 	module.o linenoise.o zfs_cmd.o
 
-OBJS += load_elf32.o load_elf32_obj.o reloc_elf32.o \
-	load_elf64.o load_elf64_obj.o reloc_elf64.o
+i386_OBJS +=	load_elf32.o load_elf32_obj.o reloc_elf32.o \
+		load_elf64.o load_elf64_obj.o reloc_elf64.o
+aarch64_OBJS +=	load_elf64.o load_elf64_obj.o reloc_elf64.o
+
+OBJS += $($(MACH)_OBJS)
 
 OBJS += disk.o part.o dev_net.o vdisk.o
 CPPFLAGS += -DLOADER_DISK_SUPPORT
@@ -102,6 +108,9 @@ LDSCRIPT=	../arch/$(MACHINE)/ldscript.$(MACHINE)
 LDFLAGS =	-nostdlib --eh-frame-hdr
 LDFLAGS +=	-shared --hash-style=both --enable-new-dtags
 LDFLAGS +=	-T$(LDSCRIPT) -Bsymbolic
+
+aarch64_LDFLAGS=--no-warn-rwx-segments
+LDFLAGS +=	$($(MACH)_LDFLAGS)
 
 CLEANFILES=	$(EFIPROG) loader.sym loader.bin
 CLEANFILES +=	$(FONT).c vers.c

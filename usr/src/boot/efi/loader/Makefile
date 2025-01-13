@@ -15,9 +15,11 @@
 
 .KEEP_STATE:
 
-include $(SRC)/Makefile.master
+include $(SRC)/boot/Makefile.master
 
-SUBDIRS = $(MACH) $(MACH64)
+i386_SUBDIRS = $(MACH) $(MACH64)
+aarch64_SUBDIRS = $(MACH64)
+SUBDIRS = $($(MACH)_SUBDIRS)
 
 all	:=	TARGET = all
 clean	:=	TARGET = clean
