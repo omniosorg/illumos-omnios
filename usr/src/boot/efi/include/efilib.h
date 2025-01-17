@@ -130,6 +130,9 @@ void efi_time_fini(void);
 
 void efi_serial_ini(void);
 void efi_isa_ini(void);
+#if defined(__aarch64__)
+void fdtuart_ini(void);
+#endif
 
 EFI_STATUS efi_main(EFI_HANDLE Ximage, EFI_SYSTEM_TABLE* Xsystab);
 

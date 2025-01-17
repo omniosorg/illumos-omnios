@@ -33,6 +33,7 @@
 
 /* cache.c */
 void cpu_flush_dcache(const void *, size_t);
+void cpu_invalidate_dcache(const void *, size_t);
 void cpu_inval_icache(const void *, size_t);
 
 #endif /* _CACHE_H_ */

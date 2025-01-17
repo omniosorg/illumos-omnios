@@ -79,6 +79,27 @@ cpu_flush_dcache(const void *ptr, size_t len)
 }
 
 void
+cpu_invalidate_dcache(const void *ptr, size_t len)
+{
+
+	uint64_t cl_size;
+	vm_offset_t addr, end;
+
+	cl_size = get_dcache_line_size();
+
+	/* Calculate end address to clean */
+	end = (vm_offset_t)ptr + (vm_offset_t)len;
+	/* Align start address to cache line */
+	addr = (vm_offset_t)ptr;
+	addr = rounddown2(addr, cl_size);
+
+	for (; addr < end; addr += cl_size)
+		__asm __volatile("dc	ivac, %0" : : "r" (addr) : "memory");
+	/* Full system DSB */
+	__asm __volatile("dsb	sy" : : : "memory");
+}
+
+void
 cpu_inval_icache(const void *ptr, size_t len)
 {
 
