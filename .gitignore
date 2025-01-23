@@ -4024,6 +4024,7 @@ usr/src/man/man3c/pclose.3c
 usr/src/man/man3c/port_dissociate.3c
 usr/src/man/man3c/port_getn.3c
 usr/src/man/man3c/port_sendn.3c
+usr/src/man/man3c/posix_spawn_file_actions_addfchdir.3c
 usr/src/man/man3c/posix_spawn_file_actions_addopen.3c
 usr/src/man/man3c/posix_spawn_file_actions_init.3c
 usr/src/man/man3c/posix_spawnattr_init.3c
@@ -4361,6 +4362,7 @@ usr/src/man/man3c/timerfd_gettime.3c
 usr/src/man/man3c/timerfd_settime.3c
 usr/src/man/man3c/timerisset.3c
 usr/src/man/man3c/timersub.3c
+usr/src/man/man3c/timespec_getres.3c
 usr/src/man/man3c/tmpnam_r.3c
 usr/src/man/man3c/tolower_l.3c
 usr/src/man/man3c/toupper_l.3c
@@ -8904,6 +8906,9 @@ usr/src/test/libc-tests/tests/nl_langinfo/nl_langinfo_test.amd64
 usr/src/test/libc-tests/tests/nl_langinfo/nl_langinfo_test.i386
 usr/src/test/libc-tests/tests/posix_memalign.32
 usr/src/test/libc-tests/tests/posix_memalign.64
+usr/src/test/libc-tests/tests/posix_spawn/getsid.64
+usr/src/test/libc-tests/tests/posix_spawn/posix_spawn.32
+usr/src/test/libc-tests/tests/posix_spawn/posix_spawn.64
 usr/src/test/libc-tests/tests/printf-15294.32
 usr/src/test/libc-tests/tests/printf-15294.64
 usr/src/test/libc-tests/tests/printf-6961.64
@@ -8977,10 +8982,16 @@ usr/src/test/libc-tests/tests/threads/pthread_attr_get_np
 usr/src/test/libc-tests/tests/threads/thread_name
 usr/src/test/libc-tests/tests/timespec_get.32
 usr/src/test/libc-tests/tests/timespec_get.64
+usr/src/test/libc-tests/tests/timespec_getres.32
+usr/src/test/libc-tests/tests/timespec_getres.64
 usr/src/test/libc-tests/tests/uchar.32
 usr/src/test/libc-tests/tests/uchar.64
 usr/src/test/libc-tests/tests/utimes.32
 usr/src/test/libc-tests/tests/utimes.64
+usr/src/test/libc-tests/tests/wcslcat.32
+usr/src/test/libc-tests/tests/wcslcat.64
+usr/src/test/libc-tests/tests/wcslcpy.32
+usr/src/test/libc-tests/tests/wcslcpy.64
 usr/src/test/libc-tests/tests/wcsncasecmp-7344.32
 usr/src/test/libc-tests/tests/wcsncasecmp-7344.64
 usr/src/test/libc-tests/tests/wcsncasecmp-7350.32
