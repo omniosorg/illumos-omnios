@@ -585,7 +585,7 @@ PORTGEN=			\
 	tfind.o			\
 	time_data.o		\
 	time_gdata.o		\
-	timespec_get.o		\
+	timespec_cstd.o		\
 	tls_data.o		\
 	truncate.o		\
 	tsdalloc.o		\
@@ -702,6 +702,8 @@ PORTI18N=			\
 	putwchar.o		\
 	putws.o			\
 	strtows.o		\
+	wcslcat.o		\
+	wcslcpy.o		\
 	wcsnlen.o		\
 	wcsstr.o		\
 	wcstoimax.o		\

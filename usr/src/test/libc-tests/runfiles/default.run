@@ -15,7 +15,7 @@
 # Copyright 2019 Joyent, Inc.
 # Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2023 Bill Sommerfeld <sommerfeld@alum.mit.edu>
-# Copyright 2024 Oxide Computer Company
+# Copyright 2025 Oxide Computer Company
 #
 
 [DEFAULT]
@@ -129,6 +129,8 @@ timeout = 600
 [/opt/libc-tests/tests/mutex-16200.64]
 [/opt/libc-tests/tests/posix_memalign.32]
 [/opt/libc-tests/tests/posix_memalign.64]
+[/opt/libc-tests/tests/posix_spawn.32]
+[/opt/libc-tests/tests/posix_spawn.64]
 [/opt/libc-tests/tests/printf-15294.32]
 [/opt/libc-tests/tests/printf-15294.64]
 [/opt/libc-tests/tests/printf-6961.64]
@@ -150,10 +152,16 @@ timeout = 600
 [/opt/libc-tests/tests/thread_name]
 [/opt/libc-tests/tests/timespec_get.32]
 [/opt/libc-tests/tests/timespec_get.64]
+[/opt/libc-tests/tests/timespec_getres.32]
+[/opt/libc-tests/tests/timespec_getres.64]
 [/opt/libc-tests/tests/uchar.32]
 [/opt/libc-tests/tests/uchar.64]
 [/opt/libc-tests/tests/utimes.32]
 [/opt/libc-tests/tests/utimes.64]
+[/opt/libc-tests/tests/wcslcat.32]
+[/opt/libc-tests/tests/wcslcat.64]
+[/opt/libc-tests/tests/wcslcpy.32]
+[/opt/libc-tests/tests/wcslcpy.64]
 
 #
 # root privs required for priority changes
