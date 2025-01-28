@@ -89,18 +89,24 @@ extern const _RuneLocale *_CurrentRuneLocale;
 #if defined(__NO_TLS) || defined(__RUNETYPE_INTERNAL)
 extern const _RuneLocale *__getCurrentRuneLocale(void);
 #else
+#if !defined(__aarch64__)
 extern _Thread_local const _RuneLocale *_ThreadRuneLocale;
+#endif
 static __inline const _RuneLocale *__getCurrentRuneLocale(void)
 {
 
+#if !defined(__aarch64__)
 	if (_ThreadRuneLocale)
 		return _ThreadRuneLocale;
+#endif
 	if (_CurrentRuneLocale)
 		return _CurrentRuneLocale;
 	return &_DefaultRuneLocale;
 }
 #endif /* __NO_TLS || __RUNETYPE_INTERNAL */
+#if !defined(__aarch64__)
 #define _CurrentRuneLocale (__getCurrentRuneLocale())
+#endif
 __END_DECLS
 
 #endif	/* !_RUNETYPE_H_ */

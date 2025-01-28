@@ -217,8 +217,12 @@ long	 mrand48(void);
 long	 nrand48(unsigned short[3]);
 int	 posix_openpt(int);
 char	*ptsname(int);
+#if defined(__aarch64__)
+extern int	putenv(const char *);
+#else
 int	 putenv(char *);
 long	 random(void);
+#endif
 unsigned short
 	*seed48(unsigned short[3]);
 #ifndef _SETKEY_DECLARED

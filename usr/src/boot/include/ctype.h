@@ -45,7 +45,12 @@
 #include <sys/_types.h>
 #include <_ctype.h>
 
+#if defined(__aarch64__)
+#include <stand.h>
+#endif
+
 __BEGIN_DECLS
+#if !defined(__aarch64__)
 int	isalnum(int);
 int	isalpha(int);
 int	iscntrl(int);
@@ -78,6 +83,7 @@ int	isphonogram(int);
 int	isrune(int);
 int	isspecial(int);
 #endif
+#endif
 
 #if __POSIX_VISIBLE >= 200809 || defined(_XLOCALE_H_)
 #include <xlocale/_ctype.h>
@@ -85,6 +91,7 @@ int	isspecial(int);
 __END_DECLS
 
 #ifndef __cplusplus
+#if !defined(__aarch64__)
 #define	isalnum(c)	__sbistype((c), _CTYPE_A|_CTYPE_D|_CTYPE_N)
 #define	isalpha(c)	__sbistype((c), _CTYPE_A)
 #define	iscntrl(c)	__sbistype((c), _CTYPE_C)
@@ -98,6 +105,7 @@ __END_DECLS
 #define	isxdigit(c)	__sbistype((c), _CTYPE_X)
 #define	tolower(c)	__sbtolower(c)
 #define	toupper(c)	__sbtoupper(c)
+#endif
 #endif /* !__cplusplus */
 
 #if __XSI_VISIBLE

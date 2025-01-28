@@ -202,6 +202,13 @@ extern struct open_file *fd2open_file(int);
 
 #define	isascii(c)	(((c) & ~0x7F) == 0)
 
+#if defined(__aarch64__)
+static __inline int isprint(int c)
+{
+	return (c >= ' ' && c <= '~');
+}
+#endif
+
 static __inline int isupper(int c)
 {
 	return (c >= 'A' && c <= 'Z');

@@ -254,12 +254,16 @@ int	 fsetpos(FILE *, const fpos_t *);
 long	 ftell(FILE *);
 size_t	 fwrite(const void * __restrict, size_t, size_t, FILE * __restrict);
 int	 getc(FILE *);
+#if !defined(__aarch64__)
 int	 getchar(void);
 char	*gets(char *);
+#endif
 void	 perror(const char *);
 int	 printf(const char * __restrict, ...);
 int	 putc(int, FILE *);
+#if !defined(__aarch64__)
 int	 putchar(int);
+#endif
 int	 puts(const char *);
 int	 remove(const char *);
 int	 rename(const char *, const char *);
@@ -274,9 +278,11 @@ char	*tmpnam(char *);
 int	 ungetc(int, FILE *);
 int	 vfprintf(FILE * __restrict, const char * __restrict,
 	    __va_list);
+#if !defined(__aarch64__)
 int	 vprintf(const char * __restrict, __va_list);
 int	 vsprintf(char * __restrict, const char * __restrict,
 	    __va_list);
+#endif
 
 #if __ISO_C_VISIBLE >= 1999
 int	 snprintf(char * __restrict, size_t, const char * __restrict,
@@ -284,8 +290,10 @@ int	 snprintf(char * __restrict, size_t, const char * __restrict,
 int	 vfscanf(FILE * __restrict, const char * __restrict, __va_list)
 	    __scanflike(2, 0);
 int	 vscanf(const char * __restrict, __va_list) __scanflike(1, 0);
+#if !defined(__aarch64__)
 int	 vsnprintf(char * __restrict, size_t, const char * __restrict,
 	    __va_list) __printflike(3, 0);
+#endif
 int	 vsscanf(const char * __restrict, const char * __restrict, __va_list)
 	    __scanflike(2, 0);
 #endif
@@ -495,14 +503,16 @@ extern int __isthreaded;
 #define	clearerr(p)	(!__isthreaded ? __sclearerr(p) : (clearerr)(p))
 
 #if __POSIX_VISIBLE
+#if !defined(__aarch64__)
 #define	fileno(p)	(!__isthreaded ? __sfileno(p) : (fileno)(p))
-#endif
 
 #define	getc(fp)	(!__isthreaded ? __sgetc(fp) : (getc)(fp))
 #define	putc(x, fp)	(!__isthreaded ? __sputc(x, fp) : (putc)(x, fp))
 
 #define	getchar()	getc(stdin)
 #define	putchar(x)	putc(x, stdout)
+#endif
+#endif
 
 #if __BSD_VISIBLE
 /*
