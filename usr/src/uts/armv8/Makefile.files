@@ -93,6 +93,8 @@ ARM_GTMR_OBJS += arm_gtmr.o
 GICTWO_OBJS += gictwo.o
 GICTHREE_OBJS += gicthree.o
 
+PL03ONE_OBJS += pl03one.o
+
 ASSYM_DEPS +=			\
 	aarch64_subr.o		\
 	copy.o			\

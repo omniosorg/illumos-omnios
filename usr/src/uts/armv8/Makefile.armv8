@@ -202,5 +202,6 @@ DRV_KMODS += rootnex
 DRV_KMODS += ns16550a
 DRV_KMODS += gictwo
 DRV_KMODS += gicthree
+DRV_KMODS += pl03one
 
 DACF_KMODS += consconfig_dacf

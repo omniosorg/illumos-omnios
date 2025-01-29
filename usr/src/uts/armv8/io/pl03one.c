@@ -114,7 +114,7 @@ todpl031_get(void)
 }
 
 static struct modlmisc modlmisc = {
-	&mod_miscops, "todpl031"
+	&mod_miscops, "Arm PrimeCell Real Time Clock (PL031)"
 };
 
 static struct modlinkage modlinkage = {
@@ -125,7 +125,7 @@ int
 _init(void)
 {
 	extern tod_ops_t tod_ops;
-	if (strcmp(tod_module_name, "todpl031") == 0) {
+	if (strcmp(tod_module_name, "pl03one") == 0) {
 		tod_ops.tod_get = todpl031_get;
 		tod_ops.tod_set = todpl031_set;
 		tod_ops.tod_set_watchdog_timer = NULL;

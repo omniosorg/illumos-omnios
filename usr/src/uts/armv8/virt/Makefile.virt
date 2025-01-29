@@ -12,11 +12,6 @@ ROOT_PLAT_MOD_DIRS	+= $(ROOT_VIRT_MOD_DIR)
 ROOT_PLAT_MISC_DIRS	+= $(ROOT_VIRT_MISC_DIR)
 ROOT_PLAT_DRV_DIRS	= $(ROOT_VIRT_DRV_DIR)
 
-#
-# Define modules
-#
-VIRT_KMODS	=	todpl031
-
 include $(UTSBASE)/armv8/virt/Makefile.files
 
 #

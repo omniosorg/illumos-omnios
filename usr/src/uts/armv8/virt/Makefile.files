@@ -24,8 +24,6 @@
 # Copyright 2024 Michael van der Westhuizen
 #
 
-TODPL031_OBJS += todpl031.o
-
 # XXXARM: I might be mis-using this.  These are what would be the platmod, if
 # we didn't need it so early for console I/O
 CORE_OBJS += virt.o

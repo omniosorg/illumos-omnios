@@ -42,6 +42,9 @@ file path=platform/armv8/kernel/drv/$(ARCH)/rootnex
 file path=platform/armv8/kernel/drv/$(ARCH)/simple-bus
 file path=platform/armv8/kernel/drv/$(ARCH)/arm_gtmr
 file path=platform/armv8/kernel/drv/ns16550a.conf
+dir  path=platform/armv8/kernel/tod
+dir  path=platform/armv8/kernel/tod/$(ARCH)
+file path=platform/armv8/kernel/tod/$(ARCH)/pl03one mode=0755
 file path=usr/share/man/man4d/simple-bus.4d
 driver name=arm_gtmr alias=arm,armv8-timer
 driver name=gicthree alias=arm,gic-v3

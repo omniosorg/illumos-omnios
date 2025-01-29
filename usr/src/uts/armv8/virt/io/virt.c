@@ -33,7 +33,7 @@
 void
 set_platform_defaults(void)
 {
-	tod_module_name = "todpl031";
+	tod_module_name = "pl03one";
 }
 
 uint64_t
