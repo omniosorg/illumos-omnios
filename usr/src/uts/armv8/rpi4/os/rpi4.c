@@ -58,7 +58,6 @@
  * name of the mailbox properties interface clock ID and the decimal
  * value of that clock ID.
  */
-#define	DTPROP_CLK_ARM		0x7	/*  7: VCPROP_CLK_ARM (3) */
 #define	DTPROP_CLK_UART		0x13	/* 19: VCPROP_CLK_UART (2) */
 #define	DTPROP_CLK_EMMC		0x1C	/* 28: VCPROP_CLK_EMMC (1) */
 #define	DTPROP_CLK_EMMC2	0x33	/* 51: VCPROP_CLK_EMMC2 (12) */
@@ -69,6 +68,11 @@
 char *platform_module_list[] = {
 	NULL,
 };
+
+typedef enum {
+	VCCLOCKID = 0,
+	DTCLOCKID = 1,
+} clockid_type_t;
 
 void
 plat_tod_fault(enum tod_fault_type tod_bad __unused)
@@ -81,23 +85,6 @@ find_cprman(pnode_t node, void *arg)
 	if (!prom_is_compatible(node, "brcm,bcm2711-cprman"))
 		return;
 	*(pnode_t *)arg = node;
-}
-
-uint64_t
-plat_get_cpu_clock(int cpu_no)
-{
-	pnode_t node = 0;
-	int err;
-
-	prom_walk(find_cprman, &node);
-	if (node == 0)
-		cmn_err(CE_PANIC, "cprman register is not found");
-
-	struct prom_hwclock clk = { node, DTPROP_CLK_ARM };
-	err = plat_hwclock_get_rate(&clk);
-	if (err == -1)
-		cmn_err(CE_PANIC, "unable to read CPU clock rate");
-	return (err);
 }
 
 static kmutex_t mbox_lock;
@@ -262,20 +249,38 @@ mbox_prop_send(void *data, uint32_t len)
 	mutex_exit(&mbox_lock);
 }
 
-int
-plat_hwclock_get_rate(struct prom_hwclock *clk)
+static inline int
+translate_clk_id_domain(clockid_type_t fromclkidtype,
+    clockid_type_t toclkidtype, int clkid)
+{
+	if (fromclkidtype == toclkidtype)
+		return (clkid);
+
+	if (fromclkidtype == DTCLOCKID && toclkidtype == VCCLOCKID) {
+		switch (clkid) {
+		case DTPROP_CLK_UART: return (VCPROP_CLK_UART);
+		case DTPROP_CLK_EMMC: return (VCPROP_CLK_EMMC);
+		case DTPROP_CLK_EMMC2: return (VCPROP_CLK_EMMC2);
+		default: return (-1);
+		}
+	}
+
+	cmn_err(CE_WARN, "unknown clock ID domain translation from ID type %d "
+	    "to ID type %d", fromclkidtype, toclkidtype);
+
+	return (-1);
+}
+
+static int
+plat_vc_hwclock_rate(struct prom_hwclock *clk, clockid_type_t clkidtype,
+    int vcproptag, int rate)
 {
 	if (!prom_is_compatible(clk->node, "brcm,bcm2711-cprman"))
 		return (-1);
 
-	int id;
-	switch (clk->id) {
-	case DTPROP_CLK_ARM: id = VCPROP_CLK_ARM; break;
-	case DTPROP_CLK_UART: id = VCPROP_CLK_UART; break;
-	case DTPROP_CLK_EMMC: id = VCPROP_CLK_EMMC; break;
-	case DTPROP_CLK_EMMC2: id = VCPROP_CLK_EMMC2; break;
-	default: return (-1);
-	}
+	int id = translate_clk_id_domain(clkidtype, VCCLOCKID, clk->id);
+	if (id == -1)
+		cmn_err(CE_PANIC, "unknown clock ID type");
 
 	struct {
 		struct vcprop_buffer_hdr	vb_hdr;
@@ -288,14 +293,15 @@ plat_hwclock_get_rate(struct prom_hwclock *clk)
 		},
 		.vbt_clockrate = {
 			.tag = {
-				.vpt_tag = VCPROPTAG_GET_CLOCKRATE,
+				.vpt_tag = vcproptag,
 				.vpt_len = VCPROPTAG_LEN(vb.vbt_clockrate),
 				.vpt_rcode = VCPROPTAG_REQUEST,
 			},
 			.id = id,
+			.rate = rate,
 		},
 		.end = {
-			.vpt_tag = VCPROPTAG_NULL
+			.vpt_tag = VCPROPTAG_NULL,
 		},
 	};
 
@@ -307,6 +313,53 @@ plat_hwclock_get_rate(struct prom_hwclock *clk)
 		return (-1);
 
 	return (vb.vbt_clockrate.rate);
+}
+
+uint64_t
+plat_get_cpu_clock(int cpu_no)
+{
+	pnode_t node = 0;
+	int clkhz;
+
+	prom_walk(find_cprman, &node);
+	if (node == 0)
+		cmn_err(CE_PANIC, "cprman register is not found");
+
+	struct prom_hwclock clk = { node, VCPROP_CLK_ARM };
+	clkhz = plat_vc_hwclock_rate(&clk, VCCLOCKID,
+	    VCPROPTAG_GET_CLOCKRATE, 0);
+	if (clkhz == -1)
+		cmn_err(CE_PANIC, "unable to read CPU clock rate");
+
+	return (clkhz);
+}
+
+void
+plat_set_max_cpu_clock(int cpu_no)
+{
+	pnode_t node = 0;
+	int clkhz;
+
+	prom_walk(find_cprman, &node);
+	if (node == 0)
+		cmn_err(CE_PANIC, "cprman register is not found");
+
+	struct prom_hwclock clk = { node, VCPROP_CLK_ARM };
+	clkhz = plat_vc_hwclock_rate(&clk, VCCLOCKID,
+	    VCPROPTAG_GET_MAX_CLOCKRATE, 0);
+	if (clkhz == -1)
+		cmn_err(CE_PANIC, "unable to read maximum CPU clock rate");
+	clkhz = plat_vc_hwclock_rate(&clk, VCCLOCKID,
+	    VCPROPTAG_SET_CLOCKRATE, clkhz);
+	if (clkhz == -1)
+		cmn_err(CE_PANIC, "unable to set CPU clock rate");
+}
+
+int
+plat_hwclock_get_rate(struct prom_hwclock *clk)
+{
+	return (plat_vc_hwclock_rate(clk, DTCLOCKID,
+	    VCPROPTAG_GET_CLOCKRATE, 0));
 }
 
 int

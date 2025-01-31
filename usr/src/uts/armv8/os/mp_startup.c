@@ -122,14 +122,18 @@ init_cpu_info(struct cpu *cp)
 	cp->cpu_m.mcpu_midr = read_midr();
 	cp->cpu_m.mcpu_revidr = read_revidr();
 
-	/*
-	 * Get clock-frequency property for the CPU.
-	 */
-	if (&plat_get_cpu_clock) {
-		pi->pi_clock =
-		    (plat_get_cpu_clock(cp->cpu_id) + 500000) / 1000000;
+	/* set maximum supported CPU clock frequency */
+	if (&plat_set_max_cpu_clock != NULL)
+		plat_set_max_cpu_clock(cp->cpu_id);
+
+	/* Get clock-frequency property and current frequency for the CPU. */
+	if (&plat_get_cpu_clock != NULL) {
+		uint64_t clk = plat_get_cpu_clock(cp->cpu_id);
+		pi->pi_clock = (clk + 500000) / 1000000;
+		cp->cpu_curr_clock = clk;
 	} else {
 		pi->pi_clock = 1000;
+		cp->cpu_curr_clock = 1000 * 1000 * 1000;
 	}
 
 	strlcpy(pi->pi_processor_type, "AArch64", PI_TYPELEN);
@@ -148,15 +152,6 @@ init_cpu_info(struct cpu *cp)
 		strlcat(pi->pi_fputypes, "FP", PI_FPUTYPE);
 	else
 		strlcat(pi->pi_fputypes, "missing", PI_FPUTYPE);
-
-	/*
-	 * Current frequency in Hz.
-	 */
-	if (&plat_get_cpu_clock) {
-		cp->cpu_curr_clock = plat_get_cpu_clock(cp->cpu_id);
-	} else {
-		cp->cpu_curr_clock = (1000 * 1000 * 1000);
-	}
 
 	cp->cpu_idstr = kmem_zalloc(CPU_IDSTRLEN, KM_SLEEP);
 	snprintf(cp->cpu_idstr, CPU_IDSTRLEN - 1,
