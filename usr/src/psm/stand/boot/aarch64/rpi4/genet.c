@@ -36,7 +36,7 @@
 #include <sys/ethernet.h>
 #include "prom_dev.h"
 #include "genet.h"
-#include <sys/genetreg.h>
+#include <sys/bcm2711_genetreg.h>
 #include "boot_plat.h"
 
 #define ENET_ALIGN  DCACHE_LINE

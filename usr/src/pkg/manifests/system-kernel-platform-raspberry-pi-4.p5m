@@ -24,11 +24,11 @@ file path=platform/RaspberryPi,4/kernel/aarch64/unix mode=0755 \
     pkg.depend.bypass-generate=dtracestubs
 dir  path=platform/RaspberryPi,4/kernel/drv
 dir  path=platform/RaspberryPi,4/kernel/drv/aarch64
-file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711-emmc2
-file path=platform/RaspberryPi,4/kernel/drv/aarch64/genet
-file path=platform/RaspberryPi,4/kernel/drv/bcm2711-emmc2.conf
-file path=platform/RaspberryPi,4/kernel/drv/genet.conf
-driver name=bcm2711-emmc2 perms="* 0666 root sys" alias=brcm,bcm2711-emmc2
-driver name=genet perms="* 0666 root sys" alias=brcm,bcm2711-genet-v5
+file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711_emmctwo
+file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711_genet
+file path=platform/RaspberryPi,4/kernel/drv/bcm2711_emmctwo.conf
+file path=platform/RaspberryPi,4/kernel/drv/bcm2711_genet.conf
+driver name=bcm2711_emmctwo perms="* 0666 root sys" alias=brcm,bcm2711-emmc2
+driver name=bcm2711_genet perms="* 0666 root sys" alias=brcm,bcm2711-genet-v5
 license lic_CDDL license=lic_CDDL
 # XXXARM: Hayashi's copyright

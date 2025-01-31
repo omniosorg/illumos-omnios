@@ -40,9 +40,9 @@
 #include <sys/gpio.h>
 #include <sys/bcm2835_mbox.h>
 #include <sys/bcm2835_mboxreg.h>
-#include <sys/vcprop.h>
-#include <sys/vcio.h>
-#include <sys/mmcreg.h>
+#include <sys/bcm2835_vcprop.h>
+#include <sys/bcm2835_vcio.h>
+#include <sys/bcm2711_emmctworeg.h>
 #include "prom_dev.h"
 #include "boot_plat.h"
 #include "mmc.h"

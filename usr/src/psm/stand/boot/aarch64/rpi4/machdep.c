@@ -58,8 +58,8 @@
 
 #include <sys/bcm2835_mbox.h>
 #include <sys/bcm2835_mboxreg.h>
-#include <sys/vcprop.h>
-#include <sys/vcio.h>
+#include <sys/bcm2835_vcprop.h>
+#include <sys/bcm2835_vcio.h>
 
 #ifndef rounddown
 #define	rounddown(x, y)	(((x)/(y))*(y))

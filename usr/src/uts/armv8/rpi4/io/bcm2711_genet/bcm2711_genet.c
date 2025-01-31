@@ -43,7 +43,7 @@
 #include <sys/platmod.h>
 #include <sys/controlregs.h>
 #include <sys/obpdefs.h>
-#include "genet.h"
+#include "bcm2711_genet.h"
 
 #define	GENET_DMA_BUFFER_SIZE	1536
 
@@ -1289,7 +1289,7 @@ _init(void)
 {
 	int i;
 
-	mac_init_ops(&genet_devops, "genet");
+	mac_init_ops(&genet_devops, "bcm2711_genet");
 
 	if ((i = mod_install(&genet_modlinkage)) != 0) {
 		mac_fini_ops(&genet_devops);

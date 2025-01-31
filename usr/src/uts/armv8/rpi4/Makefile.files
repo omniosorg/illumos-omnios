@@ -23,8 +23,8 @@
 # Copyright 2017 Hayashi Naoyuki
 #
 
-GENET_OBJS += genet.o
-BRCM2711_EMMC2_OBJS += bcm2711-emmc2.o
+BCM2711_EMMCTWO_OBJS += bcm2711_emmctwo.o
+BCM2711_GENET_OBJS += bcm2711_genet.o
 
 # XXXARM: I might be mis-using this.  These are what would be the platmod, if
 # we didn't need it so early for console I/O

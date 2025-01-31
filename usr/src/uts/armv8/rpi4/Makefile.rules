@@ -23,11 +23,11 @@
 # Copyright 2017 Hayashi Naoyuki
 #
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/genet/%.c
+$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/bcm2711_genet/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/bcm2711-emmc2/%.c
+$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/bcm2711_emmctwo/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 

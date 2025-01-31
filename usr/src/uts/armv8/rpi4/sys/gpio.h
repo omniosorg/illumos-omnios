@@ -23,8 +23,8 @@
  * Copyright 2017 Hayashi Naoyuki
  */
 
-#ifndef _IO_GPIO_H
-#define _IO_GPIO_H
+#ifndef _SYS_GPIO_H
+#define _SYS_GPIO_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,4 +43,4 @@ struct gpio_ctrl {
 }
 #endif
 
-#endif	/* _IO_GPIO_H */
+#endif	/* _SYS_GPIO_H */

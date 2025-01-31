@@ -34,13 +34,13 @@
 #include <sys/sysmacros.h>
 #include <sys/platmod.h>
 #include <sys/gpio.h>
-#include <sys/mmcreg.h>
+#include <sys/bcm2711_emmctworeg.h>
 #include <sys/sdcard/sda.h>
 #include <sys/callo.h>
 #include <sys/ddi_subrdefs.h>
 #include <sys/obpdefs.h>
 
-#include "bcm2711-emmc2.h"
+#include "bcm2711_emmctwo.h"
 
 #define	MMC_BUFFER_SIZE		0x10000
 #define	MMC_REQUESTS_MAX	0x20
