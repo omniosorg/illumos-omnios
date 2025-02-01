@@ -4172,6 +4172,7 @@ usr/src/man/man3c/schedctl_lookup.3c
 usr/src/man/man3c/schedctl_start.3c
 usr/src/man/man3c/schedctl_stop.3c
 usr/src/man/man3c/seconvert.3c
+usr/src/man/man3c/secure_getenv.3c
 usr/src/man/man3c/seed48.3c
 usr/src/man/man3c/sem_clockwait.3c
 usr/src/man/man3c/sem_relclockwait_np.3c
@@ -8691,12 +8692,14 @@ usr/src/pkg/license-list
 usr/src/pkg/packages.i386/
 usr/src/pkg/proto_list_i386
 usr/src/test/bhyve-tests/tests/inst_emul/cpuid
+usr/src/test/bhyve-tests/tests/inst_emul/cpuid_guest_state
 usr/src/test/bhyve-tests/tests/inst_emul/exit_consistent
 usr/src/test/bhyve-tests/tests/inst_emul/exit_paging
 usr/src/test/bhyve-tests/tests/inst_emul/imul
 usr/src/test/bhyve-tests/tests/inst_emul/inout
 usr/src/test/bhyve-tests/tests/inst_emul/page_dirty
 usr/src/test/bhyve-tests/tests/inst_emul/payload_cpuid
+usr/src/test/bhyve-tests/tests/inst_emul/payload_cpuid_guest_state
 usr/src/test/bhyve-tests/tests/inst_emul/payload_exit_consistent
 usr/src/test/bhyve-tests/tests/inst_emul/payload_exit_paging
 usr/src/test/bhyve-tests/tests/inst_emul/payload_imul
@@ -8708,6 +8711,7 @@ usr/src/test/bhyve-tests/tests/inst_emul/payload_triple_fault
 usr/src/test/bhyve-tests/tests/inst_emul/payload_vcpu_barrier
 usr/src/test/bhyve-tests/tests/inst_emul/payload_wrmsr
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_cpuid.s
+usr/src/test/bhyve-tests/tests/inst_emul/pobj_cpuid_guest_state.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_exit_consistent.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_exit_paging.s
 usr/src/test/bhyve-tests/tests/inst_emul/pobj_imul.s
@@ -9223,6 +9227,8 @@ usr/src/test/os-tests/tests/secflags/secflags_syscall
 usr/src/test/os-tests/tests/secflags/secflags_truss
 usr/src/test/os-tests/tests/secflags/secflags_zonecfg
 usr/src/test/os-tests/tests/secflags/stacky
+usr/src/test/os-tests/tests/secure_getenv/checker
+usr/src/test/os-tests/tests/secure_getenv/secure_getenv
 usr/src/test/os-tests/tests/signalfd/basic_args
 usr/src/test/os-tests/tests/signalfd/basic_read
 usr/src/test/os-tests/tests/signalfd/multipoll
