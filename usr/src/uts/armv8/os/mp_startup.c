@@ -171,12 +171,11 @@ init_cpu_info(struct cpu *cp)
 	cp->cpu_revision = kmem_zalloc(16, KM_SLEEP);
 	sprintf(cp->cpu_revision, "%ld", MIDR_REVISION(cp->cpu_m.mcpu_midr));
 
-	/*
-	 * Supported frequencies.
-	 */
-	if (cp->cpu_supp_freqs == NULL) {
+	/* Supported frequencies */
+	if (&plat_set_cpu_supp_freqs != NULL)
+		plat_set_cpu_supp_freqs(cp);
+	if (cp->cpu_supp_freqs == NULL)
 		cpu_set_supp_freqs(cp, NULL);
-	}
 }
 
 /*

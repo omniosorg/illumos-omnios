@@ -60,6 +60,7 @@ CORE_OBJS +=			\
 	hardclk.o		\
 	confunix.o		\
 	mach_kdi.o		\
+	cpupm.o			\
 	cpupm_mach.o		\
 	mlsetup.o		\
 	ppage.o			\

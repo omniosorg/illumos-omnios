@@ -37,6 +37,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/cpuvar.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -49,6 +50,7 @@ struct prom_hwclock;
 
 #pragma weak	plat_get_cpu_clock
 #pragma weak	plat_set_max_cpu_clock
+#pragma weak	plat_set_cpu_supp_freqs
 #pragma weak	plat_gpio_get
 #pragma weak	plat_gpio_set
 #pragma weak	plat_hwclock_get_rate
@@ -58,6 +60,7 @@ struct prom_hwclock;
  */
 extern uint64_t plat_get_cpu_clock(int cpu_no);
 extern void plat_set_max_cpu_clock(int cpu_no);
+extern void plat_set_cpu_supp_freqs(cpu_t *cp);
 
 /*
  * Called in bcm2711-emmc2.c to drive the GPIO regulator when switching to 1v8.

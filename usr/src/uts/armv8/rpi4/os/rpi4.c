@@ -22,6 +22,7 @@
 /*
  * Copyright 2021 Hayashi Naoyuki
  * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2025 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
@@ -41,6 +42,7 @@
 #include <sys/ddi_implfuncs.h>
 #include <sys/ddi_subrdefs.h>
 #include <sys/param.h>
+#include <sys/cpupm.h>
 #include <vm/hat.h>
 #include <sys/bcm2835_mbox.h>
 #include <sys/bcm2835_vcprop.h>
@@ -284,4 +286,34 @@ plat_gpio_set(struct gpio_ctrl *gpio, int value)
 		return (-1);
 
 	return (0);
+}
+
+void
+plat_set_cpu_supp_freqs(cpu_t *cp)
+{
+	int supp_freqs[] = {
+		1500,
+		1000,
+		750,
+		600,
+	};
+
+	pnode_t node = 0;
+
+	prom_walk(find_cprman, &node);
+	if (node == 0)
+		cmn_err(CE_PANIC, "cprman register is not found");
+
+	struct prom_hwclock clk = { node, VCPROP_CLK_ARM };
+	int clkhz = plat_vc_hwclock_rate(&clk, VCCLOCKID,
+	    VCPROPTAG_GET_MAX_CLOCKRATE, 0);
+	if (clkhz == -1) {
+		cmn_err(CE_WARN, "unable to read maximum CPU clock rate; "
+		    "assuming %d MHz", supp_freqs[0]);
+	} else {
+		supp_freqs[0] = (clkhz + 500000) / 1000000;
+	}
+
+	cpupm_set_supp_freqs(cp, supp_freqs,
+	    sizeof (supp_freqs) / sizeof (supp_freqs[0]));
 }
