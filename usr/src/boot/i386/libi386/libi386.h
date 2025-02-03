@@ -144,6 +144,8 @@ int	bi_load64(char *args, vm_offset_t addr, vm_offset_t *modulep,
 	    vm_offset_t *kernend, int add_smap);
 int	bi_checkcpu(void);
 void	bi_isadir(void);
+void	bi_basearch(void);
+void	bi_implarch(void);
 
 int	mb_kernel_cmdline(struct preloaded_file *, struct devdesc *, char **);
 void	multiboot_tramp(uint32_t, vm_offset_t, vm_offset_t);

@@ -941,6 +941,8 @@ main(int argc, CHAR16 *argv[])
 	autoload_font(false);		/* Set up the font list for console. */
 	efi_init_environment();
 	bi_isadir();			/* set ISADIR */
+	bi_basearch();			/* set BASEARCH */
+	bi_implarch();			/* set IMPLARCH */
 	acpi_detect();
 
 	if ((ptr = efi_get_table(&gEfiSmbios3TableGuid)) == NULL)

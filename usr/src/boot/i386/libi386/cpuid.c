@@ -142,3 +142,26 @@ bi_isadir(void)
 		    "variable: %d\n", rc);
 	}
 }
+
+void
+bi_basearch(void)
+{
+	int rc;
+	if ((rc = setenv("BASEARCH", "i86pc", 1)) != 0) {
+		printf("Warning: failed to set BASEARCH environment "
+		    "variable: %d\n", rc);
+	}
+}
+
+/*
+ * IMPLARCH is the same as BASEARCH for i86pc.
+ */
+void
+bi_implarch(void)
+{
+	int rc;
+	if ((rc = setenv("IMPLARCH", "i86pc", 1)) != 0) {
+		printf("Warning: failed to set IMPLARCH environment "
+		    "variable: %d\n", rc);
+	}
+}

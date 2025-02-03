@@ -80,7 +80,11 @@ static vm_offset_t loadaddr = 0;
 #if defined(LOADER_FDT_SUPPORT)
 static const char *default_searchpath = "/boot/kernel;/boot/modules;/boot/dtb";
 #else
+#if defined(__aarch64__)
+static const char *default_searchpath = "/platform/armv8";
+#else
 static const char *default_searchpath = "/platform/i86pc";
+#endif
 #endif
 
 static STAILQ_HEAD(, moduledir) moduledir_list =
