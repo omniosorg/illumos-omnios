@@ -443,12 +443,29 @@ elf64_exec(struct preloaded_file *fp)
 	 * aarch64 systems can only have ACPI 2.0 tables.
 	 *
 	 * We have to have either ACPI or FDT. If both are present we'll
-	 * only present ACPI to the OS.
+	 * only present ACPI to the OS. This is aligned with EBBR.
 	 */
 	if (efi_get_table(&gEfiAcpi20TableGuid) == NULL) {
 		if (efi_get_table(&gFdtTableGuid) == NULL) {
 			printf("can't determine firmware table type\n");
 			return (EFTYPE);
+		} else {
+			uint64_t dtbp;
+			extern const void *efi_get_fdtp(void);
+
+			if ((dtbp = (uint64_t)efi_get_fdtp()) == 0) {
+				printf("can't retrieve FDT pointer\n");
+				return (EFTYPE);
+			}
+
+			file_addmetadata(fp, MODINFOMD_DTBP,
+			    sizeof (dtbp), &dtbp);
+		}
+	} else {
+		if (efi_get_table(&gFdtTableGuid) != NULL) {
+			printf("WARNING: Both FDT and ACPI configuration "
+			    "tables detected. Only ACPI will be presented "
+			    "to the kernel.\n");
 		}
 	}
 

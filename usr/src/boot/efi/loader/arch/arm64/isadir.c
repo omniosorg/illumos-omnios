@@ -41,10 +41,24 @@ bi_basearch(void)
 void
 bi_implarch(void)
 {
+	const void *fdtp;
 	int rc;
 
-	if ((rc = setenv("IMPLARCH", "armv8", 1)) != 0) {
-		printf("Warning: failed to set IMPLARCH environment "
-		    "variable: %d\n", rc);
+	extern void bi_implarch_fdt(const void *);
+	extern const void *efi_get_fdtp(void);
+
+	if ((fdtp = efi_get_fdtp()) != NULL) {
+		bi_implarch_fdt(fdtp);
+		return;
+	} else {
+		if ((rc = setenv("IMPLARCH", "armv8", 1)) != 0) {
+			printf("Warning: failed to set IMPLARCH environment "
+			    "variable: %d\n", rc);
+		}
+
+		if ((rc = setenv("impl-arch-name", "armv8", 1)) != 0) {
+			printf("Warning: failed to set impl-arch-name "
+			    "environment variable: %d\n", rc);
+		}
 	}
 }
