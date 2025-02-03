@@ -214,7 +214,7 @@ PYTHON3_SUFFIX=
 PYTHON3=		/usr/bin/python$(PYTHON3_VERSION)
 # BUILDPY3b allows for building python modules with a secondary version to aid
 # migration.
-#BUILDPY3b=
+BUILDPY3b=		$(POUND_SIGN)
 #PYTHON3b_VERSION=	3.14
 #PYTHON3b_PKGVERS=	-314
 #PYTHON3b_SUFFIX=
