@@ -34,7 +34,7 @@ UTSBASE	= ../../..
 MODULE		= bcm2711_emmctwo
 OBJECTS		= $(BCM2711_EMMCTWO_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(ROOT_RPI4_DRV_DIR)/$(MODULE)
-CONF_SRCDIR	= $(UTSBASE)/armv8/rpi4/io/$(MODULE)/
+CONF_SRCDIR	= $(UTSBASE)/armv8/rpi4/io/$(MODULE)
 
 #
 #	Include common rules.
@@ -52,13 +52,6 @@ INSTALL_TARGET	= $(BINARY) $(ROOTMODULE) $(ROOT_CONFFILE)
 #
 ALL_BUILDS	= $(ALL_BUILDSONLY64)
 DEF_BUILDS	= $(DEF_BUILDSONLY64)
-
-#
-# For now, disable these warnings; maintainers should endeavor
-# to investigate and remove these for maximum coverage.
-# Please do not carry these forward to new Makefiles.
-#
-CFLAGS += $(CCVERBOSE)
 
 #	Dependency
 LDFLAGS += -Ndrv/blkdev

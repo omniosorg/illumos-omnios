@@ -23,6 +23,8 @@
  * Copyright 2025 OmniOS Community Edition (OmniOSce) Association.
  */
 
+#include <sys/types.h>
+#include <sys/platform.h>
 #include <sys/promif.h>
 #include <sys/byteorder.h>
 #include <sys/debug.h>
@@ -39,11 +41,51 @@
 #include <sys/callo.h>
 #include <sys/ddi_subrdefs.h>
 #include <sys/obpdefs.h>
-
-#include "bcm2711_emmctwo.h"
+#include <sys/blkdev.h>
 
 #define	MMC_BUFFER_SIZE		0x10000
 #define	MMC_REQUESTS_MAX	0x20
+
+struct mmc_sc {
+	dev_info_t *dip;
+	bd_handle_t bdh;
+	kmutex_t lock;
+
+	uint32_t interrupted;
+
+	uint32_t ocr;
+	uint32_t ocr_avail;
+	uint32_t vdd;
+	uint32_t csd[4];
+	uint32_t cid[4];
+	uint32_t capacity;
+	uint32_t scr[2];
+	uint32_t func_status[16];
+	uint32_t rca;
+
+	boolean_t tune_req;
+	boolean_t in_tuning;
+	boolean_t tuning_enable;
+	boolean_t detach;
+
+	ddi_taskq_t *tq;
+	list_t free_request;
+
+	/* register access */
+	caddr_t base;
+	ddi_acc_handle_t handle;
+
+	/* interrupt */
+	ddi_intr_handle_t ihandle;
+	kmutex_t intrlock;
+	kcondvar_t waitcv;
+
+	/* dma */
+	caddr_t			buffer;
+	ddi_dma_handle_t	buf_dmah;
+	ddi_acc_handle_t	buf_acch;
+	ddi_dma_cookie_t	buf_dmac;
+};
 
 static const ddi_device_acc_attr_t reg_acc_attr = {
 	.devacc_attr_version = DDI_DEVICE_ATTR_V1,

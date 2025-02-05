@@ -23,6 +23,7 @@
  * Copyright 2025 OmniOS Community Edition (OmniOSce) Association.
  */
 
+#include <sys/types.h>
 #include <sys/promif.h>
 #include <sys/miiregs.h>
 #include <sys/ethernet.h>
@@ -32,9 +33,12 @@
 #include <sys/conf.h>
 #include <sys/modctl.h>
 #include <sys/vlan.h>
+#include <sys/platform.h>
 #include <sys/mac.h>
 #include <sys/mac_ether.h>
+#include <sys/mii.h>
 #include <sys/strsun.h>
+#include <sys/sunddi.h>
 #include <sys/sunndi.h>
 #include <sys/ndi_impldefs.h>
 #include <sys/ddi_impldefs.h>
@@ -43,9 +47,80 @@
 #include <sys/platmod.h>
 #include <sys/controlregs.h>
 #include <sys/obpdefs.h>
-#include "bcm2711_genet.h"
+#include <sys/bcm2711_genetreg.h>
 
 #define	GENET_DMA_BUFFER_SIZE	1536
+
+struct genet_reg {
+	ddi_acc_handle_t handle;
+	caddr_t addr;
+};
+
+struct genet_dma {
+	caddr_t addr;
+	size_t size;
+	uint64_t dmac_addr;
+	ddi_dma_handle_t dma_handle;
+	ddi_acc_handle_t mem_handle;
+};
+
+struct genet_sc;
+struct genet_packet {
+	struct genet_packet *next;
+	struct genet_dma dma;
+	mblk_t *mp;
+	frtn_t free_rtn;
+	struct genet_sc *sc;
+};
+
+struct genet_mcast {
+	list_node_t		node;
+	uint8_t			addr[ETHERADDRL];
+};
+
+#define RX_PKT_NUM_MAX	GENET_DMA_DESC_COUNT
+
+struct genet_desc_tx_ring {
+	struct genet_dma desc;
+	struct genet_packet *pkt[GENET_DMA_DESC_COUNT];
+
+	mblk_t *mp[GENET_DMA_DESC_COUNT];
+
+	int p_index;
+	int c_index;
+};
+
+struct genet_desc_rx_ring {
+	struct genet_dma desc;
+	struct genet_packet *pkt[GENET_DMA_DESC_COUNT];
+	int c_index;
+};
+
+struct genet_sc {
+	dev_info_t *dip;
+	kmutex_t intrlock;
+	kmutex_t rx_pkt_lock;
+	int rx_pkt_num;
+
+	mac_handle_t mac_handle;
+	mii_handle_t mii_handle;
+	ddi_intr_handle_t intr_handle;
+	link_duplex_t phy_duplex;
+
+	mac_register_t *macp;
+	struct genet_reg reg;
+	struct genet_desc_tx_ring tx_ring;
+	struct genet_desc_rx_ring rx_ring;
+	int running;
+	int phy_speed;
+	int phy_id;
+	uint8_t dev_addr[ETHERADDRL];
+	struct genet_packet *rx_pkt_free;
+	list_t mcast;
+	uint32_t default_mtu;
+	uint32_t pkt_size;
+	boolean_t promisc;
+};
 
 static const ddi_device_acc_attr_t mem_acc_attr = {
 	.devacc_attr_version = DDI_DEVICE_ATTR_V1,
@@ -434,8 +509,6 @@ genet_alloc_packet(struct genet_sc *sc)
 static boolean_t
 genet_alloc_buffer(struct genet_sc *sc)
 {
-	int len;
-
 	for (int index = 0; index < GENET_DMA_DESC_COUNT; index++) {
 		struct genet_packet *pkt = genet_alloc_packet(sc);
 		if (!pkt)
@@ -666,8 +739,6 @@ static void
 genet_mii_notify(void *arg, link_state_t link)
 {
 	struct genet_sc *sc = arg;
-	uint32_t gmac;
-	uint32_t gpcr;
 	link_flowctrl_t fc __unused; /* XXXARM */
 	link_duplex_t duplex;
 	int speed;
