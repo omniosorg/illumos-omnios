@@ -1042,27 +1042,22 @@ vmbus_intr_setup_cpu(cpu_setup_t what, int cpu, void *arg)
 		return (0);
 	}
 
-	if (VMBUS_PCPU_GET(sc, event_tq, cpu) != NULL) {
+	if (VMBUS_PCPU_GET(sc, event_tq, cpu) == NULL) {
 		char tq_name[MAXPATHLEN];
 
 		/* Allocate an interrupt counter for Hyper-V interrupt */
 		VMBUS_PCPU_GET(sc, intr_cnt, cpu) = 0;
 
-		/*
-		 * Setup taskq to handle events.  Task will be per-
-		 * channel.
-		 */
+		/* Set up taskq to handle events. Task will be per- channel */
 		(void) snprintf(tq_name, sizeof (tq_name), "hyperv_event_%d",
 		    cpu);
-		*VMBUS_PCPU_PTR(sc, event_tq, cpu) = ddi_taskq_create(NULL,
+		VMBUS_PCPU_GET(sc, event_tq, cpu) = ddi_taskq_create(NULL,
 		    tq_name, 1, maxclsyspri, 0);
 
-		/*
-		 * Setup tasks and taskq to handle messages.
-		 */
+		/* Set up tasks and taskq to handle messages */
 		(void) snprintf(tq_name, sizeof (tq_name), "hyperv_msg_%d",
 		    cpu);
-		*VMBUS_PCPU_PTR(sc, message_tq, cpu) = ddi_taskq_create(NULL,
+		VMBUS_PCPU_GET(sc, message_tq, cpu) = ddi_taskq_create(NULL,
 		    tq_name, 1, maxclsyspri, 0);
 	}
 
@@ -1261,8 +1256,6 @@ vmbus_add_child(struct vmbus_channel *chan)
 int
 vmbus_delete_child(struct vmbus_channel *chan)
 {
-	ASSERT(MUTEX_HELD(&vmbus_lock));
-
 	if (chan->ch_dev == NULL)
 		return (DDI_SUCCESS);
 
