@@ -18,15 +18,29 @@
 #
 # CDDL HEADER END
 #
-
+# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/virt/io/%.c
-	$(COMPILE.c) -o $@ $<
-	$(CTFCONVERT_O)
+#
+#	This Makefile defines the build rules for the directory
+#	uts/armv8/virt.
+#
+#	The following two-level ordering must be maintained in this file.
+#	  Lines are sorted first in order of decreasing specificity based on
+#	  the first directory component.  That is, virt rules come before
+#	  armv8 rules come before aarch64 rules come before common rules.
+#
+#	  Lines whose initial directory components are equal are sorted
+#	  alphabetically by the remaining components.
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/virt/os/%.c
+#
+#	Section 1a: C object build rules
+#
+
+$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/virt/os/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)

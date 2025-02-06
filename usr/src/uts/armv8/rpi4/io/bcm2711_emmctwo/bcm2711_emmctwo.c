@@ -248,7 +248,11 @@ set_gpio_regulator(uint32_t microvolt, struct gpio_regulator *regulator)
 	}
 	if (i == regulator->nstates)
 		return (-1);
-	return (plat_gpio_set(&regulator->gpios[0], regulator->states[i].val));
+	if (&plat_gpio_set)
+		return (plat_gpio_set(
+		    &regulator->gpios[0], regulator->states[i].val));
+	else
+		return (-1);
 }
 
 static int
@@ -256,7 +260,11 @@ get_gpio_regulator(uint32_t *microvolt, struct gpio_regulator *regulator)
 {
 	ASSERT3S(regulator->ngpios, ==, 1);
 	ASSERT3S(regulator->nstates, ==, 2);
-	int val = plat_gpio_get(&regulator->gpios[0]);
+	int val;
+	if (&plat_gpio_get)
+		val = plat_gpio_get(&regulator->gpios[0]);
+	else
+		return (-1);
 	if (val < 0)
 		return (-1);
 	int i;

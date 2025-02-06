@@ -22,6 +22,7 @@
 
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
 #
@@ -47,15 +48,25 @@ check		:=	TARGET= check
 #
 .KEEP_STATE:
 
-def all clean clobber: unix $(RPI4_KMODS)
+def all clean clobber: $(RPI4_KMODS)
 
 IMPLEMENTED_PLATFORM	= RaspberryPi,4
+PPLINKED_PLATFORMS	= raspberrypi,4-model-b
 
-install:	$(ROOT_RPI4_DIR) .WAIT unix $(RPI4_KMODS)
+#
+# $(USR_RPI4_DIR)
+# $(USR_RPI4_SBIN_DIR)
+# $(USR_RPI4_LIB_DIR)
+# $(ROOT_RPI4_LIB_DIR)
+# $(LINKED_PLATFORMS:%=$(USR_PLAT_DIR)/%)
+#
+install:	$(ROOT_RPI4_DIR) \
+		$(PPLINKED_PLATFORMS:%=$(ROOT_PLAT_DIR)/%) \
+		.WAIT $(RPI4_KMODS)
 
 install_h check:
 
-unix $(RPI4_KMODS):	FRC
+$(RPI4_KMODS):  FRC
 	@cd $@; pwd; $(MAKE) $(NO_STATE) $(TARGET)
 
 #

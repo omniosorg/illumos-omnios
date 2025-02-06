@@ -18,17 +18,26 @@
 #
 # CDDL HEADER END
 #
-
+# uts/armv8/virt/Makefile.files
+# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 #
 # Copyright 2017 Hayashi Naoyuki
-# Copyright 2024 Michael van der Westhuizen
+# Copyright 2025 Michael van der Westhuizen
 #
 
-# XXXARM: I might be mis-using this.  These are what would be the platmod, if
-# we didn't need it so early for console I/O
-CORE_OBJS += virt.o
+#
+#	Global definitions for armv8 virt implementation specific modules.
+#
 
 #
-# Miscellaneous
+# Define objects.
 #
-INC_PATH	+= -I$(UTSBASE)/armv8/virt
+
+# Qemu Virt platform module
+VIRT_PLATMOD_OBJS	= virt.o
+
+#
+#	include virt header files
+#
+INC_PATH	+= -I$(UTSBASE)/armv8 -I$(UTSBASE)/armv8/virt

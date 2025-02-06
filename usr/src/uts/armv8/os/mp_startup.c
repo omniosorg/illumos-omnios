@@ -125,7 +125,12 @@ init_cpu_info(struct cpu *cp)
 	/*
 	 * Get clock-frequency property for the CPU.
 	 */
-	pi->pi_clock = (plat_get_cpu_clock(cp->cpu_id) + 500000) / 1000000;
+	if (&plat_get_cpu_clock) {
+		pi->pi_clock =
+		    (plat_get_cpu_clock(cp->cpu_id) + 500000) / 1000000;
+	} else {
+		pi->pi_clock = 1000;
+	}
 
 	strlcpy(pi->pi_processor_type, "AArch64", PI_TYPELEN);
 
@@ -147,7 +152,11 @@ init_cpu_info(struct cpu *cp)
 	/*
 	 * Current frequency in Hz.
 	 */
-	cp->cpu_curr_clock = plat_get_cpu_clock(cp->cpu_id);
+	if (&plat_get_cpu_clock) {
+		cp->cpu_curr_clock = plat_get_cpu_clock(cp->cpu_id);
+	} else {
+		cp->cpu_curr_clock = (1000 * 1000 * 1000);
+	}
 
 	cp->cpu_idstr = kmem_zalloc(CPU_IDSTRLEN, KM_SLEEP);
 	snprintf(cp->cpu_idstr, CPU_IDSTRLEN - 1,

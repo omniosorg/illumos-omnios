@@ -22,6 +22,7 @@
 
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
 #
@@ -47,15 +48,29 @@ check		:=	TARGET= check
 #
 .KEEP_STATE:
 
-def all clean clobber: unix $(VIRT_KMODS)
+# add unix here for platforms that have a special kernel
+def all clean clobber: $(VIRT_KMODS)
 
 IMPLEMENTED_PLATFORM	= QEMU,virt
+PPLINKED_PLATFORMS	= linux,dummy-virt
 
-install:	$(ROOT_VIRT_DIR) .WAIT unix $(VIRT_KMODS)
+#
+# $(USR_VIRT_DIR)
+# $(USR_VIRT_SBIN_DIR)
+# $(USR_VIRT_LIB_DIR)
+# $(USR_VIRT_LIB_DIR)
+# $(ROOT_VIRT_LIB_DIR)
+# $(LINKED_PLATFORMS:%=$(USR_PLAT_DIR)/%)
+#
+# Add unix here for platforms that have a special kernel
+#
+install:	$(ROOT_VIRT_DIR) \
+		$(PPLINKED_PLATFORMS:%=$(ROOT_PLAT_DIR)/%) \
+		.WAIT $(VIRT_KMODS)
 
 install_h check:
 
-unix $(VIRT_KMODS):	FRC
+$(VIRT_KMODS):	FRC
 	@cd $@; pwd; $(MAKE) $(NO_STATE) $(TARGET)
 
 #

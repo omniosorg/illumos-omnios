@@ -21,9 +21,11 @@
 
 /*
  * Copyright 2021 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
+#include <sys/systm.h>
 #include <sys/machclock.h>
 #include <sys/platform.h>
 #include <sys/modctl.h>
@@ -61,8 +63,15 @@
 #define	DTPROP_CLK_EMMC		0x1C	/* 28: VCPROP_CLK_EMMC (1) */
 #define	DTPROP_CLK_EMMC2	0x33	/* 51: VCPROP_CLK_EMMC2 (12) */
 
+/*
+ * Platform power management drivers list - empty by default
+ */
+char *platform_module_list[] = {
+	NULL,
+};
+
 void
-set_platform_defaults(void)
+plat_tod_fault(enum tod_fault_type tod_bad __unused)
 {
 }
 

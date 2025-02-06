@@ -21,6 +21,7 @@
 
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
 include $(SRC)/Makefile.master
@@ -41,6 +42,7 @@ OBJS +=				\
 	aarch64_subr.o		\
 	arch_timer.o		\
 	assfail.o		\
+	board_util.o		\
 	bitext.o		\
 	boot_aarch64.o		\
 	boot_plat.o		\

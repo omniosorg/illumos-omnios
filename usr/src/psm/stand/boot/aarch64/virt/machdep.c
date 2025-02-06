@@ -23,8 +23,8 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
  * Copyright 2020 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -73,6 +73,8 @@ char *v2args = v2args_buf;
 extern char *bootp_response;
 
 extern	int (*readfile(int fd, int print))();
+extern void set_board_info(const void *fdtp);
+extern const char * get_impl_arch(void);
 extern	void kmem_init(void);
 extern	void *kmem_alloc(size_t, int);
 extern	void kmem_free(void *, size_t);
@@ -93,10 +95,6 @@ extern uint32_t psci_cpu_off_id;
 extern uint32_t psci_cpu_on_id;
 extern uint32_t psci_migrate_id;
 extern boolean_t pcsi_method_is_hvc;
-
-#define	SI_HW_PROVIDER	"QEMU"
-#define	IMPL_ARCH_NAME	"QEMU,virt"
-#define	MFG_NAME	IMPL_ARCH_NAME
 
 static struct boot_modules boot_modules[MAX_BOOT_MODULES] = {
 	{ 0, 0, 0, BMT_ROOTFS },
@@ -382,21 +380,6 @@ load_ramdisk(void *virt, const char *name)
 	}
 }
 
-#define	MAXNMLEN	80		/* # of chars in an impl-arch name */
-
-/*
- * Return the manufacturer name for this platform.
- *
- * This is exported (solely) as the rootnode name property in
- * the kernel's devinfo tree via the 'mfg-name' boot property.
- * So it's only used by boot, not the boot blocks.
- */
-char *
-get_mfg_name(void)
-{
-	return (MFG_NAME);
-}
-
 static char *
 get_node_name(pnode_t nodeid)
 {
@@ -460,11 +443,9 @@ _reset(void)
 void
 init_machdev(void)
 {
-	setenv("si-hw-provider", SI_HW_PROVIDER);
-	setenv("impl-arch-name", IMPL_ARCH_NAME);
-	setenv("mfg-name", MFG_NAME);
+	set_board_info(get_fdtp());
 
-	char str[] = IMPL_ARCH_NAME;
+	const char *str = get_impl_arch();
 	int namelen = prom_getproplen(prom_rootnode(), "compatible");
 	namelen += strlen(str) + 1;
 	char *compatible = __builtin_alloca(namelen);

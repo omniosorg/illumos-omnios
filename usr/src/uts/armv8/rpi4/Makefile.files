@@ -18,19 +18,30 @@
 #
 # CDDL HEADER END
 #
-
+# uts/armv8/rpi4/Makefile.files
+# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
-BCM2711_EMMCTWO_OBJS += bcm2711_emmctwo.o
-BCM2711_GENET_OBJS += bcm2711_genet.o
-
-# XXXARM: I might be mis-using this.  These are what would be the platmod, if
-# we didn't need it so early for console I/O
-CORE_OBJS += rpi4.o
+#
+#	Global definitions for rpi4 implementation specific modules.
+#
 
 #
-# Miscellaneous
+#	Define objects.
 #
-INC_PATH	+= -I$(UTSBASE)/armv8/rpi4
+
+# bcm2711 drivers
+BCM2711_EMMCTWO_OBJS	+= bcm2711_emmctwo.o
+BCM2711_GENET_OBJS	+= bcm2711_genet.o
+
+# Raspberry Pi 4 platform module
+RPI4_PLATMOD_OBJS	= rpi4.o
+
+#
+#	include rpi4 header files
+#
+INC_PATH	+= -I$(UTSBASE)/armv8 -I$(UTSBASE)/armv8/rpi4

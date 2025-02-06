@@ -18,30 +18,62 @@
 #
 # CDDL HEADER END
 #
-
+#
+# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 #
 # Copyright 2021 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
 #
-# Define directories
+#	Global definitions for armv8 rpi4 implementation specific modules.
 #
-ROOT_RPI4_DIR	= $(ROOT_PLAT_DIR)/RaspberryPi,4
+
+#
+#	Define directories.
+#
+ROOT_RPI4_DIR		= $(ROOT_PLAT_DIR)/RaspberryPi,4
 ROOT_RPI4_MOD_DIR	= $(ROOT_RPI4_DIR)/kernel
-ROOT_RPI4_KERN_DIR = $(ROOT_RPI4_MOD_DIR)/$(SUBDIR64)
-ROOT_RPI4_DRV_DIR	= $(ROOT_RPI4_MOD_DIR)/drv/$(SUBDIR64)
-ROOT_RPI4_MISC_DIR = $(ROOT_RPI4_MOD_DIR)/misc/$(SUBDIR64)
+ROOT_RPI4_MISC_DIR_32	= $(ROOT_RPI4_DIR)/kernel/misc
+ROOT_RPI4_MISC_DIR_64	= $(ROOT_RPI4_MISC_DIR_32)/$(SUBDIR64)
+ROOT_RPI4_KERN_DIR_32	= $(ROOT_RPI4_MOD_DIR)
+ROOT_RPI4_KERN_DIR_64	= $(ROOT_RPI4_MOD_DIR)/$(SUBDIR64)
+ROOT_RPI4_DRV_DIR_32	= $(ROOT_RPI4_MOD_DIR)/drv
+ROOT_RPI4_DRV_DIR_64	= $(ROOT_RPI4_MOD_DIR)/drv/$(SUBDIR64)
+
+ROOT_RPI4_KERN_DIR	= $(ROOT_RPI4_KERN_DIR_$(CLASS))
+ROOT_RPI4_DRV_DIR	= $(ROOT_RPI4_DRV_DIR_$(CLASS))
+ROOT_RPI4_MISC_DIR	= $(ROOT_RPI4_MISC_DIR_$(CLASS))
 
 ROOT_PLAT_MOD_DIRS	+= $(ROOT_RPI4_MOD_DIR)
 ROOT_PLAT_MISC_DIRS	+= $(ROOT_RPI4_MISC_DIR)
-ROOT_PLAT_DRV_DIRS	= $(ROOT_RPI4_DRV_DIR)
+
+ROOT_RPI4_LIB_DIR	= $(ROOT_RPI4_DIR)/lib
+
+USR_ARMV8_PLAT_DIR	= $(USR_PLAT_DIR)/$(PLATFORM)
+USR_RPI4_DIR		= $(USR_PLAT_DIR)/RaspberryPi,4
+USR_RPI4_SBIN_DIR	= $(USR_RPI4_DIR)/sbin
+USR_RPI4_INC_DIR	= $(USR_RPI4_DIR)/include
+USR_RPI4_LIB_DIR	= $(USR_RPI4_DIR)/lib
+USR_RPI4_ISYS_DIR	= $(USR_RPI4_INC_DIR)/sys
 
 #
-# Define modules
+#	Define modules.
 #
-RPI4_KMODS	=	\
-	bcm2711_emmctwo	\
-	bcm2711_genet
+RPI4_KMODS		= platmod bcm2711_emmctwo bcm2711_genet
+
+#
+#	Include the makefiles which define build rule templates, the
+#	collection of files per module, and a few specific flags. Note
+#	that order is significant, just as with an include path. The
+#	first build rule template which matches the files name will be
+#	used. By including these in order from most machine dependent
+#	to most machine independent, we allow a machine dependent file
+#	to be used in preference over a machine independent version
+#	(Such as a machine specific optimization, which preserves the
+#	interfaces.)
+#
 
 include $(UTSBASE)/armv8/rpi4/Makefile.files
 
@@ -49,3 +81,11 @@ include $(UTSBASE)/armv8/rpi4/Makefile.files
 #	Include common rules.
 #
 include $(UTSBASE)/armv8/Makefile.armv8
+
+MODSTUBS_DIR = $(UNIX_DIR)
+
+
+#
+#	Define the actual specific platforms
+MACHINE_DEFS	+= -D$(PLATFORM) -D_MACHDEP
+MACHINE_DEFS	+= -D_RPI4

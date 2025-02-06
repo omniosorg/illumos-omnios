@@ -20,10 +20,16 @@
 #
 
 #
-# Copyright 2024 Michael van der Westhuizen
-# Copyright 2017 Hayashi Naoyuki
-# Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
 # Copyright (c) 2013 Andrew Stormont.  All rights reserved.
+# Copyright 2017 Hayashi Naoyuki
+# Copyright 2019 Joyent, Inc.
+# Copyright 2025 Michael van der Westhuizen
+#
+#	This makefile contains the common definitions for the armv8 unix
+#	and all armv8 implementation architecture dependent modules.
 #
 
 #
@@ -42,11 +48,11 @@ UNAME_M		= $(PLATFORM)
 # PLATFORMS designates those armv8 machines which have no platform
 # specific code.
 #
-# IMPLEMENTATIONS is used to designate armv8 machines which do have
-# platform specific modules (perhaps including their own unix).  All
-# code specific to a given implementation resides in the appropriately
-# named subdirectory.   This requires these platforms to have their
-# own Makefiles to define ROOT_PLAT_DIRS, USR_PLAT_DIRS, etc.
+# IMPLEMENTATIONS is used to designate armv8 machines which have
+# platform specific modules.  All code specific to a given implementation
+# resides in the appropriately named subdirectory.   This requires
+# these platforms to have their own Makefiles to define ROOT_PLAT_DIRS,
+# USR_PLAT_DIRS, etc.
 #
 # So if we had an implementation named 'foo', we would need the following
 # Makefiles in the foo subdirectory:
@@ -55,6 +61,24 @@ UNAME_M		= $(PLATFORM)
 #	armv8/foo/Makefile.foo
 #	armv8/foo/Makefile.targ
 #
+
+#
+# all PLATFORMS that do not belong in the $(IMPLEMENTATIONS) list.
+# This list should be empty.  A platform without platform modules
+# is a plain, generic armv8 platform.
+#
+#IMPLEMENTED_PLATFORM	=
+#PLATFORMS		= $(IMPLEMENTED_PLATFORM)
+
+IMPLEMENTATIONS		= rpi4 virt
+
+#ROOT_PLAT_DIRS		= $(PLATFORMS:%=$(ROOT_PLAT_DIR)/%)
+#USR_PLAT_DIRS		= $(PLATFORMS:%=$(USR_PLAT_DIR)/%)
+
+#USR_DESKTOP_DIR		= $(USR_PLAT_DIR)/$(IMPLEMENTED_PLATFORM)
+#USR_DESKTOP_INC_DIR	= $(USR_DESKTOP_DIR)/include
+#USR_DESKTOP_SBIN_DIR	= $(USR_DESKTOP_DIR)/sbin
+#USR_DESKTOP_LIB_DIR	= $(USR_DESKTOP_DIR)/lib
 
 #
 #	Define supported builds
@@ -73,16 +97,14 @@ DSF_DIR		 = .
 DTRACESTUBS_O	 = $(OBJS_DIR)/dtracestubs.o
 DTRACESTUBS	 = $(OBJS_DIR)/libdtracestubs.so
 
-SYM_MOD		= $(OBJS_DIR)/unix.sym
-
 UNIX_O		 = $(UNIX_DIR)/$(OBJS_DIR)/unix.o
 MODSTUBS_O	 = $(MODSTUBS_DIR)/$(OBJS_DIR)/modstubs.o
 GENLIB		 = $(GENLIB_DIR)/$(OBJS_DIR)/libgenunix.so
-# XXXARM: We have no platmods as yet, but this is left here so we remember how
-# they work.
-#PLATMOD		 = platmod
-#PLATLIB		 = $(PLAT_DIR)/$(OBJS_DIR)/libplatmod.so
-MAPFILE		 = $(UTSBASE)/armv8/conf/Mapfile
+
+PLATMOD		 = platmod
+PLATLIB		 = $(PLAT_DIR)/$(OBJS_DIR)/libplatmod.so
+
+SYM_MOD		= $(OBJS_DIR)/unix.sym
 
 #
 #	Include the makefiles which define build rule templates, the
@@ -105,10 +127,6 @@ include $(UTSBASE)/common/Makefile.files
 #	independent. Only that the build rules are machine independent.
 #
 include $(UTSBASE)/Makefile.uts
-
-IMPLEMENTATIONS	=	\
-	rpi4		\
-	virt
 
 #
 #	kernel-specific optimizations; override default in Makefile.master
@@ -142,7 +160,6 @@ AS_INC_PATH		+= -I$(DSF_DIR)/$(OBJS_DIR)
 #
 #	MAPFILE:	ld mapfile for the build of kernel/unix.
 #	MODSTUBS:	Module stubs source file.
-#	GENASSYM_SRC:	genassym.c
 #
 MAPFILE		 = $(UTSBASE)/armv8/conf/Mapfile
 MODSTUBS	 = $(UTSBASE)/aarch64/ml/modstubs.S
@@ -150,7 +167,7 @@ MODSTUBS	 = $(UTSBASE)/aarch64/ml/modstubs.S
 #
 #	Define the actual specific platforms
 #
-MACHINE_DEFS	 = -D$(MACH) -D_MACHDEP
+MACHINE_DEFS	 = -D$(PLATFORM) -D$(MACH) -D_MACHDEP
 
 #
 #	Debugging level
@@ -162,14 +179,11 @@ MACHINE_DEFS	 = -D$(MACH) -D_MACHDEP
 #	     is left as an experiment to the interested reader. Be forewarned,
 #	     that excessive use could lead to maintenance difficulties.
 #
-DEBUG_DEFS_OBJ32	=
-DEBUG_DEFS_DBG32	= -DDEBUG
+
 DEBUG_DEFS_OBJ64	=
 DEBUG_DEFS_DBG64	= -DDEBUG
 DEBUG_DEFS		= $(DEBUG_DEFS_$(BUILD_TYPE))
 
-DEBUG_COND_OBJ32	= $(POUND_SIGN)
-DEBUG_COND_DBG32	=
 DEBUG_COND_OBJ64	= $(POUND_SIGN)
 DEBUG_COND_DBG64	=
 IF_DEBUG_OBJ		= $(DEBUG_COND_$(BUILD_TYPE))$(OBJS_DIR)/
@@ -204,4 +218,12 @@ DRV_KMODS += gictwo
 DRV_KMODS += gicthree
 DRV_KMODS += pl03one
 
+#
+#	'Dacf' Modules (/kernel/dacf):
+#
 DACF_KMODS += consconfig_dacf
+
+#
+#	'Misc' Modules (/kernel/misc):
+#
+MISC_KMODS += platmod

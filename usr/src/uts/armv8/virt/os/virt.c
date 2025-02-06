@@ -21,14 +21,28 @@
 
 /*
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
+#include <sys/systm.h>
 #include <sys/byteorder.h>
 #include <sys/machclock.h>
 #include <sys/cmn_err.h>
 #include <sys/platmod.h>
 #include <sys/promif.h>
+
+/*
+ * Platform power management drivers list - empty by default
+ */
+char *platform_module_list[] = {
+	NULL,
+};
+
+void
+plat_tod_fault(enum tod_fault_type tod_bad __unused)
+{
+}
 
 void
 set_platform_defaults(void)
@@ -52,22 +66,4 @@ plat_get_cpu_clock(int cpu_no)
 	}
 
 	return (1000 * 1000 * 1000);
-}
-
-int
-plat_hwclock_get_rate(struct prom_hwclock *clk __unused)
-{
-	return -1;
-}
-
-int
-plat_gpio_get(struct gpio_ctrl *gpio __unused)
-{
-	return -1;
-}
-
-int
-plat_gpio_set(struct gpio_ctrl *gpio __unused, int value __unused)
-{
-	return -1;
 }

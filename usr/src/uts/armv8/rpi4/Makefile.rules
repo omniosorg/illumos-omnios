@@ -18,23 +18,41 @@
 #
 # CDDL HEADER END
 #
-
+# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/bcm2711_genet/%.c
+#
+#	This Makefile defines the build rules for the directory
+#	uts/armv8/rpi4.
+#
+#	The following two-level ordering must be maintained in this file.
+#	  Lines are sorted first in order of decreasing specificity based on
+#	  the first directory component.  That is, rpi4 rules come before
+#	  armv8 rules come before aarch64 rules come before common rules.
+#
+#	  Lines whose initial directory components are equal are sorted
+#	  alphabetically by the remaining components.
+
+#
+#	Section 1a: C object build rules
+#
+
+$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/io/bcm2711_genet/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/bcm2711_emmctwo/%.c
+$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/io/bcm2711_emmctwo/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/io/%.c
+$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/io/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/rpi4/os/%.c
+$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/os/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)

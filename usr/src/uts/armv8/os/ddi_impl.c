@@ -30,7 +30,7 @@
  * Copyright 2016 Nexenta Systems, Inc.
  * Copyright 2017 Hayashi Naoyuki
  * Copyright 2018 Joyent, Inc.
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -72,11 +72,6 @@ uint64_t ramdisk_start, ramdisk_end;
 static void impl_bus_initialprobe(void);
 
 static void i_ddi_free_unitintr(unit_intr_t *);
-
-/*
- * Platform drivers on this platform
- */
-char *platform_module_list[] = { NULL };
 
 /*
  * We use an AVL tree to store contiguous address allocations made with the

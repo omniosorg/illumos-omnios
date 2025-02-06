@@ -21,11 +21,14 @@
 
 /*
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2017 Hayashi Naoyuki
  */
 /*
  * Copyright (c) 2010, Intel Corporation.
  * All rights reserved.
+ */
+/*
+ * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -86,11 +89,6 @@ panic_dump_hw(int spl)
 {
 	/* Nothing to do here */
 }
-
-/*ARGSUSED*/
-void
-plat_tod_fault(enum tod_fault_type tod_bad)
-{}
 
 /*ARGSUSED*/
 int

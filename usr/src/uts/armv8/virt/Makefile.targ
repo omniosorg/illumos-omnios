@@ -18,15 +18,19 @@
 #
 # CDDL HEADER END
 #
-
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
 #
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
+#
+#	Common targets for armv8 virt platform-implementation specific modules.
 #
 
-IMPLEMENTED_PLATFORM    = QEMU,virt
+.KEEP_STATE:
 
 #
-# Platform targets
+# Rules for implementation subdirectories.
 #
 $(ROOT_VIRT_DIR): $(ROOT_PLAT_DIR)
 	-$(INS.dir)
@@ -34,22 +38,22 @@ $(ROOT_VIRT_DIR): $(ROOT_PLAT_DIR)
 $(ROOT_VIRT_MOD_DIR): $(ROOT_VIRT_DIR)
 	-$(INS.dir)
 
-$(ROOT_VIRT_KERN_DIR): $(ROOT_VIRT_DIR)
+$(ROOT_VIRT_DRV_DIR_32): $(ROOT_VIRT_MOD_DIR)
 	-$(INS.dir)
 
-$(ROOT_VIRT_DRV_DIR):
+$(ROOT_VIRT_DRV_DIR_64): $(ROOT_VIRT_DRV_DIR_32)
 	-$(INS.dir)
 
-$(ROOT_VIRT_MISC_DIR):
+$(ROOT_VIRT_LIB_DIR): $(ROOT_VIRT_DIR)
+	-$(INS.slink2)
+
+$(ROOT_VIRT_MISC_DIR_32): $(ROOT_VIRT_MOD_DIR)
 	-$(INS.dir)
 
-$(ROOT_VIRT_TOD_DIR):
+$(ROOT_VIRT_MISC_DIR_64): $(ROOT_VIRT_MISC_DIR_32)
 	-$(INS.dir)
 
 $(ROOT_VIRT_MOD_DIR)/%: $(OBJS_DIR)/% $(ROOT_VIRT_MOD_DIR) FRC
-	$(INS.file)
-
-$(ROOT_VIRT_KERN_DIR)/%: $(OBJS_DIR)/% $(ROOT_VIRT_KERN_DIR) FRC
 	$(INS.file)
 
 $(ROOT_VIRT_MISC_DIR)/%: $(OBJS_DIR)/% $(ROOT_VIRT_MISC_DIR) FRC
@@ -58,11 +62,28 @@ $(ROOT_VIRT_MISC_DIR)/%: $(OBJS_DIR)/% $(ROOT_VIRT_MISC_DIR) FRC
 $(ROOT_VIRT_DRV_DIR)/%: $(OBJS_DIR)/% $(ROOT_VIRT_DRV_DIR) FRC
 	$(INS.file)
 
-$(ROOT_VIRT_TOD_DIR)/%: $(OBJS_DIR)/% $(ROOT_VIRT_TOD_DIR) FRC
-	$(INS.file)
+$(USR_VIRT_DIR):	$(USR_ARMV8_PLAT_DIR)
+	-$(INS.dir)
+
+$(USR_VIRT_INC_DIR):	$(USR_VIRT_DIR)
+	-$(INS.slink4)
+
+$(USR_VIRT_ISYS_DIR):	$(USR_VIRT_INC_DIR)
+	-$(INS.dir)
+
+$(USR_VIRT_SBIN_DIR):	$(USR_VIRT_DIR)
+	-$(INS.slink5)
+
+$(USR_VIRT_LIB_DIR):	$(USR_VIRT_DIR)
+	-$(INS.dir)
+
+$(LINKED_PLATFORMS:%=$(USR_PLAT_DIR)/%): $(USR_PLAT_DIR)
+	$(INS.slink3)
+$(PPLINKED_PLATFORMS:%=$(ROOT_PLAT_DIR)/%): $(ROOT_PLAT_DIR)
+	$(INS.slink3)
 
 #
 #	Include common targets.
 #
-include $(UTSBASE)/armv8/virt/Makefile.rules
-include $(UTSBASE)/armv8/Makefile.targ
+include $(UTSBASE)/$(PLATFORM)/virt/Makefile.rules
+include $(UTSBASE)/$(PLATFORM)/Makefile.targ

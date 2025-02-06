@@ -21,17 +21,36 @@
 
 /*
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _SYS_PLATMOD_H
 #define	_SYS_PLATMOD_H
 
+/*
+ * Platform interfaces for the armv8 platform.
+ *
+ * These interfaces are incredibly volatile and should be expected to
+ * churn for the foreseeable future.
+ *
+ * See also: uts/aarch64/sys/platform_module.h
+ */
+
+#include <sys/types.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#include <sys/types.h>
-#include <sys/promif.h>
+#if defined(_KERNEL)
+
+struct gpio_ctrl;
+struct prom_hwclock;
+
+#pragma weak	plat_get_cpu_clock
+#pragma weak	plat_gpio_get
+#pragma weak	plat_gpio_set
+#pragma weak	plat_hwclock_get_rate
 
 /*
  * Called in mp_startup.c from init_cpu_info (twice).
@@ -49,6 +68,8 @@ extern int plat_gpio_set(struct gpio_ctrl *, int);
  * Called in ns16550a.c to get the clock frequency driving the UART.
  */
 extern int plat_hwclock_get_rate(struct prom_hwclock *);
+
+#endif	/* _KERNEL */
 
 #ifdef	__cplusplus
 }

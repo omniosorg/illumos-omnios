@@ -20,15 +20,19 @@
 #
 
 #
-# Copyright 2017 Hayashi Naoyuki
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
 #
+# Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
+#
+
+#
 #	Path to the base of the uts directory tree (usually /usr/src/uts).
 #
-UTSBASE	= ../../..
+UTSBASE	= ../..
 include $(UTSBASE)/../Makefile.master
 
 #
@@ -43,7 +47,7 @@ KRTLD_MAPFILE	= $(UTSBASE)/$(MACH)/krtld/mapfile
 KRTLD_OBJECTS	= $(KRTLD_OBJS:%=$(OBJS_DIR)/%)
 KRTLD_O		= $(OBJS_DIR)/krtld.o
 
-ROOTMODULE	= $(ROOT_RPI4_KERN_DIR)/$(UNIX)
+ROOTMODULE	= $(ROOT_PSM_KERN_DIR)/$(UNIX)
 UNIX_BIN	= $(OBJS_DIR)/$(UNIX)
 
 LIBS		= $(GENLIB) $(PLATLIB) $(CPULIB)
@@ -51,13 +55,10 @@ LIBS		= $(GENLIB) $(PLATLIB) $(CPULIB)
 GENUNIX_DIR	= $(UTSBASE)/$(MACH)/genunix
 GENUNIX		= genunix
 
-# XXXARM: We have no platmods as yet, but this is left here so we remember how
-# they work.
-#
-#PLAT_DIR	= $(UTSBASE)/armv8/platmod
-#PLATOPTS	= -L $(PLAT_DIR)/$(OBJS_DIR) -l $(PLATMOD)
+PLAT_DIR	= $(UTSBASE)/armv8/platmod
+PLATOPTS	= -L$(PLAT_DIR)/$(OBJS_DIR) -l$(PLATMOD)
 
-GENOPTS		= -L $(GENUNIX_DIR)/$(OBJS_DIR) -l $(GENUNIX)
+GENOPTS		= -L$(GENUNIX_DIR)/$(OBJS_DIR) -l$(GENUNIX)
 
 LIBOPTS		= $(GENOPTS) $(PLATOPTS)
 
@@ -66,7 +67,7 @@ CTFEXTRAOBJS	= $(OBJS_DIR)/vers.o
 #
 #	Include common rules.
 #
-include ../Makefile.rpi4
+include ../Makefile.armv8
 
 GENASSYM_CF		= $(UTSBASE)/armv8/ml/genassym.cf
 ASSYM_H			= $(OBJS_DIR)/assym.h
@@ -95,10 +96,11 @@ CLEANFILES	+= $(UNIX_O) $(MODSTUBS_O) $(KRTLD_O) $(KRTLD_OBJECTS) \
 CLOBBERFILES	= $(CLEANFILES) $(UNIX_BIN)
 
 #
-# lint pass one enforcement 
+# lint pass one enforcement
 # Turn on doubleword alignment for 64 bit counter timer registers
 #
 CFLAGS += $(CCVERBOSE)
+$(OBJS_DIR)/platimpl.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
 
 #
 # For now, disable these lint checks; maintainers should endeavor
@@ -148,11 +150,9 @@ symcheck:	$(UNIX_O) $(KRTLD_O) $(MODSTUBS_O) $(LIBS)
 $(KRTLD_O):	$(KRTLD_OBJECTS)
 	$(LD) -r -M$(KRTLD_MAPFILE) -o $@ $(KRTLD_OBJECTS)
 
-# XXXARM: We have no platmods as yet, but this is left here so we remember how
-# they work.
-# $(PLATLIB):
-# 	?@(cd $(PLAT_DIR); pwd; $(MAKE) all.targ)
-# 	?@pwd
+$(PLATLIB):
+	?@(cd $(PLAT_DIR); pwd; $(MAKE) all.targ)
+	?@pwd
 
 #
 #	Include common targets.
