@@ -245,6 +245,7 @@ aarch64_MANFILES=	ahci.4d		\
 			audiosolo.4d	\
 			audiovia823x.4d	\
 			bfe.4d		\
+			devfdt.4d	\
 			elxl.4d		\
 			ena.4d		\
 			iprb.4d		\

@@ -29,6 +29,8 @@
 # Copyright 2025 Michael van der Westhuizen
 #
 
+file path=kernel/drv/$(ARCH)/devfdt
+file path=kernel/drv/devfdt.conf
 dir  path=platform/armv8
 dir  path=platform/armv8/kernel
 dir  path=platform/armv8/kernel/$(ARCH)
@@ -52,8 +54,11 @@ file path=platform/armv8/kernel/misc/$(ARCH)/platmod mode=0755
 dir  path=platform/armv8/kernel/tod
 dir  path=platform/armv8/kernel/tod/$(ARCH)
 file path=platform/armv8/kernel/tod/$(ARCH)/pl03one mode=0755
+file path=usr/lib/devfsadm/linkmod/SUNW_misc_link_aarch64.so
+file path=usr/share/man/man4d/devfdt.4d
 file path=usr/share/man/man4d/simple-bus.4d
 driver name=arm_gtmr alias=arm,armv8-timer
+driver name=devfdt perms="* 0400 root sys"
 driver name=gicthree alias=arm,gic-v3
 driver name=gictwo \
     alias=arm,cortex-a15-gic \

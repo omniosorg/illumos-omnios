@@ -221,6 +221,7 @@ DRV_KMODS	+= dld
 DRV_KMODS	+= dlpistub
 DRV_KMODS	+= dump
 DRV_KMODS	+= eventfd
+DRV_KMODS	+= devfdt
 DRV_KMODS	+= fm
 DRV_KMODS	+= fssnap
 DRV_KMODS	+= icmp

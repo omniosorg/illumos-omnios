@@ -1,0 +1,41 @@
+.\"
+.\" This file and its contents are supplied under the terms of the
+.\" Common Development and Distribution License ("CDDL"), version 1.0.
+.\" You may only use this file in accordance with the terms of version
+.\" 1.0 of the CDDL.
+.\"
+.\" A full copy of the text of the CDDL should have accompanied this
+.\" source.  A copy of the CDDL is also available via the Internet at
+.\" http://www.illumos.org/license/CDDL.
+.\"
+.\"
+.\" Copyright 2025 Richard Lowe
+.\"
+.Dd February 7, 2025
+.Dt DEVFDT 4D
+.Os
+.Sh NAME
+.Nm devfdt
+.Nd read-only access to the system flat device tree
+.Sh SYNOPSIS
+.Pa /dev/fdt
+.Sh DESCRIPTION
+The
+.Nm
+driver provides
+.Pa /dev/fdt
+a character device which exposes the flat device tree blob (dtb) used by this
+system to userland.
+Utilities such as
+.Xr dtc 1
+can be used to inspect this data.
+.Sh INTERFACE STABILITY
+Volatile
+.Sh SEE ALSO
+.Xr dtc 1 ,
+.Xr fdt 5
+.Sh NOTES
+Only enough features to support tools such as
+.Xr dtc 1
+exist, notably there is no support for
+.Xr mmap 2 .

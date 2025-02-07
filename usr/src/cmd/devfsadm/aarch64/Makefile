@@ -22,5 +22,7 @@
 # Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
 #
 
+LINK_OBJS_aarch64 = misc_link_aarch64.o
+
 include ../Makefile.com
 

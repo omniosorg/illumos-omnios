@@ -45,6 +45,10 @@ $(OBJS_DIR)/%.o:		$(SRC)/common/fs/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
+$(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/devfdt/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
 $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/power/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)

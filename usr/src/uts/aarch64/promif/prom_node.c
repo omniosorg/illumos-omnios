@@ -64,6 +64,12 @@ int prom_propname_warn = -1;
 int prom_propname_warn = 0;
 #endif
 
+const struct fdt_header *
+prom_get_fdtp(void)
+{
+	return ((const struct fdt_header *)fdtp);
+}
+
 static phandle_t
 get_phandle(int offset)
 {
