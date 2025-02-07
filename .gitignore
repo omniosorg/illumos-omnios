@@ -9451,9 +9451,9 @@ usr/src/tools/ndrgen/ndrgen
 usr/src/tools/ndrgen/ndrgen1
 usr/src/tools/ndrgen/y.tab.c
 usr/src/tools/ndrgen/y.tab.h
-usr/src/tools/onbld/Checks/py3/python3.12/
-usr/src/tools/onbld/Scm/py3/python3.12/
-usr/src/tools/onbld/py3/python3.12/
+usr/src/tools/onbld/Checks/py3/python3.13/
+usr/src/tools/onbld/Scm/py3/python3.13/
+usr/src/tools/onbld/py3/python3.13/
 usr/src/tools/proto/
 usr/src/tools/protocmp/protocmp
 usr/src/tools/protolist/protolist
