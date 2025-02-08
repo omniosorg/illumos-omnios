@@ -45,7 +45,8 @@
 static void
 cache_flush(void *addr, size_t len)
 {
-	for (uintptr_t v = P2ALIGN((uintptr_t)addr, DCACHE_LINE); v < (uintptr_t)addr + len; v += DCACHE_LINE) {
+	for (uintptr_t v = P2ALIGN((uintptr_t)addr, DCACHE_LINE);
+	    v < (uintptr_t)addr + len; v += DCACHE_LINE) {
 		flush_data_cache(v);
 	}
 	dsb(sy);
@@ -56,7 +57,7 @@ static uint64_t mbox_base;
 static uint64_t mbox_buffer_address;
 
 static void
-find_mbox(pnode_t node, void *arg)
+bcm2835_find_mbox(pnode_t node, void *arg)
 {
 	if (!prom_is_compatible(node, "brcm,bcm2835-mbox"))
 		return;
@@ -64,13 +65,13 @@ find_mbox(pnode_t node, void *arg)
 }
 
 static void
-mbox_init(void)
+bcm2835_mbox_init(void)
 {
 	pnode_t node = 0;
 
 	ASSERT(MUTEX_HELD(&mbox_lock));
 
-	prom_walk(find_mbox, &node);
+	prom_walk(bcm2835_find_mbox, &node);
 	ASSERT(node != 0);
 	prom_get_reg_address(node, 0, &mbox_base);
 	ASSERT(mbox_base != 0);
@@ -81,62 +82,70 @@ mbox_init(void)
 
 	uint64_t par = read_par_el1();
 	ASSERT((par & PAR_F) == 0);
-	uint64_t buffer_phys = ((par & PAR_PA_MASK) | (((uintptr_t)mbox_buffer) & MMU_PAGEOFFSET));
+	uint64_t buffer_phys = ((par & PAR_PA_MASK) |
+	    (((uintptr_t)mbox_buffer) & MMU_PAGEOFFSET));
 	prom_get_bus_address(node, buffer_phys, &mbox_buffer_address);
 }
 
 static uint32_t
-mbox_reg_read(uint32_t offset)
+bcm2835_mbox_reg_read(uint32_t offset)
 {
 	return *(volatile uint32_t *)(mbox_base + offset);
 }
 
 static void
-mbox_reg_write(uint32_t offset, uint32_t val)
+bcm2835_mbox_reg_write(uint32_t offset, uint32_t val)
 {
 	*(volatile uint32_t *)(mbox_base + offset) = val;
 }
 
 static uint32_t
-mbox_prop_send_impl(uint32_t chan)
+bcm2835_mbox_prop_send_impl(uint32_t chan)
 {
 	// sync
 	for (;;) {
-		if (mbox_reg_read(BCM2835_MBOX0_STATUS) & BCM2835_MBOX_STATUS_EMPTY)
+		if (bcm2835_mbox_reg_read(BCM2835_MBOX0_STATUS) &
+		    BCM2835_MBOX_STATUS_EMPTY) {
 			break;
-		mbox_reg_read(BCM2835_MBOX0_READ);
+		}
+		bcm2835_mbox_reg_read(BCM2835_MBOX0_READ);
 	}
 	for (;;) {
-		if (!(mbox_reg_read(BCM2835_MBOX1_STATUS) & BCM2835_MBOX_STATUS_FULL))
+		if (!(bcm2835_mbox_reg_read(BCM2835_MBOX1_STATUS) &
+		    BCM2835_MBOX_STATUS_FULL)) {
 			break;
+		}
 	}
 
-	mbox_reg_write(BCM2835_MBOX1_WRITE, BCM2835_MBOX_MSG(chan, mbox_buffer_address));
+	bcm2835_mbox_reg_write(BCM2835_MBOX1_WRITE,
+	    BCM2835_MBOX_MSG(chan, mbox_buffer_address));
 
 	for (;;) {
-		if ((mbox_reg_read(BCM2835_MBOX0_STATUS) & BCM2835_MBOX_STATUS_EMPTY))
+		if ((bcm2835_mbox_reg_read(BCM2835_MBOX0_STATUS) &
+		    BCM2835_MBOX_STATUS_EMPTY)) {
 			continue;
-		uint32_t val = mbox_reg_read(BCM2835_MBOX0_READ);
+		}
+		uint32_t val = bcm2835_mbox_reg_read(BCM2835_MBOX0_READ);
 		uint32_t rdata = BCM2835_MBOX_DATA(val);
 		return rdata;
 	}
 }
 
-static void
-mbox_prop_send(void *data, uint32_t len)
+void
+bcm2835_mbox_prop_send(void *data, uint32_t len)
 {
 	ASSERT(len <= MMU_PAGESIZE);
 
 	static bool mbox_initialized = false;
 	if (!mbox_initialized) {
-		mbox_init();
+		bcm2835_mbox_init();
 		mbox_initialized = true;
 	}
 
 	memcpy(mbox_buffer, data, len);
 	cache_flush(mbox_buffer, len);
 
-	mbox_prop_send_impl(BCMMBOX_CHANARM2VC);
+	bcm2835_mbox_prop_send_impl(BCMMBOX_CHANARM2VC);
 
 	cache_flush(mbox_buffer, len);
 	memcpy(data, mbox_buffer, len);
@@ -178,7 +187,7 @@ plat_hwclock_get_rate(struct prom_hwclock *clk)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;
@@ -224,7 +233,7 @@ plat_hwclock_get_max_rate(struct prom_hwclock *clk)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;
@@ -270,7 +279,7 @@ plat_hwclock_get_min_rate(struct prom_hwclock *clk)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;
@@ -317,7 +326,7 @@ plat_hwclock_set_rate(struct prom_hwclock *clk, int rate)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;
@@ -362,7 +371,7 @@ plat_gpio_get(struct gpio_ctrl *gpio)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;
@@ -408,7 +417,7 @@ plat_gpio_set(struct gpio_ctrl *gpio, int value)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;
@@ -442,7 +451,7 @@ plat_power_on(int module)
 		},
 	};
 
-	mbox_prop_send(&vb, sizeof(vb));
+	bcm2835_mbox_prop_send(&vb, sizeof(vb));
 
 	if (!vcprop_buffer_success_p(&vb.vb_hdr))
 		return -1;

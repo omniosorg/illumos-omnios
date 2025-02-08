@@ -43,6 +43,8 @@ extern "C" {
 #define	BCM2835_MBOX_MSG(chan, data) \
     (BCM2835_MBOX_CHAN(chan) | BCM2835_MBOX_DATA(data))
 
+void bcm2835_mbox_prop_send(void *data, uint32_t len);
+
 #ifdef __cplusplus
 }
 #endif

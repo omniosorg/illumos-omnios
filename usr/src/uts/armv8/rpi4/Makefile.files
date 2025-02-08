@@ -37,9 +37,10 @@
 # bcm2711 drivers
 BCM2711_EMMCTWO_OBJS	+= bcm2711_emmctwo.o
 BCM2711_GENET_OBJS	+= bcm2711_genet.o
+BCM2711_SOCTEMP_OBJS	+= bcm2711_soctemp.o
 
 # Raspberry Pi 4 platform module
-RPI4_PLATMOD_OBJS	= rpi4.o
+RPI4_PLATMOD_OBJS	= bcm2835_mbox.o rpi4.o
 
 #
 #	include rpi4 header files
