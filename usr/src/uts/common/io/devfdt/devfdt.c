@@ -157,7 +157,7 @@ _init(void)
 int
 _fini(void)
 {
-	return (DDI_SUCCESS);
+	return (mod_remove(&modlinkage));
 }
 
 int
