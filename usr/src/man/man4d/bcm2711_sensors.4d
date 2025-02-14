@@ -11,22 +11,27 @@
 .\"
 .\" Copyright 2025 OmniOS Community Edition (OmniOSce) Association.
 .\"
-.Dd February 9, 2025
-.Dt BCM2711_SOCTEMP 4D
+.Dd February 14, 2025
+.Dt BCM2711_SENSORS 4D
 .Os
 .Sh NAME
-.Nm bcm2711_soctemp
-.Nd Raspberry Pi 4 SoC temperature sensor driver
+.Nm bcm2711_sensors
+.Nd Raspberry Pi 4 sensor driver
 .Sh SYNOPSIS
 .Pa /dev/sensors/temperature/cpu/soc
+.Pp
+.Pa /dev/sensors/voltage/cpu/core
+.Pp
+.Pa /dev/sensors/voltage/sdram/*
 .Sh DESCRIPTION
 The
 .Nm
 driver provides
 .Pa /dev/sensors/temperature/cpu/soc ,
-a device which exposes the SoC temperature.
-The granularity is in 1000ths of a \(deC.
-.Sh INTERFACE STABILITY
-Volatile
+.Pa /dev/sensors/voltage/cpu/core ,
+.Pa /dev/sensors/voltage/sdram/* .
+These devices expose the SoC temperature as well as core and SDRAM voltages.
+The granularity of the measurements is in 1000ths of a \(deC for temperature
+and in \(mcV for voltage.
 .Sh SEE ALSO
 .Xr ksensor 4D

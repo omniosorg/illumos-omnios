@@ -49,7 +49,7 @@ $(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/io/bcm2711_emmctwo/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/io/bcm2711_soctemp/%.c
+$(OBJS_DIR)/%.o:	$(UTSBASE)/armv8/rpi4/io/bcm2711_sensors/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 

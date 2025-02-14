@@ -24,17 +24,17 @@ dir  path=platform/RaspberryPi,4/kernel/drv
 dir  path=platform/RaspberryPi,4/kernel/drv/aarch64
 file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711_emmctwo
 file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711_genet
-file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711_soctemp
+file path=platform/RaspberryPi,4/kernel/drv/aarch64/bcm2711_sensors
 file path=platform/RaspberryPi,4/kernel/drv/bcm2711_emmctwo.conf
 file path=platform/RaspberryPi,4/kernel/drv/bcm2711_genet.conf
-file path=platform/RaspberryPi,4/kernel/drv/bcm2711_soctemp.conf
+file path=platform/RaspberryPi,4/kernel/drv/bcm2711_sensors.conf
 dir  path=platform/RaspberryPi,4/kernel/misc
 dir  path=platform/RaspberryPi,4/kernel/misc/$(ARCH)
 file path=platform/RaspberryPi,4/kernel/misc/$(ARCH)/platmod mode=0755
 link path=platform/raspberrypi,4-model-b target=RaspberryPi,4
-file path=usr/share/man/man4d/bcm2711_soctemp.4d
+file path=usr/share/man/man4d/bcm2711_sensors.4d
 driver name=bcm2711_emmctwo perms="* 0666 root sys" alias=brcm,bcm2711-emmc2
 driver name=bcm2711_genet perms="* 0666 root sys" alias=brcm,bcm2711-genet-v5
-driver name=bcm2711_soctemp perms="* 0666 root sys"
+driver name=bcm2711_sensors perms="* 0666 root sys"
 license lic_CDDL license=lic_CDDL
 # XXXARM: Hayashi's copyright

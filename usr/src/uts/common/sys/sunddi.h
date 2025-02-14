@@ -268,8 +268,10 @@ extern "C" {
 /*
  * Various device types used for sensors.
  */
-#define	DDI_NT_SENSOR_TEMP_CPU	"ddi_sensor:temperature:cpu"
-#define	DDI_NT_SENSOR_TEMP_PCH	"ddi_sensor:temperature:pch"
+#define	DDI_NT_SENSOR_TEMP_CPU		"ddi_sensor:temperature:cpu"
+#define	DDI_NT_SENSOR_TEMP_PCH		"ddi_sensor:temperature:pch"
+#define	DDI_NT_SENSOR_VOLT_CPU		"ddi_sensor:voltage:cpu"
+#define	DDI_NT_SENSOR_VOLT_SDRAM	"ddi_sensor:voltage:sdram"
 
 /*
  * DDI event definitions
