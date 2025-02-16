@@ -104,6 +104,7 @@ struct xboot_info {
 	uint32_t		bi_psci_cpu_off_id;
 	uint32_t		bi_psci_cpu_on_id;
 	uint32_t		bi_psci_migrate_id;
+	uint64_t		bi_framebuffer;
 };
 
 #ifdef	__cplusplus
