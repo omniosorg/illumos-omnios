@@ -23,8 +23,8 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 #include <sys/types.h>
 #include <sys/psci.h>
@@ -103,25 +103,25 @@ psci_call(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3)
 		return (psci_smc64(a0, a1, a2, a3));
 }
 
-void
-psci_init(void)
+int
+psci_init(struct xboot_info *xbp __unused)
 {
 	int err;
 	extern char _dtb_start[];
 	void *fdtp = (void *)boot_args[0];
 
 	if (psci_initialized)
-		return;
+		return (0);
 
 	if (get_fdtp() != 0) {
 		prom_printf("%s() should be called before prom_node_init()\n");
-		return;
+		return (-1);
 	}
 
 	err = fdt_check_header(fdtp);
 	if (err) {
 		prom_printf("fdt_check_header ng\n");
-		return;
+		return (-1);
 	}
 	size_t total_size = fdt_totalsize(fdtp);
 	if ((uintptr_t)_dtb_start != (uintptr_t)fdtp)
@@ -152,7 +152,10 @@ psci_init(void)
 		if (migrate_id)
 			psci_migrate_id = ntohl(*migrate_id);
 		psci_initialized = B_TRUE;
+		return (0);
 	}
+
+	return (-1);
 }
 
 uint32_t

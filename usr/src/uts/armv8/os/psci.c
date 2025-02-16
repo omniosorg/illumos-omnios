@@ -23,8 +23,8 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 #include <sys/types.h>
 #include <sys/psci.h>
@@ -121,11 +121,11 @@ psci_call(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3)
 	}
 }
 
-void
+int
 psci_init(struct xboot_info *xbp)
 {
 	if (psci_initialized == B_TRUE)
-		return;
+		return (0);
 
 	/*
 	 * The version field is:
@@ -136,7 +136,7 @@ psci_init(struct xboot_info *xbp)
 	 * should not have been passed to UNIX).
 	 */
 	if (xbp == NULL || xbp->bi_psci_version & 0x80000000)
-		return;
+		return (-1);
 
 	pcsi_method_is_hvc = xbp->bi_psci_conduit_hvc ? B_TRUE : B_FALSE;
 
@@ -156,6 +156,7 @@ psci_init(struct xboot_info *xbp)
 	}
 
 	psci_initialized = B_TRUE;
+	return (0);
 }
 
 uint32_t

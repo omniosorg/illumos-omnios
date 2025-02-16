@@ -67,7 +67,6 @@ CORE_OBJS +=			\
 	dtrace_subr.o		\
 	mach_sysconfig.o	\
 	fakebop.o		\
-	boot_console.o		\
 	cpc_subr.o		\
 	ibft.o			\
 	mp_call.o		\
@@ -77,12 +76,22 @@ CORE_OBJS +=			\
 	hold_page.o		\
 	ssp.o			\
 	psci.o			\
-	bootsvcs.o		\
 	arch_timer.o		\
 	earlybsa.o		\
 	$(CORE_OBJS_FDT)
 
 CORE_OBJS += $(PCI_STRING_OBJS)
+
+BOOT_DRIVER_OBJS =		\
+	boot_console.o		\
+	boot_fb.o		\
+	boot_keyboard.o		\
+	boot_psci.o		\
+	boot_services.o		\
+	boot_uart.o		\
+	$(FONT_OBJS)
+
+CORE_OBJS += $(BOOT_DRIVER_OBJS)
 
 PLATMOD_OBJS = platmod.o
 

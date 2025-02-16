@@ -136,6 +136,15 @@ CFLAGS_XARCH		= $($(MACH)_CFLAGS)
 
 COPTIMIZE		= $(COPTFLAG)
 
+#
+# Early code, that which runs before ssp_init(), needs the stack
+# protector disabled.
+#
+# XXXARM: This is used as a bit of a broad brush, and we should look
+# into limiting this to boot/ and os/mlsetup.c if at all possible.
+#
+EARLY_CFLAGS		= -_gcc=-fno-stack-protector
+
 CFLAGS			= $(CFLAGS_XARCH)
 CFLAGS			+= $(COPTIMIZE)
 CFLAGS			+= $(INLINES) -D_ASM_INLINES

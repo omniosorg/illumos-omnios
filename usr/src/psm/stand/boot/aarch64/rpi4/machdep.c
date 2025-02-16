@@ -78,7 +78,7 @@ char *v2args = v2args_buf;
 extern char *bootp_response;
 
 extern void set_board_info(const void *fdtp);
-extern const char * get_impl_arch(void);
+extern const char *get_impl_arch(void);
 extern	int (*readfile(int fd, int print))();
 extern	void kmem_init(void);
 extern	void *kmem_alloc(size_t, int);
@@ -156,6 +156,8 @@ init_iolist(void)
 void
 exitto(int (*entrypoint)())
 {
+	extern uint32_t psci_version(void);
+
 	for (struct memlist *ml = plinearlistp; ml != NULL; ml = ml->ml_next) {
 		uintptr_t pa = ml->ml_address;
 		uintptr_t sz = ml->ml_size;

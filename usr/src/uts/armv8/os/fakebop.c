@@ -29,7 +29,7 @@
  * Copyright 2017 Hayashi Naoyuki
  * Copyright 2020 Joyent, Inc.
  * Copyright 2024 Oxide Computer Company
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 /*
@@ -276,20 +276,49 @@ map_phys(bootops_t *bop, pte_t pte_attr, caddr_t vaddr, uint64_t paddr)
 	dsb(ish);
 }
 
-/*
- * XXXARM: stub to straighten up bop_init
- *
- * Once we have a framebuffer this must be removed.
- */
-static void
-boot_fb_shadow_init(void * ops __unused)
+void
+bop_relocate(void)
 {
-	/* just a stub */
+	caddr_t vaddr;
+	extern void boot_uart_relocate(void);
+	extern void boot_fb_relocate(void);
+
+	if (xbootp == NULL)
+		return;
+
+	if (xbootp->bi_fdt != 0) {
+		size_t sz;
+
+		if (fdt_check_header((const void *)xbootp->bi_fdt) != 0)
+			panic("provided FDT is invalid\n");
+
+		/*
+		 * This may be a little generous... we really should
+		 * not be editing the FDT any further.
+		 */
+		sz = fdt_totalsize((const void *)xbootp->bi_fdt);
+		sz += (MMU_PAGESIZE * 2) + MMU_PAGESIZE;
+		sz &= ~(MMU_PAGESIZE - 1);
+
+		vaddr = kmem_zalloc(sz, KM_SLEEP);
+		ASSERT3P(vaddr, !=, NULL);
+
+		if (fdt_open_into(
+		    (const void *)xbootp->bi_fdt, vaddr, sz) != 0)
+			panic("failed to relocate FDT to KVA\n");
+
+		prom_init("kernel", vaddr);
+	}
+
+	boot_fb_relocate();
+	boot_uart_relocate();
 }
 
 void
 bop_init(struct xboot_info *xbp)
 {
+	extern void boot_fb_shadow_init(bootops_t *);
+
 	bsvc_init(xbp);
 
 	bootops = &bootop;
@@ -912,7 +941,8 @@ done:
 	}
 	consoledev[v_len] = 0;
 
-	bcons_post_bootenvrc(inputdev, outputdev, consoledev);
+	ASSERT3P(xbootp, !=, NULL);
+	bcons_post_bootenvrc(xbootp, inputdev, outputdev, consoledev);
 
 	if (find_boot_prop("prom_debug") || kbm_debug)
 		boot_prop_display(line);
@@ -1013,6 +1043,22 @@ build_firmware_properties(struct xboot_info *xbp)
 			build_firmware_properties_fdt(fdtp);
 		}
 	}
+}
+
+/*
+ * fake up a boot property for deferred early console output
+ * this is used by both graphical boot and the (developer only)
+ * USB serial console
+ */
+void *
+defcons_init(size_t size)
+{
+	static char *p = NULL;
+
+	p = do_bsys_alloc(NULL, NULL, size, MMU_PAGESIZE);
+	*p = 0;
+	bsetprop32("deferred-console-buf", (uint32_t)((uintptr_t)&p));
+	return (p);
 }
 
 /*

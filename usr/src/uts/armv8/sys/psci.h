@@ -20,8 +20,8 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _SYS_PSCI_H
@@ -51,13 +51,10 @@ enum {
 	PSCI_INVALID_ADDRESS	= -9,
 };
 
-#if defined(_BOOT)
-extern void psci_init(void);
-#else
 struct xboot_info;
 
-extern void psci_init(struct xboot_info *xbp);
-#endif
+extern int psci_init(struct xboot_info *xbp);
+#if !defined(_BOOT)
 extern uint32_t psci_version(void);
 extern int32_t psci_cpu_suspend(uint32_t power_state,
 	uint64_t entry_point_address, uint64_t context_id);
@@ -69,8 +66,10 @@ extern int32_t psci_affinity_info(uint64_t target_affinity,
 extern int32_t psci_migrate(uint64_t target_cpu);
 extern int32_t psci_migrate_info_type(void);
 extern uint64_t psci_migrate_info_up_cpu(void);
+#endif
 extern void psci_system_off(void);
 extern void psci_system_reset(void);
+#if !defined(_BOOT)
 extern int32_t psci_features(uint32_t psci_func_id);
 extern int32_t psci_cpu_freeze(void);
 extern int32_t psci_cpu_default_suspend(uint64_t entry_point_address,
@@ -81,6 +80,7 @@ extern int32_t psci_system_suspend(uint64_t entry_point_address,
 extern int32_t psci_set_suspend_mode(uint32_t mode);
 extern uint64_t psci_stat_residency(uint64_t target_cpu, uint32_t power_state);
 extern uint64_t psci_stat_count(uint64_t target_cpu, uint32_t power_state);
+#endif
 
 #ifdef	__cplusplus
 }

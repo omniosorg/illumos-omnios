@@ -32,10 +32,18 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/io/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-# XXXARM: We disable the stack protector, somewhat heavy-handedly, to protect
-# the call stack up to ssp_init() itself.
+#
+# Explicitly list objects that depend on raw libfdt so that we can
+# be aware of these dependencies and limit them as much as possible.
+#
+$(OBJS_DIR)/fakebop.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
+
 $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/os/%.c
-	$(COMPILE.c) -I$(SRC)/contrib/libfdt -_gcc=-fno-stack-protector -o $@ $<
+	$(COMPILE.c) $(EARLY_CFLAGS) -o $@ $<
+	$(CTFCONVERT_O)
+
+$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/boot/%.c
+	$(COMPILE.c) $(EARLY_CFLAGS) -o $@ $<
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/vm/%.c

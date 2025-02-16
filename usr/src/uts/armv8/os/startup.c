@@ -1188,13 +1188,16 @@ atoi(char *p)
 static void
 startup_modules(void)
 {
-	int cnt;
 	extern void prom_setup(void);
+	extern void bop_relocate(void);
+	int cnt;
 	int32_t v, h;
 	char d[11];
 	char *cp;
 
 	PRM_POINT("startup_modules() starting...");
+
+	bop_relocate();
 
 	if (&set_platform_defaults)
 		set_platform_defaults();

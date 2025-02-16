@@ -19,8 +19,8 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 #include <libfdt.h>
 
@@ -93,7 +93,7 @@ fiximp(void)
 
 	write_vbar((uint64_t)&exception_vector);
 
-	psci_init();
+	psci_init(NULL);
 
 	if (!psci_initialized) {
 		prom_printf("PSCI did not initialize successfully\n");

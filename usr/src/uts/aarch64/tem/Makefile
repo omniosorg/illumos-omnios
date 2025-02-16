@@ -37,7 +37,7 @@ UTSBASE	= ../..
 #	Define the module and object file sets.
 #
 MODULE		= tem
-OBJECTS		= $(TEM_OBJS:%=$(OBJS_DIR)/%) $(FONT_OBJS:%=$(OBJS_DIR)/%)
+OBJECTS		= $(TEM_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(ROOT_MISC_DIR)/$(MODULE)
 
 #

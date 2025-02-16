@@ -74,7 +74,7 @@ extern char *bootp_response;
 
 extern	int (*readfile(int fd, int print))();
 extern void set_board_info(const void *fdtp);
-extern const char * get_impl_arch(void);
+extern const char *get_impl_arch(void);
 extern	void kmem_init(void);
 extern	void *kmem_alloc(size_t, int);
 extern	void kmem_free(void *, size_t);
@@ -239,6 +239,8 @@ init_iolist(void)
 void
 exitto(int (*entrypoint)())
 {
+	extern uint32_t psci_version(void);
+
 	prom_walk(fixup_cpu, NULL);
 	for (struct memlist *ml = plinearlistp; ml != NULL; ml = ml->ml_next) {
 		uintptr_t pa = ml->ml_address;
