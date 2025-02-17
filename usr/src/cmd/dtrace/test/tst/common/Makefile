@@ -2671,6 +2671,7 @@ EXES=						\
 	io/tst.fds.exe				\
 	ip/get.ipv4remote.pl			\
 	ip/get.ipv6remote.pl			\
+	ip/msnc.exe				\
 	nfs/tst.call.exe			\
 	nfs/tst.call3.exe			\
 	pid/err.D_PDESC_ZERO.badlib.exe		\
@@ -2731,6 +2732,8 @@ CLOBBERFILES += usdt/forker.h usdt/lazyprobe.h
 
 fasttrap/tst.fasttrap.exe := LDLIBS += -ldtrace
 fasttrap/tst.stack.exe := LDLIBS += -ldtrace
+
+ip/msnc.exe := LDLIBS += -lsocket
 
 sysevent/tst.post.exe := LDLIBS += -lsysevent
 sysevent/tst.post_chan.exe := LDLIBS += -lsysevent
