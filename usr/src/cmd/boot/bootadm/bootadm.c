@@ -446,9 +446,10 @@ build_path(char *buf, size_t len, char *root, char *prefix, char *suffix)
 {
 	char *isadir;
 
-	if (is_flag_on(IS_SPARC_TARGET)||
-	    is_flag_on(IS_AARCH64_TARGET)) {
+	if (is_flag_on(IS_SPARC_TARGET)) {
 		isadir = "";
+	} else if (is_flag_on(IS_AARCH64_TARGET)) {
+		isadir = "/aarch64";
 	} else {		/* x86 */
 		isadir = "/amd64";
 	}
@@ -2718,14 +2719,45 @@ check_flags_and_files(char *root)
 	 * check (and always open) the cache file on SPARC.
 	 */
 	if (is_sparc() || is_aarch64()) {
-		ret = snprintf(get_cachedir(),
-		    sizeof (get_cachedir()), "%s%s%s/%s", root,
-		    ARCHIVE_PREFIX, get_machine(), CACHEDIR_SUFFIX);
+		ret = build_path(get_cachedir(), sizeof (get_cachedir()),
+		    root, ARCHIVE_PREFIX, CACHEDIR_SUFFIX);
 
 		if (ret >= sizeof (get_cachedir())) {
 			bam_error(_("unable to create path on mountpoint %s, "
 			    "path too long\n"), rootbuf);
 			return (BAM_ERROR);
+		}
+
+		/*
+		 * While migrating to the IPD 34 location we need to ensure
+		 * that the archive/cache directory exists. It is possible for
+		 * it to not exist when the image was constructed using an
+		 * older cross-build system.
+		 *
+		 * XXXARM: It should be safe to delete this block of code after
+		 * sufficient time has passed, I'd guess November 2025 would
+		 * be safe.
+		 */
+		if (is_aarch64()) {
+			char *dirpath;
+
+			if ((dirpath = strdup(get_cachedir())) == NULL) {
+				bam_error(_("failed to duplicate "
+				    "cachedir: %s\n"), strerror(errno));
+				return (BAM_ERROR);
+			}
+
+			dirpath = dirname(dirpath);
+
+			if (mkdirp(dirpath, DIR_PERMS) == -1 &&
+			    errno != EEXIST) {
+				bam_error(_("mkdir of %s failed: %s\n"),
+				    dirpath, strerror(errno));
+				free(dirpath);
+				return (BAM_ERROR);
+			}
+
+			free(dirpath);
 		}
 
 		if (stat(get_cachedir(), &sb) != 0) {

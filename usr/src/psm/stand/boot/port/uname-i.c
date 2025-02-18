@@ -137,10 +137,11 @@ newstate:
 }
 
 static void
-make_platform_path(char *fullpath, char *iarch, char *filename)
+make_platform_path(char *fullpath, char *iarch, char *isadir, char *filename)
 {
 	(void) strcpy(fullpath, "/platform/");
 	(void) strcat(fullpath, iarch);
+	(void) strcat(fullpath, isadir);
 	if (filename != NULL) {
 		(void) strcat(fullpath, "/");
 		(void) strcat(fullpath, filename);
@@ -168,7 +169,11 @@ open_platform_file(
 	 * Hunt the filesystem for one that works ..
 	 */
 	while ((ia = get_impl_arch_name(&state, 1)) != NULL) {
-		make_platform_path(fullpath, ia, filename);
+		make_platform_path(fullpath, ia, "/aarch64", filename);
+		if ((fd = (*openfn)(fullpath, arg)) != -1)
+			return (fd);
+
+		make_platform_path(fullpath, ia, "", filename);
 		if ((fd = (*openfn)(fullpath, arg)) != -1)
 			return (fd);
 	}

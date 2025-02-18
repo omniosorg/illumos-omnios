@@ -126,7 +126,7 @@ sun4u|sun4v)	ISA=sparc
 aarch64|armv8)  PLATFORM=armv8
 		ISA=aarch64
 		ARCH64=armv8
-		BOOT_ARCHIVE_SUFFIX=boot_archive
+		BOOT_ARCHIVE_SUFFIX=$ISA/boot_archive
 		;;
 *)		usage
 		;;

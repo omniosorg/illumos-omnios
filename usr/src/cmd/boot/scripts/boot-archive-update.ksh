@@ -54,6 +54,15 @@ if [ `uname -p` = "i386" ]; then
 	[ -d $plat/archive_cache ] && rm -rf $plat/archive_cache
 fi
 
+if [ `uname -p` = "aarch64" ]; then
+	# Remove archives from pre IPD 34 location if present.
+	plat=/platform/`uname -m`
+	[ -f $plat/boot_archive ] && rm -f $plat/boot_archive
+	[ -f $plat/boot_archive.hash ] && rm -f $plat/boot_archive.hash
+	[ -f $plat/archive_cache ] && rm -f $plat/archive_cache
+	[ -d $plat/archive_cache ] && rm -rf $plat/archive_cache
+fi
+
 if [ -f $UPDATEFILE ] || [ -f /reconfigure ]; then
 	/usr/sbin/rtc -c > /dev/null 2>&1
 	/sbin/bootadm update-archive
