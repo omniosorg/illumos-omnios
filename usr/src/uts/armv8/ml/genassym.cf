@@ -139,6 +139,9 @@ define	CP_PHYSIO		offsetof(struct copyops, cp_physio)
 define	PSR_M_MASK		PSR_M_MASK
 define	PSR_M_EL0t		PSR_M_EL0t
 define	PSR_C			PSR_C
+define	PSR_I			PSR_I
+define	PSR_F			PSR_F
+define	PSR_M_EL1h		PSR_M_EL1h
 define	PSR_SS_BIT		PSR_SS_BIT
 define	LMS_SYSTEM		LMS_SYSTEM
 define	LMS_USER		LMS_USER
@@ -211,6 +214,8 @@ define NCPU		NCPU
 
 define SPSR_EL3_VAL	(PSR_F | PSR_I | PSR_M_EL1h)
 define SPSR_EL2_VAL	(PSR_F | PSR_I | PSR_M_EL1h)
+
+define SCTLR_EL1_RES1	SCTLR_EL1_RES1
 
 define HCR_RW		HCR_RW
 define CNTHCTL_EL1PCTEN	CNTHCTL_EL1PCTEN

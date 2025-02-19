@@ -22,6 +22,7 @@
 #
 # Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2017 Hayashi Naoyuki
+# Copyright 2025 Michael van der Westhuizen
 #
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/io/ns16550a/%.c
@@ -64,6 +65,65 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/%.c
 $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/io/gfx_private/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
+
+#
+# Rules for the direct-boot shim.
+#
+DBOOT_OBJS_DIR	= dboot/$(OBJS_DIR)
+DBOOT_MACH_64	= -D_BOOT_TARGET_aarch64
+DBOOT_DEFS	= -D_BOOT $(DBOOT_MACH_$(CLASS))
+DBOOT_DEFS	+= -D_MACHDEP -U_KERNEL
+DBOOT_FLAGS	= $(aarch64_CFLAGS) $(CSTD) $(COPTFLAG) $(C_BIGPICFLAGS)
+DBOOT_FLAGS	+= $(CCVERBOSE) $(CERRWARN) $(CCNOAUTOINLINE)
+DBOOT_FLAGS	+= -_gcc=-march=armv8-a+nofp+nosimd
+DBOOT_ASFLAGS	= $(C_BIGPICFLAGS) $(ASFLAGS_XARCH_64) -D_ASM
+
+DBOOT_CC_INCL	= -I$(SRC)/contrib/libfdt $(INCLUDE_PATH)
+DBOOT_AS_INCL	= $(AS_INC_PATH)
+
+$(DBOOT_OBJS_DIR)/%.o:		$(UTSBASE)/armv8/dboot/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+$(DBOOT_OBJS_DIR)/%.o:		$(UTSBASE)/armv8/dboot/%.S $(ASSYM_H)
+	$(COMPILE.s) -o $@ $<
+
+$(DBOOT_OBJS_DIR)/%.o:		$(UTSBASE)/armv8/boot/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+$(DBOOT_OBJS_DIR)/%.o:		$(SRC)/common/font/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+# dboot fonts: .bdf -> (generated) .c
+$(DBOOT_OBJS_DIR)/$(FONT).c:	$(FONT_DIR)/$(FONT_SRC).bdf
+	$(VTFONTCVT) -f source -o $@ $(FONT_DIR)/$(FONT_SRC).bdf
+
+# dboot fonts: (generated) .c -> .o
+$(DBOOT_OBJS_DIR)/%.o:		$(DBOOT_OBJS_DIR)/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+# for libfdt objects
+$(DBOOT_OBJS_DIR)/%.o:		$(SRC)/contrib/libfdt/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+# for getoptstr.o
+$(DBOOT_OBJS_DIR)/%.o:		$(COMMONBASE)/util/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+# for bitext.o
+$(DBOOT_OBJS_DIR)/%.o:		$(COMMONBASE)/bitext/%.c
+	$(aarch64_CC) $(DBOOT_FLAGS) -O \
+	    $(DBOOT_DEFS) $(DBOOT_CC_INCL) -c -o $@ $<
+
+#
+# NOTE: Linking dboot is also quite special, and is dealt with
+# in the unix Makefile.
+#
 
 $(OBJS_DIR)/dtracestubs.s:	$(UNIX_O) $(LIBS)
 	$(NM) -u $(UNIX_O) $(LIBS) | $(GREP) __dtrace_probe_ | $(SORT) | \

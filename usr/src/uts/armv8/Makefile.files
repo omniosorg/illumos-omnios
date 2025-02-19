@@ -82,6 +82,11 @@ CORE_OBJS +=			\
 
 CORE_OBJS += $(PCI_STRING_OBJS)
 
+#
+# These get compiled twice:
+# - once in the dboot (direct boot) identity mapped code
+# - once for use during early startup in unix
+#
 BOOT_DRIVER_OBJS =		\
 	boot_console.o		\
 	boot_fb.o		\
@@ -92,6 +97,49 @@ BOOT_DRIVER_OBJS =		\
 	$(FONT_OBJS)
 
 CORE_OBJS += $(BOOT_DRIVER_OBJS)
+
+DBOOT_OBJS +=			\
+	dboot_srt0.o		\
+	dboot_self_reloc.o	\
+	dboot_main.o		\
+	dboot_aarch64_subr.o	\
+	dboot_printf.o		\
+	dboot_conf.o		\
+	dboot_conf_acpi.o	\
+	dboot_conf_fdt.o	\
+	dboot_memlist.o		\
+	dboot_psci.o		\
+	dboot_uefimem.o		\
+	dboot_standalloc.o	\
+	dboot_standalone.o	\
+	dboot_machdep_efi.o	\
+	dboot_heap_kmem.o	\
+	dboot_machdep.o		\
+	dboot_elf_loader.o	\
+	dboot_bootflags.o	\
+	fdt.o                   \
+	fdt_ro.o                \
+	fdt_wip.o               \
+	fdt_sw.o                \
+	fdt_rw.o                \
+	fdt_strerror.o          \
+	fdt_empty_tree.o        \
+	fdt_addresses.o         \
+	fdt_overlay.o           \
+	fdt_check.o		\
+	getoptstr.o		\
+	bitext.o		\
+	bzero.o			\
+	string.o		\
+	strtoul.o		\
+	memchr.o		\
+	memcpy.o		\
+	memmove.o		\
+	memcmp.o		\
+	memset.o		\
+	memlist.o		\
+	standalloc.o		\
+	$(BOOT_DRIVER_OBJS)
 
 PLATMOD_OBJS = platmod.o
 

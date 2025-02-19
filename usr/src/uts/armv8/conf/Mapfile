@@ -9,17 +9,33 @@
 # http://www.illumos.org/license/CDDL.
 #
 
+#
 # Copyright 2022 Richard Lowe.
+# Copyright 2025 Michael van der Westhuizen
+#
 
 $mapfile_version 2
+
+#
+# this is the UEFI direct-boot shim
+#
+LOAD_SEGMENT dboot {
+	FLAGS = READ WRITE EXECUTE;
+	VADDR = 0xfffffffffe000000;
+	ASSIGN_SECTION {
+		TYPE = PROGBITS;
+		FLAGS = ALLOC WRITE;
+		FILE_BASENAME = dboot.o;
+	};
+};
 
 #
 # this is the kernel text
 #
 LOAD_SEGMENT text {
 	FLAGS = READ EXECUTE;
+	ALIGN = 0x1000;
 	NOHDR;
-	VADDR = 0xfffffffffe000000;
 	OS_ORDER = .text;
 	ASSIGN_SECTION {
 		TYPE = PROGBITS;
