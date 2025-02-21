@@ -2374,11 +2374,12 @@ lx_elfexec(struct vnode *vp, struct execa *uap, struct uarg *args,
 		 * Dynamic executable with found or determined Phdr.
 		 *
 		 *  - voffset is either address where exec file is mapped
-		 *   (for ET_DYN Type) or is zero.
+		 *    (for ET_DYN Type) or is zero.
 		 *
 		 * According to ELF format for PT_PHDR:
-		 *  - vaddr is the virtual address at which the first byte of the segment
-		 *    resides inmemory.
+		 *
+		 *  - vaddr is the virtual address at which the first byte of
+		 *    the segment resides in memory.
 		 */
 		edp.ed_phdr = voffset + uphdr_vaddr;
 	}
