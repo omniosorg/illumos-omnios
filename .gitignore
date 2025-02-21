@@ -9183,6 +9183,7 @@ usr/src/test/os-tests/tests/ksensor/ksensor_sread.64
 usr/src/test/os-tests/tests/ksid/ksid.32
 usr/src/test/os-tests/tests/ksid/ksid.64
 usr/src/test/os-tests/tests/libtopo/digraph-test
+usr/src/test/os-tests/tests/mac_test/mac_test
 usr/src/test/os-tests/tests/minttl/minttl
 usr/src/test/os-tests/tests/minttl/minttl_err
 usr/src/test/os-tests/tests/oclo/oclo
@@ -9372,6 +9373,7 @@ usr/src/test/util-tests/tests/libsff/libsff_lengths
 usr/src/test/util-tests/tests/libsff/libsff_opts
 usr/src/test/util-tests/tests/libsff/libsff_strings
 usr/src/test/util-tests/tests/libsff/libsff_wave
+usr/src/test/util-tests/tests/mdb/progs/anon
 usr/src/test/util-tests/tests/mdb/progs/bitfields
 usr/src/test/util-tests/tests/mdb/progs/number_symbol
 usr/src/test/util-tests/tests/mergeq/mqt
