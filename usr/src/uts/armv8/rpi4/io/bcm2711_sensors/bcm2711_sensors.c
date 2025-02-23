@@ -27,6 +27,7 @@
 #include <sys/cmn_err.h>
 #include <sys/sensors.h>
 #include <sys/stdbool.h>
+#include <sys/sysmacros.h>
 #include <sys/platmod.h>
 #include <sys/bcm2835_mbox.h>
 #include <sys/bcm2835_vcprop.h>
@@ -87,8 +88,7 @@ static const bcm2711_sensors_t bcm2711_sensors[] = {
 	}
 };
 
-static const int nsensors =
-    sizeof (bcm2711_sensors) / sizeof (bcm2711_sensors[0]);
+static const int nsensors = ARRAY_SIZE(bcm2711_sensors);
 
 typedef struct bcm2711_sensor {
 	struct bcmsensors	*bs_bcmsensors;
