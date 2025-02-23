@@ -13,6 +13,7 @@
 
 #
 # Copyright (c) 2019, Joyent, Inc.
+# Copyright 2025 Oxide Computer Company
 #
 
 #
@@ -34,14 +35,13 @@ ctf_cc="gcc"
 ctf_cxx="g++"
 ctf_convert="ctfconvert"
 ctf_merge="ctfmerge"
-ctf_debugflags="-gdwarf-2 "
+ctf_debugdef="-gdwarf-2"
+ctf_debugflags=
 ctf_mach=$(mach)
-ctf_mach32flag="-m32"
-
+ctf_mach32="-m32"
 if [[ $ctf_mach != "aarch64" ]]; then
-	ctf_mach64flag="-m64"
+	ctf_mach64="-m64"
 fi
-
 ctf_temp="$TMPDIR/ctftest.$$.o"
 ctf_makefile="Makefile.ctftest"
 ctf_nerrs=0
@@ -182,8 +182,8 @@ run_dir()
 	if ! make -C $dir -f Makefile.ctftest \
 	    BUILDDIR="$outdir" \
 	    CC="$ctf_cc" \
-	    CFLAGS32="$ctf_mach32flag" \
-	    CFLAGS64="$ctf_mach64flag" \
+	    CFLAGS32="$ctf_mach32" \
+	    CFLAGS64="$ctf_mach64" \
 	    DEBUGFLAGS="$ctf_debugflags" \
 	    CTFCONVERT="$ctf_convert" \
 	    CTFMERGE="$ctf_merge" \
@@ -280,7 +280,7 @@ while getopts ":C:c:g:m:t:" c $@; do
 		ctf_cc=$OPTARG
 		;;
 	g)
-		ctf_debugflags=$OPTARG
+		ctf_debugflags+=" -g$OPTARG"
 		;;
 	m)
 		ctf_merge=$OPTARG
@@ -297,8 +297,12 @@ while getopts ":C:c:g:m:t:" c $@; do
 	esac
 done
 
-ctf_32cflags="$ctf_mach32flag $ctf_debugflags"
-ctf_64cflags="$ctf_mach64flag $ctf_debugflags"
+if [[ -z "$ctf_debugflags" ]]; then
+	ctf_debugflags=$ctf_debugdef
+fi
+
+ctf_32cflags="$ctf_mach32 $ctf_debugflags"
+ctf_64cflags="$ctf_mach64 $ctf_debugflags"
 
 determine_compiler
 

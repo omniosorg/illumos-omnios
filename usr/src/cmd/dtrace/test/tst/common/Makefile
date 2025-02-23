@@ -41,6 +41,7 @@ include $(SRC)/Makefile.master
 CSRCS = \
 	bitfields/tst.bitfields.c \
 	io/tst.fds.c \
+	offsetof/tst.anon.c \
 	nfs/tst.call.c \
 	nfs/tst.call3.c \
 	pid/tst.args1.c \
@@ -51,6 +52,7 @@ CSRCS = \
 	pid/tst.vfork.c \
 	pid/tst.weak1.c \
 	pid/tst.weak2.c \
+	print/tst.anon.c \
 	proc/tst.sigwait.c \
 	profile-n/tst.ufuncsort.c \
 	raise/tst.raise1.c \
@@ -1841,6 +1843,8 @@ TSTS=								\
 	offsetof/tst.OffsetofAlias.d				\
 	offsetof/tst.OffsetofArith.d				\
 	offsetof/tst.OffsetofUnion.d				\
+	offsetof/tst.anon.ksh					\
+	offsetof/tst.anon.ksh.out				\
 	offsetof/tst.struct.d					\
 	offsetof/tst.struct.d.out				\
 	offsetof/tst.union.d					\
@@ -1985,6 +1989,8 @@ TSTS=								\
 	print/err.D_PRINT_AGG.bad.d				\
 	print/err.D_PRINT_VOID.bad.d				\
 	print/err.D_PROTO_LEN.bad.d				\
+	print/tst.anon.ksh					\
+	print/tst.anon.ksh.out					\
 	print/tst.array.d					\
 	print/tst.array.d.out					\
 	print/tst.bitfield.d					\
@@ -2773,14 +2779,28 @@ json/tst.usdt.exe: json/tst.usdt.o json/usdt.o
 	$(POST_PROCESS) ; $(STRIP_STABS)
 
 #
-# Tests that use the next four programs rely on the binaries having
-# valid CTF data.
+# Tests that use the next programs rely on the binaries having valid CTF
+# data.
 #
 bitfields/tst.bitfields.exe: bitfields/tst.bitfields.c
 	$(COMPILE.c) $(CTF_FLAGS) -o bitfields/tst.bitfields.o bitfields/tst.bitfields.c
 	$(CTFCONVERT) -i -L VERSION bitfields/tst.bitfields.o
 	$(LINK.c) -o bitfields/tst.bitfields.exe bitfields/tst.bitfields.o $(LDLIBS)
 	$(CTFMERGE) -L VERSION -o $@ bitfields/tst.bitfields.o
+	$(POST_PROCESS) ; $(STRIP_STABS)
+
+offsetof/tst.anon.exe: offsetof/tst.anon.c
+	$(COMPILE.c) $(CTF_FLAGS) -o offsetof/tst.anon.o offsetof/tst.anon.c
+	$(CTFCONVERT) -i -L VERSION offsetof/tst.anon.o
+	$(LINK.c) -o offsetof/tst.anon.exe offsetof/tst.anon.o $(LDLIBS)
+	$(CTFMERGE) -L VERSION -o $@ offsetof/tst.anon.o
+	$(POST_PROCESS) ; $(STRIP_STABS)
+
+print/tst.anon.exe: print/tst.anon.c
+	$(COMPILE.c) $(CTF_FLAGS) -o print/tst.anon.o print/tst.anon.c
+	$(CTFCONVERT) -i -L VERSION print/tst.anon.o
+	$(LINK.c) -o print/tst.anon.exe print/tst.anon.o $(LDLIBS)
+	$(CTFMERGE) -L VERSION -o $@ print/tst.anon.o
 	$(POST_PROCESS) ; $(STRIP_STABS)
 
 uctf/tst.aouttype.exe: uctf/tst.aouttype.c
