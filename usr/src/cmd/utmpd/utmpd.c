@@ -21,6 +21,8 @@
 /*
  * Copyright 2014, 2015 Shruti V Sampat <shrutisampat@gmail.com>
  * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright 2023 Oxide Computer Company
+ * Copyright 2025 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -80,6 +82,12 @@
 #include	<procfs.h>
 #include	<sys/resource.h>
 #include	<limits.h>
+#include	<pthread.h>
+#include	<door.h>
+#include	<err.h>
+#include	<sys/debug.h>
+#include	<sys/stdbool.h>
+#include	<sys/sysmacros.h>
 
 #define	dprintf(x)	if (Debug) (void) printf x
 
@@ -99,6 +107,8 @@
 #define	UTMP_DEFAULT	"/etc/default/utmpd"
 #define	WARN_TIME	3600	/* seconds between utmp checks */
 #define	WTMPX_UFREQ	60	/* seconds between updating WTMPX's atime */
+#define	UTMPD_DOOR	"/var/run/utmpd_door"
+#define	ONE_DAY		(24 * 3600)
 
 
 /*
@@ -147,6 +157,11 @@ static int	WTMPX_ufreq = WTMPX_UFREQ;
 static int	Debug = 0;		/* Set by command line argument */
 static int	Max_fds		= MAX_FDS;
 
+static int		door_fd = -1;
+static pthread_mutex_t	utmp_lock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
+static pthread_cond_t	utmp_cv = PTHREAD_COND_INITIALIZER;
+static bool		utmp_active = false;
+
 /*
  * This program has three main components plus utilities and debug routines
  *	Receiver - receives the process ID or process for us to watch.
@@ -180,6 +195,44 @@ static void warn_utmp(void);
 
 /* Validate defaults from file and assign */
 static int validate_default(char *defp, int *flag);
+
+/*
+ * This process also runs a door server, listening for calls from the kernel
+ * following a significant forwards clock step. When this is received, we
+ * rewrite the utmpx/wtmpx databases in the current zone to adjust it based on
+ * the new boot time.
+ */
+static void door_server_init(void);
+
+static void
+utmp_start(void)
+{
+	int e;
+
+	if ((e = pthread_mutex_lock(&utmp_lock)) != 0)
+		errc(EXIT_FAILURE, e, "Failed to lock mutex");
+	while (utmp_active) {
+		if ((e = pthread_cond_wait(&utmp_cv, &utmp_lock)) != 0)
+			errc(EXIT_FAILURE, e, "pthread_cond_wait failed");
+	}
+	utmp_active = true;
+	if ((e = pthread_mutex_unlock(&utmp_lock)) != 0)
+		errc(EXIT_FAILURE, e, "Failed to unlock mutex");
+}
+
+static void
+utmp_end(void)
+{
+	int e;
+
+	if ((e = pthread_mutex_lock(&utmp_lock)) != 0)
+		errc(EXIT_FAILURE, e, "Failed to lock mutex");
+	utmp_active = false;
+	if ((e = pthread_cond_signal(&utmp_cv)) != 0)
+		errc(EXIT_FAILURE, e, "Failed to signal CV");
+	if ((e = pthread_mutex_unlock(&utmp_lock)) != 0)
+		errc(EXIT_FAILURE, e, "Failed to unlock mutex");
+}
 
 /*
  * main()  - Main does basic setup and calls wait_for_pids() to do the work
@@ -300,6 +353,8 @@ main(int argc, char *argv[])
 
 	if ((WTMPXfd = open(WTMPX_FILE, O_RDONLY)) < 0)
 		nonfatal("WARNING: unable to open " WTMPX_FILE " for update.");
+
+	door_server_init();
 
 	/*
 	 * Loop here scanning the utmpx file and waiting for processes
@@ -554,6 +609,7 @@ scan_utmps()
 	/*
 	 * Scan utmpx.
 	 */
+	utmp_start();
 	setutxent();
 	while ((utmpx = getutxent()) != NULL) {
 		if (utmpx->ut_type == USER_PROCESS) {
@@ -583,6 +639,7 @@ scan_utmps()
 	 * Close it to flush the buffer.
 	 */
 	endutxent();
+	utmp_end();
 }
 
 
@@ -949,6 +1006,7 @@ clean_entry(int i)
 	 * Find the entry that corresponds to this pid.
 	 * Do nothing if entry not found in utmpx file.
 	 */
+	utmp_start();
 	setutxent();
 	while ((u = getutxent()) != NULL) {
 		if (u->ut_pid == pidtable[i].pl_pid) {
@@ -958,6 +1016,7 @@ clean_entry(int i)
 		}
 	}
 	endutxent();
+	utmp_end();
 }
 
 
@@ -1121,4 +1180,142 @@ validate_default(char *defp, int *flag)
 
 	*flag = lval;
 	return (0);
+}
+
+static void
+print_entry(struct utmpx *u, char context)
+{
+	char tmbuf[64];
+	struct tm *tm;
+	size_t l;
+	time_t t;
+
+	if (Debug == 0)
+		return;
+
+	t = u->ut_tv.tv_sec;
+	tm = localtime(&t);
+	l = strftime(tmbuf, sizeof (tmbuf), "%Y-%m-%d %H:%M:%S", tm);
+	if (l > 0) {
+		dprintf(("%c %s@%s - %s.%06ld\n", context,
+		    u->ut_user, u->ut_line, tmbuf, u->ut_tv.tv_usec));
+	}
+}
+
+static void
+process_database(const char *dbfile, time_t ts)
+{
+	struct utmpx *u;
+	time_t start = 0;
+
+	dprintf(("Processing database %s\n", dbfile));
+
+	utmp_start();
+
+	if (utmpxname(dbfile) == 0) {
+		warn("Invalid database (see utmpxname(3C))");
+		utmp_end();
+		return;
+	}
+
+	u = getutxent();
+	if (u == NULL) {
+		dprintf(("Database is empty\n"));
+		goto out;
+	}
+
+	/*
+	 * Only update entries from the last "system boot" record onwards.
+	 */
+	uint_t i = 0;
+	uint_t last_boot = 0;
+	do {
+		i++;
+		if (strcmp(u->ut_line, BOOT_MSG) != 0)
+			continue;
+
+		start = u->ut_tv.tv_sec;
+		last_boot = i - 1;
+	} while ((u = getutxent()) != NULL);
+
+	if (start == 0 || start == ts) {
+		dprintf(("Database has already been updated."));
+		goto out;
+	}
+
+	setutxent();
+	while ((u = getutxent()) != NULL) {
+		if (last_boot > 0) {
+			last_boot--;
+			continue;
+		}
+
+		if (u->ut_tv.tv_sec - start > ONE_DAY)
+			continue;
+
+		print_entry(u, '<');
+		u->ut_tv.tv_sec += ts - start;
+		u = pututxline(u);
+		print_entry(u, '>');
+	}
+
+out:
+	endutxent();
+	if (utmpxname(UTMPX_FILE) == 0) {
+		errx(EXIT_FAILURE, "Failed to restore default utmpx file %s",
+		    UTMPX_FILE);
+	}
+	utmp_end();
+}
+
+static void
+door_server(void *cookie __unused, char *argp, size_t sz,
+    door_desc_t *dp __unused, uint_t ndesc __unused)
+{
+	static const char *tmpxdbs[] = { "/var/adm/wtmpx", "/var/adm/utmpx" };
+	uint_t i;
+
+	dprintf(("Door request received, size %zu.\n", sz));
+
+	if (sz == sizeof (time_t)) {
+		time_t boot_ts;
+
+		boot_ts = *(time_t *)argp;
+		dprintf(("Boot timestamp: %ld\n", boot_ts));
+		for (i = 0; i < ARRAY_SIZE(tmpxdbs); i++)
+			process_database(tmpxdbs[i], boot_ts);
+	}
+
+	dprintf(("Door return.\n"));
+	(void) door_return(NULL, 0, NULL, 0);
+}
+
+static void
+door_server_init(void)
+{
+	int fd;
+
+	if ((fd = open(UTMPD_DOOR, O_CREAT|O_EXCL|O_RDONLY, 0440)) == -1) {
+		if (errno != EEXIST) {
+			err(EXIT_FAILURE, "Failed to create door socket '%s'",
+			    UTMPD_DOOR);
+		}
+	}
+	(void) close(fd);
+
+	if ((door_fd = door_create(door_server, NULL,
+	    DOOR_REFUSE_DESC | DOOR_NO_CANCEL)) == -1) {
+		err(EXIT_FAILURE, "Failed to create door service");
+	}
+
+	(void) fdetach(UTMPD_DOOR);
+	if (fattach(door_fd, UTMPD_DOOR) != 0) {
+		(void) door_revoke(door_fd);
+		(void) fdetach(UTMPD_DOOR);
+		door_fd = -1;
+		err(EXIT_FAILURE, "Cannot attach to door file '%s'",
+		    UTMPD_DOOR);
+	}
+
+	dprintf(("Door server running on %s\n", UTMPD_DOOR));
 }

@@ -24,6 +24,7 @@
  * Copyright 2014 Igor Kozhukhov <ikozhukhov@gmail.com>.
  * Copyright 2019 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2020 Joyent, Inc.
+ * Copyright 2023 Oxide Computer Company
  */
 
 #ifndef _SYS_ZONE_H
@@ -671,7 +672,8 @@ extern zoneid_t getzoneid(void);
 extern zone_t *zone_find_by_id_nolock(zoneid_t);
 extern int zone_datalink_walk(zoneid_t, int (*)(datalink_id_t, void *), void *);
 extern int zone_check_datalink(zoneid_t *, datalink_id_t);
-extern void zone_loadavg_update();
+extern void zone_loadavg_update(void);
+extern void zone_boottime_adjust(time_t);
 
 /*
  * Zone-specific data (ZSD) APIs

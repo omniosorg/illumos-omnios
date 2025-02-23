@@ -23,7 +23,8 @@
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2015, Joyent Inc. All rights reserved.
  * Copyright (c) 2016 by Delphix. All rights reserved.
- * Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2025 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2023 Oxide Computer Company
  */
 
 /*
@@ -3314,6 +3315,28 @@ zone_loadavg_update(void)
 		mutex_exit(&zp->zone_lock);
 	}
 	mutex_exit(&zonehash_lock);
+}
+
+/*
+ * Adjust the boot time of zones following a system time step change.
+ */
+static int
+zone_boottime_adjust_cb(zone_t *zone, void *arg)
+{
+	time_t adj = *(time_t *)arg;
+
+	if ((adj > 0 && zone->zone_boot_time < INT64_MAX - adj) ||
+	    (adj < 0 && zone->zone_boot_time > -adj)) {
+		zone->zone_boot_time += adj;
+	}
+
+	return (0);
+}
+
+void
+zone_boottime_adjust(time_t adj)
+{
+	(void) zone_walk(zone_boottime_adjust_cb, (void *)&adj);
 }
 
 /*
