@@ -18,7 +18,6 @@ set name=pkg.summary value="Support for QEMU virtual aarch64"
 set name=info.classification value=org.opensolaris.category.2008:System/Core
 set name=org.illumos.for-arch value=aarch64
 dir  path=platform/QEMU,virt
-file path=platform/QEMU,virt/inetboot.bin
 dir  path=platform/QEMU,virt/kernel
 dir  path=platform/QEMU,virt/kernel/misc
 dir  path=platform/QEMU,virt/kernel/misc/$(ARCH)

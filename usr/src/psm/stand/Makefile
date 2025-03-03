@@ -27,7 +27,6 @@
 include ../../Makefile.master
 
 SUBDIRS_sparc= lib boot cpr bootlst
-SUBDIRS_aarch64= boot
 SUBDIRS=$(SUBDIRS_$(MACH))
 
 all		:=	TARGET= all
