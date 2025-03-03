@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _GIC_REG_H
@@ -697,6 +697,9 @@ extern "C" {
 #define	ICC_SRE_EL1_DIB				0x0000000000000004
 #define	ICC_SRE_EL1_DFB				0x0000000000000002
 #define	ICC_SRE_EL1_SRE				0x0000000000000001
+
+#define	ICC_SRE_EL2_EN				(1U << 3)
+#define	ICC_SRE_EL2_SRE				(1U << 0)
 
 #define	ICC_IGRPEN0_EL1_Enable			0x0000000000000001
 

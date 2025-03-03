@@ -21,7 +21,7 @@
 
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _SYS_CONTROLREGS_H
@@ -32,34 +32,278 @@
 #include <sys/types.h>
 #include <asm/controlregs.h>
 
-#define	SCTLR_EL1_RES1	(0x30d00800)
-#define	SCTLR_EL2_RES1	(0x30C50830)
-#define	SCTLR_EL3_RES1	(0x30C50830)
-#define	SCTLR_UCI	(1<<26)
-#define	SCTLR_EE	(1<<25)
-#define	SCTLR_E0E	(1<<24)
-#define	SCTLR_WXN	(1<<19)
-#define	SCTLR_nTWE	(1<<18)
-#define	SCTLR_nTWI	(1<<16)
-#define	SCTLR_UCT	(1<<15)
-#define	SCTLR_DZE	(1<<14)
-#define	SCTLR_I		(1<<12)
-#define	SCTLR_UMA	(1<<9)
-#define	SCTLR_SED	(1<<8)
-#define	SCTLR_ITD	(1<<7)
-#define	SCTLR_CP15BEN	(1<<5)
-#define	SCTLR_SA0	(1<<4)
-#define	SCTLR_SA	(1<<3)
-#define	SCTLR_C		(1<<2)
-#define	SCTLR_A		(1<<1)
-#define	SCTLR_M		(1<<0)
+/*
+ * System Control Register (EL2)
+ */
+#define	SCTLR_EL2_TIDCP		(0x1ul << 63)
+#define	SCTLR_EL2_SPINTMASK	(0x1ul << 62)
+#define	SCTLR_EL2_NMI		(0x1ul << 61)
+#define	SCTLR_EL2_EnTP2		(0x1ul << 60)
+#define	SCTLR_EL2_TCSO		(0x1ul << 59)
+#define	SCTLR_EL2_TCSO0		(0x1ul << 58)
+#define	SCTLR_EL2_EPAN		(0x1ul << 57)
+#define	SCTLR_EL2_EnALS		(0x1ul << 56)
+#define	SCTLR_EL2_EnAS0		(0x1ul << 55)
+#define	SCTLR_EL2_EnASR		(0x1ul << 54)
+#define	SCTLR_EL2_TME		(0x1ul << 53)
+#define	SCTLR_EL2_TME0		(0x1ul << 52)
+#define	SCTLR_EL2_TMT		(0x1ul << 51)
+#define	SCTLR_EL2_TMT0		(0x1ul << 50)
+#define	SCTLR_EL2_TWEDEL	(0xful << 46)
+#define	SCTLR_EL2_TWEDEn	(0x1ul << 45)
+#define	SCTLR_EL2_DSSBS		(0x1ul << 44)
+#define	SCTLR_EL2_ATA		(0x1ul << 43)
+#define	SCTLR_EL2_ATA0		(0x1ul << 42)
+#define	SCTLR_EL2_TCF		(0x3ul << 40)
+#define	SCTLR_EL2_TCF0		(0x3ul << 38)
+#define	SCTLR_EL2_ITFSB		(0x1ul << 37)
+#define	SCTLR_EL2_BT		(0x1ul << 36)
+#define	SCTLR_EL2_BT0		(0x1ul << 35)
+#define	SCTLR_EL2_EnFPM		(0x1ul << 34)
+#define	SCTLR_EL2_MSCEn		(0x1ul << 33)
+#define	SCTLR_EL2_CMOW		(0x1ul << 32)
+#define	SCTLR_EL2_EnIA		(0x1ul << 31)
+#define	SCTLR_EL2_EnIB		(0x1ul << 30)
+#define	SCTLR_EL2_LSMAOE	(0x1ul << 29)
+#define	SCTLR_EL2_nTLSMD	(0x1ul << 28)
+#define	SCTLR_EL2_EnDA		(0x1ul << 27)
+#define	SCTLR_EL2_UCI		(0x1ul << 26)
+#define	SCTLR_EL2_EE		(0x1ul << 25)
+#define	SCTLR_EL2_E0E		(0x1ul << 24)
+#define	SCTLR_EL2_SPAN		(0x1ul << 23)
+#define	SCTLR_EL2_EIS		(0x1ul << 22)
+#define	SCTLR_EL2_IESB		(0x1ul << 21)
+#define	SCTLR_EL2_TSCXT		(0x1ul << 20)
+#define	SCTLR_EL2_WXN		(0x1ul << 19)
+#define	SCTLR_EL2_nTWE		(0x1ul << 18)
+/* bit 17 is reserved */
+#define	SCTLR_EL2_nTWI		(0x1ul << 16)
+#define	SCTLR_EL2_UCT		(0x1ul << 15)
+#define	SCTLR_EL2_DZE		(0x1ul << 14)
+#define	SCTLR_EL2_EnDB		(0x1ul << 13)
+#define	SCTLR_EL2_I		(0x1ul << 12)
+#define	SCTLR_EL2_EOS		(0x1ul << 11)
+#define	SCTLR_EL2_EnRCTX	(0x1ul << 10)
+/* bit 9 is reserved in EL2 */
+#define	SCTLR_EL2_SED		(0x1ul << 8)
+#define	SCTLR_EL2_ITD		(0x1ul << 7)
+#define	SCTLR_EL2_nAA		(0x1ul << 6)
+#define	SCTLR_EL2_CP15BEN	(0x1ul << 5)
+#define	SCTLR_EL2_SA0		(0x1ul << 4)
+#define	SCTLR_EL2_SA		(0x1ul << 3)
+#define	SCTLR_EL2_C		(0x1ul << 2)
+#define	SCTLR_EL2_A		(0x1ul << 1)
+#define	SCTLR_EL2_M		(0x1ul << 0)
 
-#define	HCR_RW		(1<<31)
-#define	CNTHCTL_EL1PCTEN	(1 << 0)
-#define	CNTHCTL_EL1PCEN		(1 << 1)
+#define	SCTLR_EL2_RES1		(SCTLR_EL2_LSMAOE | SCTLR_EL2_nTLSMD | \
+	SCTLR_EL2_SPAN | SCTLR_EL2_EIS | SCTLR_EL2_nTWE | SCTLR_EL2_nTWI | \
+	SCTLR_EL2_EOS | SCTLR_EL2_CP15BEN | SCTLR_EL2_SA0)
 
-#define	CPTR_EL2_RES1	(0x33ff)
+/*
+ * System Control Register (EL1)
+ */
+#define	SCTLR_EL1_TIDCP		(0x1ul << 63)
+#define	SCTLR_EL1_SPINTMASK	(0x1ul << 62)
+#define	SCTLR_EL1_NMI		(0x1ul << 61)
+#define	SCTLR_EL1_EnTP2		(0x1ul << 60)
+#define	SCTLR_EL1_TCSO		(0x1ul << 59)
+#define	SCTLR_EL1_TCSO0		(0x1ul << 58)
+#define	SCTLR_EL1_EPAN		(0x1ul << 57)
+#define	SCTLR_EL1_EnALS		(0x1ul << 56)
+#define	SCTLR_EL1_EnAS0		(0x1ul << 55)
+#define	SCTLR_EL1_EnASR		(0x1ul << 54)
+#define	SCTLR_EL1_TME		(0x1ul << 53)
+#define	SCTLR_EL1_TME0		(0x1ul << 52)
+#define	SCTLR_EL1_TMT		(0x1ul << 51)
+#define	SCTLR_EL1_TMT0		(0x1ul << 50)
+#define	SCTLR_EL1_TWEDEL	(0xful << 46)
+#define	SCTLR_EL1_TWEDEn	(0x1ul << 45)
+#define	SCTLR_EL1_DSSBS		(0x1ul << 44)
+#define	SCTLR_EL1_ATA		(0x1ul << 43)
+#define	SCTLR_EL1_ATA0		(0x1ul << 42)
+#define	SCTLR_EL1_TCF		(0x3ul << 40)
+#define	SCTLR_EL1_TCF0		(0x3ul << 38)
+#define	SCTLR_EL1_ITFSB		(0x1ul << 37)
+#define	SCTLR_EL1_BT1		(0x1ul << 36)
+#define	SCTLR_EL1_BT0		(0x1ul << 35)
+#define	SCTLR_EL1_EnFPM		(0x1ul << 34)
+#define	SCTLR_EL1_MSCEn		(0x1ul << 33)
+#define	SCTLR_EL1_CMOW		(0x1ul << 32)
+#define	SCTLR_EL1_EnIA		(0x1ul << 31)
+#define	SCTLR_EL1_EnIB		(0x1ul << 30)
+#define	SCTLR_EL1_LSMAOE	(0x1ul << 29)
+#define	SCTLR_EL1_nTLSMD	(0x1ul << 28)
+#define	SCTLR_EL1_EnDA		(0x1ul << 27)
+#define	SCTLR_EL1_UCI		(0x1ul << 26)
+#define	SCTLR_EL1_EE		(0x1ul << 25)
+#define	SCTLR_EL1_E0E		(0x1ul << 24)
+#define	SCTLR_EL1_SPAN		(0x1ul << 23)
+#define	SCTLR_EL1_EIS		(0x1ul << 22)
+#define	SCTLR_EL1_IESB		(0x1ul << 21)
+#define	SCTLR_EL1_TSCXT		(0x1ul << 20)
+#define	SCTLR_EL1_WXN		(0x1ul << 19)
+#define	SCTLR_EL1_nTWE		(0x1ul << 18)
+/* bit 17 is reserved */
+#define	SCTLR_EL1_nTWI		(0x1ul << 16)
+#define	SCTLR_EL1_UCT		(0x1ul << 15)
+#define	SCTLR_EL1_DZE		(0x1ul << 14)
+#define	SCTLR_EL1_EnDB		(0x1ul << 13)
+#define	SCTLR_EL1_I		(0x1ul << 12)
+#define	SCTLR_EL1_EOS		(0x1ul << 11)
+#define	SCTLR_EL1_EnRCTX	(0x1ul << 10)
+#define	SCTLR_EL1_EL1_UMA	(0x1ul << 9)
+#define	SCTLR_EL1_SED		(0x1ul << 8)
+#define	SCTLR_EL1_ITD		(0x1ul << 7)
+#define	SCTLR_EL1_nAA		(0x1ul << 6)
+#define	SCTLR_EL1_CP15BEN	(0x1ul << 5)
+#define	SCTLR_EL1_SA0		(0x1ul << 4)
+#define	SCTLR_EL1_SA		(0x1ul << 3)
+#define	SCTLR_EL1_C		(0x1ul << 2)
+#define	SCTLR_EL1_A		(0x1ul << 1)
+#define	SCTLR_EL1_M		(0x1ul << 0)
 
+#define	SCTLR_EL1_RES1		(SCTLR_EL1_LSMAOE | SCTLR_EL1_nTLSMD | \
+	SCTLR_EL1_SPAN | SCTLR_EL1_EIS | SCTLR_EL1_TSCXT | SCTLR_EL1_EOS)
+
+#define	INIT_SCTLR_EL1		(SCTLR_EL1_LSMAOE | SCTLR_EL1_nTLSMD | \
+	SCTLR_EL1_EIS | SCTLR_EL1_TSCXT | SCTLR_EL1_EOS)
+
+/*
+ * Hypervisor Configuration Register
+ */
+#define	HCR_TWEDEL		(0xful << 60)
+#define	HCR_TWEDEn		(0x1ul << 59)
+#define	HCR_TID5		(0x1ul << 58)
+#define	HCR_DCT			(0x1ul << 57)
+#define	HCR_ATA			(0x1ul << 56)
+#define	HCR_TTLBOS		(0x1ul << 55)
+#define	HCR_TTLBIS		(0x1ul << 54)
+#define	HCR_EnSCXT		(0x1ul << 53)
+#define	HCR_TOCU		(0x1ul << 52)
+#define	HCR_AMVOFFEN		(0x1ul << 51)
+#define	HCR_TICAB		(0x1ul << 50)
+#define	HCR_TID4		(0x1ul << 49)
+#define	HCR_GPF			(0x1ul << 48)
+#define	HCR_FIEN		(0x1ul << 47)
+#define	HCR_FWB			(0x1ul << 46)
+#define	HCR_NV2			(0x1ul << 45)
+#define	HCR_AT			(0x1ul << 44)
+#define	HCR_NV1			(0x1ul << 43)
+#define	HCR_NV			(0x1ul << 42)
+#define	HCR_API			(0x1ul << 41)
+#define	HCR_APK			(0x1ul << 40)
+#define	HCR_TME			(0x1ul << 39)
+#define	HCR_MIOCNCE		(0x1ul << 38)
+#define	HCR_TEA			(0x1ul << 37)
+#define	HCR_TERR		(0x1ul << 36)
+#define	HCR_TLOR		(0x1ul << 35)
+#define	HCR_E2H			(0x1ul << 34)
+#define	HCR_ID			(0x1ul << 33)
+#define	HCR_CD			(0x1ul << 32)
+#define	HCR_RW			(0x1ul << 31)
+#define	HCR_TRVM		(0x1ul << 30)
+#define	HCR_HCD			(0x1ul << 29)
+#define	HCR_TDZ			(0x1ul << 28)
+#define	HCR_TGE			(0x1ul << 27)
+#define	HCR_TVM			(0x1ul << 26)
+#define	HCR_TTLB		(0x1ul << 25)
+#define	HCR_TPU			(0x1ul << 24)
+#define	HCR_TPCP		(0x1ul << 23)
+#define	HCR_TSW			(0x1ul << 22)
+#define	HCR_TACR		(0x1ul << 21)
+#define	HCR_TIDCP		(0x1ul << 20)
+#define	HCR_TSC			(0x1ul << 19)
+#define	HCR_TID3		(0x1ul << 18)
+#define	HCR_TID2		(0x1ul << 17)
+#define	HCR_TID1		(0x1ul << 16)
+#define	HCR_TID0		(0x1ul << 15)
+#define	HCR_TWE			(0x1ul << 14)
+#define	HCR_TWI			(0x1ul << 13)
+#define	HCR_DC			(0x1ul << 12)
+#define	HCR_BSU			(0x3ul << 10)
+#define	HCR_FB			(0x1ul << 9)
+#define	HCR_VSE			(0x1ul << 8)
+#define	HCR_VI			(0x1ul << 7)
+#define	HCR_VF			(0x1ul << 6)
+#define	HCR_AMO			(0x1ul << 5)
+#define	HCR_IMO			(0x1ul << 4)
+#define	HCR_FMO			(0x1ul << 3)
+#define	HCR_PTW			(0x1ul << 2)
+#define	HCR_SWIO		(0x1ul << 1)
+#define	HCR_VM			(0x1ul << 0)
+
+/*
+ * Counter-timer Hypervisor Control Register
+ */
+#define	CNTHCTL_CNTPMASK	(0x1ul << 19)
+#define	CNTHCTL_CNTVMASK	(0x1ul << 18)
+#define	CNTHCTL_EVNTIS		(0x1ul << 17)
+#define	CNTHCTL_EL1NVVCT	(0x1ul << 16)
+#define	CNTHCTL_EL1NVPCT	(0x1ul << 15)
+#define	CNTHCTL_EL1TVCT		(0x1ul << 14)
+#define	CNTHCTL_EL1TVT		(0x1ul << 13)
+#define	CNTHCTL_ECV		(0x1ul << 12)
+/* valid when HCR_EL2.E2H is 1 */
+#define	CNTHCTL_E2H_EL1PTEN	(0x1ul << 11)
+#define	CNTHCTL_E2H_EL1PCTEN	(0x1ul << 10)
+#define	CNTHCTL_E2H_EL0PTEN	(0x1ul << 9)
+#define	CNTHCTL_E2H_EL0VTEN	(0x1ul << 8)
+/* always valid */
+#define	CNTHCTL_EVNTI		(0xful << 4)
+#define	CNTHCTL_EVNTDIR		(0x1ul << 3)
+#define	CNTHCTL_EVNTEN		(0x1ul << 2)
+/* valid when HCR_EL2.E2H is 1 */
+#define	CNTHCTL_E2H_EL0VCTEN	(0x1ul << 1)
+#define	CNTHCTL_E2H_EL0PCTEN	(0x1ul << 0)
+/* valid when HCR_EL2.E2H is 0 */
+#define	CNTHCTL_EL1PCEN		(0x1ul << 1)
+#define	CNTHCTL_EL1PCTEN	(0x1ul << 0)
+
+/*
+ * Architectural Feature Trap Register (EL2)
+ */
+#define	CPTR_EL2_TCPAC		(0x1ul << 31)
+#define	CPTR_EL2_TAM		(0x1ul << 30)
+#define	CPTR_EL2_E0POE		(0x1ul << 29)
+#define	CPTR_EL2_TTA		(0x1ul << 28)
+#define	CPTR_EL2_SMEN		(0x3ul << 24)
+#define	CPTR_EL2_FPEN		(0x3ul << 20)
+#define	CPTR_EL2_ZEN		(0x3ul << 16)
+
+/*
+ * XXXARM: cptr_el2 initialisation is sketchy at best, and can easily set
+ * res0 bits when certain features are not implemented. We should do this
+ * a little bit better, in code and querying features.
+ *
+ * For now we just assume that it's ok to set these bits, which is what
+ * FreeBSD does.
+ */
+
+/*
+ * CPTR_EL2 when E2H is enabled.
+ *
+ * Does not cause any known activity to be trapped to EL2 via these control.
+ * This is necessary (for now), since we're not really doing anything special
+ * at EL2 yet.
+ */
+#define	INIT_CPTR_EL2_E2H	(0x23330000ul)
+
+/*
+ * CPTR_EL2 value when E2H is not enabled.
+ *
+ * This was defined as 0x33ff, which causes SVE and SME to be trapped (via
+ * bits 8 and 12 respectively), which is not our intention at all.
+ *
+ * FreeBSD seems to be unaware of SME at present.
+ */
+#define	CPTR_EL2_NO_E2H_TCPAC	(0x1ul << 31)
+#define	CPTR_EL2_NO_E2H_TAM	(0x1ul << 30)
+#define	CPTR_EL2_NO_E2H_TTA	(0x1ul << 20)
+#define	CPTR_EL2_NO_E2H_TSM	(0x1ul << 12)
+#define	CPTR_EL2_NO_E2H_TFP	(0x1ul << 10)
+#define	CPTR_EL2_NO_E2H_TZ	(0x1ul << 8)
+#define	CPTR_EL2_NO_E2H_RES1	(0x22fful)
+#define	INIT_CPTR_EL2_NO_E2H	(CPTR_EL2_NO_E2H_RES1)
 
 #define	CPUECTLR_SMP	(1<<6)
 
@@ -137,9 +381,9 @@
 #define	PSR_USERINIT	PSR_M_EL0t
 #define	PSR_USERMASK	(PSR_N | PSR_Z | PSR_C | PSR_V | PSR_SS)
 
-#define	CPACR_FPEN_MASK	(3<<20)
-#define	CPACR_FPEN_EN	(3<<20)
-#define	CPACR_FPEN_DIS	(0<<20)
+#define	CPACR_FPEN_MASK	(0x3ul << 20)
+#define	CPACR_FPEN_EN	(0x3ul << 20)
+#define	CPACR_FPEN_DIS	(0x0ul << 20)
 
 #define	PAR_ATTR_MASK	(0xFF00000000000000ul)
 #define	PAR_PA_MASK	(0x0000FFFFFFFFF000ul)
@@ -210,8 +454,6 @@
 
 /* hypervisor.h in FreeBSD */
 #define	CPTR_RES1		(0x000033ff)
-#define	ICC_SRE_EL2_EN		(1U << 3)
-#define	ICC_SRE_EL2_SRE		(1U << 0)
 
 #define	SCTLR_RES1		0x30d00800	/* Reserved ARMv8.0, write 1 */
 

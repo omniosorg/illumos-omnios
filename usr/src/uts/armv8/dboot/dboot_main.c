@@ -75,7 +75,7 @@ pa_to_ttbr1(uintptr_t pa)
 }
 
 int
-main(caddr_t modulesp)
+main(caddr_t modulesp, uint64_t hyp_stubs_present)
 {
 	struct boot_modules *bm;
 	caddr_t kernel;
@@ -90,6 +90,8 @@ main(caddr_t modulesp)
 
 	if (dboot_configure(modulesp, bi, &kernel, &kernel_size) != 0)
 		panic("dboot: configuration failed\n");
+
+	bi->bi_hyp_stubs = hyp_stubs_present == 0 ? 0 : 1;
 
 	if (bi->bi_modules == 0 || bi->bi_module_cnt == 0)
 		panic("dboot: no boot modules found\n");

@@ -58,6 +58,7 @@ dump_exception(uint64_t *regs)
 void
 exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 {
+	uint64_t el;
 	boot_framebuffer_t *fb;
 	struct efi_fb *efifb;
 	extern fb_info_t fb_info;
@@ -71,6 +72,10 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 	bi->bi_fw_data = (uint64_t)pfwdatalistp;
 	bi->bi_fw_mmio = (uint64_t)piolistp;
 	bi->bi_fw_rsvd = (uint64_t)prsvdlistp;
+
+	el = read_CurrentEL();
+	el >>= 2;
+	el &= 0x3;
 
 	if (verbosemode && debug) {
 		dprintf("Installed Memory List:\n");
@@ -116,6 +121,7 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		dprintf("  %s: 0x%lx\n", "bi_arch_timer_freq",
 		    bi->bi_arch_timer_freq);
 		dprintf("  %s: 0x%lx\n", "bi_framebuffer", bi->bi_framebuffer);
+		dprintf("  %s: 0x%lx\n", "bi_hyp_stubs", bi->bi_hyp_stubs);
 		dprintf("  %s: 0x%x\n", "bi_bsvc_uart_type",
 		    bi->bi_bsvc_uart_type);
 		dprintf("  %s: 0x%x\n", "bi_module_cnt", bi->bi_module_cnt);
@@ -130,6 +136,7 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		    bi->bi_psci_cpu_on_id);
 		dprintf("  %s: 0x%x\n", "bi_psci_migrate_id",
 		    bi->bi_psci_migrate_id);
+		dprintf("Exception Level: %lu\n", el);
 		dprintf("Kernel Entrypoint: 0x%p\n", entrypoint);
 	} else if (verbosemode) {
 		dboot_printf("Boot Information:\n");
@@ -137,6 +144,8 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		    bi->bi_fdt == 0 ? "ACPI" : "FDT");
 		dboot_printf("  %s: %s\n", "Command Line",
 		    bi->bi_cmdline == 0 ? "" : (const char *)bi->bi_cmdline);
+		dboot_printf("  %s: %s\n", "Hypervisor Stubs",
+		    bi->bi_hyp_stubs == 0 ? "Absent" : "Present");
 		dboot_printf("  %s: %s\n", "Framebuffer",
 		    bi->bi_framebuffer == 0 ? "Absent" : "Present");
 		dboot_printf("  %s: %luHz\n", "Timer Frequency",
@@ -145,6 +154,7 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		    bi->bi_psci_version >> 16, bi->bi_psci_version & 0xffff);
 		dboot_printf("  %s: %s\n", "PSCI Conduit",
 		    bi->bi_psci_conduit_hvc ? "Hypervisor" : "Secure Monitor");
+		dboot_printf("Exception Level: %lu\n", el);
 		dboot_printf("%s: 0x%p\n", "Kernel Entrypoint", entrypoint);
 	}
 

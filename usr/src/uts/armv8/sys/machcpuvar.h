@@ -25,7 +25,7 @@
  *
  * Copyright 2011 Joyent, Inc. All rights reserved.
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2023 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _SYS_MACHCPUVAR_H
@@ -88,6 +88,7 @@ struct	cpu_startup_data {
 	uint64_t	ttbr0;
 	uint64_t	ttbr1;
 	uint64_t	sctlr;
+	uint64_t	vbar;
 };
 
 #ifdef	__cplusplus

@@ -572,10 +572,15 @@ int
 mach_cpucontext_init(void)
 {
 	uint64_t pa;
-	extern void secondary_vec_start();
-	extern void secondary_vec_end();
+	uint64_t pa_hvc_stub;
+	extern void secondary_vec_start(void);
+	extern void secondary_vec_end(void);
+	extern void hyp_stub_vectors(void);
 
 	if (translate_to_pa((uint64_t)secondary_vec_start, &pa) != 0)
+		return (-1);
+
+	if (translate_to_pa((uint64_t)hyp_stub_vectors, &pa_hvc_stub) != 0)
 		return (-1);
 
 	hat_devload(kas.a_hat,
@@ -590,6 +595,7 @@ mach_cpucontext_init(void)
 	cpu_data->ttbr0 = read_ttbr0();
 	cpu_data->ttbr1 = read_ttbr1();
 	cpu_data->sctlr = read_sctlr();
+	cpu_data->vbar = pa_hvc_stub;
 
 	size_t data_line_size = CTR_DMINLINE_SIZE(read_ctr_el0());
 	for (uintptr_t addr = P2ALIGN((uintptr_t)cpu_data, data_line_size);

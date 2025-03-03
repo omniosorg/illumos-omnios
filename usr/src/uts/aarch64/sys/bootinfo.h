@@ -103,6 +103,7 @@ struct xboot_info {
 	uint64_t		bi_bsvc_uart_mmio_base;
 	uint64_t		bi_arch_timer_freq;
 	uint64_t		bi_framebuffer;
+	uint64_t		bi_hyp_stubs;
 	xbi_bsvc_uart_type_t	bi_bsvc_uart_type;
 	uint32_t		bi_module_cnt;
 	uint32_t		bi_psci_version;

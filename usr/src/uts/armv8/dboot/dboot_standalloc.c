@@ -253,8 +253,8 @@ init_pt(void)
 	    TCR_T1SZ_256T | TCR_TG0_4K | TCR_SH0_ISH | TCR_ORGN0_WBWA |
 	    TCR_IRGN0_WBWA | TCR_T0SZ_256T;
 
-	uint64_t sctlr = SCTLR_EL1_RES1 | SCTLR_UCI | SCTLR_UCT | SCTLR_DZE |
-	    SCTLR_I | SCTLR_C | SCTLR_M;
+	uint64_t sctlr = SCTLR_EL1_RES1 | SCTLR_EL1_UCI | SCTLR_EL1_UCT |
+	    SCTLR_EL1_DZE | SCTLR_EL1_I | SCTLR_EL1_C | SCTLR_EL1_M;
 
 	write_mair(mair);
 	write_tcr(tcr);

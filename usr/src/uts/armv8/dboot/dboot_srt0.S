@@ -28,169 +28,283 @@
 
 	.text
 /*
- * void _start(void)
+ * void _start(caddr_t modulep)
+ *
+ * - x28 contains our physical entry address, used for relocation.
+ * - x27 contains our booted exception level, used to select the
+ *       correct initialisation sequence.
+ * - x26 contains our argument, the loader(7) modules pointer.
+ * - x25 contains a boolean, indicating that the kernel should make
+ *       a hypervisor call to replace hypervisor trap stubs.
  */
 	ENTRY(_start)
+	/* this little dance leaves the physical entry address in x28 */
 	bl	1f
 	sub	x28, lr, #0x4
-	// bic	x28, x28, #0xfff
-	// brk	#0
 	b	2f
 1:	ret
 2:
 1:
-	mov	x19, x0
-	mov	x20, x1
-	mov	x21, x2
-	mov	x22, x18
+	/*
+	 * Stash the booted exception-level to x27, then ensure that it's
+	 * EL1 or EL2.
+	 */
+	mrs	x27, CurrentEL
+	ubfx	x27, x27, #2, #2
+	cmp	x27, #0x2
+	b.eq	1f
+	cmp	x27, #0x1
+	b.eq	1f
+2:	b	2b
 
-	// flush cache (data/inst)
+1:	/*
+	 * At this point we're in either EL1 or EL2. Our entry address is in
+	 * x28 and our booted EL is in x27.
+	 *
+	 * Save our argument to x26.
+	 */
+	mov	x26, x0
+
+	/*
+	 * Flush the data and instruction caches.
+	 */
 	bl	dcache_flush_all
 	ic	iallu
 	dsb	sy
 	isb
 
-	mrs	x0, CurrentEL
-	cmp	x0, #0xc
-	b.eq	el3
+	/*
+	 * Choose our initialisation sequence.
+	 * EL1 is straightforward and simply initialises the EL1 environemnt.
+	 * EL2 is a little more complicated, as it leaves us in a unified EL2
+	 * environment when VHE is present, but drops us to EL1 with a stub
+	 * HVC trap table in place when VHE is not present.
+	 */
+	cmp	x27, #0x1
+	b.ne	2f
+	bl	.Lel1_entry
+	b	.Lrun_dboot
+2:
+	bl	.Lel2_entry
+	b	.Lrun_dboot
 
-	cmp	x0, #0x8
-	b.eq	el2
-
-	b	el1
-el3:
-	// not supported
-	b	el3
-
-el2:
-	bl	0f
-	b	el1
-0:
-	ldr	x0, =SCTLR_EL1_RES1
-	msr	sctlr_el1, x0
-	ldr	x0, =SCTLR_EL2_RES1
-	msr	sctlr_el2, x0
-	dsb	sy
+.Lel1_entry:
+	/* el1 initialisation */
+	ldr	x2, =INIT_SCTLR_EL1
+	msr	sctlr_el1, x2
 	isb
 
-	ldr	x0, =(CNTHCTL_EL1PCEN | CNTHCTL_EL1PCTEN)
-	msr	cnthctl_el2, x0
+	/*
+	 * Apply known errata applicable at EL1.
+	 */
+
+	/*
+	 * Ensure that PSTATE and SPSR_EL1 are in sync. We do this by updating
+	 * SPSR_EL1 and executing an exception return (to EL1), which then
+	 * transfers us to the code that runs dboot.
+	 */
+	mov	x2, #(PSR_D | PSR_A | PSR_I | PSR_F | PSR_M_EL1h)
+	msr	spsr_el1, x2
+	msr	elr_el1, lr
+	eret
+
+.Lel2_entry:
+	/* el2 initialisation */
+	dsb	sy
+
+	ldr	x2, =(SCTLR_EL2_RES1 | SCTLR_EL2_EIS | SCTLR_EL2_EOS)
+	msr	sctlr_el2, x2
+	isb
+
+	/* hypervisor configuration */
+	ldr	x2, =(HCR_RW | HCR_APK | HCR_API | HCR_E2H)
+	msr	hcr_el2, x2
+	/* we might tweak hcr_el2 later, so save it */
+	isb
+	mrs	x4, hcr_el2
+
+	/*
+	 * Load the Virtualization Processor ID Register from the Main ID
+	 * Register.
+	 */
+	mrs	x2, midr_el1
+	msr	vpidr_el2, x2
+
+	/*
+	 * Load the Virtualization Multiprocessor ID Register from the
+	 * Multiprocessor Affinity Register.
+	 */
+	mrs	x2, mpidr_el1
+	msr	vmpidr_el2, x2
+
+	/*
+	 * Set SCTLR_EL1 to a known value so that we can successfully drop
+	 * to EL1 if/when needed.
+	 */
+	ldr	x2, =INIT_SCTLR_EL1
+	msr	sctlr_el1, x2
+
+	/*
+	 * Check if the E2H flag is set in the Hypervisor Control Register.
+	 *
+	 * We attempted to set this bit above, and if it stuck we can use
+	 * virtualisation host extensions (FEAT_VHE) and run the kernel at
+	 * EL2 - otherwise we'll run at EL1.
+	 */
+	tst	x4, #HCR_E2H
+	b.eq	.Lno_vhe
+	mov	x25, #0		/* no HVC stubs necessary */
+
+	/*
+	 * We'll be running the kernel at EL2. Route exceptions that would
+	 * normally be delivered to EL1 to EL2.
+	 */
+	orr	x4, x4, #(HCR_TGE)
+	msr	hcr_el2, x4
+	isb
+
+	/* x2 still contains the value we set in sctlr_el1 */
+	msr	s3_5_c1_c0_0, x2	/* sctlr_el12 */
+	isb
+	ldr	x2, =(INIT_CPTR_EL2_E2H)
+	ldr	x3, =(CNTHCTL_E2H_EL1PCTEN | CNTHCTL_E2H_EL1PTEN)
+	ldr	x5, =(PSR_D | PSR_A | PSR_I | PSR_F | PSR_M_EL2h)
+	b	.Ldone_vhe
+
+.Lno_vhe:
+	/*
+	 * Install a stub Hypervisor trap table that can replace itself
+	 * with a proper function once the kernel is up.
+	 */
+	adrp	x2, hyp_stub_vectors
+	add	x2, x2, :lo12:hyp_stub_vectors
+	msr	vbar_el2, x2
+	mov	x25, #1		/* HVC stubs are installed */
+
+	ldr	x2, =(INIT_CPTR_EL2_NO_E2H)
+	ldr	x3, =(CNTHCTL_EL1PCTEN | CNTHCTL_EL1PCEN)
+	ldr	x5, =(PSR_D | PSR_A | PSR_I | PSR_F | PSR_M_EL1h)
+
+.Ldone_vhe:
+	msr	cptr_el2, x2
+	msr	cnthctl_el2, x3
+	msr	spsr_el2, x5
+
+	/*
+	 * Configure the Extended Hypervisor Configuration Register when
+	 * FEAT_HCX is available.
+	 */
+	mrs	x2, id_aa64mmfr1_el1
+	ubfx	x2, x2, #40, #4
+	cmp	x2, #0
+	b.eq	2f
+	mov	x2, xzr
+	msr	s3_4_c1_c2_2, x2
+	isb
+
+2:
+	/* don't trap to EL2 for CP15 traps */
+	msr	hstr_el2, xzr
+
+	/* set the counter offset to a known value */
 	msr	cntvoff_el2, xzr
 
-	ldr	x0, =CPTR_EL2_RES1
-	msr	cptr_el2, x0
-
+	/*
+	 * There's no vttbr in our setup - we're either a small stub at EL2
+	 * that dispatches to the host at EL1 or we're a unified EL1/EL2, in
+	 * which case we use the EL1 TTBR[01].
+	 */
 	msr	vttbr_el2, xzr
-	msr	vbar_el2, xzr
 
+	/*
+	 * Enable GICv3+ system register access where that's applicable.
+	 */
+	mrs	x2, id_aa64pfr0_el1
+	ubfx	x2, x2, #24, #4
+	cmp	x2, #0
+	b.eq	3f
+	mrs	x2, icc_sre_el2
+	orr	x2, x2, #ICC_SRE_EL2_EN
+	orr	x2, x2, #ICC_SRE_EL2_SRE
+	msr	icc_sre_el2, x2
+
+3:
+	/*
+	 * Apply known errata applicable at EL2.
+	 */
 	mrs	x0, midr_el1
-	msr	vpidr_el2, x0
+	/* examine implementer, must be Arm (0x41) */
+	ubfx	x1, x0, #24, #8
+	cmp	x1, #(MIDR_IMPL_ARM)
+	b.ne	.Lnot_cortex_a5x_0
+	/* examine the architecture, must be 0xf */
+	ubfx	x1, x0, #15, #4
+	cmp	x1, #0xF
+	b.ne	.Lnot_cortex_a5x_0
+	/* examine the part */
+	ubfx	x1, x0, #4, #12
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A72)
+	b.eq	.Lcortex_a72_0
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A57)
+	b.eq	.Lcortex_a57_0
+	/* Explicitly _not_ Cortex-A55 */
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A53)
+	b.eq	.Lcortex_a53_0
+	b	.Lnot_cortex_a5x_0
 
-	mrs	x0, mpidr_el1
-	msr	vmpidr_el2, x0
-
-	ldr	x0, =HCR_RW
-	msr	hcr_el2, x0
-	mrs	x0, hcr_el2
-
-	msr	hstr_el2, xzr
-	msr	cptr_el2, xzr
-
-	mrs	x0, midr_el1
-	mov	w0, w0
-	lsr	w1, w0, #24	// Implementor
-	cmp	w1, #0x41	// ARM
-	b.ne	not_cortex_0
-	ubfx	w1, w0, #16, #4	// Architecture
-	cmp	w1, #0xF
-	b.ne	not_cortex_0
-	ubfx	w1, w0, #4, #12	// Part
-	cmp	w1, #0xD08	// -A72
-	b.eq	cortex_a72_0
-	cmp	w1, #0xD07	// -A57
-	b.eq	cortex_a57_0
-				// *not* -A55
-	cmp	w1, #0xD03	// -A53
-	b.eq	cortex_a53_0
-	b	not_cortex_0
-cortex_a72_0:
-cortex_a57_0:
-cortex_a53_0:
+.Lcortex_a72_0:
+.Lcortex_a57_0:
+.Lcortex_a53_0:
 	// access L2ACTLR L2ECTLR L2CTLR CPUECTLR CPUACTLR
 	mrs	x0, actlr_el2
 	orr	x0, x0, #0x70
 	orr	x0, x0, #0x3
 	msr	actlr_el2, x0
-not_cortex_0:
+.Lnot_cortex_a5x_0:
 
-	ldr	x0, =(PSR_F | PSR_I | PSR_M_EL1h)
-	msr	spsr_el2, x0
+	/*
+	 * Set up and execute an exception return to our target exception
+	 * level, which is either EL1 or EL2. This also synchronises PSTATE.
+	 */
 	msr	elr_el2, x30
-
-	dsb sy
 	isb
 	eret
 
-el1:
-	bl	dcache_clean_all
-
+.Lrun_dboot:
 	/*
-	 * disable mmu, cache
-	 *
-	 * but save the current value so we can turn it all on later
+	 * Apply known errata applicable at EL1 or unified EL1/EL2.
 	 */
-	mrs	x27, sctlr_el1
-	ldr	x0, =SCTLR_EL1_RES1
-	msr	sctlr_el1, x0
-	dsb	sy
-	isb
-
-	// enable cache coherence on Cortex-A5x
 	mrs	x0, midr_el1
-	mov	w0, w0
-	lsr	w1, w0, #24	// Implementor
-	cmp	w1, #0x41	// ARM Inc.
-	b.ne	not_cortex_1
-	ubfx	w1, w0, #16, #4	// Architecture
-	cmp	w1, #0xF
-	b.ne	not_cortex_1
-	ubfx	w1, w0, #4, #12	// Part
-	// XXXARM: The -A72 TRM is wishy washy about whether this is
-	// necessary, but it is _possible_.
-	cmp	w1, #0xD08	// Cortex-A72
-	b.eq	cortex_a72_1
-	cmp	w1, #0xD07	// Cortex-A57
-	b.eq	cortex_a57_1
-	// NB: Explicitly _not_ A55
-	cmp	w1, #0xD03	// Cortex-A53
-	b.eq	cortex_a53_1
-	b	not_cortex_1
+	/* examine implementer, must be Arm (0x41) */
+	ubfx	x1, x0, #24, #8
+	cmp	x1, #(MIDR_IMPL_ARM)
+	b.ne	.Lnot_cortex_a5x_1
+	/* examine the architecture, must be 0xf */
+	ubfx	x1, x0, #15, #4
+	cmp	x1, #0xF
+	b.ne	.Lnot_cortex_a5x_1
+	/* examine the part */
+	ubfx	x1, x0, #4, #12
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A72)
+	b.eq	.Lcortex_a72_1
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A57)
+	b.eq	.Lcortex_a57_1
+	/* explicitly _not_ Cortex-A55 */
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A53)
+	b.eq	.Lcortex_a53_1
+	b	.Lnot_cortex_a5x_1
 
-cortex_a72_1:
-cortex_a57_1:
-cortex_a53_1:
-	// CPUECTLR_EL1.SMPEN -> 1 (enable cache coherence)
+.Lcortex_a72_1:
+.Lcortex_a57_1:
+.Lcortex_a53_1:
+	/* CPUECTLR_EL1.SMPEN -> 1 (enable cache coherence) */
 	mrs	x0, s3_1_c15_c2_1
-	tbnz	x0, #6, not_cortex_1
+	tbnz	x0, #6, .Lnot_cortex_a5x_1
 	orr	x0, x0, #(1<<6)
 	msr	s3_1_c15_c2_1, x0
 	dsb	sy
 	isb
-not_cortex_1:
-
-	/*
-	 * Re-enable MMU and caches, disable alignment errors.
-	 *
-	 * UEFI boots us with caches on and the MMU configured, so there's
-	 * no need to leave it off.
-	 *
-	 * XXXARM: this is a bit sketchy, should probably remove it
-	 */
-	and	x27, x27, #(SCTLR_I)
-	and	x27, x27, #(SCTLR_C)
-	and	x27, x27, #(SCTLR_M)
-	bic	x27, x27, #(SCTLR_A)
-	mrs	x27, sctlr_el1
+.Lnot_cortex_a5x_1:
 
 	mrs	x0, cpacr_el1
 	bic	x0, x0, #CPACR_FPEN_MASK
@@ -208,7 +322,8 @@ not_cortex_1:
 	ldr	x1, =_BootStackTop
 	mov	sp, x1
 
-	mov	x0, x19
+	mov	x0, x26
+	mov	x1, x25
 	bl	main
 
 	b	_reset
@@ -443,3 +558,50 @@ from_current_el_sync_handle:
 	bl	dump_exception
 0:	b	0b
 	SET_SIZE(exception_vector)
+
+	/*
+	 * This set of Hypervisor stub vectors is used during early boot to
+	 * install the kernel's Hypervisor vectors.
+	 *
+	 * The only implemented trap is Synchronous 64-bit EL1, and the only
+	 * thing this does is to install the address passed in x0 to vbar_el2.
+	 */
+	.align	11
+	ENTRY(hyp_stub_vectors)
+	.align	7	/* Synchronous EL2t */
+1:	b	1b
+	.align	7	/* IRQ EL2t */
+1:	b	1b
+	.align	7	/* FIQ EL2t */
+1:	b	1b
+	.align	7	/* SError EL2t */
+1:	b	1b
+
+	.align	7	/* Synchronous EL2h */
+1:	b	1b
+	.align	7	/* IRQ EL2h */
+1:	b	1b
+	.align	7	/* FIQ EL2h */
+1:	b	1b
+	.align	7	/* SError EL2h */
+1:	b	1b
+
+	.align	7	/* Synchronous 64-bit EL1 */
+	msr	vbar_el2, x0
+	eret
+	.align	7	/* IRQ 64-bit EL1 */
+1:	b	1b
+	.align	7	/* FIQ 64-bit EL1 */
+1:	b	1b
+	.align	7	/* SError 64-bit EL1 */
+1:	b	1b
+
+	.align	7	/* Synchronous 32-bit EL1 */
+1:	b	1b
+	.align	7	/* IRQ 32-bit EL1 */
+1:	b	1b
+	.align	7	/* FIQ 32-bit EL1 */
+1:	b	1b
+	.align	7	/* SError 32-bit EL1 */
+1:	b	1b
+	SET_SIZE(hyp_stub_vectors)

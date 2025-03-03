@@ -23,7 +23,8 @@ include <sys/kdi_regs.h>
 include <sys/kdi_svc.h>
 include <sys/cpuid.h>
 
-include <asm/controlregs.h>
+include <sys/controlregs.h>
+include <sys/gic_reg.h>
 
 define	MODS_SIZE		sizeof(struct mod_stub_info)
 define	MODS_INSTFCN		offsetof(struct mod_stub_info, mods_func_adr)
@@ -139,10 +140,19 @@ define	CP_PHYSIO		offsetof(struct copyops, cp_physio)
 define	PSR_M_MASK		PSR_M_MASK
 define	PSR_M_EL0t		PSR_M_EL0t
 define	PSR_C			PSR_C
+define	PSR_D			PSR_D
+define	PSR_A			PSR_A
 define	PSR_I			PSR_I
 define	PSR_F			PSR_F
 define	PSR_M_EL1h		PSR_M_EL1h
+define	PSR_M_EL2h		PSR_M_EL2h
 define	PSR_SS_BIT		PSR_SS_BIT
+
+define	ICC_SRE_EL2_EN		ICC_SRE_EL2_EN
+define	ICC_SRE_EL2_SRE		ICC_SRE_EL2_SRE
+
+define	ICC_SRE_EL1_SRE		ICC_SRE_EL1_SRE
+
 define	LMS_SYSTEM		LMS_SYSTEM
 define	LMS_USER		LMS_USER
 define	NSYSCALL		NSYSCALL
@@ -203,25 +213,46 @@ define	STARTUP_TCR	offsetof(struct cpu_startup_data, tcr)
 define	STARTUP_TTBR0	offsetof(struct cpu_startup_data, ttbr0)
 define	STARTUP_TTBR1	offsetof(struct cpu_startup_data, ttbr1)
 define	STARTUP_SCTLR	offsetof(struct cpu_startup_data, sctlr)
+define	STARTUP_VBAR	offsetof(struct cpu_startup_data, vbar)
 
 define	CPU_AFFINITY	offsetof(struct cpu, cpu_m.affinity)
 
-define SCTLR_I		SCTLR_I
-define SCTLR_C		SCTLR_C
-define SCTLR_A		SCTLR_A
-define SCTLR_M		SCTLR_M
+define SCTLR_EL2_RES1		SCTLR_EL2_RES1
+
+define SCTLR_EL2_I		SCTLR_EL2_I
+define SCTLR_EL2_C		SCTLR_EL2_C
+define SCTLR_EL2_A		SCTLR_EL2_A
+define SCTLR_EL2_M		SCTLR_EL2_M
+define SCTLR_EL2_EIS		SCTLR_EL2_EIS
+define SCTLR_EL2_EOS		SCTLR_EL2_EOS
+
+define INIT_SCTLR_EL1		INIT_SCTLR_EL1
+define SCTLR_EL1_RES1		SCTLR_EL1_RES1
+define SCTLR_EL1_I		SCTLR_EL1_I
+define SCTLR_EL1_C		SCTLR_EL1_C
+define SCTLR_EL1_A		SCTLR_EL1_A
+define SCTLR_EL1_M		SCTLR_EL1_M
+
+define HCR_RW			HCR_RW
+define HCR_APK			HCR_APK
+define HCR_API			HCR_API
+define HCR_E2H			HCR_E2H
+define HCR_TGE			HCR_TGE
+
 define NCPU		NCPU
 
 define SPSR_EL3_VAL	(PSR_F | PSR_I | PSR_M_EL1h)
 define SPSR_EL2_VAL	(PSR_F | PSR_I | PSR_M_EL1h)
 
-define SCTLR_EL1_RES1	SCTLR_EL1_RES1
+define CNTHCTL_E2H_EL1PCTEN	CNTHCTL_E2H_EL1PCTEN
+define CNTHCTL_E2H_EL1PTEN	CNTHCTL_E2H_EL1PTEN
+define CNTHCTL_EL1PCEN		CNTHCTL_EL1PCEN
+define CNTHCTL_EL1PCTEN		CNTHCTL_EL1PCTEN
 
-define HCR_RW		HCR_RW
-define CNTHCTL_EL1PCTEN	CNTHCTL_EL1PCTEN
-define CNTHCTL_EL1PCEN	CNTHCTL_EL1PCEN
-define CPTR_EL2_RES1	CPTR_EL2_RES1
-define SCTLR_EL2_RES1	SCTLR_EL2_RES1
+define CPTR_EL2_NO_E2H_RES1	CPTR_EL2_NO_E2H_RES1
+define INIT_CPTR_EL2_E2H	INIT_CPTR_EL2_E2H
+define INIT_CPTR_EL2_NO_E2H	INIT_CPTR_EL2_NO_E2H
+
 define MPIDR_AFF_MASK	MPIDR_AFF_MASK
 
 define DTRACE_INVOP_NOP	DTRACE_INVOP_NOP

@@ -23,8 +23,8 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -94,6 +94,19 @@ kobj_start(struct xboot_info *xbp)
 
 	bootaux[BA_PAGESZ].ba_val = MMU_PAGESIZE;
 	kobj_init(sysp, NULL, bootops, bootaux);
+}
+
+static int
+translate_to_pa(uint64_t va, uint64_t *pa)
+{
+	uint64_t p;
+	write_s1e1r(va);
+	isb();
+	p = read_par_el1();
+	if (p & PAR_EL1_F)
+		return (-1);
+	*pa = (p & (PAR_EL1_PA_HI|PAR_EL1_PA)) | (va & MMU_PAGEOFFSET);
+	return (0);
 }
 
 /*
@@ -226,6 +239,34 @@ mlsetup(struct regs *rp, struct xboot_info *xbp)
 	 * to devices being mapped.
 	 */
 	lgrp_init(LGRP_INIT_STAGE1);
+
+	/*
+	 * Hypervisor trap table replacement.
+	 *
+	 * When Hypervisor extensions are present but VHE is not present the
+	 * boot process installs a stub Hypervisor trap table that only knows
+	 * how to replace itself, then drops to EL1.
+	 *
+	 * Since this trap table lives in low memory we need to replace it
+	 * with the PA of the kernel's Hypervisor trap table before we drop
+	 * the lower mappings. This sounds odd, but due to the way we boot
+	 * the physical pages referenced by the lower mappings are not the
+	 * same pages as those backing the running kernel, so we need to update
+	 * things before those early pages get reclaimed.
+	 */
+	if (CPU->cpu_m.mcpu_boot_el == 1 && xbp->bi_hyp_stubs != 0) {
+		int rv;
+		uint64_t pa_hvc_stub;
+		extern void hyp_stub_vectors(void);
+
+		rv = translate_to_pa((uint64_t)hyp_stub_vectors, &pa_hvc_stub);
+		VERIFY(rv == 0);
+
+		__asm__ __volatile__(
+		    "mov x0, %0" "\n"
+		    "hvc #0"
+		    : : "r"(pa_hvc_stub) : "memory");
+	}
 
 	if (boothowto & RB_HALT) {
 		prom_printf("unix: kernel halted by -h flag\n");

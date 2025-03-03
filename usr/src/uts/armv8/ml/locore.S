@@ -21,7 +21,7 @@
  */
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/asm_linkage.h>
@@ -63,117 +63,316 @@ t0:
 
 	.balign 4096
 	ENTRY(secondary_vec_start)
-	// enable SMP cache affinity
-	mrs	x0, midr_el1
-	mov	w0, w0
-	lsr	w1, w0, #24	// Implementator
-	cmp	w1, #MIDR_IMPL_ARM
-	b.ne	not_cortex_1
-	ubfx	w1, w0, #16, #4	// Architecture
-	cmp	w1, #0xF
-	b.ne	not_cortex_1
-	ubfx	w1, w0, #4, #12	// Part
-	// XXXARM: The -A72 TRM is wishy washy about whether this is
-	// necessary, but it is _possible_.
-	cmp	w1, #MIDR_PART_ARM_CORTEX_A72
-	b.eq	cortex_a72_1
-	cmp	w1, #MIDR_PART_ARM_CORTEX_A57
-	b.eq	cortex_a57_1
-	// NB: Explicitly _not_ A55
-	cmp	w1, #MIDR_PART_ARM_CORTEX_A53
-	b.eq	cortex_a53_1
-	b	not_cortex_1
+	/*
+	 * Stash the booted exception-level to x27, then ensure that it's
+	 * EL1 or EL2.
+	 */
+	mrs	x27, CurrentEL
+	ubfx	x27, x27, #2, #2
+	cmp	x27, #0x2
+	b.eq	.Lel2_entry
+	cmp	x27, #0x1
+	b.eq	1f
+3:	b	3b
 
-cortex_a72_1:
-cortex_a57_1:
-cortex_a53_1:
-	// CPUECTLR_EL1.SMPEN -> 1
+.Lel2_entry:
+	bl	.Lel2_body
+	b	.Lel_agnostic
+.Lel2_body:
+	/*
+	 * We're at EL2.
+	 */
+	dsb	sy
+	ldr	x2, =(SCTLR_EL2_RES1 | SCTLR_EL2_EIS | SCTLR_EL2_EOS)
+	msr	sctlr_el2, x2
+	isb
+
+	/*
+	 * Invalidate all caches and the TLB.
+	 */
+	mov	x19, lr
+	bl	dcache_invalidate_all
+	ic	iallu
+	dsb	ish
+	isb
+	tlbi	vmalle1is
+	dsb	ish
+	isb
+	mov	x30, x19
+
+	/* hypervisor configuration */
+	ldr	x2, =(HCR_RW | HCR_APK | HCR_API | HCR_E2H)
+	msr	hcr_el2, x2
+	/* we might tweak hcr_el2 later, so save it */
+	isb
+	mrs	x4, hcr_el2
+
+	/*
+	 * Load the Virtualization Processor ID Register from the Main ID
+	 * Register.
+	 */
+	mrs	x2, midr_el1
+	msr	vpidr_el2, x2
+
+	/*
+	 * Load the Virtualization Multiprocessor ID Register from the
+	 * Multiprocessor Affinity Register.
+	 */
+	mrs	x2, mpidr_el1
+	msr	vmpidr_el2, x2
+
+	/*
+	 * Set SCTLR_EL1 to a known value so that we can successfully drop
+	 * to EL1 if/when needed.
+	 */
+	ldr	x2, =INIT_SCTLR_EL1
+	msr	sctlr_el1, x2
+
+	/*
+	 * Check if the E2H flag is set in the Hypervisor Control Register.
+	 *
+	 * We attempted to set this bit above, and if it stuck we can use
+	 * virtualisation host extensions (FEAT_VHE) and run the kernel at
+	 * EL2 - otherwise we'll run at EL1.
+	 */
+	tst	x4, #HCR_E2H
+	b.eq	.Lno_vhe
+	mov	x25, #0		/* no HVC stubs necessary */
+
+	/*
+	 * We'll be running the kernel at EL2. Route exceptions that would
+	 * normally be delivered to EL1 to EL2.
+	 */
+	orr	x4, x4, #(HCR_TGE)
+	msr	hcr_el2, x4
+	isb
+
+	/* x2 still contains the value we set in sctlr_el1 */
+	msr	s3_5_c1_c0_0, x2	/* sctlr_el12 */
+	isb
+	ldr	x2, =(INIT_CPTR_EL2_E2H)
+	ldr	x3, =(CNTHCTL_E2H_EL1PCTEN | CNTHCTL_E2H_EL1PTEN)
+	ldr	x5, =(PSR_D | PSR_A | PSR_I | PSR_F | PSR_M_EL2h)
+	b	.Ldone_vhe
+
+.Lno_vhe:
+	/*
+	 * Install a stub Hypervisor trap table that can replace itself
+	 * with a proper function once the kernel is up.
+	 *
+	 * The kernel itself will run at EL1.
+	 */
+	adrp	x2, hyp_stub_vectors
+	add	x2, x2, :lo12:hyp_stub_vectors
+	msr	vbar_el2, x2
+	mov	x25, #1		/* HVC stubs are installed */
+
+	ldr	x2, =(INIT_CPTR_EL2_NO_E2H)
+	ldr	x3, =(CNTHCTL_EL1PCTEN | CNTHCTL_EL1PCEN)
+	ldr	x5, =(PSR_D | PSR_A | PSR_I | PSR_F | PSR_M_EL1h)
+
+.Ldone_vhe:
+	msr	cptr_el2, x2
+	msr	cnthctl_el2, x3
+	msr	spsr_el2, x5
+
+	/*
+	 * Configure the Extended Hypervisor Configuration Register when
+	 * FEAT_HCX is available.
+	 */
+	mrs	x2, id_aa64mmfr1_el1
+	ubfx	x2, x2, #40, #4
+	cmp	x2, #0
+	b.eq	2f
+	mov	x2, xzr
+	msr	s3_4_c1_c2_2, x2
+	isb
+
+2:
+	/* don't trap to EL2 for CP15 traps */
+	msr	hstr_el2, xzr
+
+	/* set the counter offset to a known value */
+	msr	cntvoff_el2, xzr
+
+	/*
+	 * There's no vttbr in our setup - we're either a small stub at EL2
+	 * that dispatches to the host at EL1 or we're a unified EL1/EL2, in
+	 * which case we use the EL1 TTBR[01].
+	 */
+	msr	vttbr_el2, xzr
+
+	/*
+	 * Enable GICv3+ system register access where that's applicable.
+	 */
+	mrs	x2, id_aa64pfr0_el1
+	ubfx	x2, x2, #24, #4
+	cmp	x2, #0
+	b.eq	3f
+	mrs	x2, icc_sre_el2
+	orr	x2, x2, #ICC_SRE_EL2_EN
+	orr	x2, x2, #ICC_SRE_EL2_SRE
+	msr	icc_sre_el2, x2
+
+3:
+	/*
+	 * Set up and execute an exception return to our target exception
+	 * level, which is either EL1 or EL2. This also synchronises PSTATE.
+	 */
+	msr	elr_el2, x30
+	isb
+	eret
+
+.Lel1_entry:
+	bl	.Lel1_body
+	b	.Lel_agnostic
+.Lel1_body:
+	ldr	x2, =INIT_SCTLR_EL1
+	msr	sctlr_el1, x2
+	isb
+
+	/*
+	 * Ensure that PSTATE and SPSR_EL1 are in sync. We do this by updating
+	 * SPSR_EL1 and executing an exception return (to EL1), which then
+	 * transfers us to the EL-agnostic CPU startup.
+	 */
+	mov	x2, #(PSR_D | PSR_A | PSR_I | PSR_F | PSR_M_EL1h)
+	msr	spsr_el1, x2
+	msr	elr_el1, lr
+	eret
+
+.Lel_agnostic:
+	/*
+	 * Invalidate all caches and the TLB.
+	 */
+	mov	x19, lr
+	bl	dcache_invalidate_all
+	ic	iallu
+	dsb	ish
+	isb
+	tlbi	vmalle1is
+	dsb	ish
+	isb
+	mov	x30, x19
+
+	/*
+	 * Enable GICv3+ system register access where that's applicable.
+	 */
+	mrs	x2, id_aa64pfr0_el1
+	ubfx	x2, x2, #24, #4
+	cmp	x2, #0
+	b.eq	1f
+	mrs	x2, icc_sre_el1
+	orr	x2, x2, #ICC_SRE_EL1_SRE
+	msr	icc_sre_el1, x2
+1:
+
+	/*
+	 * Enable SMP cache coherence.
+	 */
+	mrs	x0, midr_el1
+	/* examine implementer, must be Arm (0x41) */
+	ubfx	x1, x0, #24, #8
+	cmp	x1, #(MIDR_IMPL_ARM)
+	b.ne	.Lnot_cortex_a5x_1
+	/* examine the architecture, must be 0xf */
+	ubfx	x1, x0, #15, #4
+	cmp	x1, #0xF
+	b.ne	.Lnot_cortex_a5x_1
+	/* examine the part */
+	ubfx	x1, x0, #4, #12
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A72)
+	b.eq	.Lcortex_a72_1
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A57)
+	b.eq	.Lcortex_a57_1
+	/* explicitly _not_ Cortex-A55 */
+	cmp	x1, #(MIDR_PART_ARM_CORTEX_A53)
+	b.eq	.Lcortex_a53_1
+	b	.Lnot_cortex_a5x_1
+
+.Lcortex_a72_1:
+.Lcortex_a57_1:
+.Lcortex_a53_1:
+	/* CPUECTLR_EL1.SMPEN -> 1 (enable cache coherence) */
 	mrs	x0, s3_1_c15_c2_1
-	tbnz	x0, #6, not_cortex_1
+	tbnz	x0, #6, .Lnot_cortex_a5x_1
 	orr	x0, x0, #(1<<6)
 	msr	s3_1_c15_c2_1, x0
 	dsb	sy
 	isb
-not_cortex_1:
-	// invalidate cache (data/inst)
+.Lnot_cortex_a5x_1:
+
+	/*
+	 * NOTE: we don't set cpacr_el1 here, which is something we do in
+	 * dboot for the boot processor. Might need to revisit this as we
+	 * get deeper into the bootstrap process, but for now we're booting
+	 * into a kernel that has the correct traps in place already, so it
+	 * is unlikely we'll need this.
+	 */
+#if 0
+	mrs	x0, cpacr_el1
+	bic	x0, x0, #CPACR_FPEN_MASK
+	//orr	x0, x0, #CPACR_FPEN_DIS
+	msr	cpacr_el1, x0
+#endif
+
+	/*
+	 * Invalidate all caches and the TLB (again).
+	 */
+	mov	x19, lr
 	bl	dcache_invalidate_all
 	ic	iallu
 	dsb	ish
 	isb
-
-	tlbi vmalle1is
+	tlbi	vmalle1is
 	dsb	ish
 	isb
+	mov	x30, x19
 
-	// copy to secondary_vec_end from cpu_startup_data
+	/*
+	 * Load up system registers stashed by mp_startup.
+	 *
+	 * These are stored in a `struct cpu_startup_data` that is placed
+	 * at `secondary_vec_end`.
+	 */
 	adr	x0, secondary_vec_end
+
+	/* memory attribute indirection */
 	ldr	x1, [x0, #STARTUP_MAIR]
 	msr	mair_el1, x1
+
+	/* translation control */
 	ldr	x1, [x0, #STARTUP_TCR]
 	msr	tcr_el1, x1
+
+	/* translation table base address for lower mappings */
 	ldr	x1, [x0, #STARTUP_TTBR0]
 	msr	ttbr0_el1, x1
+
+	/* translation table base address for upper mappings */
 	ldr	x1, [x0, #STARTUP_TTBR1]
 	msr	ttbr1_el1, x1
-	isb
+
+	/* system control */
 	ldr	x1, [x0, #STARTUP_SCTLR]
+	isb
 	msr	sctlr_el1, x1
 	isb
 
-	mrs	x0, CurrentEL
-	cmp	x0, #0xc
-	b.eq	el3
+	/* replace the hypervisor stub if appropriate */
+	cbz	x25, 1f
+	ldr	x1, [x0, #STARTUP_VBAR]
+	cbz	x1, 1f
+	mov	x0, x1
+	hvc	#0
+1:
 
-	cmp	x0, #0x8
-	b.eq	el2
-
-	b	el1
-el3:
-	b	el3
-
-el2:
-	bl	0f
-	b	el1
-0:
-	adr	x0, .Lcnthctl_el2_val
-	ldr	x0, [x0]
-	msr	cnthctl_el2, x0
-	msr	cntvoff_el2, xzr
-
-	mov	x0, #CPTR_EL2_RES1
-	msr	cptr_el2, x0
-
-	msr	vttbr_el2, xzr
-	msr	vbar_el2, xzr
-
-	mrs	x0, midr_el1
-	msr	vpidr_el2, x0
-
-	mrs	x0, mpidr_el1
-	msr	vmpidr_el2, x0
-
-	mov	x0, #HCR_RW
-	msr	hcr_el2, x0
-
-	mov	x0, #SPSR_EL2_VAL
-	msr	spsr_el2, x0
-	msr	elr_el2, x30
-	eret
-	.balign 8
-.Lcnthctl_el2_val:
-	.quad (CNTHCTL_EL1PCEN | CNTHCTL_EL1PCTEN)
-el1:
-	// invalidate cache (data/inst)
-	bl	dcache_invalidate_all
-	ic	iallu
-	dsb	sy
-	isb
-
-	tlbi vmalle1is
-	dsb	sy
-	isb
-
-	// can access kernel data
+	/*
+	 * We can now access kernel data, but we can't jump into KVA yet,
+	 * as this code has been copied to a CPU startup page. The jump to
+	 * KVA happens once we've found our CPU and as we return from this
+	 * function into the kernel code.
+	 */
 	ldr	x0, =cpu
 	mov	x1, #0
 
@@ -201,7 +400,7 @@ cpu_found:
 	ldr	x30, [x1, #T_LABEL_PC]
 	ldr	x0,  [x1, #T_LABEL_SP]
 	mov	sp, x0
-	// return entry point
+	/* return to the entry point with the new stack */
 	ret
 
 faild:
@@ -250,3 +449,50 @@ dcache_invalidate_all:
 secondary_vec_end:
 	.balign 4096
 SET_SIZE(secondary_vec_start)
+
+/*
+ * This set of Hypervisor stub vectors is used during early boot to
+ * install the kernel's Hypervisor vectors.
+ *
+ * The only implemented trap is Synchronous 64-bit EL1, and the only
+ * thing this does is to install the address passed in x0 to vbar_el2.
+ */
+	.align	11
+	ENTRY(hyp_stub_vectors)
+	.align	7	/* Synchronous EL2t */
+1:	b	1b
+	.align	7	/* IRQ EL2t */
+1:	b	1b
+	.align	7	/* FIQ EL2t */
+1:	b	1b
+	.align	7	/* SError EL2t */
+1:	b	1b
+
+	.align	7	/* Synchronous EL2h */
+1:	b	1b
+	.align	7	/* IRQ EL2h */
+1:	b	1b
+	.align	7	/* FIQ EL2h */
+1:	b	1b
+	.align	7	/* SError EL2h */
+1:	b	1b
+
+	.align	7	/* Synchronous 64-bit EL1 */
+	msr	vbar_el2, x0
+	eret
+	.align	7	/* IRQ 64-bit EL1 */
+1:	b	1b
+	.align	7	/* FIQ 64-bit EL1 */
+1:	b	1b
+	.align	7	/* SError 64-bit EL1 */
+1:	b	1b
+
+	.align	7	/* Synchronous 32-bit EL1 */
+1:	b	1b
+	.align	7	/* IRQ 32-bit EL1 */
+1:	b	1b
+	.align	7	/* FIQ 32-bit EL1 */
+1:	b	1b
+	.align	7	/* SError 32-bit EL1 */
+1:	b	1b
+	SET_SIZE(hyp_stub_vectors)
