@@ -25,6 +25,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <sys/mkdev.h>
 #include <sys/stat.h>
 
@@ -46,9 +47,6 @@
 #include <fmd_ckpt.h>
 
 #include <fmd.h>
-
-#define	P2ROUNDUP(x, align)	(-(-(x) & -(align)))
-#define	IS_P2ALIGNED(v, a)	((((uintptr_t)(v)) & ((uintptr_t)(a) - 1)) == 0)
 
 /*
  * The fmd_ckpt_t structure is used to manage all of the state needed by the
@@ -372,7 +370,7 @@ fmd_ckpt_section(fmd_ckpt_t *ckp, const void *data, uint_t type, uint64_t size)
 	dp = &_fmd_ckpt_sections[type];
 
 	ckp->ckp_ptr = (uchar_t *)
-	    P2ROUNDUP((uintptr_t)ckp->ckp_ptr, dp->secd_align);
+	    P2ROUNDUP_TYPED(ckp->ckp_ptr, dp->secd_align, uintptr_t);
 
 	ckp->ckp_secp->fcfs_type = type;
 	ckp->ckp_secp->fcfs_align = dp->secd_align;
@@ -541,7 +539,7 @@ fmd_ckpt_save_nvlist(fmd_ckpt_t *ckp, nvlist_t *nvl)
 	ckp->ckp_ptr += sizeof (fcf_nvl_t) + nvsize;
 
 	ckp->ckp_ptr = (uchar_t *)
-	    P2ROUNDUP((uintptr_t)ckp->ckp_ptr, sizeof (uint64_t));
+	    P2ROUNDUP_TYPED(ckp->ckp_ptr, sizeof (uint64_t), uintptr_t);
 }
 
 static void
