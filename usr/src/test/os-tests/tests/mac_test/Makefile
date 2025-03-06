@@ -21,9 +21,10 @@ TESTDIR = $(ROOTOPTPKG)/tests
 PROGS = mac_test
 
 include $(SRC)/cmd/Makefile.cmd
+include $(SRC)/cmd/Makefile.cmd.64
 include $(SRC)/test/Makefile.com
 
-LDLIBS += -lnvpair
+LDLIBS += -lnvpair -lktest
 CSTD= $(CSTD_GNU17)
 
 CMDS = $(PROGS:%=$(TESTDIR)/%)
