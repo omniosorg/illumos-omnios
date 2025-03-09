@@ -821,8 +821,9 @@ hati_load_common(
 	else
 		PTE_SET(pte, PTE_UXN);
 
-	if ((attr & PROT_EXEC) ||
-	    (attr & HAT_ORDER_MASK) != HAT_STORECACHING_OK) {
+	if (((attr & PROT_EXEC) ||
+	    (attr & HAT_ORDER_MASK) != HAT_STORECACHING_OK) &&
+	    pf_is_memory(pfn)) {
 		clean_dcache(hat_kpm_pfn2va(pfn), LEVEL_SIZE(level));
 	}
 
