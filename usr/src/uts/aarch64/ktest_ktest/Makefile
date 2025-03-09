@@ -15,8 +15,8 @@
 
 UTSBASE = ../..
 
-MODULE		= ktest_selftest
-OBJECTS		= $(KTEST_SELFTEST_OBJS:%=$(OBJS_DIR)/%)
+MODULE		= ktest_ktest
+OBJECTS		= $(KTEST_KTEST_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(USR_KTEST_DIR)/$(MODULE)
 
 include $(UTSBASE)/aarch64/Makefile.aarch64

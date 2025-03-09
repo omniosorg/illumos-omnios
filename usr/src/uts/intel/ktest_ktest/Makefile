@@ -13,18 +13,18 @@
 # Copyright 2023 Oxide Computer Company
 #
 
-UTSBASE	= ../..
+UTSBASE = ../..
 
-MODULE		= mac_test
-OBJECTS		= $(MAC_TEST_OBJS:%=$(OBJS_DIR)/%)
+MODULE		= ktest_ktest
+OBJECTS		= $(KTEST_KTEST_OBJS:%=$(OBJS_DIR)/%)
 ROOTMODULE	= $(USR_KTEST_DIR)/$(MODULE)
 
-include $(UTSBASE)/aarch64/Makefile.aarch64
+include $(UTSBASE)/intel/Makefile.intel
 
 ALL_TARGET	= $(BINARY)
 INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 
-LDFLAGS		+= -N misc/mac -N drv/ktest
+LDFLAGS		+= -N drv/ktest
 
 .KEEP_STATE:
 
@@ -38,5 +38,4 @@ clobber:	$(CLOBBER_DEPS)
 
 install:	$(INSTALL_DEPS)
 
-include $(UTSBASE)/aarch64/Makefile.targ
-
+include $(UTSBASE)/intel/Makefile.targ
