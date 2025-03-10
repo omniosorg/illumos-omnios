@@ -446,8 +446,13 @@ kaif_step(void)
 
 	kmdb_dpi_resume_master(); /* Run the next instruction and come back */
 
-	/* restore the single step setting and mask settings */
-	(void) kmdb_dpi_set_register("spsr", spsr);
+	/*
+	 * restore the single step setting and mask settings, leave the rest
+	 * of the status register alone.
+	 */
+	(void) kmdb_dpi_get_register("spsr", &spsr);
+	(void) kmdb_dpi_set_register("spsr",
+	    (spsr & ~(PSR_SS | PSR_I)) | PSR_D);
 	write_mdscr_el1(read_mdscr_el1() & ~MDSCR_SS);
 
 	return (0);
