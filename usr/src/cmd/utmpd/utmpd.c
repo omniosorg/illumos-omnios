@@ -1272,10 +1272,24 @@ static void
 door_server(void *cookie __unused, char *argp, size_t sz,
     door_desc_t *dp __unused, uint_t ndesc __unused)
 {
-	static const char *tmpxdbs[] = { "/var/adm/wtmpx", "/var/adm/utmpx" };
+	const char *tmpxdbs[] = { WTMPX_FILE, UTMPX_FILE };
+	ucred_t *uc = NULL;
+	pid_t pid;
 	uint_t i;
 
 	dprintf(("Door request received, size %zu.\n", sz));
+
+	if (door_ucred(&uc) != 0) {
+		dprintf(("Could not retrieve door ucred.\n"));
+		goto out;
+	}
+
+	pid = ucred_getpid(uc);
+	if (pid != 0) {
+		dprintf(("Door request not from kernel (PID %d), ignoring.\n",
+		    pid));
+		goto out;
+	}
 
 	if (sz == sizeof (time_t)) {
 		time_t boot_ts;
@@ -1286,6 +1300,8 @@ door_server(void *cookie __unused, char *argp, size_t sz,
 			process_database(tmpxdbs[i], boot_ts);
 	}
 
+out:
+	ucred_free(uc);
 	dprintf(("Door return.\n"));
 	(void) door_return(NULL, 0, NULL, 0);
 }
