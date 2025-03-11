@@ -27,6 +27,7 @@
 # Copyright 2019 Joyent, Inc.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2021 Jason King
+# Copyright 2025 Michael van der Westhuizen
 #
 
 include ../Makefile.master
@@ -91,6 +92,9 @@ i386_SUBDIRS=			\
 	cpcgen			\
 	elfextract		\
 	mbh_patch		\
+	btxld
+
+aarch64_SUBDIRS=		\
 	btxld
 
 SUBDIRS=			\

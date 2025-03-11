@@ -28,6 +28,7 @@
 # Copyright 2019 Joyent, Inc.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2022 Jason King
+# Copyright 2025 Michael van der Westhuizen
 #
 
 set name=pkg.fmri value=pkg:/developer/build/onbld@$(PKGVERS)
@@ -49,7 +50,7 @@ dir  path=opt group=sys
 dir  path=opt/onbld
 dir  path=opt/onbld/bin
 dir  path=opt/onbld/bin/$(ARCH)
-$(i386_ONLY)file path=opt/onbld/bin/$(ARCH)/btxld mode=0555
+file path=opt/onbld/bin/$(ARCH)/btxld mode=0555
 $(i386_ONLY)file path=opt/onbld/bin/$(ARCH)/cpcgen mode=0555
 file path=opt/onbld/bin/$(ARCH)/cscope-fast mode=0555
 file path=opt/onbld/bin/$(ARCH)/ctfconvert mode=0555
@@ -244,7 +245,7 @@ file \
 dir  path=opt/onbld/man
 dir  path=opt/onbld/man/man1onbld
 file path=opt/onbld/man/man1onbld/bldenv.1onbld
-$(i386_ONLY)file path=opt/onbld/man/man1onbld/btxld.1onbld
+file path=opt/onbld/man/man1onbld/btxld.1onbld
 file path=opt/onbld/man/man1onbld/cddlchk.1onbld
 file path=opt/onbld/man/man1onbld/check_rtime.1onbld
 file path=opt/onbld/man/man1onbld/checkpaths.1onbld
