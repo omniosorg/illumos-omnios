@@ -1035,8 +1035,17 @@ be_do_installboot_helper(zpool_handle_t *zphp, nvlist_t *child, char *stage1,
 		(void) snprintf(install_cmd, sizeof (install_cmd),
 		    "%s %s %s %s", BE_INSTALL_BOOT, flag, stage2, diskname);
 	} else if (be_is_isa("aarch64")) {
-		/* XXXARM: Nothing to do yet for aarch64 */
-		return (BE_SUCCESS);
+		if ((flags & BE_INSTALLBOOT_FLAG_FORCE) ==
+		    BE_INSTALLBOOT_FLAG_FORCE)
+			flag = "-F";
+
+		/*
+		 * We only need the boot directory, which has been passed
+		 * in `stage1'.
+		 */
+		(void) snprintf(install_cmd, sizeof (install_cmd),
+		    "%s %s -b %s %s", BE_INSTALL_BOOT, flag,
+		    stage1, diskname);
 	} else {
 		be_print_err(gettext("%s: unsupported architecture: %s.\n"),
 		    __func__, be_get_default_isa());
@@ -1408,11 +1417,10 @@ be_do_installboot(be_transaction_data_t *bt, uint16_t flags)
 		    "%s/usr/platform/%s%s", tmp_mntpt,
 		    platform, BE_SPARC_BOOTBLK);
 	} else if (be_is_isa("aarch64")) {
-		/* XXXARM: Nothing to do yet for aarch64 */
-		if (be_mounted)
-			(void) _be_unmount(bt->obe_name, 0);
-		free(tmp_mntpt);
-		return (BE_SUCCESS);
+		/* stage1 is the /boot directory to copy from */
+		(void) snprintf(stage1, sizeof (stage1), "%s%s",
+		    tmp_mntpt, BE_LOADER_STAGES);
+		/* Skip stage2 */
 	} else {
 		be_print_err(gettext("%s: unsupported architecture: %s.\n"),
 		    __func__, be_get_default_isa());
