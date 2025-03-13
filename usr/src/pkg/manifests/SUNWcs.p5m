@@ -1356,7 +1356,7 @@ file path=usr/sbin/inetconv mode=0555
 link path=usr/sbin/inetd target=../lib/inet/inetd
 link path=usr/sbin/init target=../../sbin/init
 file path=usr/sbin/install mode=0555
-$(not_aarch64)file path=usr/sbin/installboot group=sys mode=0555
+file path=usr/sbin/installboot group=sys mode=0555
 $(i386_ONLY)link path=usr/sbin/installgrub target=../../sbin/installgrub
 file path=usr/sbin/ipaddrsel mode=0555
 link path=usr/sbin/ipmpstat target=../../sbin/ipmpstat

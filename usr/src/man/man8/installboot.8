@@ -49,6 +49,20 @@ raw-device
 .Op Fl n
 .Fl M
 .Ar raw-device attach-raw-device
+.Ss aarch64
+.Nm
+.Op Fl nF
+.Op Fl b Ar boot_dir
+.Op Fl u Ar verstr
+raw-device
+.Nm
+.Op Fl enV
+.Fl i
+.Ar raw-device | Ar file
+.Nm
+.Op Fl n
+.Fl M
+.Ar raw-device attach-raw-device
 .Sh DESCRIPTION
 The
 .Xr boot 8
@@ -119,28 +133,34 @@ tag in
 partition menu.
 .El
 .Pp
-The x86 UEFI systems load and start boot loader program from
+UEFI systems load and start the boot loader program from the
 .Sy /EFI/Boot
 directory of the EFI System Partition (ESP).
-The boot loader program in ESP is named
+The boot loader program in the ESP is named
 .Sy bootx64.efi
-for AMD64 system and
+for AMD64 system,
 .Sy bootia32.efi
-for i386 system.
+for i386 system and
+.Sy bootaa64.efi
+for aarch64 systems.
 Note, only a 64-bit kernel is supported, even on i386 systems.
 The
 .Sy bootia32.efi
-boot program is only provided to support systems with 32-bit UEFI firmware,
+boot program is only provided to support x86 systems with 32-bit UEFI firmware,
 but which can support 64-bit mode.
 .Pp
 The
 .Sy bootx64.efi
-is copied from
+file is copied from
 .Sy /boot/loader64.efi
-and
+on x86 systems, while
+.Sy bootaa64.efi
+is copied from that location on aarch64 systems.
+The
 .Sy bootia32.efi
-is copied from
-.Sy /boot/loader32.efi .
+file is copied from
+.Sy /boot/loader32.efi
+on x86 systems.
 .Ss Options
 The
 .Nm
@@ -159,15 +179,17 @@ Installs
 on the master boot sector interactively.
 You must use this option if OS is installed on an extended FDISK or an EFI/GPT
 partition.
+Only applies to x86 systems.
 .It Fl f
 Suppresses interaction when overwriting the master boot sector on x86.
 Force update on SPARC.
+Does not apply to aarch64 systems.
 .It Fl n
 Dry run session.
 Will not write to disk.
 .It Fl F
 On SPARC, specify file system type.
-On x86, inhibit version check and enforce boot loader update.
+On x86 and aarch64, inhibit version check and enforce boot loader update.
 .It Fl u Ar verstr
 Specify custom version string.
 Can be used to add version on non-versioned boot loader or change built in
@@ -189,9 +211,9 @@ command accepts the following operands:
 .It Ar bootblk
 The name of the SPARC boot loader code.
 .It Ar stage1
-The name of the loader stage 1 file.
+The name of the loader stage 1 file (only applies to x86 systems).
 .It Ar stage2
-The name of the loader stage 2 file.
+The name of the loader stage 2 file (only applies to x86 systems).
 .It Ar raw-device
 The name of the device onto which bootloader code is to be installed.
 It must be a character device that is readable and writable and part of boot
@@ -200,22 +222,27 @@ pool.
 .Sh FILES
 .Bl -tag -width Ds
 .It Pa /boot
-Directory where x86 loader files reside.
+Directory where x86 and aarch64 loader files reside.
 .It Pa /usr/platform/platform name/lib/fs
 Directory where SPARC boot loader files reside.
 .El
 .Sh EXAMPLES
 .Bl -tag -width Ds
-.It Sy Example 1 No Installing zfs boot loader on SPARC disk slice
-The following command installs zfs boot loader on SPARC system:
+.It Sy Example 1 No Installing zfs boot loader on a SPARC disk slice
+The following command installs the zfs boot loader on a SPARC system:
 .Bd -literal
 # installboot -F zfs /usr/platform/`uname -i`/lib/fs/zfs/bootblk \e
   /dev/rdsk/c0t0d0s0
 .Ed
-.It Sy Example 2 No Installing boot loader on x86 system
+.It Sy Example 2 No Installing boot loader on an x86 system
 The following command installs loader stage files and master boot record:
 .Bd -literal
 # installboot -m /boot/pmbr /boot/gptzfsboot /dev/rdsk/c0t0d0s0
+.Ed
+.It Sy Example 3 No Installing boot loader on an aarch64 system
+The following command installs the UEFI loader:
+.Bd -literal
+# installboot /dev/rdsk/c0t0d0s0
 .Ed
 .El
 .Sh INTERFACE STABILITY
