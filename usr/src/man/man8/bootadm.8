@@ -26,7 +26,7 @@ bootadm \- manage bootability of the operating system
 
 .LP
 .nf
- x86 only
+ x86 and aarch64 only
 .fi
 
 .LP
@@ -40,8 +40,8 @@ bootadm \- manage bootability of the operating system
 .fi
 
 .SH DESCRIPTION
-The \fBbootadm\fR command manages the boot archive and, with x86 boot
-environments, the boot loader menu. The
+The \fBbootadm\fR command manages the boot archive and, with x86 and aarch64
+boot environments, the boot loader menu. The
 \fBupdate-archive\fR option provides a way for user to update the boot archive
 as a preventative measure or as part of a recovery procedure. The
 \fBset-menu\fR subcommand allows you to switch the \fBauto-boot\fR timeout and
@@ -85,7 +85,7 @@ The \fBbootadm\fR command has the following subcommands:
 .ad
 .sp .6
 .RS 4n
-Updates current boot archive if required. Applies to both SPARC and x86
+Updates current boot archive if required. Applies to SPARC, x86 and aarch64
 platforms. The boot archive can be created in a number of different formats;
 the default format is an IEEE/P1003 Data Interchange Standard cpio archive.
 The format is configured through the following service management facility
@@ -158,7 +158,7 @@ See \fBEXAMPLES\fR for how to change this value.
 .sp .6
 .RS 4n
 Lists the files and directories to be included in the boot archive. Applies to
-both SPARC and x86 platforms.
+SPARC, x86 and aarch64 platforms.
 .RE
 
 .sp
@@ -190,6 +190,10 @@ option is specified, the \fBMBR\fR of the disk will not updated, as the system
 cannot guarantee that the \fBMBR\fR belongs to it. If, for example, the system
 was being dual booted, a different initial boot loader may be installed there.
 .sp
+On aarch64, disks are formatted using \fBGPT Partitioning\fR (GUID Partition
+Tables) and the loader is installed to the \fBESP\fR (EFI System Partition)
+on the disk(s) containing the ZFS pool. UFS is not supported on aarch64.
+.sp
 To reinstall the boot loader on some or all of the disks, the \fB-f\fR option
 must be passed to the \fBinstall-bootloader\fR subcommand to override boot
 program version checks.
@@ -205,7 +209,7 @@ program version checks.
 Maintain the menu configuration. The index of menu entries is listed in the
 \fBmenu.lst\fR file, and the actual configuration of the menu entry is located
 in the boot environment \fB/boot\fR directory.
-Applies to x86 platforms only.
+Applies to the x86 and aarch64 platforms.
 .RE
 
 .sp
@@ -217,7 +221,7 @@ Applies to x86 platforms only.
 .RS 4n
 Lists the location of the \fBmenu.lst\fR, as well as the current menu
 entries. This listing includes the default entry, dataset name, and the
-title of each entry. Applies to x86 platforms only.
+title of each entry. Applies to the x86 and aarch64 platforms.
 .RE
 
 .SH OPTIONS
@@ -282,8 +286,8 @@ title name as values.
 The platform, or machine hardware class, of the client. The platform type can
 only be specified together with \fB-R\fR, and is generally useful only for
 managing a diskless client where the client is of a different platform class
-than the server. Platform must be one of \fBi86pc\fR, \fBsun4u\fR, or
-\fBsun4v\fR.
+than the server. Platform must be one of \fBi86pc\fR, \fBaarch64\fR,
+\fBsun4u\fR, or \fBsun4v\fR.
 .RE
 
 .sp

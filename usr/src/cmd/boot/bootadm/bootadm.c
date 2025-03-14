@@ -476,7 +476,7 @@ usage(void)
 	(void) fprintf(stderr,
 	    "\t%s install-bootloader [-Mfv] [-R altroot] [-P pool]\n", prog);
 #endif
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 	(void) fprintf(stderr, "\t%s set-menu [-R altroot] key=value\n", prog);
 	(void) fprintf(stderr, "\t%s list-menu [-R altroot]\n", prog);
 #endif
