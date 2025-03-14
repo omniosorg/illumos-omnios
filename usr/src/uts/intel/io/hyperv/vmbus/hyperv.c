@@ -649,7 +649,6 @@ hyperv_show_features(uint64_t val, const char *desc, const hvbit_t *fields,
 
 	ilstr_init_prealloc(&ils, buf, sizeof (buf));
 
-	ilstr_append_str(&ils, desc);
 	ilstr_aprintf(&ils, "%s: 0x%08x\n", desc, val);
 
 	for (i = 0; i < nfields; i++) {
