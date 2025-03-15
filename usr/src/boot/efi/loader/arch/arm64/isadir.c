@@ -13,6 +13,10 @@
  * Copyright 2025 Michael van der Westhuizen
  */
 
+#include <efi.h>
+#include <efilib.h>
+#include <Guid/Acpi.h>
+#include <Guid/Fdt.h>
 #include <stand.h>
 
 void
@@ -47,7 +51,17 @@ bi_implarch(void)
 	extern void bi_implarch_fdt(const void *);
 	extern const void *efi_get_fdtp(void);
 
-	if ((fdtp = efi_get_fdtp()) != NULL) {
+	if (efi_get_table(&gEfiAcpi20TableGuid) != NULL) {
+		if ((rc = setenv("IMPLARCH", "ARMH,sbbr", 1)) != 0) {
+			printf("Warning: failed to set IMPLARCH environment "
+			    "variable: %d\n", rc);
+		}
+
+		if ((rc = setenv("impl-arch-name", "ARMH,sbbr", 1)) != 0) {
+			printf("Warning: failed to set impl-arch-name "
+			    "environment variable: %d\n", rc);
+		}
+	} else if ((fdtp = efi_get_fdtp()) != NULL) {
 		bi_implarch_fdt(fdtp);
 		return;
 	} else {
