@@ -30,7 +30,6 @@
  * (1) Replace kmem_alloc by malloc. Remove negative indexing
  * (2) Decoding applies only to prom properties.
  * (3) For strings, the return value is a composite string, not a string array.
- * (4) impl_ddi_prop_int_from_prom() uses _LITTLE_ENDIAN from isa_defs.h
  *
  * XXX This file should be kept in sync with kernel property encoding.
  */
@@ -42,32 +41,38 @@
 #include <sys/types.h>
 #include <sys/dditypes.h>
 #include <sys/ddipropdefs.h>
+#include <sys/debug.h>
 #include <sys/isa_defs.h>
 
 #include "libdevinfo.h"
 
 /*
- * Return an integer in native machine format from an OBP 1275 integer
- * representation, which is big-endian, with no particular alignment
- * guarantees. intp points to the OBP data, and n the number of bytes.
+ * Return an integer in native machine format from an integer in the
+ * PROM-native data representation, making no alignment assumptions. `data`
+ * points to the PROM data, and `n` is the integer size in bytes.
  *
- * Byte-swapping may be needed on some implementations.
+ * - x86 platforms have little-endian data in the PROM
+ * - other platforms are assumed to follow IEEE 1275 and have
+ *   big-endian data in the PROM
  */
 int
-impl_di_prop_int_from_prom(uchar_t *intp, int n)
+impl_di_prop_int_from_prom(uchar_t *data, int n)
 {
 	int i = 0;
 
-#if defined(_LITTLE_ENDIAN)
-	intp += n;
+	ASSERT3S(n, >, 0);
+	ASSERT3S(n, <=, 4);
+
+#if defined(__x86)
+	data += n;
 	while (n-- > 0) {
-		i = (i << 8) | *(--intp);
+		i = (i << 8) | *(--data);
 	}
 #else
 	while (n-- > 0) {
-		i = (i << 8) | *intp++;
+		i = (i << 8) | *data++;
 	}
-#endif	/* defined(_LITTLE_ENDIAN) */
+#endif
 
 	return (i);
 }
@@ -282,7 +287,7 @@ di_prop_fm_decode_bytes(prop_handle_t *ph, void *data, uint_t *nelements)
 	 * Get the size of the encoded array of bytes.
 	 */
 	nbytes = DDI_PROP_BYTES(ph, DDI_PROP_CMD_GET_DSIZE,
-		data, ph->ph_size);
+	    data, ph->ph_size);
 	if (nbytes < DDI_PROP_RESULT_OK) {
 		switch (nbytes) {
 		case DDI_PROP_RESULT_EOF:

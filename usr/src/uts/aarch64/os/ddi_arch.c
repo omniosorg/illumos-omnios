@@ -284,26 +284,24 @@ i_ddi_map_fault(dev_info_t *dip, dev_info_t *rdip,
 }
 
 /*
- * Return an integer in native machine format from an OBP 1275 integer
+ * Return an integer in native machine format from an IEEE 1275 integer
  * representation, which is big-endian, with no particular alignment
- * guarantees.  intp points to the OBP data, and n the number of bytes.
- *
- * Byte-swapping is needed on ARM, since devicetree is big-endian and the CPU
- * is not.
+ * guarantees.  `data` points to the PROM data, and `n` is the number of
+ * bytes.
  */
 int
-impl_ddi_prop_int_from_prom(uchar_t *intp, int n)
+impl_ddi_prop_int_from_prom(uchar_t *data, int n)
 {
 	int	i = 0;
 
-	ASSERT(n > 0 && n <= 4);
+	ASSERT3S(n, >, 0);
+	ASSERT3S(n, <=, 4);
 
-	intp += n;
 	while (n-- > 0) {
-		i = (i << 8) | *(--intp);
+		i = (i << 8) | *data++;
 	}
 
-	return (ntohl(i));
+	return (i);
 }
 
 
