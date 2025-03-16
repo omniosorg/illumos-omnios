@@ -232,7 +232,7 @@ mlsetup(struct regs *rp, struct xboot_info *xbp)
 	 * Initialise CPU info for the boot processor and fill in accurate
 	 * values for boot_ncpus, boot_max_ncpus and max_ncpus.
 	 */
-	cpuinfo_bootstrap(CPU);
+	cpuinfo_bootstrap(CPU, xbp);
 
 	/*
 	 * lgroup framework initialization. This must be done prior

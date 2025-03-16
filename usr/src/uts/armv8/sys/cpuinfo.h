@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _CPUINFO_H
@@ -122,7 +122,8 @@ struct cpuinfo {
 	 */
 };
 
-extern void cpuinfo_bootstrap(cpu_t *cp);
+struct xboot_info;
+extern void cpuinfo_bootstrap(cpu_t *cp, struct xboot_info *xbp);
 
 extern int cpuinfo_init(void);
 

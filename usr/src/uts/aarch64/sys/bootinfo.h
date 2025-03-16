@@ -85,6 +85,16 @@ typedef enum uefi_arch_type {
 	XBI_UEFI_ARCH_64
 } uefi_arch_type_t;
 
+struct xboot_cpu_info {
+	uint64_t		xci_mpidr;
+	uint64_t		xci_parked_addr;
+	uint32_t		xci_cpuif;
+	uint32_t		xci_flags;
+	uint32_t		xci_ppver;
+	uint32_t		xci_uid;
+	int			xci_id;
+};
+
 /*
  *
  */
@@ -104,7 +114,9 @@ struct xboot_info {
 	uint64_t		bi_arch_timer_freq;
 	uint64_t		bi_framebuffer;
 	uint64_t		bi_hyp_stubs;
+	uint64_t		bi_cpuinfo;
 	xbi_bsvc_uart_type_t	bi_bsvc_uart_type;
+	uint32_t		bi_cpuinfo_cnt;
 	uint32_t		bi_module_cnt;
 	uint32_t		bi_psci_version;
 	uint32_t		bi_psci_conduit_hvc;

@@ -27,6 +27,7 @@
 #include <sys/limits.h>
 #include <asm/controlregs.h>
 #include <sys/psci.h>
+#include <sys/machparam.h>
 
 #if !defined(DCACHE_LINE)
 #define	DCACHE_LINE	64
@@ -97,6 +98,8 @@ static boot_framebuffer_t *fb = &framebuffer;
 static struct boot_modules boot_modules[MAX_BOOT_MODULES] = {
 	{ 0, 0, 0, BMT_ROOTFS },
 };
+
+static struct xboot_cpu_info cpu_info[NCPU];
 
 extern void exception_vector(void);
 extern void bcons_init(struct xboot_info *);
@@ -356,6 +359,8 @@ dboot_configure(caddr_t modulep, struct xboot_info *xbi,
 	*pkernel = NULL;
 	*pkernel_size = 0;
 
+	xbi->bi_cpuinfo = (uint64_t)&cpu_info[0];
+	xbi->bi_cpuinfo_cnt = 0;
 	xbi->bi_modules = (uint64_t)&boot_modules[0];
 	xbi->bi_module_cnt = 0;
 	xbi->bi_psci_cpu_suspend_id = PSCI_CPU_SUSPEND_ID;
