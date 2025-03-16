@@ -32,6 +32,16 @@
 	ret
 	SET_SIZE(membar_producer)
 
+	ENTRY(flush_instr)
+	dc	cvau, x0
+	dsb	ish
+	ic	ivau, x0
+	dsb	ish
+	isb
+	nop
+	ret
+	SET_SIZE(flush_instr)
+
 	ENTRY(get_fp)
 	mov	x0, fp
 	ret

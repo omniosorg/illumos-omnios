@@ -39,6 +39,7 @@
 #include <kmdb/kmdb_io.h>
 #include <kmdb/kaif_start.h>
 #include <kmdb/kvm_isadep.h>
+#include <kmdb/kmdb_asmutil.h>
 
 #include <mdb/mdb_err.h>
 #include <mdb/mdb_debug.h>
@@ -237,6 +238,8 @@ kaif_brkpt_arm(uintptr_t addr, mdb_instr_t *instrp)
 	    sizeof (mdb_instr_t), addr) != sizeof (mdb_instr_t))
 		return (-1); /* errno is set for us */
 
+	flush_instr(addr);
+
 	return (0);
 }
 
@@ -246,6 +249,8 @@ kaif_brkpt_disarm(uintptr_t addr, mdb_instr_t instrp)
 	if (mdb_tgt_awrite(mdb.m_target, MDB_TGT_AS_VIRT_I, &instrp,
 	    sizeof (mdb_instr_t), addr) != sizeof (mdb_instr_t))
 		return (-1); /* errno is set for us */
+
+	flush_instr(addr);
 
 	return (0);
 }

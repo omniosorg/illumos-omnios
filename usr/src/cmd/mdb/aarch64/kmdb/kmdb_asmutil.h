@@ -35,6 +35,7 @@ extern "C" {
 
 extern uintptr_t cas(uintptr_t *, uintptr_t, uintptr_t);
 extern void membar_producer(void);
+extern void flush_instr(uint64_t);
 
 extern uintptr_t get_fp(void);
 
