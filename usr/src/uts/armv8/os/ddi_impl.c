@@ -3462,7 +3462,7 @@ getlongprop_buf(int id, char *name, char *buf, int maxlen)
  * status of the device as follows:
  *
  *	"okay"		operational.
- *	"disabled"	not operational, but might become operational.
+ *	"disabled"	not operational.
  *	"fail"		not operational because a fault has been detected,
  *			and it is unlikely that the device will become
  *			operational without repair. no additional details
@@ -3481,8 +3481,8 @@ getlongprop_buf(int id, char *name, char *buf, int maxlen)
  *
  * The property may exist on plug-in cards the existed before IEEE 1275-1994.
  * And, in that case, the property may not even be a string. So we carefully
- * check for the value "fail", in the beginning of the string, noting
- * the property length.
+ * check for the value "fail" or "disabled", in the beginning of the string,
+ * noting the property length.
  */
 int
 status_okay(int id, char *buf, int buflen)
@@ -3493,12 +3493,14 @@ status_okay(int id, char *buf, int buflen)
 	int proplen;
 	static const char *status = OBP_STATUS;
 	static const char *fail = "fail";
+	static const char *disabled = "disabled";
 	int fail_len = (int)strlen(fail);
+	int dis_len = (int)strlen(disabled);
 
 	/*
 	 * Get the proplen ... if it's smaller than "fail",
 	 * or doesn't exist ... then we don't care, since
-	 * the value can't begin with the char string "fail".
+	 * the value can't begin with the char string "fail" or be "disabled"
 	 *
 	 * NB: proplen, if it's a string, includes the NULL in the
 	 * the size of the property, and fail_len does not.
@@ -3510,11 +3512,11 @@ status_okay(int id, char *buf, int buflen)
 	/*
 	 * if a buffer was provided, use it
 	 */
-	if ((buf == (char *)NULL) || (buflen <= 0)) {
+	if (buf == NULL || buflen <= 0) {
 		bufp = status_buf;
 		len = sizeof (status_buf);
 	}
-	*bufp = (char)0;
+	*bufp = '\0';
 
 	/*
 	 * Get the property into the buffer, to the extent of the buffer,
@@ -3525,16 +3527,17 @@ status_okay(int id, char *buf, int buflen)
 	 */
 	(void) prom_bounded_getprop((pnode_t)id, (caddr_t)status,
 	    (caddr_t)bufp, len);
-	*(bufp + len - 1) = (char)0;
+	*(bufp + len - 1) = '\0';
 
 	/*
-	 * If the value begins with the char string "fail",
+	 * If the value begins with the char string "fail" or is "disabled",
 	 * then it means the node is failed. We don't care
-	 * about any other values. We assume the node is ok
-	 * although it might be 'disabled'.
+	 * about any other values.
 	 */
-	if (strncmp(bufp, fail, fail_len) == 0)
+	if (strncmp(bufp, fail, fail_len) == 0 ||
+	    strncmp(bufp, disabled, dis_len) == 0) {
 		return (0);
+	}
 
 	return (1);
 }

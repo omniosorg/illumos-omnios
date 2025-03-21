@@ -716,25 +716,6 @@ genet_mii_read(void *arg, uint8_t phy, uint8_t reg)
 	return (data);
 }
 
-static int
-genet_probe(dev_info_t *dip)
-{
-	char *buf;
-
-	if (ddi_prop_lookup_string(DDI_DEV_T_ANY, dip, 0,
-	    OBP_STATUS, &buf) != DDI_SUCCESS) {
-		return (DDI_PROBE_SUCCESS);
-	}
-
-	if (strcmp(buf, "ok") != 0 && strcmp(buf, "okay") != 0) {
-		ddi_prop_free(buf);
-		return (DDI_PROBE_FAILURE);
-	}
-
-	ddi_prop_free(buf);
-	return (DDI_PROBE_SUCCESS);
-}
-
 static void
 genet_mii_notify(void *arg, link_state_t link)
 {
@@ -1247,7 +1228,7 @@ genet_m_ioctl(void *arg, queue_t *wq, mblk_t *mp)
 
 extern struct mod_ops mod_driverops;
 
-DDI_DEFINE_STREAM_OPS(genet_devops, nulldev, genet_probe, genet_attach,
+DDI_DEFINE_STREAM_OPS(genet_devops, nulldev, nulldev, genet_attach,
     genet_detach, nodev, NULL, D_MP, NULL, genet_quiesce);
 
 static struct modldrv genet_modldrv = {

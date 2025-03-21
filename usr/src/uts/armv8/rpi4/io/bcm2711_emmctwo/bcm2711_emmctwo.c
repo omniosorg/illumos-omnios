@@ -1659,26 +1659,6 @@ mmc_quiesce(dev_info_t *dip)
 	return (DDI_FAILURE);
 }
 
-/* Check the device is not disabled */
-static int
-mmc_probe(dev_info_t *dip)
-{
-	char *buf;
-
-	if (ddi_prop_lookup_string(DDI_DEV_T_ANY, dip, 0,
-	    OBP_STATUS, &buf) != DDI_SUCCESS) {
-		return (DDI_PROBE_SUCCESS);
-	}
-
-	if (strcmp(buf, "ok") != 0 && strcmp(buf, "okay") != 0) {
-		ddi_prop_free(buf);
-		return (DDI_PROBE_FAILURE);
-	}
-
-	ddi_prop_free(buf);
-	return (DDI_PROBE_SUCCESS);
-}
-
 static uint_t
 mmc_intr(caddr_t arg1, caddr_t arg2)
 {
@@ -1839,7 +1819,7 @@ static struct dev_ops mmc_dev_ops = {
 	0,				/* devo_refcnt */
 	ddi_no_info,			/* devo_getinfo */
 	nulldev,			/* devo_identify */
-	mmc_probe,			/* devo_probe */
+	nulldev,			/* devo_probe */
 	mmc_attach,			/* devo_attach */
 	mmc_detach,			/* devo_detach */
 	nodev,				/* devo_reset */

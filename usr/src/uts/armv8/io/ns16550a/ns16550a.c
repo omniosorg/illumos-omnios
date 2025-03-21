@@ -740,7 +740,6 @@ struct streamtab ns16550_str_info = {
 
 static int ns16550info(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg,
 		void **result);
-static int ns16550probe(dev_info_t *);
 static int ns16550attach(dev_info_t *, ddi_attach_cmd_t);
 static int ns16550detach(dev_info_t *, ddi_detach_cmd_t);
 static int ns16550quiesce(dev_info_t *);
@@ -768,7 +767,7 @@ struct dev_ops ns16550_ops = {
 	0,			/* devo_refcnt */
 	ns16550info,		/* devo_getinfo */
 	nulldev,		/* devo_identify */
-	ns16550probe,		/* devo_probe */
+	nulldev,		/* devo_probe */
 	ns16550attach,		/* devo_attach */
 	ns16550detach,		/* devo_detach */
 	nodev,			/* devo_reset */
@@ -928,26 +927,6 @@ ns16550detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 	}
 
 	return (DDI_SUCCESS);
-}
-
-/* Check the device is not disabled  */
-static int
-ns16550probe(dev_info_t *dip)
-{
-	char *buf;
-
-	if (ddi_prop_lookup_string(DDI_DEV_T_ANY, dip, 0,
-	    OBP_STATUS, &buf) != DDI_SUCCESS) {
-		return (DDI_PROBE_SUCCESS);
-	}
-
-	if (strcmp(buf, "ok") != 0 && strcmp(buf, "okay") != 0) {
-		ddi_prop_free(buf);
-		return (DDI_PROBE_FAILURE);
-	}
-
-	ddi_prop_free(buf);
-	return (DDI_PROBE_SUCCESS);
 }
 
 static int
