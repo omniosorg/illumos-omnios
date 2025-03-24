@@ -308,10 +308,10 @@ impl_ddi_prop_int_from_prom(uchar_t *data, int n)
 {
 	int	i = 0;
 
-	ASSERT3S(n, > 0);
+	ASSERT3S(n, >, 0);
 	ASSERT3S(n, <=, 4);
 
-	intp += n;
+	data += n;
 	while (n-- > 0) {
 		i = (i << 8) | *(--data);
 	}

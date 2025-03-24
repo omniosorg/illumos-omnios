@@ -60,7 +60,6 @@ $(not_aarch64)link path=usr/share/man/man1b/fasthalt.1b target=fastboot.1b
 $(not_aarch64)file path=usr/share/man/man1b/file.1b
 $(not_aarch64)file path=usr/share/man/man1b/from.1b
 $(not_aarch64)file path=usr/share/man/man1b/groups.1b
-$(not_aarch64)file path=usr/share/man/man1b/grpck.1b
 $(not_aarch64)file path=usr/share/man/man1b/ln.1b
 $(not_aarch64)file path=usr/share/man/man1b/logger.1b
 $(not_aarch64)file path=usr/share/man/man1b/lpc.1b
