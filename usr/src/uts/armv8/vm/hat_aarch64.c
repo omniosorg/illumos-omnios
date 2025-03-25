@@ -1093,8 +1093,9 @@ hat_memload_array_region(struct hat *hat, caddr_t addr, size_t len,
  * there are no page_t's and we support additional flags (write merging, etc).
  * Note that we can have large page mappings with this interface.
  */
-int supported_devload_flags = HAT_LOAD | HAT_LOAD_LOCK |
-	HAT_LOAD_NOCONSIST;
+int supported_devload_flags = HAT_LOAD | HAT_LOAD_LOCK | HAT_LOAD_NOCONSIST |
+	HAT_STRICTORDER | HAT_UNORDERED_OK | HAT_MERGING_OK |
+	HAT_LOADCACHING_OK | HAT_STORECACHING_OK;
 
 void
 hat_devload(
