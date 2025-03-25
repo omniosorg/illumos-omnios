@@ -513,6 +513,7 @@ bcons_init(struct xboot_info *xbi)
 #endif
 	case CONS_SCREEN_GRAPHICS:	/* fallthrough */
 	case CONS_SCREEN_TEXT:		/* fallthrough */
+	case CONS_FRAMEBUFFER:		/* fallthrough */
 	default:
 		kb_init();
 		break;
@@ -525,10 +526,12 @@ bcons_init(struct xboot_info *xbi)
 	case CONS_TTY:
 		break;
 	case CONS_SCREEN_GRAPHICS:	/* fallthrough */
-	case CONS_SCREEN_TEXT:
+	case CONS_SCREEN_TEXT:		/* fallthrough */
+	case CONS_FRAMEBUFFER:
 		if (console != CONS_SCREEN_GRAPHICS &&
-		    console != CONS_SCREEN_TEXT)
-			kb_init();	/* umm... how? */
+		    console != CONS_SCREEN_TEXT &&
+		    console != CONS_FRAMEBUFFER)
+			kb_init();
 		break;
 	default:
 		break;

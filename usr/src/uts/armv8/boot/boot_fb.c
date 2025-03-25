@@ -367,7 +367,8 @@ boot_fb_cpy(uint8_t *dst, uint8_t *src, uint32_t len)
 void
 boot_fb_shadow_init(bootops_t *bops)
 {
-	if (boot_console_type(NULL) != CONS_FRAMEBUFFER)
+	if (boot_console_type(NULL) != CONS_FRAMEBUFFER &&
+	    boot_console_type(NULL) != CONS_SCREEN_TEXT)
 		return;			/* nothing to do */
 
 	fb_info.shadow_fb = (uint8_t *)bops->bsys_alloc(NULL, NULL,
@@ -402,7 +403,8 @@ boot_fb_relocate(void)
 
 	extern void *device_arena_alloc(size_t size, int vm_flag);
 
-	if (boot_console_type(NULL) != CONS_FRAMEBUFFER)
+	if (boot_console_type(NULL) != CONS_FRAMEBUFFER &&
+	    boot_console_type(NULL) != CONS_SCREEN_TEXT)
 		return;
 
 	if (fb_info.fb_size == 0 || fb_info.paddr == 0)
