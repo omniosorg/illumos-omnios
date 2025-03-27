@@ -42,6 +42,7 @@ file path=platform/armv8/kernel/dacf/$(ARCH)/consconfig_dacf mode=0755
 dir  path=platform/armv8/kernel/drv
 dir  path=platform/armv8/kernel/drv/$(ARCH)
 file path=platform/armv8/kernel/drv/$(ARCH)/arm_gtmr
+file path=platform/armv8/kernel/drv/$(ARCH)/efifb
 file path=platform/armv8/kernel/drv/$(ARCH)/gicthree
 file path=platform/armv8/kernel/drv/$(ARCH)/gictwo
 file path=platform/armv8/kernel/drv/$(ARCH)/ns16550a
@@ -60,6 +61,7 @@ file path=usr/share/man/man4d/devfdt.4d
 file path=usr/share/man/man4d/simple-bus.4d
 driver name=arm_gtmr alias=arm,armv8-timer
 driver name=devfdt perms="* 0400 root sys"
+driver name=efifb
 driver name=gicthree alias=arm,gic-v3
 driver name=gictwo \
     alias=arm,cortex-a15-gic \

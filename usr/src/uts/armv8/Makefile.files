@@ -112,6 +112,8 @@ GFX_PRIVATE_OBJS	+= gfx_private.o gfxp_segmap.o \
 			   gfxp_devmap.o gfxp_vm.o \
 			   gfxp_fb.o gfxp_bitmap.o
 
+EFIFB_OBJS		+= efifb.o
+
 ASSYM_DEPS +=			\
 	aarch64_subr.o		\
 	copy.o			\
