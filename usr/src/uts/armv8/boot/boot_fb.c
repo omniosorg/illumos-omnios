@@ -381,57 +381,6 @@ boot_fb_shadow_init(bootops_t *bops)
 	boot_fb_cpy(fb_info.shadow_fb, fb_info.fb, fb_info.fb_size);
 }
 
-#if !defined(_BOOT)
-#include <sys/sunddi.h>
-
-/*
- * Relocate frame buffer mappings to the device arena.
- *
- * Called once kernel arenas are up and before lower mappings are removed.
- *
- * Can only be called once.
- */
-void
-boot_fb_relocate(void)
-{
-	pgcnt_t npages;
-	uint_t pgoffset;
-	paddr_t base;
-	caddr_t cvaddr;
-	int prot;
-	uint_t attr;
-
-	extern void *device_arena_alloc(size_t size, int vm_flag);
-
-	if (boot_console_type(NULL) != CONS_FRAMEBUFFER &&
-	    boot_console_type(NULL) != CONS_SCREEN_TEXT)
-		return;
-
-	if (fb_info.fb_size == 0 || fb_info.paddr == 0)
-		return;
-
-	/*
-	 * We only allow ourselves to be relocated once.
-	 */
-	if (fb_info.fb != (uint8_t *)fb_info.paddr)
-		return;
-
-	pgoffset = fb_info.paddr & MMU_PAGEOFFSET;
-	base = fb_info.paddr;
-
-	npages = mmu_btopr(fb_info.fb_size + pgoffset);
-	cvaddr = device_arena_alloc(ptob(npages), VM_NOSLEEP);
-	if (cvaddr == NULL)
-		return;
-
-	prot = PROT_READ|PROT_WRITE;
-	attr = HAT_LOAD_LOCK|HAT_LOAD_NOCONSIST|HAT_UNORDERED_OK;
-	hat_devload(kas.a_hat, cvaddr, mmu_ptob(npages),
-	    mmu_btop(base), prot, attr);
-	fb_info.fb = (uint8_t *)(cvaddr + pgoffset);
-}
-#endif
-
 /*
  * Translate ansi color based on inverses and brightness.
  */
