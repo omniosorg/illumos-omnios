@@ -59,6 +59,7 @@
 #include <sys/arch_timer.h>
 #include <sys/reboot.h>
 #include <sys/kdi_machimpl.h>
+#include <sys/bootsvcs.h>
 
 #include <c2/audit.h>
 
@@ -691,9 +692,84 @@ hres_tick(void)
 	hr_clock_unlock(s);
 }
 
+static int
+sysp_getchar(void)
+{
+	int i;
+	uint64_t s;
+
+	if (cons_polledio == NULL) {
+		/* Uh oh */
+		prom_printf("getchar called with no console\n");
+		for (;;)
+			/* LOOP FOREVER */;
+	}
+
+	s = disable_interrupts();
+	i = cons_polledio->cons_polledio_getchar(
+	    cons_polledio->cons_polledio_argument);
+	restore_interrupts(s);
+	return (i);
+}
+
+static void
+sysp_putchar(int c)
+{
+	uint64_t s;
+
+	/*
+	 * We have no alternative but to drop the output on the floor.
+	 */
+	if (cons_polledio == NULL ||
+	    cons_polledio->cons_polledio_putchar == NULL)
+		return;
+
+	s = disable_interrupts();
+	cons_polledio->cons_polledio_putchar(
+	    cons_polledio->cons_polledio_argument, c);
+	restore_interrupts(s);
+}
+
+static int
+sysp_ischar(void)
+{
+	int i;
+	uint64_t s;
+
+	if (cons_polledio == NULL ||
+	    cons_polledio->cons_polledio_ischar == NULL)
+		return (0);
+
+	s = disable_interrupts();
+	i = cons_polledio->cons_polledio_ischar(
+	    cons_polledio->cons_polledio_argument);
+	restore_interrupts(s);
+	return (i);
+}
+
+static void __NORETURN
+sysp_reset(bool b)
+{
+	extern void __NORETURN boot_psci_reset(bool);
+	boot_psci_reset(b);
+}
+
+static struct boot_syscalls kern_sysp = {
+	.bsvc_getchar = sysp_getchar,
+	.bsvc_putchar = sysp_putchar,
+	.bsvc_ischar = sysp_ischar,
+	.bsvc_reset = sysp_reset,
+};
+
 void
 kadb_uses_kernel()
-{}
+{
+	/*
+	 * This routine is now totally misnamed, since it does not in fact
+	 * control kadb's I/O; it only controls the kernel's prom_* I/O.
+	 */
+	sysp = &kern_sysp;
+}
 
 void
 abort_sequence_enter(char *msg)
