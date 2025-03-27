@@ -65,6 +65,7 @@
 #include <sys/mach_intr.h>
 #include <vm/hat_aarch64.h>
 #include <sys/obpdefs.h>
+#include <sys/framebuffer.h>
 
 size_t dma_max_copybuf_size = 0x101000;		/* 1M + 4K */
 uint64_t ramdisk_start, ramdisk_end;
@@ -2394,10 +2395,47 @@ get_console_font(void)
 	STAILQ_INSERT_HEAD(&fonts, fp, font_next);
 }
 
+/*
+ * If loader(7) has passed us a UEFI framebuffer we create a node for the
+ * efifb driver to attach to.
+ *
+ * Must be called after the DDI root node has been created.
+ */
+static void
+create_efifb(void)
+{
+	dev_info_t *xdip;
+	int err;
+	char *compatible[2];
+	char compat0[] = "efifb";
+	char compat1[] = "vgatext";
+
+	if (fb_info.paddr == 0 ||
+	    (fb_info.fb_type != FB_TYPE_INDEXED &&
+	    fb_info.fb_type != FB_TYPE_RGB))
+		return;
+
+	ndi_devi_alloc_sleep(ddi_root_node(), "efifb",
+	    (pnode_t)DEVI_SID_NODEID, &xdip);
+
+	compatible[0] = compat0;
+	compatible[1] = compat1;
+	err = ndi_prop_update_string_array(DDI_DEV_T_NONE, xdip,
+	    "compatible", compatible, 2);
+	VERIFY3U(err, ==, DDI_SUCCESS);
+
+	err = ndi_prop_update_string(DDI_DEV_T_NONE, xdip,
+	    OBP_DEVICETYPE, OBP_DISPLAY);
+	VERIFY3U(err, ==, DDI_SUCCESS);
+
+	err = ndi_devi_bind_driver(xdip, 0);
+	VERIFY3U(err, ==, NDI_SUCCESS);
+}
+
 void
 impl_setup_ddi(void)
 {
-	dev_info_t *xdip, *isa_dip;
+	dev_info_t *xdip;
 	rd_existing_t rd_mem_prop;
 	int err;
 
@@ -2423,6 +2461,11 @@ impl_setup_ddi(void)
 	 * Copy console font if provided by boot.
 	 */
 	get_console_font();
+
+	/*
+	 * Create the UEFI framebuffer device tree node if appropriate.
+	 */
+	create_efifb();
 
 	/* do bus dependent probes. */
 	impl_bus_initialprobe();
