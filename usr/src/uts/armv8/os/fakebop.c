@@ -280,7 +280,6 @@ void
 bop_relocate(void)
 {
 	caddr_t vaddr;
-	extern void boot_uart_relocate(void);
 
 	if (xbootp == NULL)
 		return;
@@ -308,8 +307,6 @@ bop_relocate(void)
 
 		prom_init("kernel", vaddr);
 	}
-
-	boot_uart_relocate();
 }
 
 void
