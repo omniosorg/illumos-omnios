@@ -235,4 +235,5 @@ DACF_KMODS += consconfig_dacf
 #
 #	'Misc' Modules (/kernel/misc):
 #
+MISC_KMODS += gfx_private
 MISC_KMODS += platmod

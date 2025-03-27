@@ -61,6 +61,10 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
+$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/io/gfx_private/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
 $(OBJS_DIR)/dtracestubs.s:	$(UNIX_O) $(LIBS)
 	$(NM) -u $(UNIX_O) $(LIBS) | $(GREP) __dtrace_probe_ | $(SORT) | \
 	    $(UNIQ) | $(AWK) \
