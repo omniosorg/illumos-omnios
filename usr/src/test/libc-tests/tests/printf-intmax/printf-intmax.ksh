@@ -40,7 +40,7 @@ compare ()
 }
 
 TESTS=/opt/libc-tests/tests
-TEMP=$(mktemp -d -t intmax)
+TEMP=$(mktemp -d -t intmax.XXXXXX)
 
 [[ -z "${TEMP}" ]] && exit 1
 
@@ -60,13 +60,20 @@ EOF
 
 (( $? != 0 )) && exit 1
 
-${TESTS}/printf-intmax.32 >${TEMP}/c99.32
-${TESTS}/printf-intmax.64 >${TEMP}/c99.64
-${TESTS}/printf-intmax.c89 >${TEMP}/c89
+if [[ -f ${TESTS}/printf-intmax.32 ]]; then
+	   ${TESTS}/printf-intmax.32 >${TEMP}/c99.32
+	   compare c99.exp c99.32
+fi
 
-compare c89.exp c89
-compare c99.exp c99.32
-compare c99.exp c99.64
+if [[ -f ${TESTS}/printf-intmax.64 ]]; then
+	${TESTS}/printf-intmax.64 >${TEMP}/c99.64
+	compare c99.exp c99.64
+fi
+
+if [[ -f ${TESTS}/printf-intmax.c89 ]]; then
+	${TESTS}/printf-intmax.c89 >${TEMP}/c89
+	compare c89.exp c89
+fi
 
 (( FAILED != 0 )) && exit 1
 

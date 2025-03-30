@@ -13,13 +13,15 @@
 # Copyright 2025 Hans Rosenfeld
 #
 
+include $(SRC)/Makefile.master
+
 SCRIPTS = printf-intmax
 
 PROG = printf-intmax
 
-PROG32 = $(PROG:%=%.32)
+$(BUILD32)PROG32 = $(PROG:%=%.32)
 PROG64 = $(PROG:%=%.64)
-PROGC89 = $(PROG:%=%.c89)
+$(BUILD32)PROGC89 = $(PROG:%=%.c89)
 
 OBJS = printf-intmax.o
 
