@@ -96,7 +96,7 @@ get_phandle(int offset)
 }
 
 pnode_t
-prom_findnode_by_phandle(phandle_t phandle)
+prom_fdt_findnode_by_phandle(phandle_t phandle)
 {
 	int offset = fdt_node_offset_by_phandle(fdtp, phandle);
 	if (offset < 0)
@@ -408,7 +408,7 @@ prom_childnode(pnode_t nodeid)
 }
 
 pnode_t
-prom_parentnode(pnode_t nodeid)
+prom_fdt_parentnode(pnode_t nodeid)
 {
 	int offset = fdt_node_offset_by_phandle(fdtp, (pnode_t)nodeid);
 	if (offset < 0)
@@ -500,7 +500,7 @@ prom_walk_dev(pnode_t nodeid, void(*func)(pnode_t, void*), void *arg)
 }
 
 void
-prom_walk(void(*func)(pnode_t, void*), void *arg)
+prom_fdt_walk(void(*func)(pnode_t, void*), void *arg)
 {
 	prom_walk_dev(prom_rootnode(), func, arg);
 }

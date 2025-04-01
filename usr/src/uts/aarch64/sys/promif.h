@@ -57,7 +57,6 @@ extern "C" {
  * Device tree and property group: OBP and IEEE 1275-1994.
  */
 extern	pnode_t		prom_childnode(pnode_t nodeid);
-extern	pnode_t		prom_parentnode(pnode_t nodeid);
 extern	pnode_t		prom_nextnode(pnode_t nodeid);
 extern	pnode_t		prom_optionsnode(void);
 extern	pnode_t		prom_alias_node(void);
@@ -70,7 +69,6 @@ extern	char		*prom_nextprop(pnode_t nodeid, const char *previous,
 
 extern	char		*prom_decode_composite_string(void *buf, size_t buflen,
     char *prev);
-extern	pnode_t		prom_findnode_by_phandle(phandle_t phandle);
 
 /*
  * Device tree and property group: IEEE 1275-1994 Only.
@@ -242,18 +240,24 @@ struct prom_compat {
 	void (*init)(pnode_t node);
 };
 
-extern int prom_get_reg(pnode_t node, int index, uint64_t *base);
-extern int prom_get_clock_by_name(pnode_t node, const char *name,
-    struct prom_hwclock *clock);
 extern void prom_driver_register(const struct prom_compat *data);
-extern boolean_t prom_is_compatible(pnode_t node, const char *name);
-extern pnode_t prom_find_compatible(pnode_t node, const char *compatible);
-extern void prom_walk(void(*func)(pnode_t, void*), void *arg);
-extern int prom_get_reg_address(pnode_t node, int index, uint64_t *reg);
-extern int prom_get_reg_size(pnode_t node, int index, uint64_t *regsize);
 extern void prom_power_off(void);
 extern int prom_get_bus_address(pnode_t node, uint64_t phys_addr,
     uint64_t *bus_addr);
+
+/*
+ * FDT-specific
+ */
+extern	pnode_t		prom_fdt_parentnode(pnode_t nodeid);
+extern	pnode_t		prom_fdt_findnode_by_phandle(phandle_t phandle);
+extern int prom_fdt_get_reg(pnode_t node, int index, uint64_t *base);
+extern int prom_fdt_get_clock_by_name(pnode_t node, const char *name,
+    struct prom_hwclock *clock);
+extern boolean_t prom_fdt_is_compatible(pnode_t node, const char *name);
+extern pnode_t prom_fdt_find_compatible(pnode_t node, const char *compatible);
+extern void prom_fdt_walk(void(*func)(pnode_t, void*), void *arg);
+extern int prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg);
+extern int prom_fdt_get_reg_size(pnode_t node, int index, uint64_t *regsize);
 
 #endif	/* _KERNEL */
 

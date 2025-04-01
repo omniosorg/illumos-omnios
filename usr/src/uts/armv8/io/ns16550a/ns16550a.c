@@ -957,7 +957,8 @@ ns16550attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 
 	uint_t uart_clock = 48000000;
 	struct prom_hwclock hwclock;
-	if (prom_get_clock_by_name(ddi_get_nodeid(devi), "uartclk", &hwclock) == 0) {
+	if (prom_fdt_get_clock_by_name(
+	    ddi_get_nodeid(devi), "uartclk", &hwclock) == 0) {
 		int err = -1;
 		if (&plat_hwclock_get_rate)
 			err = plat_hwclock_get_rate(&hwclock);

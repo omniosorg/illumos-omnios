@@ -70,7 +70,7 @@ prom_get_prop_int(pnode_t node, const char *name, int def)
 		if (len > 0) {
 			break;
 		}
-		node = prom_parentnode(node);
+		node = prom_fdt_parentnode(node);
 	}
 	return (value);
 }
@@ -86,7 +86,7 @@ prom_get_clock(pnode_t node, int index, struct prom_hwclock *clock)
 	prom_getprop(node, "clocks", (caddr_t)clocks);
 
 	pnode_t clock_node;
-	clock_node = prom_findnode_by_phandle(ntohl(clocks[0]));
+	clock_node = prom_fdt_findnode_by_phandle(ntohl(clocks[0]));
 	if (clock_node < 0)
 		return (-1);
 
@@ -99,8 +99,8 @@ prom_get_clock(pnode_t node, int index, struct prom_hwclock *clock)
 	if (len <= index * CELLS_1275_TO_BYTES(clock_cells + 1))
 		return (-1);
 
-	clock_node =
-	    prom_findnode_by_phandle(ntohl(clocks[index * (clock_cells + 1)]));
+	clock_node = prom_fdt_findnode_by_phandle(
+	    ntohl(clocks[index * (clock_cells + 1)]));
 	if (clock_node < 0)
 		return (-1);
 	clock->node = clock_node;
@@ -111,7 +111,7 @@ prom_get_clock(pnode_t node, int index, struct prom_hwclock *clock)
 }
 
 int
-prom_get_clock_by_name(pnode_t node,
+prom_fdt_get_clock_by_name(pnode_t node,
     const char *name, struct prom_hwclock *clock)
 {
 	int index = prom_get_prop_index(node, "clock-names", name);
@@ -123,13 +123,14 @@ prom_get_clock_by_name(pnode_t node,
 static int
 prom_get_address_cells(pnode_t node)
 {
-	return (prom_get_prop_int(prom_parentnode(node), "#address-cells", 2));
+	return (prom_get_prop_int(
+	    prom_fdt_parentnode(node), "#address-cells", 2));
 }
 
 static int
 prom_get_size_cells(pnode_t node)
 {
-	return (prom_get_prop_int(prom_parentnode(node), "#size-cells", 2));
+	return (prom_get_prop_int(prom_fdt_parentnode(node), "#size-cells", 2));
 }
 
 static int
@@ -187,36 +188,36 @@ prom_get_reg_bounds(pnode_t node, int index, uint64_t *base, uint64_t *size)
 }
 
 int
-prom_get_reg(pnode_t node, int index, uint64_t *base)
+prom_fdt_get_reg(pnode_t node, int index, uint64_t *base)
 {
 	uint64_t size;
 	return (prom_get_reg_bounds(node, index, base, &size));
 }
 
 int
-prom_get_reg_size(pnode_t node, int index, uint64_t *size)
+prom_fdt_get_reg_size(pnode_t node, int index, uint64_t *size)
 {
 	uint64_t base;
 	return (prom_get_reg_bounds(node, index, &base, size));
 }
 
 int
-prom_get_reg_address(pnode_t node, int index, uint64_t *reg)
+prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 {
 	uint64_t addr;
-	if (prom_get_reg(node, index, &addr) != 0)
+	if (prom_fdt_get_reg(node, index, &addr) != 0)
 		return (-1);
 
-	pnode_t parent = prom_parentnode(node);
+	pnode_t parent = prom_fdt_parentnode(node);
 	while (parent > 0) {
-		if (!prom_is_compatible(parent, "simple-bus")) {
-			parent = prom_parentnode(parent);
+		if (!prom_fdt_is_compatible(parent, "simple-bus")) {
+			parent = prom_fdt_parentnode(parent);
 			continue;
 		}
 
 		int len = prom_getproplen(parent, "ranges");
 		if (len <= 0) {
-			parent = prom_parentnode(parent);
+			parent = prom_fdt_parentnode(parent);
 			continue;
 		}
 
@@ -224,11 +225,11 @@ prom_get_reg_address(pnode_t node, int index, uint64_t *reg)
 		    prom_get_prop_int(parent, "#address-cells", 2);
 		int size_cells = prom_get_prop_int(parent, "#size-cells", 2);
 		int parent_address_cells = prom_get_prop_int(
-		    prom_parentnode(parent), "#address-cells", 2);
+		    prom_fdt_parentnode(parent), "#address-cells", 2);
 
 		if ((len % CELLS_1275_TO_BYTES(address_cells +
 		    parent_address_cells + size_cells)) != 0) {
-			parent = prom_parentnode(parent);
+			parent = prom_fdt_parentnode(parent);
 			continue;
 		}
 
@@ -264,7 +265,7 @@ prom_get_reg_address(pnode_t node, int index, uint64_t *reg)
 			}
 		}
 
-		parent = prom_parentnode(parent);
+		parent = prom_fdt_parentnode(parent);
 	}
 
 	*reg = addr;
@@ -272,7 +273,7 @@ prom_get_reg_address(pnode_t node, int index, uint64_t *reg)
 }
 
 boolean_t
-prom_is_compatible(pnode_t node, const char *name)
+prom_fdt_is_compatible(pnode_t node, const char *name)
 {
 	int len;
 	char *prop_name = "compatible";
@@ -293,17 +294,17 @@ prom_is_compatible(pnode_t node, const char *name)
 }
 
 pnode_t
-prom_find_compatible(pnode_t node, const char *compatible)
+prom_fdt_find_compatible(pnode_t node, const char *compatible)
 {
 	pnode_t child;
 
-	if (prom_is_compatible(node, compatible))
+	if (prom_fdt_is_compatible(node, compatible))
 		return (node);
 
 	child = prom_childnode(node);
 
 	while (child > 0) {
-		node = prom_find_compatible(child, compatible);
+		node = prom_fdt_find_compatible(child, compatible);
 		if (node > 0)
 			return (node);
 

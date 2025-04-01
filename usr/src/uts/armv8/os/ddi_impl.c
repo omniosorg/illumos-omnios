@@ -3097,7 +3097,7 @@ get_address_cells(pnode_t node)
 			address_cells = ntohl(prop);
 			break;
 		}
-		node = prom_parentnode(node);
+		node = prom_fdt_parentnode(node);
 	}
 	return (address_cells);
 }
@@ -3116,7 +3116,7 @@ get_size_cells(pnode_t node)
 			size_cells = ntohl(prop);
 			break;
 		}
-		node = prom_parentnode(node);
+		node = prom_fdt_parentnode(node);
 	}
 	return (size_cells);
 }
@@ -3153,7 +3153,7 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 		int parent_address_cells;
 		pnode_t parent;
 
-		parent = prom_parentnode(node);
+		parent = prom_fdt_parentnode(node);
 		if (parent <= 0) {
 			cmn_err(CE_WARN,
 			    "%s: root node has a dma-ranges property.",

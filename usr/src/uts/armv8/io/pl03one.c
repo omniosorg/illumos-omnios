@@ -53,16 +53,16 @@ init_rtc(void)
 	if (todpl031_conf.tod_base != 0)
 		return;
 
-	pnode_t node = prom_find_compatible(prom_rootnode(), "arm,pl031");
+	pnode_t node = prom_fdt_find_compatible(prom_rootnode(), "arm,pl031");
 	if (node <= 0)
 		return;
 
 	uint64_t tod_base, tod_size;
-	if (prom_get_reg(node, 0, &tod_base) != 0) {
+	if (prom_fdt_get_reg(node, 0, &tod_base) != 0) {
 		prom_panic("arm,pl031 with no registers?");
 	}
 
-	if (prom_get_reg_size(node, 0, &tod_size) != 0) {
+	if (prom_fdt_get_reg_size(node, 0, &tod_size) != 0) {
 		prom_panic("arm,pl031 with no registers?");
 	}
 

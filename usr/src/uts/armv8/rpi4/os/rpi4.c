@@ -83,7 +83,7 @@ plat_tod_fault(enum tod_fault_type tod_bad __unused)
 static void
 find_cprman(pnode_t node, void *arg)
 {
-	if (!prom_is_compatible(node, "brcm,bcm2711-cprman"))
+	if (!prom_fdt_is_compatible(node, "brcm,bcm2711-cprman"))
 		return;
 	*(pnode_t *)arg = node;
 }
@@ -114,7 +114,7 @@ static int
 plat_vc_hwclock_rate(struct prom_hwclock *clk, clockid_type_t clkidtype,
     int vcproptag, int rate)
 {
-	if (!prom_is_compatible(clk->node, "brcm,bcm2711-cprman"))
+	if (!prom_fdt_is_compatible(clk->node, "brcm,bcm2711-cprman"))
 		return (-1);
 
 	int id = translate_clk_id_domain(clkidtype, VCCLOCKID, clk->id);
@@ -160,7 +160,7 @@ plat_get_cpu_clock(int cpu_no)
 	pnode_t node = 0;
 	int clkhz;
 
-	prom_walk(find_cprman, &node);
+	prom_fdt_walk(find_cprman, &node);
 	if (node == 0)
 		cmn_err(CE_PANIC, "cprman register is not found");
 
@@ -179,7 +179,7 @@ plat_set_max_cpu_clock(int cpu_no)
 	pnode_t node = 0;
 	int clkhz;
 
-	prom_walk(find_cprman, &node);
+	prom_fdt_walk(find_cprman, &node);
 	if (node == 0)
 		cmn_err(CE_PANIC, "cprman register is not found");
 
@@ -205,9 +205,9 @@ int
 plat_gpio_get(struct gpio_ctrl *gpio)
 {
 	int offset;
-	if (prom_is_compatible(gpio->node, "raspberrypi,firmware-gpio")) {
+	if (prom_fdt_is_compatible(gpio->node, "raspberrypi,firmware-gpio")) {
 		offset = 128;
-	} else if (prom_is_compatible(gpio->node, "brcm,bcm2711-gpio")) {
+	} else if (prom_fdt_is_compatible(gpio->node, "brcm,bcm2711-gpio")) {
 		offset = 0;
 	} else {
 		return (-1);
@@ -249,9 +249,9 @@ int
 plat_gpio_set(struct gpio_ctrl *gpio, int value)
 {
 	int offset;
-	if (prom_is_compatible(gpio->node, "raspberrypi,firmware-gpio")) {
+	if (prom_fdt_is_compatible(gpio->node, "raspberrypi,firmware-gpio")) {
 		offset = VCPROP_EXP_GPIO_BASE;
-	} else if (prom_is_compatible(gpio->node, "brcm,bcm2711-gpio")) {
+	} else if (prom_fdt_is_compatible(gpio->node, "brcm,bcm2711-gpio")) {
 		offset = 0;
 	} else {
 		return (-1);
@@ -300,7 +300,7 @@ plat_set_cpu_supp_freqs(cpu_t *cp)
 
 	pnode_t node = 0;
 
-	prom_walk(find_cprman, &node);
+	prom_fdt_walk(find_cprman, &node);
 	if (node == 0)
 		cmn_err(CE_PANIC, "cprman register is not found");
 
