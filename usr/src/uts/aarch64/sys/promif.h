@@ -79,25 +79,8 @@ extern	int		prom_bounded_getprop(pnode_t nodeid, char *name,
     caddr_t buffer, int buflen);
 
 /*
- * Device pathnames and pathname conversion: OBP and IEEE 1275-1994.
- */
-extern	int		prom_devname_from_pathname(char *path, char *buffer);
-extern	char		*prom_path_gettoken(char *from, char *to);
-
-/*
- * Device pathnames and pathname conversion: IEEE 1275-1994 only.
- */
-
-/*
  * Special device nodes: OBP and IEEE 1275-1994.
  */
-extern	int		prom_stdin_is_keyboard(void);
-extern	int		prom_stdout_is_framebuffer(void);
-extern	void		prom_framebuffer_getpos(int *row, int *col);
-extern	void		prom_framebuffer_getcolors(int *fg, int *bg);
-extern	char		*prom_stdinpath(void);
-extern	char		*prom_stdoutpath(void);
-extern	void		prom_strip_options(char *from, char *to);
 extern	void		prom_pathname(char *);
 
 /*
@@ -110,42 +93,22 @@ extern	void		prom_pathname(char *);
 extern	void		prom_enter_mon(void);
 extern	void		prom_exit_to_mon(void) __NORETURN;
 extern	void		prom_reboot(char *bootstr) __NORETURN;
-extern	void		prom_reset(void) __NORETURN;
 extern	void		prom_panic(char *string) __NORETURN;
 
 extern	int		prom_is_openprom(void);
-extern	int		prom_is_p1275(void);
 extern	int		prom_version_name(char *buf, int buflen);
-extern	int		prom_version_boot_syscalls(void);
-
-extern	uint_t		prom_gettime(void);
-
-extern	char		*prom_bootpath(void);
-extern	char		*prom_bootargs(void);
-
-/*
- * Administrative group: OBP only.
- */
 
 /*
  * Administrative group: IEEE 1275-1994 only.
  */
 extern pnode_t prom_chosennode(void);
-/*
- * Administrative group: IEEE 1275 only.
- */
 
 /*
  * Promif support group: Generic.
  */
 extern	void		prom_init(char *progname, void *prom_cookie);
-extern	void		prom_node_init(void);
 
 typedef uint_t		prom_generation_cookie_t;
-
-extern void prom_fixup(uintptr_t, uintptr_t);
-extern	ihandle_t	prom_stdin_ihandle(void);
-extern	ihandle_t	prom_stdout_ihandle(void);
 
 #define	prom_tree_access(CALLBACK, ARG, GENP) (CALLBACK)((ARG), 0)
 
@@ -156,48 +119,11 @@ extern	uchar_t	prom_getchar(void);
 extern	void	prom_putchar(char c);
 extern	int	prom_mayget(void);
 extern	int	prom_mayput(char c);
-extern	int	prom_open(char *name);
-extern	int	prom_close(int fd);
-extern	ssize_t	prom_read(ihandle_t fd, caddr_t buf, size_t len,
-    uint_t startblk, char type);
-extern  ssize_t	prom_write(ihandle_t fd, caddr_t buf, size_t len,
-    uint_t startblk, char type);
-extern	int	prom_seek(int fd, u_longlong_t offset);
 extern	void	prom_writestr(const char *buf, size_t bufsize);
-extern	void	prom_pnode_to_pathname(pnode_t, char *);
 extern	void	prom_printf(const char *fmt, ...);
 extern	void	prom_vprintf(const char *fmt, __va_list adx);
 extern	char	*prom_sprintf(char *s, const char *fmt, ...);
 extern	char	*prom_vsprintf(char *s, const char *fmt, __va_list adx);
-
-
-/*
- * promif tree searching routines ... OBP and IEEE 1275-1994.
- */
-
-extern	pnode_t		prom_findnode_byname(pnode_t id, char *name);
-extern	char		*prom_get_extend_name(void);
-
-extern	int		prom_devreset(int);
-extern	int		OpenCount;
-extern struct ihandle	*open_devices[];
-
-#define	PROM_STOP	{	\
-	prom_printf("File %s line %d\n", __FILE__, __LINE__); \
-	prom_enter_mon();	\
-}
-
-/*
- * file IO
- */
-extern	int		prom_fopen(ihandle_t, char *);
-extern	int		prom_volopen(ihandle_t, char *);
-extern	int		prom_fseek(ihandle_t, int, unsigned long long);
-extern	int		prom_fread(ihandle_t, int, caddr_t, size_t);
-extern	int		prom_fsize(ihandle_t, int, size_t *);
-extern	int		prom_compinfo(ihandle_t, int, int *,
-			    size_t *, size_t *);
-extern	void		prom_fclose(ihandle_t, int);
 
 #endif /* _KERNEL || _KMDB */
 
@@ -217,37 +143,16 @@ typedef struct promif_owrap {
 extern	void		prom_suspend_prepost(void);
 extern	void		prom_resume_prepost(void);
 
+extern void prom_power_off(void);
+
 /*
- * WAN boot key storage interface
+ * FDT-specific
  */
-int prom_set_security_key(char *keyname, caddr_t buf, int buflen, int *reslen,
-    int *status);
-int prom_get_security_key(char *keyname, caddr_t buf, int buflen, int *keylen,
-    int *status);
-
-struct prom_hwreset {
-	pnode_t node;
-	uint32_t id;
-};
-
 struct prom_hwclock {
 	pnode_t node;
 	uint32_t id;
 };
 
-struct prom_compat {
-	char *compatible;
-	void (*init)(pnode_t node);
-};
-
-extern void prom_driver_register(const struct prom_compat *data);
-extern void prom_power_off(void);
-extern int prom_get_bus_address(pnode_t node, uint64_t phys_addr,
-    uint64_t *bus_addr);
-
-/*
- * FDT-specific
- */
 extern	pnode_t		prom_fdt_parentnode(pnode_t nodeid);
 extern	pnode_t		prom_fdt_findnode_by_phandle(phandle_t phandle);
 extern int prom_fdt_get_reg(pnode_t node, int index, uint64_t *base);
