@@ -19,10 +19,12 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2024 Michael van der Westhuizen
- * Copyright 2017 Hayashi Naoyuki
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ */
+/*
+ * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -32,7 +34,7 @@
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
 
-int
+static int
 prom_get_prop_index(pnode_t node, const char *prop_name, const char *name)
 {
 	int len;
@@ -52,7 +54,7 @@ prom_get_prop_index(pnode_t node, const char *prop_name, const char *name)
 	return (-1);
 }
 
-int
+static int
 prom_get_prop_int(pnode_t node, const char *name, int def)
 {
 	int value = def;
@@ -73,79 +75,7 @@ prom_get_prop_int(pnode_t node, const char *name, int def)
 	return (value);
 }
 
-uint64_t
-prom_get_prop_u64(pnode_t node, const char *name, uint64_t def)
-{
-	uint64_t prop;
-	uint64_t value = def;
-
-	if (node > 0 && prom_getproplen(node, name) == sizeof (uint64_t)) {
-		prom_getprop(node, name, (caddr_t)&prop);
-		value = ntohll(prop);
-	}
-
-	return (value);
-}
-
-uint32_t
-prom_get_prop_u32(pnode_t node, const char *name, uint32_t def)
-{
-	uint32_t prop;
-	uint32_t value = def;
-
-	if (node > 0 && prom_getproplen(node, name) == sizeof (uint32_t)) {
-		prom_getprop(node, name, (caddr_t)&prop);
-		value = ntohl(prop);
-	}
-
-	return (value);
-}
-
-int
-prom_get_reset(pnode_t node, int index, struct prom_hwreset *reset)
-{
-	int len = prom_getproplen(node, "resets");
-	if (len <= 0)
-		return (-1);
-
-	uint32_t *resets = __builtin_alloca(len);
-	prom_getprop(node, "resets", (caddr_t)resets);
-
-	pnode_t reset_node;
-	reset_node = prom_findnode_by_phandle(ntohl(resets[0]));
-	if (reset_node < 0)
-		return (-1);
-
-	int reset_cells = prom_get_prop_int(reset_node, "#reset-cells", 1);
-	if (reset_cells != 1)
-		return (-1);
-
-	if ((len % CELLS_1275_TO_BYTES(reset_cells + 1)) != 0)
-		return (-1);
-	if (len <= index * CELLS_1275_TO_BYTES(reset_cells + 1))
-		return (-1);
-
-	reset_node =
-	    prom_findnode_by_phandle(ntohl(resets[index * (reset_cells + 1)]));
-	if (reset_node < 0)
-		return (-1);
-	reset->node = reset_node;
-	reset->id = ntohl(resets[index * (reset_cells + 1) + 1]);
-
-	return (0);
-}
-
-int
-prom_get_reset_by_name(pnode_t node,
-    const char *name, struct prom_hwreset *reset)
-{
-	int index = prom_get_prop_index(node, "reset-names", name);
-	if (index >= 0)
-		return (prom_get_reset(node, index, reset));
-	return (-1);
-}
-
-int
+static int
 prom_get_clock(pnode_t node, int index, struct prom_hwclock *clock)
 {
 	int len = prom_getproplen(node, "clocks");
@@ -190,13 +120,13 @@ prom_get_clock_by_name(pnode_t node,
 	return (-1);
 }
 
-int
+static int
 prom_get_address_cells(pnode_t node)
 {
 	return (prom_get_prop_int(prom_parentnode(node), "#address-cells", 2));
 }
 
-int
+static int
 prom_get_size_cells(pnode_t node)
 {
 	return (prom_get_prop_int(prom_parentnode(node), "#size-cells", 2));
@@ -341,16 +271,6 @@ prom_get_reg_address(pnode_t node, int index, uint64_t *reg)
 	return (0);
 }
 
-int
-prom_get_reg_by_name(pnode_t node, const char *name, uint64_t *base)
-{
-	int index = prom_get_prop_index(node, "reg-names", name);
-
-	if (index >= 0)
-		return (prom_get_reg(node, index, base));
-	return (-1);
-}
-
 boolean_t
 prom_is_compatible(pnode_t node, const char *name)
 {
@@ -391,17 +311,4 @@ prom_find_compatible(pnode_t node, const char *compatible)
 	}
 
 	return (OBP_NONODE);
-}
-
-boolean_t
-prom_has_compatible(const char *compatible)
-{
-	pnode_t node;
-
-	node = prom_find_compatible(prom_rootnode(), compatible);
-
-	if (node == OBP_NONODE)
-		return (B_FALSE);
-
-	return (B_TRUE);
 }

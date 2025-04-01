@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  *
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef _SYS_PROMIF_H
@@ -62,8 +62,6 @@ extern	pnode_t		prom_nextnode(pnode_t nodeid);
 extern	pnode_t		prom_optionsnode(void);
 extern	pnode_t		prom_alias_node(void);
 extern	pnode_t		prom_rootnode(void);
-extern	int		prom_setprop(pnode_t nodeid, const char *name,
-    const caddr_t value, int len);
 extern	int		prom_getproplen(pnode_t nodeid, const char *name);
 extern	int		prom_getprop(pnode_t nodeid, const char *name,
     caddr_t value);
@@ -244,32 +242,18 @@ struct prom_compat {
 	void (*init)(pnode_t node);
 };
 
-extern int prom_get_prop_int(pnode_t node, const char *name, int def);
-extern uint64_t prom_get_prop_u64(pnode_t node, const char *name, uint64_t def);
-extern uint32_t prom_get_prop_u32(pnode_t node, const char *name, uint32_t def);
 extern int prom_get_reg(pnode_t node, int index, uint64_t *base);
-extern int prom_get_reg_by_name(pnode_t node, const char *name, uint64_t *base);
-extern int prom_get_address_cells(pnode_t node);
-extern int prom_get_size_cells(pnode_t node);
-extern int prom_get_clock(pnode_t node, int index, struct prom_hwclock *clock);
 extern int prom_get_clock_by_name(pnode_t node, const char *name,
     struct prom_hwclock *clock);
-extern int prom_get_reset(pnode_t node, int index, struct prom_hwreset *reset);
-extern int prom_get_reset_by_name(pnode_t node, const char *name,
-    struct prom_hwreset *reset);
-extern int prom_get_prop_index(pnode_t node, const char *prop_name,
-    const char *name);
 extern void prom_driver_register(const struct prom_compat *data);
 extern boolean_t prom_is_compatible(pnode_t node, const char *name);
 extern pnode_t prom_find_compatible(pnode_t node, const char *compatible);
-extern boolean_t prom_has_compatible(const char *compatible);
 extern void prom_walk(void(*func)(pnode_t, void*), void *arg);
 extern int prom_get_reg_address(pnode_t node, int index, uint64_t *reg);
 extern int prom_get_reg_size(pnode_t node, int index, uint64_t *regsize);
 extern void prom_power_off(void);
 extern int prom_get_bus_address(pnode_t node, uint64_t phys_addr,
     uint64_t *bus_addr);
-extern boolean_t prom_node_has_property(pnode_t nodeid, const char *name);
 
 #endif	/* _KERNEL */
 

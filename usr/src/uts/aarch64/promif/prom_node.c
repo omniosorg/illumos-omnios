@@ -21,7 +21,7 @@
  */
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2023 Michael van der Westhuizen
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #include <libfdt.h>
@@ -192,27 +192,6 @@ prom_getprop(pnode_t nodeid, const char *name, caddr_t value)
 
 	memcpy(value, prop, len);
 	return (len);
-}
-
-int
-prom_setprop(pnode_t nodeid, const char *name, const caddr_t value, int len)
-{
-	int offset = fdt_node_offset_by_phandle(fdtp, (pnode_t)nodeid);
-	if (offset < 0)
-		return (-1);
-
-	/*
-	 * The name and unit-address properties are special,
-	 * and should never be altered.
-	 */
-	ASSERT3U(strcmp(name, "name"), !=, 0);
-	ASSERT3U(strcmp(name, "unit-address"), !=, 0);
-
-	prom_check_overlong_property(nodeid, name);
-
-	int r = fdt_setprop(fdtp, offset, name, value, len);
-
-	return (r == 0 ? len : -1);
 }
 
 int
@@ -501,28 +480,6 @@ prom_init(char *pgmname, void *cookie)
 	}
 }
 
-static void
-prom_dump_node(dev_info_t *dip)
-{
-	ddi_prop_t *hwprop;
-
-	prom_printf("name=%s\n", ddi_node_name(dip));
-	hwprop = DEVI(dip)->devi_hw_prop_ptr;
-	while (hwprop != NULL) {
-		prom_printf("    prop=%s\n", hwprop->prop_name);
-		hwprop = hwprop->prop_next;
-	}
-}
-
-static void
-prom_dump_peers(dev_info_t *dip)
-{
-	while (dip) {
-		prom_dump_node(dip);
-		dip = ddi_get_next_sibling(dip);
-	}
-}
-
 void
 prom_setup(void)
 {
@@ -546,22 +503,4 @@ void
 prom_walk(void(*func)(pnode_t, void*), void *arg)
 {
 	prom_walk_dev(prom_rootnode(), func, arg);
-}
-
-boolean_t
-prom_node_has_property(pnode_t nodeid, const char *name)
-{
-	int offset;
-	int len;
-	const struct fdt_property *prop;
-
-	offset = fdt_node_offset_by_phandle(fdtp, nodeid);
-	if (offset < 0)
-		return (B_FALSE);
-
-	prop = fdt_get_property(fdtp, offset, name, &len);
-	if (prop == NULL)
-		return (B_FALSE);
-
-	return (B_TRUE);
 }
