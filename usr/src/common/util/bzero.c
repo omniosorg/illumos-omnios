@@ -37,9 +37,14 @@
 #include "lint.h"
 #endif /* !_KMDB && !_BOOT */
 
+#if defined(_BOOT)
+#include <sys/types.h>
+#include <sys/systm.h>
+#else
 #include <sys/types.h>
 #include <string.h>
 #include <strings.h>
+#endif
 
 /*
  * Set an array of n chars starting at sp to zero.
