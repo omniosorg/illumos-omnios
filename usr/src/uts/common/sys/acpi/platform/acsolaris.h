@@ -33,12 +33,16 @@ extern "C" {
 #endif
 
 #include <sys/types.h>
+#if !defined(_STANDALONE) && !defined(_BOOT)
 #include <sys/sunddi.h>
+#endif
 #include <sys/varargs.h>
+#if !defined(_STANDALONE) && !defined(_BOOT)
 #include <sys/cpu.h>
 #include <sys/thread.h>
+#endif
 
-#ifdef _KERNEL
+#if defined(_KERNEL) || defined(_BOOT)
 #include <sys/ctype.h>
 #else
 #include <ctype.h>
@@ -97,6 +101,13 @@ uint32_t acpi_strtoul(const char *, char **, int);
  * being loaded as part of accommon.h.
  */
 #define	ACPI_USE_SYSTEM_CLIBRARY
+
+#if defined(__aarch64__)
+#if defined(ACPI_REDUCED_HARDWARE)
+#undef	ACPI_REDUCED_HARDWARE
+#endif
+#define	ACPI_REDUCED_HARDWARE	1
+#endif
 
 #ifdef _KERNEL
 #define	strtoul(s, r, b)	acpi_strtoul(s, r, b)
