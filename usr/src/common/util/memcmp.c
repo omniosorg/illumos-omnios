@@ -35,7 +35,7 @@
 #endif /* !_KMDB && !_BOOT && !_KERNEL */
 
 #include <sys/types.h>
-#if defined(_KERNEL)
+#if defined(_KERNEL) || defined(_BOOT)
 #include <sys/systm.h>
 #else
 #include <string.h>
