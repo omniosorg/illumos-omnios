@@ -42,10 +42,17 @@
 #include <stand.h>
 #include <limits.h>
 #else
+#if	defined(_BOOT)
+#include <sys/ctype.h>
+#include <sys/null.h>
+#include <sys/errno.h>
+extern int errno;
+#else
 #include <errno.h>
 #include <ctype.h>
 #include <limits.h>
 #include <stdlib.h>
+#endif
 #endif	/* _STANDALONE */
 #endif	/* _KERNEL && !_BOOT */
 #include "strtolctype.h"
