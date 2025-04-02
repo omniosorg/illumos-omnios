@@ -7,17 +7,30 @@
  * Copyright 2012 Kim Phillips, Freescale Semiconductor.
  */
 
+#if defined(_STANDALONE)
+#include <stand.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <limits.h>
+#else
 #include <sys/inttypes.h>
 #include <sys/null.h>
 #include <sys/types.h>
 #include <sys/stdbool.h>
+#endif
 
 #if defined(_KERNEL) && !defined(_BOOT)
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
-#else
+#elif (!defined(_STANDALONE) && !defined(_BOOT))
 #include <stdlib.h>
 #include <string.h>
+#elif defined(_BOOT)
+#include <sys/systm.h>
+extern size_t strlen(const char *) __PURE;
+extern size_t strnlen(const char *, size_t) __PURE;
+extern void *memchr(const void *, int, size_t);
+extern unsigned long strtoul(const char *, char **, int);
 #endif
 
 #ifdef __CHECKER__
