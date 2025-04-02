@@ -593,7 +593,8 @@ typedef	unsigned int	uint;
 typedef	unsigned long	ulong;
 /* END CSTYLED */
 
-#if defined(_KERNEL) || defined(_FAKE_KERNEL)
+#if defined(_KERNEL) || defined(_FAKE_KERNEL) || \
+	(defined(__aarch64__) && defined(_BOOT))
 
 #define	CHAR_BIT	8		/* max # of bits in a "char" */
 #define	SCHAR_MIN	(-128)		/* min value of a "signed char" */
