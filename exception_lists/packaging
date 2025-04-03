@@ -322,14 +322,6 @@ lib/libuutil.so
 usr/include/libuutil_impl.h
 usr/lib/libuutil.so
 #
-# Even though all the objects built under usr/src/stand are later glommed
-# together into a couple of second-stage boot loaders, we dump the static
-# archives and lint libraries into $(ROOT)/stand for intermediate use
-# (e.g., for lint, linking the second-stage boot loaders, ...).  Since
-# these are merely intermediate objects, they do not need to be packaged.
-#
-stand					aarch64
-#
 # Private KCF header files
 #
 usr/include/sys/crypto/elfsign.h
