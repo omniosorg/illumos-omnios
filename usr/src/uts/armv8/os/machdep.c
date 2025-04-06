@@ -762,12 +762,8 @@ static struct boot_syscalls kern_sysp = {
 };
 
 void
-kadb_uses_kernel()
+prom_io_use_kernel(void)
 {
-	/*
-	 * This routine is now totally misnamed, since it does not in fact
-	 * control kadb's I/O; it only controls the kernel's prom_* I/O.
-	 */
 	sysp = &kern_sysp;
 }
 

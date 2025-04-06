@@ -24,6 +24,7 @@
  * Copyright (c) 2016 by Delphix. All rights reserved.
  * Copyright (c) 2017 by The MathWorks, Inc. All rights reserved.
  * Copyright 2018 Joyent, Inc.
+ * Copyright 2025 MNX Cloud, Inc.
  */
 
 /* For information regarding parts condition on _TLS_VARIANT, see ./tls.c */
@@ -818,7 +819,6 @@ _thrp_exit()
 		 */
 		lmutex_unlock(&udp->link_lock);
 		exit(0);
-		thr_panic("_thrp_exit(): exit(0) returned");
 	}
 	lmutex_unlock(&udp->link_lock);
 
@@ -1013,9 +1013,6 @@ _thrp_exit_common(void *status, int unwind)
 	 */
 	_thrp_unwind(NULL);
 	thr_panic("_thrp_exit_common(): _thrp_unwind() returned");
-
-	for (;;)	/* to shut the compiler up about __NORETURN */
-		continue;
 }
 
 /*
