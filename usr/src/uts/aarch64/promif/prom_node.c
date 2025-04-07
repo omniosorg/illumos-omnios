@@ -49,7 +49,7 @@
  *    rather than manipulating the actual FDT.
  */
 
-static struct fdt_header *fdtp;
+static const struct fdt_header *fdtp;
 
 /*
  * This exists to keep us from trying to check for over-long property names
@@ -67,30 +67,19 @@ int prom_propname_warn = 0;
 const struct fdt_header *
 prom_get_fdtp(void)
 {
-	return ((const struct fdt_header *)fdtp);
+	return (fdtp);
 }
 
 static phandle_t
 get_phandle(int offset)
 {
 	int len;
+	uint32_t v;
 	const void *prop = fdt_getprop(fdtp, offset, "phandle", &len);
 
-	/*
-	 * XXXARM: It is not obvious to me, based on the specification, how we
-	 * could ever not have a phandle
-	 */
-	if (prop == NULL || len != sizeof (uint32_t)) {
-		uint32_t phandle = fdt_get_max_phandle(fdtp) + 1;
-		uint32_t v = ntohl(phandle);
-		int r = fdt_setprop(fdtp, offset, "phandle", &v,
-		    sizeof (uint32_t));
-		if (r != 0)
-			return (-1);
-		return (phandle);
-	}
+	VERIFY3P(prop, !=, NULL);
+	VERIFY3U(len, ==, sizeof (uint32_t));
 
-	uint32_t v;
 	memcpy(&v, prop, sizeof (uint32_t));
 	return (ntohl(v));
 }
@@ -462,22 +451,19 @@ prom_pathname(char *buf)
 	/* nothing, just to get consconfig_dacf to compile */
 }
 
+/*
+ * `prom_init' for devicetree systems expects that a valid non-NULL DTB is
+ * passed in the `cookie' argument.
+ *
+ * The passed DTB pointer is treated as read-only, so the various bootloaders
+ * involved in bringing up the system are expected to peform any fixups that
+ * may be needed prior to starting `unix'.
+ */
 void
 prom_init(char *pgmname, void *cookie)
 {
-	int err;
-	fdtp = cookie;
-
-	err = fdt_check_header(fdtp);
-	if (err == 0) {
-		phandle_t chosen = prom_chosennode();
-		if (chosen == OBP_NONODE) {
-			fdt_add_subnode(fdtp, fdt_node_offset_by_phandle(fdtp,
-			    prom_rootnode()), "chosen");
-		}
-	} else {
-		fdtp = NULL;
-	}
+	if (fdt_check_header((struct fdt_header *)cookie) == 0)
+		fdtp = (const struct fdt_header *)cookie;
 }
 
 void
