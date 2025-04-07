@@ -32,6 +32,7 @@
 #include <sys/modctl.h>
 #include <sys/platmod.h>
 #include <sys/promif.h>
+#include <sys/prom_plat.h>
 #include <sys/errno.h>
 #include <sys/byteorder.h>
 #include <sys/cmn_err.h>

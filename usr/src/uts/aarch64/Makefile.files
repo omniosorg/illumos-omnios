@@ -81,6 +81,7 @@ GENUNIX_OBJS +=		\
 #
 CORE_OBJS +=			\
 	prom_node.o		\
+	prom_init.o		\
 	prom_env.o		\
 	prom_printf.o		\
 	prom_putchar.o		\
@@ -90,7 +91,7 @@ CORE_OBJS +=			\
 	prom_panic.o		\
 	prom_enter.o		\
 	prom_exit.o		\
-	prom_utils.o		\
+	prom_prop.o		\
 	fdt.o			\
 	fdt_ro.o		\
 	fdt_wip.o		\

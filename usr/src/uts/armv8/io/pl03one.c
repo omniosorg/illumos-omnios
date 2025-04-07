@@ -26,6 +26,7 @@
 #include <sys/clock.h>
 #include <sys/param.h>
 #include <sys/promif.h>
+#include <sys/prom_plat.h>
 #include <sys/rtc.h>
 #include <sys/smp_impldefs.h>
 #include <sys/stat.h>

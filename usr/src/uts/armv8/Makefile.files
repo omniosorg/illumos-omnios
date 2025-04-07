@@ -24,7 +24,8 @@
 # Copyright 2025 Michael van der Westhuizen
 #
 
-CORE_OBJS_FDT +=
+CORE_OBJS_FDT +=		\
+	prom_emul_fdt.o
 
 CORE_OBJS +=			\
 	aarch64_subr.o		\
@@ -77,8 +78,7 @@ CORE_OBJS +=			\
 	psci.o			\
 	arch_timer.o		\
 	earlybsa.o		\
-	cpuinfo.o		\
-	$(CORE_OBJS_FDT)
+	cpuinfo.o
 
 CORE_OBJS += $(PCI_STRING_OBJS)
 

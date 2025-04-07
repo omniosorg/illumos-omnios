@@ -27,67 +27,40 @@
  * Copyright 2025 Michael van der Westhuizen
  */
 
-#include <sys/ccompile.h>
 #include <sys/promif.h>
+#ifndef _KMDB
 #include <sys/promimpl.h>
 #include <sys/prom_emul.h>
+#include <sys/bootconf.h>
+#include <sys/obpdefs.h>
+#include <sys/kmem.h>
+#endif
 
-pnode_t
-prom_rootnode(void)
-{
-	static pnode_t rootnode;
-
-	return (rootnode ? rootnode : (rootnode = prom_nextnode(OBP_NONODE)));
-}
-
-pnode_t
-prom_nextnode(pnode_t nodeid)
-{
-	return (promif_nextnode(nodeid));
-}
-
-pnode_t
-prom_childnode(pnode_t nodeid)
-{
-
-	return (promif_childnode(nodeid));
-}
+int	promif_debug = 0;	/* debug */
 
 /*
- * disallow searching
+ *  Every standalone that wants to use this library must call
+ *  prom_init() before any of the other routines can be called.
  */
-pnode_t
-prom_findnode_byname(pnode_t n __unused, char *name __unused)
-{
-	return (OBP_NONODE);
-}
-
-pnode_t
-prom_chosennode(void)
-{
-	return (promif_chosennode());
-}
-
-pnode_t
-prom_optionsnode(void)
-{
-	return (promif_optionsnode());
-}
-
-pnode_t
-prom_finddevice(char *path)
-{
-	return (promif_finddevice(path));
-}
-
-pnode_t
-prom_alias_node(void)
-{
-	return (OBP_BADNODE);
-}
-
+/*ARGSUSED*/
 void
-prom_pathname(char *buf __unused)
+prom_init(char *pgmname, void *cookie)
 {
-	/* nothing, just to get consconfig_dacf to compile */
+#ifndef _KMDB
+	promif_init(pgmname, cookie);
+#endif
 }
+
+#ifndef _KMDB
+/*
+ * This mirrors a compatibility-only set of functionality from i86pc when
+ * backed by the ACPI prom implementation. When backed by the FDT
+ * implementation this is a no-op, since a properly constructed,
+ * firmware-backed tree already exists.
+ */
+void
+prom_setup()
+{
+	promif_setup();
+}
+#endif

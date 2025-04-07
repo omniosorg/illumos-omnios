@@ -52,6 +52,7 @@
 #include <sys/cred.h>
 #include <sys/strsun.h>
 #include <sys/promif.h>
+#include <sys/prom_plat.h>
 #include <sys/modctl.h>
 #include <sys/ddi.h>
 #include <sys/sunddi.h>

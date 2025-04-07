@@ -30,6 +30,7 @@
 #include <sys/sysmacros.h>
 #include <sys/stdbool.h>
 #include <sys/promif.h>
+#include <sys/prom_plat.h>
 #include <sys/ddi_impldefs.h>
 #include <sys/ddi_implfuncs.h>
 #include <sys/ddi_subrdefs.h>

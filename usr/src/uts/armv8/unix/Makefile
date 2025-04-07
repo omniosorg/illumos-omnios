@@ -35,6 +35,8 @@
 UTSBASE	= ../..
 include $(UTSBASE)/../Makefile.master
 
+CORE_OBJS	+= $(CORE_OBJS_FDT)
+
 #
 #	Define the module and object file sets.
 #

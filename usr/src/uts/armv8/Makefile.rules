@@ -33,10 +33,15 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/io/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
+$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/promif/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
 #
 # Explicitly list objects that depend on raw libfdt so that we can
 # be aware of these dependencies and limit them as much as possible.
 #
+$(OBJS_DIR)/prom_emul_fdt.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
 $(OBJS_DIR)/fakebop.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/os/%.c

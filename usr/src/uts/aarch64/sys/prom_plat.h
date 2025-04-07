@@ -20,7 +20,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2017 Hayashi Naoyuki
+ * Copyright (c) 1994-1996,1999 by Sun Microsystems, Inc.
+ * All rights reserved.
+ */
+/*
+ * Copyright 2025 Michael van der Westhuizen
  */
 
 #ifndef	_SYS_PROM_PLAT_H
@@ -30,7 +34,24 @@
 extern "C" {
 #endif
 
-extern int prom_getmacaddr(ihandle_t hd, caddr_t ea);
+/*
+ * FDT-specific
+ */
+struct prom_hwclock {
+	pnode_t node;
+	uint32_t id;
+};
+
+extern pnode_t prom_fdt_parentnode(pnode_t nodeid);
+extern pnode_t prom_fdt_findnode_by_phandle(phandle_t phandle);
+extern int prom_fdt_get_reg(pnode_t node, int index, uint64_t *base);
+extern int prom_fdt_get_clock_by_name(pnode_t node, const char *name,
+    struct prom_hwclock *clock);
+extern boolean_t prom_fdt_is_compatible(pnode_t node, const char *name);
+extern pnode_t prom_fdt_find_compatible(pnode_t node, const char *compatible);
+extern void prom_fdt_walk(void(*func)(pnode_t, void*), void *arg);
+extern int prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg);
+extern int prom_fdt_get_reg_size(pnode_t node, int index, uint64_t *regsize);
 
 #ifdef	__cplusplus
 }

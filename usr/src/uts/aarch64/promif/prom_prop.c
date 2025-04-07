@@ -24,70 +24,53 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright (c) 2025 Michael van der Westhuizen
  */
 
-#include <sys/ccompile.h>
+/*
+ * Stuff for mucking about with properties
+ */
+
 #include <sys/promif.h>
 #include <sys/promimpl.h>
 #include <sys/prom_emul.h>
 
-pnode_t
-prom_rootnode(void)
+int
+prom_getproplen(pnode_t nodeid, caddr_t name)
 {
-	static pnode_t rootnode;
-
-	return (rootnode ? rootnode : (rootnode = prom_nextnode(OBP_NONODE)));
+	return (promif_getproplen(nodeid, name));
 }
 
-pnode_t
-prom_nextnode(pnode_t nodeid)
+int
+prom_getprop(pnode_t nodeid, caddr_t name, caddr_t value)
 {
-	return (promif_nextnode(nodeid));
+	return (promif_getprop(nodeid, name, value));
 }
 
-pnode_t
-prom_childnode(pnode_t nodeid)
+caddr_t
+prom_nextprop(pnode_t nodeid, caddr_t previous, caddr_t next)
 {
-
-	return (promif_childnode(nodeid));
+	return (promif_nextprop(nodeid, previous, next));
 }
 
-/*
- * disallow searching
- */
-pnode_t
-prom_findnode_byname(pnode_t n __unused, char *name __unused)
+/* obsolete entries, not needed */
+char *
+prom_decode_composite_string(void *buf, size_t buflen, char *prev)
 {
-	return (OBP_NONODE);
+	if ((buf == 0) || (buflen == 0) || ((int)buflen == -1))
+		return ((char *)0);
+
+	if (prev == 0)
+		return ((char *)buf);
+
+	prev += strlen(prev) + 1;
+	if (prev >= ((char *)buf + buflen))
+		return ((char *)0);
+	return (prev);
 }
 
-pnode_t
-prom_chosennode(void)
+int
+prom_bounded_getprop(pnode_t nodeid, caddr_t name, caddr_t value, int len)
 {
-	return (promif_chosennode());
-}
-
-pnode_t
-prom_optionsnode(void)
-{
-	return (promif_optionsnode());
-}
-
-pnode_t
-prom_finddevice(char *path)
-{
-	return (promif_finddevice(path));
-}
-
-pnode_t
-prom_alias_node(void)
-{
-	return (OBP_BADNODE);
-}
-
-void
-prom_pathname(char *buf __unused)
-{
-	/* nothing, just to get consconfig_dacf to compile */
+	return (promif_bounded_getprop(nodeid, name, value, len));
 }
