@@ -7811,6 +7811,7 @@ usr/src/man/man9e/ddi_ufm_op_fill_image.9e
 usr/src/man/man9e/ddi_ufm_op_fill_slot.9e
 usr/src/man/man9e/ddi_ufm_op_getcaps.9e
 usr/src/man/man9e/ddi_ufm_op_nimages.9e
+usr/src/man/man9e/ddi_ufm_op_readimg.9e
 usr/src/man/man9e/gldm_get_stats.9e
 usr/src/man/man9e/gldm_intr.9e
 usr/src/man/man9e/gldm_ioctl.9e
@@ -8609,6 +8610,7 @@ usr/src/man/man9f/strncpy.9f
 usr/src/man/man9f/strnlen.9f
 usr/src/man/man9f/strrchr.9f
 usr/src/man/man9f/strspn.9f
+usr/src/man/man9f/strtok_r.9f
 usr/src/man/man9f/uconv_u16tou8.9f
 usr/src/man/man9f/uconv_u32tou16.9f
 usr/src/man/man9f/uconv_u32tou8.9f
@@ -8912,6 +8914,8 @@ usr/src/test/libc-tests/tests/memset_s.32
 usr/src/test/libc-tests/tests/memset_s.64
 usr/src/test/libc-tests/tests/mutex-16200.32
 usr/src/test/libc-tests/tests/mutex-16200.64
+usr/src/test/libc-tests/tests/mutex_attr.32
+usr/src/test/libc-tests/tests/mutex_attr.64
 usr/src/test/libc-tests/tests/newlocale/newlocale_test
 usr/src/test/libc-tests/tests/newlocale/newlocale_test.amd64
 usr/src/test/libc-tests/tests/newlocale/newlocale_test.i386
@@ -8928,6 +8932,9 @@ usr/src/test/libc-tests/tests/printf-15294.64
 usr/src/test/libc-tests/tests/printf-6961.64
 usr/src/test/libc-tests/tests/printf-9511.32
 usr/src/test/libc-tests/tests/printf-9511.64
+usr/src/test/libc-tests/tests/printf-intmax/printf-intmax.32
+usr/src/test/libc-tests/tests/printf-intmax/printf-intmax.64
+usr/src/test/libc-tests/tests/printf-intmax/printf-intmax.c89
 usr/src/test/libc-tests/tests/priv_gettext/priv_gettext
 usr/src/test/libc-tests/tests/psignal-5097.32
 usr/src/test/libc-tests/tests/psignal-5097.64
@@ -8965,6 +8972,8 @@ usr/src/test/libc-tests/tests/set_constraint_handler_s.32
 usr/src/test/libc-tests/tests/set_constraint_handler_s.64
 usr/src/test/libc-tests/tests/stdbit.32
 usr/src/test/libc-tests/tests/stdbit.64
+usr/src/test/libc-tests/tests/stdio/fdclose.32
+usr/src/test/libc-tests/tests/stdio/fdclose.64
 usr/src/test/libc-tests/tests/stdio/fileno.32
 usr/src/test/libc-tests/tests/stdio/fileno.64
 usr/src/test/libc-tests/tests/stdio/fmemopentest.32
@@ -9193,7 +9202,8 @@ usr/src/test/os-tests/tests/ksensor/ksensor_sread.64
 usr/src/test/os-tests/tests/ksid/ksid.32
 usr/src/test/os-tests/tests/ksid/ksid.64
 usr/src/test/os-tests/tests/libtopo/digraph-test
-usr/src/test/os-tests/tests/mac_test/mac_test
+usr/src/test/os-tests/tests/mac/mac_cksum
+usr/src/test/os-tests/tests/mac/mac_parsing
 usr/src/test/os-tests/tests/minttl/minttl
 usr/src/test/os-tests/tests/minttl/minttl_err
 usr/src/test/os-tests/tests/oclo/oclo
