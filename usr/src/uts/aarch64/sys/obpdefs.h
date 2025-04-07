@@ -58,6 +58,7 @@ typedef	phandle_t pnode_t;
 #define	OBP_REG			"reg"
 #define	OBP_INTR		"intr"
 #define	OBP_RANGES		"ranges"
+#define	OBP_DMA_RANGES		"dma-ranges"
 #define	OBP_INTERRUPTS		"interrupts"
 #define	OBP_COMPATIBLE		"compatible"
 #define	OBP_STATUS		"status"

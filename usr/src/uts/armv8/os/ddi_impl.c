@@ -3144,7 +3144,7 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 		pnode_t node = ddi_get_nodeid(dip);
 		if (node <= 0)
 			break;
-		if (prom_getproplen(node, "dma-ranges") <= 0)
+		if (prom_getproplen(node, OBP_DMA_RANGES) <= 0)
 			continue;
 
 		int bus_address_cells;
@@ -3164,7 +3164,7 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 		bus_size_cells = get_size_cells(node);
 		parent_address_cells = get_address_cells(parent);
 
-		int len = prom_getproplen(node, "dma-ranges");
+		int len = prom_getproplen(node, OBP_DMA_RANGES);
 		if (len % CELLS_1275_TO_BYTES(bus_address_cells +
 		    parent_address_cells + bus_size_cells) != 0) {
 			cmn_err(CE_WARN,
@@ -3181,7 +3181,7 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 		int num = len / CELLS_1275_TO_BYTES(bus_address_cells +
 		    parent_address_cells + bus_size_cells);
 		uint32_t *cells = __builtin_alloca(len);
-		prom_getprop(node, "dma-ranges", (caddr_t)cells);
+		prom_getprop(node, OBP_DMA_RANGES, (caddr_t)cells);
 
 		boolean_t first = (dma_ranges == NULL);
 		if (first) {
