@@ -63,8 +63,11 @@
 #include <sys/kobj_lex.h>
 #include <sys/ddipropdefs.h>	/* For DDI prop types */
 #include <netinet/inetutil.h>	/* for hexascii_to_octet */
-#include <libfdt.h>
 #include <sys/boot_console.h>
+#include <sys/sunddi.h>
+#if defined(_USE_FDT)
+#include <libfdt.h>
+#endif
 
 extern void bsvc_init(struct xboot_info *);
 
@@ -285,6 +288,7 @@ bop_relocate(void)
 		return;
 
 	if (xbootp->bi_fdt != 0) {
+#if defined(_USE_FDT)
 		size_t sz;
 
 		if (fdt_check_header((const void *)xbootp->bi_fdt) != 0)
@@ -306,6 +310,7 @@ bop_relocate(void)
 			panic("failed to relocate FDT to KVA\n");
 
 		prom_init("kernel", vaddr);
+#endif
 	}
 }
 
@@ -983,6 +988,7 @@ bop_panic(const char *fmt, ...)
 	for (;;) {}	/* XXXARM: spin forever, for now */
 }
 
+#if defined(_USE_FDT)
 static void
 build_firmware_properties_fdt(const void *fdtp)
 {
@@ -1024,13 +1030,15 @@ build_firmware_properties_fdt(const void *fdtp)
 		}
 	}
 }
+#endif
 
 /*
  * Populate properties from firmware values.
  */
 static void
-build_firmware_properties(struct xboot_info *xbp)
+build_firmware_properties(struct xboot_info *xbp __maybe_unused)
 {
+#if defined(_USE_FDT)
 	if (xbp->bi_fdt != 0) {
 		const void *fdtp = (void *)xbp->bi_fdt;
 
@@ -1038,6 +1046,7 @@ build_firmware_properties(struct xboot_info *xbp)
 			build_firmware_properties_fdt(fdtp);
 		}
 	}
+#endif
 }
 
 /*

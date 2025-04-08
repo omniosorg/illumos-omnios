@@ -91,7 +91,12 @@ CORE_OBJS +=			\
 	prom_panic.o		\
 	prom_enter.o		\
 	prom_exit.o		\
-	prom_prop.o		\
+	prom_prop.o
+
+#
+#	When building unix for FDT, include these objects.
+#
+CORE_OBJS_FDT +=		\
 	fdt.o			\
 	fdt_ro.o		\
 	fdt_wip.o		\

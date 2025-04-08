@@ -115,7 +115,18 @@ CLOBBERFILES	= $(CLEANFILES) $(UNIX_BIN)
 # Turn on doubleword alignment for 64 bit counter timer registers
 #
 CFLAGS += $(CCVERBOSE)
-$(OBJS_DIR)/platimpl.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
+
+#
+# Enable any code conditionally compiled for FDT support.
+#
+CPPFLAGS += -D_USE_FDT
+
+#
+# Explicitly list objects that depend on raw libfdt so that we can
+# be aware of these dependencies and limit them as much as possible.
+#
+$(OBJS_DIR)/fakebop.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
+$(OBJS_DIR)/prom_emul_fdt.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
 
 #
 # For now, disable these lint checks; maintainers should endeavor
