@@ -99,6 +99,31 @@ no_name:
 	}
 }
 
+static pnode_t
+get_parent(pnode_t nodeid)
+{
+	int offset = fdt_node_offset_by_phandle(fdtp, (pnode_t)nodeid);
+	if (offset < 0)
+		return (OBP_NONODE);
+
+	int parent_offset = fdt_parent_offset(fdtp, offset);
+	if (parent_offset < 0)
+		return (OBP_NONODE);
+	phandle_t phandle = get_phandle(parent_offset);
+	if (phandle < 0)
+		return (OBP_NONODE);
+	return ((pnode_t)phandle);
+}
+
+static pnode_t
+find_by_phandle(phandle_t phandle)
+{
+	int offset = fdt_node_offset_by_phandle(fdtp, phandle);
+	if (offset < 0)
+		return (-1);
+	return ((pnode_t)phandle);
+}
+
 /*
  * Node-specific
  */
@@ -195,31 +220,6 @@ promif_chosennode(void)
 /*
  * Node-specific, platform-specific
  */
-
-pnode_t
-prom_fdt_parentnode(pnode_t nodeid)
-{
-	int offset = fdt_node_offset_by_phandle(fdtp, (pnode_t)nodeid);
-	if (offset < 0)
-		return (OBP_NONODE);
-
-	int parent_offset = fdt_parent_offset(fdtp, offset);
-	if (parent_offset < 0)
-		return (OBP_NONODE);
-	phandle_t phandle = get_phandle(parent_offset);
-	if (phandle < 0)
-		return (OBP_NONODE);
-	return ((pnode_t)phandle);
-}
-
-pnode_t
-prom_fdt_findnode_by_phandle(phandle_t phandle)
-{
-	int offset = fdt_node_offset_by_phandle(fdtp, phandle);
-	if (offset < 0)
-		return (-1);
-	return ((pnode_t)phandle);
-}
 
 pnode_t
 prom_fdt_find_compatible(pnode_t node, const char *compatible)
@@ -474,7 +474,7 @@ get_prop_int(pnode_t node, const char *name, int def)
 		if (len > 0) {
 			break;
 		}
-		node = prom_fdt_parentnode(node);
+		node = get_parent(node);
 	}
 	return (value);
 }
@@ -482,13 +482,13 @@ get_prop_int(pnode_t node, const char *name, int def)
 static int
 get_address_cells(pnode_t node)
 {
-	return (get_prop_int(prom_fdt_parentnode(node), "#address-cells", 2));
+	return (get_prop_int(get_parent(node), "#address-cells", 2));
 }
 
 static int
 get_size_cells(pnode_t node)
 {
-	return (get_prop_int(prom_fdt_parentnode(node), "#size-cells", 2));
+	return (get_prop_int(get_parent(node), "#size-cells", 2));
 }
 
 static int
@@ -576,7 +576,7 @@ promif_get_clock(pnode_t node, int index, struct prom_hwclock *clock)
 	promif_getprop(node, "clocks", (caddr_t)clocks);
 
 	pnode_t clock_node;
-	clock_node = prom_fdt_findnode_by_phandle(ntohl(clocks[0]));
+	clock_node = find_by_phandle(ntohl(clocks[0]));
 	if (clock_node < 0)
 		return (-1);
 
@@ -589,7 +589,7 @@ promif_get_clock(pnode_t node, int index, struct prom_hwclock *clock)
 	if (len <= index * CELLS_1275_TO_BYTES(clock_cells + 1))
 		return (-1);
 
-	clock_node = prom_fdt_findnode_by_phandle(
+	clock_node = find_by_phandle(
 	    ntohl(clocks[index * (clock_cells + 1)]));
 	if (clock_node < 0)
 		return (-1);
@@ -642,27 +642,27 @@ prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 	if (prom_fdt_get_reg(node, index, &addr) != 0)
 		return (-1);
 
-	pnode_t parent = prom_fdt_parentnode(node);
+	pnode_t parent = get_parent(node);
 	while (parent > 0) {
 		if (!prom_fdt_is_compatible(parent, "simple-bus")) {
-			parent = prom_fdt_parentnode(parent);
+			parent = get_parent(parent);
 			continue;
 		}
 
 		int len = promif_getproplen(parent, "ranges");
 		if (len <= 0) {
-			parent = prom_fdt_parentnode(parent);
+			parent = get_parent(parent);
 			continue;
 		}
 
 		int address_cells = get_prop_int(parent, "#address-cells", 2);
 		int size_cells = get_prop_int(parent, "#size-cells", 2);
 		int parent_address_cells = get_prop_int(
-		    prom_fdt_parentnode(parent), "#address-cells", 2);
+		    get_parent(parent), "#address-cells", 2);
 
 		if ((len % CELLS_1275_TO_BYTES(address_cells +
 		    parent_address_cells + size_cells)) != 0) {
-			parent = prom_fdt_parentnode(parent);
+			parent = get_parent(parent);
 			continue;
 		}
 
@@ -698,7 +698,7 @@ prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 			}
 		}
 
-		parent = prom_fdt_parentnode(parent);
+		parent = get_parent(parent);
 	}
 
 	*reg = addr;
