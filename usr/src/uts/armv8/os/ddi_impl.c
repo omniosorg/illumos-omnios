@@ -46,7 +46,6 @@
 #include <sys/machsystm.h>
 #include <sys/modctl.h>
 #include <sys/promif.h>
-#include <sys/prom_plat.h>
 #include <sys/sunndi.h>
 #include <sys/ndi_impldefs.h>
 #include <sys/sysmacros.h>
@@ -1302,7 +1301,7 @@ i_ddi_unitaddr(dev_info_t *dip, uint_t *out, size_t out_cells)
 	uint_t reg_cells;
 
 	int addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
-	    OBP_ADDRESS_CELLS, 2);
+	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 
 	if (addr_cells == 0)
 		return (0);
@@ -1365,7 +1364,7 @@ i_ddi_update_unitintr_unit(unit_intr_t *ui, dev_info_t *dip)
 	int new_intr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, idom,
 	    DDI_PROP_DONTPASS, OBP_INTERRUPT_CELLS, 1);
 	int new_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
-	    OBP_ADDRESS_CELLS, 2);
+	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 
 	ndi_rele_devi(idom);
 
@@ -1408,7 +1407,7 @@ i_ddi_unitintr(dev_info_t *dip, uint_t inum)
 {
 	unit_intr_t *ui;
 	int addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
-	    OBP_ADDRESS_CELLS, 2);
+	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 
 	int *intrs = NULL;
 	int intr_cells = i_ddi_get_interrupt(dip, inum, &intrs);
@@ -1552,7 +1551,8 @@ map_interrupt_map(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 #endif
 
 		int par_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
-		    parent, DDI_PROP_DONTPASS, OBP_ADDRESS_CELLS, 0);
+		    parent, DDI_PROP_DONTPASS,
+		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 		int par_intr_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
 		    parent, DDI_PROP_DONTPASS, OBP_INTERRUPT_CELLS,
 		    1);
@@ -1825,9 +1825,9 @@ impl_xlate_regs(dev_info_t *child, uint32_t *in, size_t in_len,
 	}
 
 	int parent_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, parent,
-	    0, OBP_ADDRESS_CELLS, 0);
+	    0, OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 	int parent_size_cells = ddi_prop_get_int(DDI_DEV_T_ANY, parent,
-	    0, OBP_SIZE_CELLS, 0);
+	    0, OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
 
 	if (parent_size_cells < 1 || parent_size_cells > 2) {
 		dev_err(child, CE_WARN, "regspec: unsupported size cells %d",
@@ -1961,9 +1961,12 @@ impl_xlate_ranges(dev_info_t *child, uint32_t *in, size_t in_len,
 		ddi_prop_free(compats);
 	}
 
-	pac = ddi_prop_get_int(DDI_DEV_T_ANY, pdip, 0, OBP_ADDRESS_CELLS, 0);
-	cac = ddi_prop_get_int(DDI_DEV_T_ANY, child, 0, OBP_ADDRESS_CELLS, 0);
-	csc = ddi_prop_get_int(DDI_DEV_T_ANY, child, 0, OBP_SIZE_CELLS, 0);
+	pac = ddi_prop_get_int(DDI_DEV_T_ANY, pdip, 0,
+	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+	cac = ddi_prop_get_int(DDI_DEV_T_ANY, child, 0,
+	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+	csc = ddi_prop_get_int(DDI_DEV_T_ANY, child, 0,
+	    OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
 
 	if (csc < 1 || csc > 2) {
 		dev_err(child, CE_WARN,
@@ -3082,44 +3085,6 @@ i_ddi_cacheattr_to_hatacc(uint_t flags, uint_t *hataccp)
 	}
 }
 
-static int
-get_address_cells(pnode_t node)
-{
-	int address_cells = 0;
-
-	while (node > 0) {
-		int len = prom_getproplen(node, "#address-cells");
-		if (len > 0) {
-			ASSERT(len == sizeof (int));
-			int prop;
-			prom_getprop(node, "#address-cells", (caddr_t)&prop);
-			address_cells = ntohl(prop);
-			break;
-		}
-		node = prom_fdt_parentnode(node);
-	}
-	return (address_cells);
-}
-
-static int
-get_size_cells(pnode_t node)
-{
-	int size_cells = 0;
-
-	while (node > 0) {
-		int len = prom_getproplen(node, "#size-cells");
-		if (len > 0) {
-			ASSERT(len == sizeof (int));
-			int prop;
-			prom_getprop(node, "#size-cells", (caddr_t)&prop);
-			size_cells = ntohl(prop);
-			break;
-		}
-		node = prom_fdt_parentnode(node);
-	}
-	return (size_cells);
-}
-
 struct dma_range {
 	uint64_t cpu_addr;
 	uint64_t bus_addr;
@@ -3138,50 +3103,63 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 		goto err_exit;
 
 	for (;;) {
-		dip = ddi_get_parent(dip);
-		if (dip == NULL)
+		int n;
+		int *rng_prop;
+		uint_t rng_len;
+		uint32_t *cells;
+
+		if ((dip = ddi_get_parent(dip)) == NULL)
 			break;
-		pnode_t node = ddi_get_nodeid(dip);
-		if (node <= 0)
+		if (dip == ddi_root_node())
 			break;
-		if (prom_getproplen(node, OBP_DMA_RANGES) <= 0)
-			continue;
+
+		if ((n = ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip,
+		    DDI_PROP_DONTPASS, OBP_DMA_RANGES, &rng_prop, &rng_len)) !=
+		    DDI_PROP_SUCCESS) {
+			/* empty dma-ranges means identity mapping */
+			if (n == DDI_PROP_END_OF_DATA)
+				continue;
+			/*
+			 * To maintain functional equivalence with the prior
+			 * code we just skip nodes with no dma-ranges.
+			 */
+			if (n == DDI_PROP_NOT_FOUND || n == DDI_PROP_UNDEFINED)
+				continue;
+
+			dev_err(dip, CE_WARN,
+			    "failed to read %s property", OBP_DMA_RANGES);
+			ret = DDI_FAILURE;
+			goto err_exit;
+		}
 
 		int bus_address_cells;
 		int bus_size_cells;
 		int parent_address_cells;
-		pnode_t parent;
 
-		parent = prom_fdt_parentnode(node);
-		if (parent <= 0) {
-			cmn_err(CE_WARN,
-			    "%s: root node has a dma-ranges property.",
-			    __func__);
-			goto err_exit;
-		}
+		bus_address_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
+		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+		bus_size_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
+		    OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
+		parent_address_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
+		    ddi_get_parent(dip), 0,
+		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 
-		bus_address_cells = get_address_cells(node);
-		bus_size_cells = get_size_cells(node);
-		parent_address_cells = get_address_cells(parent);
-
-		int len = prom_getproplen(node, OBP_DMA_RANGES);
-		if (len % CELLS_1275_TO_BYTES(bus_address_cells +
-		    parent_address_cells + bus_size_cells) != 0) {
-			cmn_err(CE_WARN,
-			    "%s: dma-ranges property length is invalid\n"
-			    "bus_address_cells %d\n"
-			    "parent_address_cells %d\n"
-			    "bus_size_cells %d\n"
-			    "len %d\n",
-			    __func__, bus_address_cells, parent_address_cells,
-			    bus_size_cells, len);
+		if ((rng_len % (bus_address_cells + bus_size_cells +
+		    parent_address_cells)) != 0) {
+			dev_err(dip, CE_WARN, "%s property length is "
+			    "invalid. bus_address_cells %d, "
+			    "parent_address_cells %d, "
+			    "bus_size_cells %d, rng_len %d",
+			    OBP_DMA_RANGES, bus_address_cells,
+			    parent_address_cells, bus_size_cells, rng_len);
+			ddi_prop_free(rng_prop);
 			ret = DDI_FAILURE;
 			goto err_exit;
 		}
-		int num = len / CELLS_1275_TO_BYTES(bus_address_cells +
-		    parent_address_cells + bus_size_cells);
-		uint32_t *cells = __builtin_alloca(len);
-		prom_getprop(node, OBP_DMA_RANGES, (caddr_t)cells);
+
+		int num = rng_len /
+		    (bus_address_cells + bus_size_cells + parent_address_cells);
+		cells = (uint32_t *)rng_prop;
 
 		boolean_t first = (dma_ranges == NULL);
 		if (first) {
@@ -3189,8 +3167,8 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 			dma_ranges = kmem_zalloc(
 			    sizeof (struct dma_range) * dma_range_num,
 			    KM_SLEEP);
-			update = kmem_zalloc(
-			    sizeof (boolean_t) * dma_range_num, KM_SLEEP);
+			update = kmem_zalloc(sizeof (boolean_t) * dma_range_num,
+			    KM_SLEEP);
 		} else {
 			memset(update, 0, sizeof (boolean_t) * dma_range_num);
 		}
@@ -3199,25 +3177,28 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 			uint64_t bus_address = 0;
 			uint64_t parent_address = 0;
 			uint64_t bus_size = 0;
+
 			for (int j = 0; j < bus_address_cells; j++) {
 				bus_address <<= 32;
-				bus_address += ntohl(cells[(
+				bus_address += cells[(
 				    bus_address_cells + parent_address_cells +
-				    bus_size_cells) * i + j]);
+				    bus_size_cells) * i + j];
 			}
+
 			for (int j = 0; j < parent_address_cells; j++) {
 				parent_address <<= 32;
-				parent_address += ntohl(
+				parent_address +=
 				    cells[(bus_address_cells +
 				    parent_address_cells + bus_size_cells) *
-				    i + bus_address_cells + j]);
+				    i + bus_address_cells + j];
 			}
+
 			for (int j = 0; j < bus_size_cells; j++) {
 				bus_size <<= 32;
-				bus_size += ntohl(cells[(bus_address_cells +
+				bus_size += cells[(bus_address_cells +
 				    parent_address_cells + bus_size_cells) *
 				    i + bus_address_cells +
-				    parent_address_cells + j]);
+				    parent_address_cells + j];
 			}
 
 			if (first) {
@@ -3241,11 +3222,15 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 				}
 			}
 		}
+
+		ddi_prop_free(rng_prop);
+		rng_prop = NULL;
+		rng_len = 0;
+
 		for (int i = 0; i < dma_range_num; i++) {
 			if (!update[i]) {
-				cmn_err(CE_WARN,
-				    "%s: dma-ranges property is invalid",
-				    __func__);
+				dev_err(dip, CE_WARN,
+				    "%s property is invalid", OBP_DMA_RANGES);
 				ret = DDI_FAILURE;
 				goto err_exit;
 			}
@@ -3262,6 +3247,7 @@ err_exit:
 	if (update) {
 		kmem_free(update, sizeof (boolean_t) * dma_range_num);
 	}
+
 	return (ret);
 }
 

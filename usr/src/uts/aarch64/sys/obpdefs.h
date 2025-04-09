@@ -90,6 +90,12 @@ typedef	phandle_t pnode_t;
 #define	OBP_INTERRUPT_MAP_MASK		"interrupt-map-mask"
 
 /*
+ * DTSpec defaults
+ */
+#define	OBP_DEFAULT_ADDRESS_CELLS	2
+#define	OBP_DEFAULT_SIZE_CELLS		1
+
+/*
  * OBP status values defines
  */
 #define	OBP_ST_OKAY		"okay"
