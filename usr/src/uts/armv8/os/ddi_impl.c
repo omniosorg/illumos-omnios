@@ -71,6 +71,7 @@ size_t dma_max_copybuf_size = 0x101000;		/* 1M + 4K */
 uint64_t ramdisk_start, ramdisk_end;
 
 static void impl_bus_initialprobe(void);
+static void impl_bus_reprobe(void);
 
 static void i_ddi_free_unitintr(unit_intr_t *);
 
@@ -3780,6 +3781,7 @@ configure(void)
 	extern void i_ddi_init_root();
 
 	i_ddi_init_root();
+	impl_bus_reprobe();	/* Reprogram devices not set up by firmware */
 
 	i_ddi_attach_hw_nodes("dld");
 }
@@ -3816,6 +3818,23 @@ impl_bus_initialprobe(void)
 	while (probe) {
 		/* run the probe functions */
 		(*probe->probe)(0);
+		probe = probe->next;
+	}
+}
+
+/*
+ * impl_bus_reprobe
+ *	Reprogram devices not set up by firmware.
+ */
+static void
+impl_bus_reprobe(void)
+{
+	struct bus_probe *probe;
+
+	probe = bus_probes;
+	while (probe) {
+		/* run the probe function */
+		(*probe->probe)(1);
 		probe = probe->next;
 	}
 }
