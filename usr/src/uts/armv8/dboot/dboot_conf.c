@@ -347,6 +347,8 @@ dboot_configure(caddr_t modulep, struct xboot_info *xbi,
 	caddr_t			scratch_addr;
 	uint64_t		scratch_size;
 
+	extern uint64_t dboot_uefi_get_smbios3_address(void);
+
 	if (modulep == NULL || xbi == NULL ||
 	    pkernel == NULL || pkernel_size == NULL)
 		panic("dboot: bad call to dboot_configure\n");
@@ -666,6 +668,10 @@ dboot_configure(caddr_t modulep, struct xboot_info *xbi,
 	/*
 	 * Configuration from firmware tables
 	 */
+	if ((xbi->bi_smbios = dboot_uefi_get_smbios3_address()) == 0)
+		dboot_printf("NOTICE: No SMBIOS3 configuration "
+		    "table passed via UEFI\n");
+
 	if (xbi->bi_fdt != 0) {
 		if (dboot_configure_fdt() != 0) {
 			dboot_printf("dboot: failed to perform early "

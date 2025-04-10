@@ -28,6 +28,7 @@
 extern void boot_psci_init(struct xboot_info *);
 
 static efi_guid_t acpi2 = EFI_ACPI_TABLE_GUID;
+static efi_guid_t smbios3 = SMBIOS3_TABLE_GUID;
 
 
 static const EFI_SYSTEM_TABLE64 *
@@ -70,6 +71,35 @@ same_guids(efi_guid_t *g1, efi_guid_t *g2)
 			return (false);
 
 	return (true);
+}
+
+uint64_t
+dboot_uefi_get_smbios3_address(void)
+{
+	efi_guid_t vguid;
+	const EFI_SYSTEM_TABLE64 *st;
+	const EFI_CONFIGURATION_TABLE64 *cf;
+	uint64_t saddr;
+	UINT32 i;
+
+	if ((st = get_uefi_systab()) == NULL)
+		return (0);
+
+	cf = (const EFI_CONFIGURATION_TABLE64 *)st->ConfigurationTable;
+	if (cf == NULL)
+		return (0);
+
+	saddr = 0;
+
+	for (i = 0; i < st->NumberOfTableEntries; ++i) {
+		memcpy(&vguid, &cf[i].VendorGuid, sizeof (vguid));
+		if (same_guids(&vguid, &smbios3)) {
+			saddr = (uint64_t)cf[i].VendorTable;
+			break;
+		}
+	}
+
+	return (saddr);
 }
 
 const void *

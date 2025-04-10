@@ -101,6 +101,7 @@ struct xboot_cpu_info {
 struct xboot_info {
 	uint64_t		bi_fdt;
 	uint64_t		bi_uefi_systab;
+	uint64_t		bi_smbios;
 	uint64_t		bi_cmdline;
 	uint64_t		bi_modules;
 	uint64_t		bi_phys_installed;

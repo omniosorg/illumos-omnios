@@ -1038,6 +1038,9 @@ build_firmware_properties_fdt(const void *fdtp)
 static void
 build_firmware_properties(struct xboot_info *xbp __maybe_unused)
 {
+	if (xbp->bi_smbios != 0)
+		bsetprop64("smbios-address", xbp->bi_smbios);
+
 #if defined(_USE_FDT)
 	if (xbp->bi_fdt != 0) {
 		const void *fdtp = (void *)xbp->bi_fdt;
