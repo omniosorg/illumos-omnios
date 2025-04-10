@@ -1039,6 +1039,10 @@ build_firmware_properties_fdt(const void *fdtp)
 static void
 build_firmware_properties(struct xboot_info *xbp __maybe_unused)
 {
+	if (xbp->bi_uefi_systab == 0)
+		prom_panic("illumos/aarch64 requires UEFI\n");
+	bsetprop64("efi-systab", xbp->bi_uefi_systab);
+
 	if (xbp->bi_smbios != 0)
 		bsetprop64("smbios-address", xbp->bi_smbios);
 
