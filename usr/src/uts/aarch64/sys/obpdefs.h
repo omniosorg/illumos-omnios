@@ -91,8 +91,22 @@ typedef	phandle_t pnode_t;
 #define	OBP_INTERRUPT_MAP		"interrupt-map"
 #define	OBP_INTERRUPT_MAP_MASK		"interrupt-map-mask"
 
+#define	OBP_MSI_CONTROLLER		"msi-controller"
+#define	OBP_MSI_CELLS			"#msi-cells"
+
 /*
- * DTSpec defaults
+ * From Bindings/interrupt-controller/msi.txt as found in the devicetree-source
+ * repository at https://github.com/devicetree-org/devicetree-source.
+ *
+ * #msi-cells: The number of cells in an msi-specifier, required if not zero.
+ */
+#define	OBP_DEFAULT_MSI_CELLS		0
+
+/*
+ * DTSpec defaults (DTSpec 0.4, §2.3.5)
+ *
+ * If missing, a client program should assume a default value of 2 for
+ * #address-cells, and a value of 1 for #size-cells.
  */
 #define	OBP_DEFAULT_ADDRESS_CELLS	2
 #define	OBP_DEFAULT_SIZE_CELLS		1
