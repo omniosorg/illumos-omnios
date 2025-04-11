@@ -3277,6 +3277,7 @@ usr/src/man/man1/false.1
 usr/src/man/man1/fc.1
 usr/src/man/man1/fg.1
 usr/src/man/man1/fgrep.1
+usr/src/man/man1/file.1
 usr/src/man/man1/for.1
 usr/src/man/man1/foreach.1
 usr/src/man/man1/function.1
@@ -3733,6 +3734,7 @@ usr/src/man/man3c/dngettext.3c
 usr/src/man/man3c/door_setparam.3c
 usr/src/man/man3c/door_unbind.3c
 usr/src/man/man3c/double_to_decimal.3c
+usr/src/man/man3c/dprintf.3c
 usr/src/man/man3c/dup3.3c
 usr/src/man/man3c/duplocale.3c
 usr/src/man/man3c/edata.3c
@@ -4414,6 +4416,7 @@ usr/src/man/man3c/utmpname.3c
 usr/src/man/man3c/utmpxname.3c
 usr/src/man/man3c/valloc.3c
 usr/src/man/man3c/vasprintf.3c
+usr/src/man/man3c/vdprintf.3c
 usr/src/man/man3c/verr.3c
 usr/src/man/man3c/verrc.3c
 usr/src/man/man3c/verrx.3c
@@ -8890,6 +8893,8 @@ usr/src/test/libc-tests/tests/clocklock/clock_lock.32
 usr/src/test/libc-tests/tests/clocklock/clock_lock.64
 usr/src/test/libc-tests/tests/closefrom.32
 usr/src/test/libc-tests/tests/closefrom.64
+usr/src/test/libc-tests/tests/dprintf.32
+usr/src/test/libc-tests/tests/dprintf.64
 usr/src/test/libc-tests/tests/endian.32
 usr/src/test/libc-tests/tests/endian.64
 usr/src/test/libc-tests/tests/env-7076.32
