@@ -17,6 +17,7 @@
 # Copyright 2018 Jason King
 # Copyright 2020 Joyent, Inc.
 # Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2025 Hans Rosenfeld
 #
 
 link path=usr/share/man/man3c/FD_CLR.3c target=select.3c
@@ -314,6 +315,7 @@ link path=usr/share/man/man3c/door_setparam.3c target=door_getparam.3c
 file path=usr/share/man/man3c/door_ucred.3c
 link path=usr/share/man/man3c/door_unbind.3c target=door_bind.3c
 link path=usr/share/man/man3c/double_to_decimal.3c target=floating_to_decimal.3c
+link path=usr/share/man/man3c/dprintf.3c target=printf.3c
 file path=usr/share/man/man3c/drand48.3c
 file path=usr/share/man/man3c/dup2.3c
 link path=usr/share/man/man3c/dup3.3c target=dup2.3c
@@ -359,6 +361,7 @@ file path=usr/share/man/man3c/fcloseall.3c
 link path=usr/share/man/man3c/fconvert.3c target=econvert.3c
 link path=usr/share/man/man3c/fcvt.3c target=ecvt.3c
 file path=usr/share/man/man3c/fdatasync.3c
+file path=usr/share/man/man3c/fdclose.3c
 file path=usr/share/man/man3c/fdetach.3c
 file path=usr/share/man/man3c/fdopen.3c
 link path=usr/share/man/man3c/fdopendir.3c target=opendir.3c
@@ -1559,6 +1562,7 @@ link path=usr/share/man/man3c/utmpname.3c target=getutent.3c
 link path=usr/share/man/man3c/utmpxname.3c target=getutxent.3c
 link path=usr/share/man/man3c/valloc.3c target=malloc.3c
 link path=usr/share/man/man3c/vasprintf.3c target=vprintf.3c
+link path=usr/share/man/man3c/vdprintf.3c target=vprintf.3c
 link path=usr/share/man/man3c/verr.3c target=err.3c
 link path=usr/share/man/man3c/verrc.3c target=err.3c
 link path=usr/share/man/man3c/verrx.3c target=err.3c

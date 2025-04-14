@@ -589,18 +589,13 @@ PORTINET=			\
 
 PORTPRINT_W=			\
 	doprnt_w.o		\
-	vwprintf.o		\
-	wprintf.o
+	vwprintf.o
 
 PORTPRINT=			\
 	asprintf.o		\
 	doprnt.o		\
-	fprintf.o		\
-	printf.o		\
-	snprintf.o		\
-	sprintf.o		\
+	vdprintf.o		\
 	vfprintf.o		\
-	vprintf.o		\
 	vsnprintf.o		\
 	vsprintf.o
 

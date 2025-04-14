@@ -19,13 +19,14 @@
  * CDDL HEADER END
  */
 
+/*
+ * Copyright 2025 Hans Rosenfeld
+ * Copyright 2014 Garrett D'Amore <garrett@damore.org>
+ * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ */
+
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved	*/
-
-/*
- * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2014 Garrett D'Amore <garrett@damore.org>
- */
 
 /*
  * User-visible pieces of the ANSI C standard I/O package.
@@ -270,6 +271,7 @@ extern char	*tmpnam_r(char *);
 
 #if defined(__EXTENSIONS__) || \
 	(!defined(_STRICT_STDC) && !defined(__XOPEN_OR_POSIX))
+extern int fdclose(FILE *, int *);
 extern int fcloseall(void);
 extern void setbuffer(FILE *, char *, size_t);
 extern int setlinebuf(FILE *);
@@ -370,6 +372,18 @@ extern FILE	*fmemopen(void *_RESTRICT_KYWD, size_t,
 		    const char *_RESTRICT_KYWD);
 extern FILE	*open_memstream(char **, size_t *);
 #endif	/* !_STRICT_SYMBOLS || _XPG7 */
+
+/*
+ * Once we've cleaned up internal usage of dprintf across the system then we can
+ * come back and expose dprintf() using if !defined(_STRICT_SYMBOLS) as we do
+ * for other symbols.
+ */
+#if defined(_XPG7)
+extern int	dprintf(int, const char *_RESTRICT_KYWD, ...)
+	__PRINTFLIKE(2);
+extern int	vdprintf(int, const char *_RESTRICT_KYWD, __va_list)
+	__VPRINTFLIKE(2);
+#endif
 
 #if defined(__EXTENSIONS__) || defined(_REENTRANT) || \
 	    (_POSIX_C_SOURCE - 0 >= 199506L)

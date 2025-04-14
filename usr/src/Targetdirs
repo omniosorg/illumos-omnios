@@ -49,10 +49,7 @@ TARGETDIRS	+= $(FILELINKS) $(DIRLINKS)
 
 LEGACY_DIRS=				\
 	/etc/brand/solaris10		\
-	/usr/has			\
-	/usr/has/bin			\
 	/usr/has/lib			\
-	/usr/has/man			\
 	/usr/lib/brand/solaris10	\
 	/usr/ucb			\
 	/usr/ucblib
@@ -258,6 +255,9 @@ DIRS=							\
 	/usr/demo					\
 	/usr/demo/SOUND					\
 	/usr/games					\
+	/usr/has					\
+	/usr/has/bin					\
+	/usr/has/man					\
 	/usr/include					\
 	/usr/include/ads				\
 	/usr/include/ast				\

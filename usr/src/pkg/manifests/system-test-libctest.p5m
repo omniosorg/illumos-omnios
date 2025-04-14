@@ -81,6 +81,8 @@ file path=opt/libc-tests/tests/clock_lock.32 mode=0555
 file path=opt/libc-tests/tests/clock_lock.64 mode=0555
 file path=opt/libc-tests/tests/closefrom.32 mode=0555
 file path=opt/libc-tests/tests/closefrom.64 mode=0555
+file path=opt/libc-tests/tests/dprintf.32 mode=0555
+file path=opt/libc-tests/tests/dprintf.64 mode=0555
 file path=opt/libc-tests/tests/endian.32 mode=0555
 file path=opt/libc-tests/tests/endian.64 mode=0555
 file path=opt/libc-tests/tests/env-7076.32 mode=0555
@@ -212,6 +214,8 @@ file path=opt/libc-tests/tests/set_constraint_handler_s.64 mode=0555
 file path=opt/libc-tests/tests/stdbit.32 mode=0555
 file path=opt/libc-tests/tests/stdbit.64 mode=0555
 dir  path=opt/libc-tests/tests/stdio
+file path=opt/libc-tests/tests/stdio/fdclose.32 mode=0555
+file path=opt/libc-tests/tests/stdio/fdclose.64 mode=0555
 file path=opt/libc-tests/tests/stdio/fileno.32 mode=0555
 file path=opt/libc-tests/tests/stdio/fileno.64 mode=0555
 file path=opt/libc-tests/tests/stdio/fmemopentest.32 mode=0555

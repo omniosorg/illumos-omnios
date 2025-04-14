@@ -29,6 +29,7 @@
 # Copyright 2015 Garrett D'Amore <garrett@damore.org>
 # Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2025 Oxide Computer Company
+# Copyright 2025 Hans Rosenfeld
 #
 
 #
@@ -84,6 +85,17 @@ $endif
 $if _arm && _ELF64
 $add aarch64
 $endif
+
+SYMBOL_VERSION ILLUMOS_0.55 {
+    protected:
+	dprintf;
+	vdprintf;
+} ILLUMOS_0.54;
+
+SYMBOL_VERSION ILLUMOS_0.54 {
+    protected:
+	fdclose;
+} ILLUMOS_0.53;
 
 SYMBOL_VERSION ILLUMOS_0.53 {
     protected:
