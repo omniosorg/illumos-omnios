@@ -36,6 +36,8 @@
 #include "virtio.h"
 #include "virtio_impl.h"
 
+static int viommionex_ddi_map(dev_info_t *dip, dev_info_t *rdip,
+    ddi_map_req_t *mp, off_t offset, off_t len, caddr_t *vaddrp);
 static int viommionex_ctlops(dev_info_t *dip, dev_info_t *rdip,
     ddi_ctl_enum_t ctlop, void *arg, void *result);
 static int viommionex_attach(dev_info_t *dip, ddi_attach_cmd_t cmd);
@@ -46,7 +48,7 @@ static int viommionex_bus_unconfig(dev_info_t *parent, uint_t flags,
 
 static struct bus_ops viommionex_bus_ops = {
 	.busops_rev		= BUSO_REV,
-	.bus_map		= i_ddi_bus_map,
+	.bus_map		= viommionex_ddi_map,
 	.bus_get_intrspec	= NULL, /* obsolete */
 	.bus_add_intrspec	= NULL, /* obsolete */
 	.bus_remove_intrspec	= NULL, /* obsolete */
@@ -136,19 +138,46 @@ _info(struct modinfo *modinfop)
  */
 
 static int
+viommionex_ddi_map(dev_info_t *dip, dev_info_t *rdip,
+    ddi_map_req_t *mp, off_t offset, off_t len, caddr_t *vaddrp)
+{
+	/*
+	 * If our parent has a bus_map function we defer to that function to
+	 * handle the mapping. Otherwise, just use the defaults.
+	 *
+	 * This dispatch logic allows us to live under rootnex, simple-bus and
+	 * acpinex busses without any knowledge of bus-specific register
+	 * formats.
+	 */
+	dev_info_t *pdip;
+	ASSERT3P(dip, !=, NULL);
+	pdip = ddi_get_parent(dip);
+	ASSERT3P(pdip, !=, NULL);
+
+	if (DEVI(pdip) != NULL && DEVI(pdip)->devi_ops != NULL &&
+	    DEVI(pdip)->devi_ops->devo_bus_ops != NULL &&
+	    DEVI(pdip)->devi_ops->devo_bus_ops->bus_map != NULL) {
+		return ((DEVI(pdip)->devi_ops->devo_bus_ops->bus_map)(
+		    pdip, rdip, mp, offset, len, vaddrp));
+	}
+
+	return (ddi_bus_map(dip, rdip, mp, offset, len, vaddrp));
+}
+
+static int
 viommionex_ctlops(dev_info_t *dip, dev_info_t *rdip, ddi_ctl_enum_t ctlop,
     void *arg, void *result)
 {
 	int	ret;
 
+	/*
+	 * Note that unlike most bus implementations we prefer to pass the
+	 * DDI_CTLOPS_INITCHILD and DDI_CTLOPS_UNINITCHILD ctlops to our parent.
+	 *
+	 * Doing so allows the bus to live under rootnex, simple-bus and
+	 * acpinex busses without further code changes.
+	 */
 	switch (ctlop) {
-	case DDI_CTLOPS_INITCHILD:
-		ret = impl_ddi_sunbus_initchild((dev_info_t *)arg);
-		break;
-	case DDI_CTLOPS_UNINITCHILD:
-		impl_ddi_sunbus_removechild((dev_info_t *)arg);
-		ret = DDI_SUCCESS;
-		break;
 	case DDI_CTLOPS_REPORTDEV:
 		if (rdip == NULL)
 			return (DDI_FAILURE);
