@@ -220,6 +220,13 @@ i_ddi_apply_range(dev_info_t *dp, dev_info_t *rdip, struct regspec *rp)
 	static char *out_of_range =
 	    "Out of range register specification from device node <%s>\n";
 
+	if (DEVI_PD(dp) == NULL) {
+#ifdef	DDI_MAP_DEBUG
+		ddi_map_debug("    No range.\n");
+#endif	/* DDI_MAP_DEBUG */
+		return (0);
+	}
+
 	nrange = i_ddi_pd_getnrng(dp);
 	if (nrange == 0)  {
 #ifdef	DDI_MAP_DEBUG
