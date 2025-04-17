@@ -682,6 +682,16 @@ ns16550_set_baud(struct ns16550com *ns16550, uint8_t bidx)
 	else
 		baudrate = baudtable[bidx];
 
+	/*
+	 * If we have no known clock rate we're probably a simple SBSA UART,
+	 * but may just have delinquent firmware.
+	 *
+	 * In both cases we simply treat the BAUD as pre-configured and
+	 * unchangeable.
+	 */
+	if (ns16550->ns16550_clock == 0)
+		return;
+
 	uint32_t bauddiv = (ns16550->ns16550_clock * 4 + baudrate / 2) / baudrate;
 
 	uint32_t cr = REG_READ(ns16550, UARTCR);
@@ -956,14 +966,24 @@ ns16550attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 		return (DDI_FAILURE);
 	}
 
-	uint_t uart_clock = 48000000;
+	uint_t uart_clock = 0;
+
 	struct prom_hwclock hwclock;
-	if (prom_fdt_get_clock_by_name(
-	    ddi_get_nodeid(devi), "uartclk", &hwclock) == 0) {
-		int err = -1;
+	if (prom_fdt_get_clock_by_name(ddi_get_nodeid(devi),
+	    "uartclk", &hwclock) == 0) {
+		int err;
+
 		if (&plat_hwclock_get_rate)
-			err = plat_hwclock_get_rate(&hwclock);
-		if (err > 0)
+			if ((err = plat_hwclock_get_rate(&hwclock)) > 0)
+				uart_clock = err;
+	}
+
+	if (uart_clock == 0) {
+		int err;
+
+		if ((err = ddi_prop_get_int(DDI_DEV_T_ANY, devi,
+		    DDI_PROP_DONTPASS, "clock-frequency", 0)) !=
+		    DDI_PROP_NOT_FOUND)
 			uart_clock = err;
 	}
 
@@ -3239,7 +3259,12 @@ nsasync_ioctl(struct nsasyncline *nsasync, queue_t *wq, mblk_t *mp)
 				while (ns16550_is_busy(ns16550)) {
 					mutex_exit(&ns16550->ns16550_excl_hi);
 					mutex_exit(&ns16550->ns16550_excl);
-					drv_usecwait(ns16550->ns16550_clock / baudtable[index] * 2);
+					if (ns16550->ns16550_clock == 0)
+						drv_usecwait(10);
+					else
+						drv_usecwait(
+						    ns16550->ns16550_clock /
+						    baudtable[index] * 2);
 					mutex_enter(&ns16550->ns16550_excl);
 					mutex_enter(&ns16550->ns16550_excl_hi);
 				}
@@ -3276,7 +3301,12 @@ nsasync_ioctl(struct nsasyncline *nsasync, queue_t *wq, mblk_t *mp)
 				while (ns16550_is_busy(ns16550)) {
 					mutex_exit(&ns16550->ns16550_excl_hi);
 					mutex_exit(&ns16550->ns16550_excl);
-					drv_usecwait(ns16550->ns16550_clock / baudtable[index] * 2);
+					if (ns16550->ns16550_clock == 0)
+						drv_usecwait(10);
+					else
+						drv_usecwait(
+						    ns16550->ns16550_clock /
+						    baudtable[index] * 2);
 					mutex_enter(&ns16550->ns16550_excl);
 					mutex_enter(&ns16550->ns16550_excl_hi);
 				}
