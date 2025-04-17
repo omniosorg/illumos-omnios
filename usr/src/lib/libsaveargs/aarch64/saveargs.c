@@ -216,6 +216,9 @@ saveargs_has_args(uint8_t *ins, size_t size, uint_t argc, int start_index)
 
 	argc = MIN(argc, 8);
 
+	if (size <= sizeof (uint32_t))
+		return (SAVEARGS_NO_ARGS);
+
 	for (int i = 0; i <= (size - sizeof (uint32_t));
 	    i += sizeof (uint32_t)) {
 		uint32_t *instr = (uint32_t *)&ins[i];
