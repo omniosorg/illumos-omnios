@@ -40,7 +40,7 @@
 
 #include <mdb/mdb_proc.h>
 #include <mdb/mdb_err.h>
-#include <mdb/mdb_aarch64util.h>
+#include <mdb/mdb_isautil.h>
 #include <mdb/mdb.h>
 
 const mdb_tgt_regdesc_t pt_regdesc[] = {
@@ -339,7 +339,7 @@ pt_next(mdb_tgt_t *t, uintptr_t *p)
 	if (Pstate(t->t_pshandle) != PS_STOP)
 		return (set_errno(EMDB_TGTBUSY));
 
-	return (mdb_aarch64_next(t, p, psp->pr_reg[REG_PC], pt_read_instr(t)));
+	return (mdb_isa_next(t, p, psp->pr_reg[REG_PC], pt_read_instr(t)));
 }
 
 int

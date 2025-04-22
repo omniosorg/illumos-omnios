@@ -33,10 +33,11 @@
 #include <kmdb/kmdb_kdi.h>
 #include <kmdb/kmdb_asmutil.h>
 #include <mdb/mdb_debug.h>
+#include <mdb/mdb_stack.h>
 #include <mdb/mdb_err.h>
 #include <mdb/mdb_list.h>
 #include <mdb/mdb_target_impl.h>
-#include <mdb/mdb_aarch64util.h>
+#include <mdb/mdb_isautil.h>
 #include <mdb/mdb_kreg_impl.h>
 #include <mdb/mdb.h>
 
@@ -91,16 +92,19 @@ kmt_next(mdb_tgt_t *t, uintptr_t *p)
 		return (-1); /* errno is set for us */
 
 
-	return (mdb_aarch64_next(t, p, pc, instr));
+	return (mdb_isa_next(t, p, pc, instr));
 }
 
 static int
 kmt_stack_common(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv,
-    int cpuid, mdb_tgt_stack_f *func)
+    int cpuid, mdb_stack_frame_flags_t sflags, mdb_tgt_stack_f *func)
 {
+	mdb_tgt_t *t = mdb.m_target;
 	const mdb_tgt_gregset_t *grp = NULL;
 	mdb_tgt_gregset_t gregs;
-	void *arg = (void *)(uintptr_t)mdb.m_nargs;
+	mdb_stack_frame_hdl_t *hdl;
+	uint_t arglim = mdb.m_nargs;
+	int i;
 
 	if (flags & DCMD_ADDRSPEC) {
 		bzero(&gregs, sizeof (gregs));
@@ -115,41 +119,52 @@ kmt_stack_common(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv,
 		return (DCMD_ERR);
 	}
 
+	i = mdb_getopts(argc, argv,
+	    's', MDB_OPT_SETBITS, MSF_SIZES, &sflags,
+	    't', MDB_OPT_SETBITS, MSF_TYPES, &sflags,
+	    'v', MDB_OPT_SETBITS, MSF_VERBOSE, &sflags,
+	    NULL);
+
+	argc -= i;
+	argv += i;
+
 	if (argc != 0) {
 		if (argv->a_type == MDB_TYPE_CHAR || argc > 1)
 			return (DCMD_USAGE);
 
-		if (argv->a_type == MDB_TYPE_STRING)
-			arg = (void *)(uintptr_t)mdb_strtoull(argv->a_un.a_str);
-		else
-			arg = (void *)(uintptr_t)argv->a_un.a_val;
+		arglim = mdb_argtoull(argv);
 	}
 
-	(void) mdb_aarch64_kvm_stack_iter(mdb.m_target, grp, func, arg);
+	if ((hdl = mdb_stack_frame_init(t, arglim, sflags)) == NULL) {
+		mdb_warn("failed to init stack frame\n");
+		return (DCMD_ERR);
+	}
+
+	(void) mdb_isa_kvm_stack_iter(t, grp, func, (void *)hdl);
 
 	return (DCMD_OK);
 }
 
 int
 kmt_cpustack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv,
-    int cpuid, int verbose)
+    int cpuid, uint_t verbose)
 {
 	return (kmt_stack_common(addr, flags, argc, argv, cpuid,
-	    (verbose ? mdb_aarch64_kvm_framev : mdb_aarch64_kvm_frame)));
+	    (verbose != 0 ? MSF_VERBOSE : 0), mdb_isa_kvm_frame));
 }
 
 int
 kmt_stack(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	return (kmt_stack_common(addr, flags, argc, argv, DPI_MASTER_CPUID,
-	    mdb_aarch64_kvm_frame));
+	    0, mdb_isa_kvm_frame));
 }
 
 int
 kmt_stackv(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	return (kmt_stack_common(addr, flags, argc, argv, DPI_MASTER_CPUID,
-	    mdb_aarch64_kvm_framev));
+	    MSF_VERBOSE, mdb_isa_kvm_frame));
 	return (0);
 }
 
@@ -157,7 +172,7 @@ int
 kmt_stackr(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
 	return (kmt_stack_common(addr, flags, argc, argv, DPI_MASTER_CPUID,
-	    mdb_aarch64_kvm_framev));
+	    MSF_VERBOSE, mdb_isa_kvm_frame));
 }
 
 const char *
@@ -404,7 +419,7 @@ kmt_init_isadep(mdb_tgt_t *t)
 {
 	kmt_data_t *kmt = t->t_data;
 
-	kmt->kmt_rds = mdb_aarch64_kregs;
+	kmt->kmt_rds = mdb_isa_kregs;
 
 	kmt->kmt_trapmax = KMT_MAXTRAPNO;
 	kmt->kmt_trapmap = mdb_zalloc(BT_SIZEOFMAP(kmt->kmt_trapmax), UM_SLEEP);

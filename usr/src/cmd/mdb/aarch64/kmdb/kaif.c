@@ -43,7 +43,7 @@
 
 #include <mdb/mdb_err.h>
 #include <mdb/mdb_debug.h>
-#include <mdb/mdb_aarch64util.h>
+#include <mdb/mdb_isautil.h>
 #include <mdb/mdb_io_impl.h>
 #include <mdb/mdb_kreg_impl.h>
 #include <mdb/mdb.h>
@@ -188,8 +188,8 @@ kaif_find_regp(const char *regname)
 			regname = synonyms[i].rs_name;
 	}
 
-	for (i = 0; mdb_aarch64_kregs[i].rd_name != NULL; i++) {
-		const mdb_tgt_regdesc_t *rd = &mdb_aarch64_kregs[i];
+	for (i = 0; mdb_isa_kregs[i].rd_name != NULL; i++) {
+		const mdb_tgt_regdesc_t *rd = &mdb_isa_kregs[i];
 
 		if (strcmp(rd->rd_name, regname) == 0)
 			return (&regs->kregs[rd->rd_num]);

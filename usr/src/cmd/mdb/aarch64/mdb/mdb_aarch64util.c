@@ -16,6 +16,7 @@
 #include <mdb/mdb_err.h>
 #include <mdb/mdb_kreg_impl.h>
 #include <mdb/mdb_modapi.h>
+#include <mdb/mdb_stack.h>
 #include <mdb/mdb_target_impl.h>
 
 #include <sys/errno.h>
@@ -332,43 +333,33 @@ badfp:
 }
 
 int
-mdb_aarch64_kvm_frame(void *arglim, uintptr_t pc, uint_t argc, const long *argv,
+mdb_aarch64_kvm_frame(void *argp, uintptr_t pc, uint_t argc, const long *argv,
     const mdb_tgt_gregset_t *gregs)
 {
-	argc = MIN(argc, (uintptr_t)arglim);
-	mdb_printf("%a(", pc);
+	mdb_stack_frame_hdl_t *hdl = argp;
+	uint64_t fp;
 
-	if (argc != 0) {
-		mdb_printf("%lr", *argv++);
-		for (argc--; argc != 0; argc--)
-			mdb_printf(", %lr", *argv++);
-	}
-
-	mdb_printf(")\n");
+	fp = gregs->kregs[KREG_FP];
+	mdb_stack_frame(hdl, pc, fp, argc, argv);
 	return (0);
 }
 
-int
-mdb_aarch64_kvm_framev(void *arglim, uintptr_t pc, uint_t argc,
-    const long *argv, const mdb_tgt_gregset_t *gregs)
+boolean_t
+mdb_aarch64_prev_callcheck(uintptr_t pcp)
 {
-	/*
-	 * Historically adb limited stack trace argument display to a fixed-
-	 * size number of arguments since no symbolic debugging info existed.
-	 * On aarch64 we can detect the true number of saved arguments so only
-	 * respect an arglim of zero; otherwise display the entire argv[].
-	 */
-	if (arglim == 0)
-		argc = 0;
+    uint32_t instr;
 
-	mdb_printf("%0?lr %a(", gregs->kregs[KREG_FP], pc);
+    if (pcp < 4 || mdb_vread(&instr, sizeof (instr), pcp - 4) != sizeof (instr))
+        return (B_FALSE);
 
-	if (argc != 0) {
-		mdb_printf("%lr", *argv++);
-		for (argc--; argc != 0; argc--)
-			mdb_printf(", %lr", *argv++);
-	}
+    // AArch64 instructions are little-endian
+    // Check for BL <label> - opcode: 0b100101 = 0x25 in bits [31:26]
+    if ((instr & 0xfc000000) == 0x94000000)
+        return (B_TRUE);
 
-	mdb_printf(")\n");
-	return (0);
+    // Check for BLR Xn - exact encoding: 0Xd63f0000 | (Rn << 5)
+    if ((instr & 0xfffffc1f) == 0xd63f0000)
+        return (B_TRUE);
+
+    return (B_FALSE);
 }
