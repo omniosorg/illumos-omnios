@@ -494,10 +494,7 @@ int tune_t_flckrec = 512;	/* max # of active frlocks */
  */
 pgcnt_t pages_pp_maximum = 0;
 
-
-/* XXXARM: for bringup */
-#include <sys/reboot.h>
-int boothowto = RB_VERBOSE;			/* boot flags passed to kernel */
+int boothowto;			/* boot flags passed to kernel */
 struct var v;			/* System Configuration Information */
 
 /*

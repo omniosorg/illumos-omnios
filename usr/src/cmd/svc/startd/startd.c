@@ -752,15 +752,6 @@ noscfout:
 	}
 
 	/*
-	 * XXXARM: For the present time, force verbose boot for a better idea
-	 * what's going on.
-	 *
-	 * Obviously this needs to come out when boot arguments work correctly.
-	 */
-	st->st_boot_flags = STARTD_BOOT_VERBOSE;
-	st->st_log_level_min = LOG_INFO;
-
-	/*
 	 * Options passed in as boot arguments override repository defaults.
 	 */
 	env_opts = getenv("SMF_OPTIONS");
