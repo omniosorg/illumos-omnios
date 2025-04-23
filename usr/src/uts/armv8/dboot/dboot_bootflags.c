@@ -46,8 +46,14 @@
  *
  * NOTE: boothowto may already have bits set when this function is called
  *
- * To pass properties to the kernel you'll need to do things the usual
- * UNIX way, passing the '-B' options after a '--'.
+ * To pass options to the kernel you'll need to do things the usual UNIX way,
+ * passing the options after a '--'. If kernel options are passed prior to the
+ * '--' and are present ahead of dboot options, then the dboot-specific
+ * options will be missed by dboot and will be passed on to the kernel. The
+ * command-line will, however, not be stripped of any kernel-specific options.
+ *
+ * In practical terms these restrictios only affect '-V', which turns on dboot
+ * verbose output.
  */
 void
 bootflags(const char *args, size_t argsz, char *out, size_t outsz)
@@ -59,7 +65,7 @@ bootflags(const char *args, size_t argsz, char *out, size_t outsz)
 	size_t npres;
 	int c;
 
-	params.gos_opts = "VadvhkD:B:";
+	params.gos_opts = "Vadvhk";
 	params.gos_strp = args;
 	getoptstr_init(&params);
 	while ((c = getoptstr(&params)) != -1) {
@@ -92,13 +98,22 @@ bootflags(const char *args, size_t argsz, char *out, size_t outsz)
 		/*
 		 * Unrecognized flags: stop.
 		 */
-		case 'D':
 		case '?':
+			dprintf("dboot: Breaking on unrecognised "
+			    "option -%c.\n", params.gos_last_opt);
 			break;
 		default:
 			dboot_printf("dboot: Ignoring unimplemented "
 			    "option -%c.\n", c);
+			break;
 		}
+
+		/*
+		 * Break out of the options processing loop on encountering
+		 * an unknown option.
+		 */
+		if (c == '?')
+			break;
 	}
 
 	/*
@@ -172,7 +187,7 @@ bootflags(const char *args, size_t argsz, char *out, size_t outsz)
 
 				sz = MIN(npres, (size_t)(cp - sp));
 				npres -= sz;
-				bcopy(sp, np, sz);
+				memcpy(np, sp, sz);
 				np += sz;
 			}
 		}
