@@ -107,6 +107,7 @@ DBOOT_OBJS +=			\
 	dboot_conf.o		\
 	dboot_conf_acpi.o	\
 	dboot_conf_fdt.o	\
+	dboot_conf_uefi.o	\
 	dboot_memlist.o		\
 	dboot_psci.o		\
 	dboot_uefimem.o		\
