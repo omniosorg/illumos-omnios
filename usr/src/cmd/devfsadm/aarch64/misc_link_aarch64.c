@@ -34,6 +34,9 @@ static devfsadm_create_t misc_cbt[] = {
 	{ "pseudo", "ddi_pseudo", "devfdt",
 	    TYPE_EXACT | DRV_EXACT, ILEVEL_1, ln_minor_name,
 	},
+	{ "pseudo", "ddi_pseudo", "smbios",
+	    TYPE_EXACT | DRV_EXACT, ILEVEL_1, ln_minor_name,
+	},
 };
 
 DEVFSADM_CREATE_INIT_V0(misc_cbt);
