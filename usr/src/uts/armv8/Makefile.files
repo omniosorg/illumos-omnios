@@ -83,6 +83,12 @@ CORE_OBJS +=			\
 CORE_OBJS += $(PCI_STRING_OBJS)
 
 #
+#	Add the SMBIOS subsystem object files directly to the list of objects
+#	built into unix itself; this is all common code except for smb_dev.c.
+#
+CORE_OBJS += $(SMBIOS_OBJS)
+
+#
 # These get compiled twice:
 # - once in the dboot (direct boot) identity mapped code
 # - once for use during early startup in unix
