@@ -1188,6 +1188,11 @@ process_boot_environment(struct boot_modules *benv, char *space)
 		if (do_bsys_getproplen(NULL, name) >= 0)
 			continue;
 
+		if (strcmp(name, "smbios.system.maker") == 0) {
+			bsetprops("smbios.system.maker", value);
+			continue;
+		}
+
 		/* Translate netboot variables */
 		if (strcmp(name, "boot.netif.gateway") == 0) {
 			bsetprops(BP_ROUTER_IP, value);
@@ -1476,10 +1481,26 @@ build_boot_properties(struct xboot_info *xbp)
 	build_firmware_properties(xbp);
 
 	/*
-	 * Unless provided by other means, set the default mfg-name.
+	 * Unless provided by other means, set the default mfg-name,
+	 * preferring the SMBIOS system maker if present.
 	 */
-	if (do_bsys_getproplen(NULL, "mfg-name") == -1)
-		bsetprops("mfg-name", "Unknown");
+	if (do_bsys_getproplen(NULL, "mfg-name") == -1) {
+		int plen;
+
+		if ((plen = do_bsys_getproplen(NULL,
+		    "smbios.system.maker")) > 0 &&
+		    do_bsys_getprop(NULL, "smbios.system.maker",
+		    propbuf) == 0) {
+			propbuf[plen] = '\0';
+			/*
+			 * This value is massaged prior to being used to name
+			 * the DDI root node, so no need to massage it here.
+			 */
+			bsetprops("mfg-name", propbuf);
+		} else {
+			bsetprops("mfg-name", "Unknown");
+		}
+	}
 }
 
 #define	IN_RANGE(a, b, e) ((a) >= (b) && (a) <= (e))
