@@ -270,6 +270,7 @@ aarch64_MANFILES=	ahci.4d			\
 			si3124.4d		\
 			simple-bus.4d		\
 			skd.4d			\
+			smbios.4d		\
 			uath.4d			\
 			ural.4d			\
 			urtw.4d			\
