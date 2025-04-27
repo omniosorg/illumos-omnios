@@ -8908,6 +8908,8 @@ usr/src/test/libc-tests/tests/fnmatch.64
 usr/src/test/libc-tests/tests/fpround/fpround_test
 usr/src/test/libc-tests/tests/fpround/fpround_test.amd64
 usr/src/test/libc-tests/tests/fpround/fpround_test.i386
+usr/src/test/libc-tests/tests/getlocname.32
+usr/src/test/libc-tests/tests/getlocname.64
 usr/src/test/libc-tests/tests/i18n/bindtextdomain_test
 usr/src/test/libc-tests/tests/i18n/bindtextdomain_test.amd64
 usr/src/test/libc-tests/tests/i18n/bindtextdomain_test.i386
@@ -9343,6 +9345,12 @@ usr/src/test/smbclient-tests/cmd/rw_mmap/rw_mmap
 usr/src/test/smbsrv-tests/tests/smb_sid/large_sids_kern
 usr/src/test/smbsrv-tests/tests/smb_sid/large_sids_lib
 usr/src/test/smbsrv-tests/tests/smb_sid/smb_sid.c
+usr/src/test/tz-tests/tests/tzlist.64
+usr/src/test/tz-tests/tests/tzload.32
+usr/src/test/tz-tests/tests/tzload.64
+usr/src/test/tz-tests/tests/tzparams.64
+usr/src/test/tz-tests/tests/zoneinfo_dump.32
+usr/src/test/tz-tests/tests/zoneinfo_dump.64
 usr/src/test/util-tests/tests/bunyan/btest
 usr/src/test/util-tests/tests/cpmvln/checker
 usr/src/test/util-tests/tests/cpmvln/mkobj
