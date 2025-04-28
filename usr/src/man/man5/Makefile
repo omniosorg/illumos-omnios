@@ -184,6 +184,7 @@ MANFILES=	Intro.5				\
 		ts_dptbl.5			\
 		ttydefs.5			\
 		ttysrch.5			\
+		tzfile.5			\
 		ufsdump.5			\
 		updaters.5			\
 		user_attr.5			\
