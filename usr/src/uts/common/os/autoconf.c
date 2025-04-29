@@ -80,6 +80,32 @@ char *bootpath_prop = NULL;
 char *fstype_prop = NULL;
 #endif
 
+static void
+check_driver_disable(void)
+{
+	for (major_t major = 0; major < devcnt; major++) {
+		char prop_name[MAXMODCONFNAME + 9]; /* strlen("disable-") */
+		char *drv_name = ddi_major_to_name(major);
+		char *propval;
+
+		if (drv_name == NULL)
+			continue;
+
+		(void) snprintf(prop_name, sizeof(prop_name),
+		    "disable-%s", drv_name);
+
+		if (ddi_prop_lookup_string(DDI_DEV_T_ANY, ddi_root_node(),
+		    DDI_PROP_DONTPASS, prop_name, &propval) == DDI_SUCCESS) {
+			if (strcmp(propval, "true") == 0) {
+				devnamesp[major].dn_flags |= DN_DRIVER_REMOVED;
+				cmn_err(CE_NOTE, "driver %s disabled",
+				    drv_name);
+			}
+			ddi_prop_free(propval);
+		}
+	}
+}
+
 /*
  * Setup the DDI but don't necessarily init the DDI.  This will happen
  * later once /boot is released.
@@ -90,6 +116,7 @@ setup_ddi(void)
 	impl_ddi_init_nodeid();
 	impl_create_root_class();
 	create_devinfo_tree();
+	check_driver_disable();
 	e_ddi_instance_init();
 	impl_ddi_callback_init();
 	log_event_init();

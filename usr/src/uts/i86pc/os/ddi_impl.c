@@ -141,34 +141,6 @@ static kmutex_t		ctgmutex;
  */
 pfn_t	ddiphysmin = 2;
 
-static void
-check_driver_disable(void)
-{
-	int proplen = 128;
-	char *prop_name;
-	char *drv_name, *propval;
-	major_t major;
-
-	prop_name = kmem_alloc(proplen, KM_SLEEP);
-	for (major = 0; major < devcnt; major++) {
-		drv_name = ddi_major_to_name(major);
-		if (drv_name == NULL)
-			continue;
-		(void) snprintf(prop_name, proplen, "disable-%s", drv_name);
-		if (ddi_prop_lookup_string(DDI_DEV_T_ANY, ddi_root_node(),
-		    DDI_PROP_DONTPASS, prop_name, &propval) == DDI_SUCCESS) {
-			if (strcmp(propval, "true") == 0) {
-				devnamesp[major].dn_flags |= DN_DRIVER_REMOVED;
-				cmn_err(CE_NOTE, "driver %s disabled",
-				    drv_name);
-			}
-			ddi_prop_free(propval);
-		}
-	}
-	kmem_free(prop_name, proplen);
-}
-
-
 /*
  * Configure the hardware on the system.
  * Called before the rootfs is mounted
@@ -2629,11 +2601,6 @@ impl_setup_ddi(void)
 
 	/* Copy console font if provided by boot. */
 	get_console_font();
-
-	/*
-	 * Check for administratively disabled drivers.
-	 */
-	check_driver_disable();
 
 #if !defined(__xpv)
 	if (!post_fastreboot && BOP_GETPROPLEN(bootops, "efi-systab") < 0)

@@ -94,7 +94,6 @@ static kmutex_t		ctgmutex;
 #define	CTGLOCK()	mutex_enter(&ctgmutex)
 #define	CTGUNLOCK()	mutex_exit(&ctgmutex)
 
-
 uint8_t
 i_ddi_get8(ddi_acc_impl_t *hdlp, uint8_t *addr)
 {
