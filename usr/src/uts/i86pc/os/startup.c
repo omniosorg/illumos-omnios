@@ -2413,7 +2413,7 @@ release_bootstrap(void)
 	}
 	PRM_POINT("Boot pages released");
 
-	kmem_free(modranges, sizeof (rd_existing_t) * 99);
+	kmem_free(modranges, sizeof (rd_existing_t) * MAX_BOOT_MODULES);
 
 #if !defined(__xpv)
 /* XXPV -- note this following bunch of code needs to be revisited in Xen 3.0 */
