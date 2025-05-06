@@ -224,9 +224,14 @@ viommionex_bus_config(dev_info_t *dip, uint_t flags,
 
 	rdip = NULL;
 
-	if ((op != BUS_CONFIG_ALL && op != BUS_CONFIG_DRIVER) ||
-	    ddi_get_child(dip) != NULL)
+	/*
+	 * We can only ever have one child, so CONFIG_ALL, CONFIG_DRIVER, and
+	 * CONFIG_ONE are all the same operation.
+	 */
+	if (((op != BUS_CONFIG_ALL) && (op != BUS_CONFIG_DRIVER) &&
+	    (op != BUS_CONFIG_ONE)) || ddi_get_child(dip) != NULL) {
 		return (ndi_busop_bus_config(dip, flags, op, arg, childp, 0));
+	}
 
 	if (viommionex_probe_driver(dip, &driver, &compat) != DDI_SUCCESS)
 		return (DDI_FAILURE);
