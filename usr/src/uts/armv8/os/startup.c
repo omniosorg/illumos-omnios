@@ -92,6 +92,8 @@
 #include <sys/cpuinfo.h>
 #include <sys/prom_debug.h>
 #include <sys/bitext.h>
+#include <sys/ramdisk.h>
+#include <sys/bootinfo.h>
 
 extern void brand_init(void);
 extern void pcf_init(void);
@@ -1591,16 +1593,25 @@ post_startup(void)
 	pg_init();
 }
 
-
 static int
 pp_in_range(page_t *pp, uint64_t low_addr, uint64_t high_addr)
 {
-	return ((SEGKPM_BASE <= low_addr) &&
-	    (low_addr < (SEGKPM_BASE + SEGKPM_SIZE)) &&
-	    (SEGKPM_BASE <= high_addr) &&
-	    (high_addr < (SEGKPM_BASE + SEGKPM_SIZE)) &&
-	    (pp->p_pagenum >= btop(low_addr - SEGKPM_BASE)) &&
-	    (pp->p_pagenum < btopr(high_addr - SEGKPM_BASE)));
+	return ((pp->p_pagenum >= btop(low_addr)) &&
+	    (pp->p_pagenum < btopr(high_addr)));
+}
+
+static int
+pp_in_module(page_t *pp, const rd_existing_t *modranges)
+{
+	uint_t i;
+
+	for (i = 0; modranges[i].phys != 0; i++) {
+		if (pp_in_range(pp, modranges[i].phys,
+		    modranges[i].phys + modranges[i].size))
+			return (1);
+	}
+
+	return (0);
 }
 
 void
@@ -1610,7 +1621,35 @@ release_bootstrap(void)
 	page_t *pp;
 	extern void kobj_boot_unmountroot(void);
 	extern dev_t rootdev;
-	pfn_t	pfn;
+	rd_existing_t *modranges;
+	char propname[32];
+
+	/*
+	 * Save the bootfs module ranges so that we can reserve them below
+	 * for the real bootfs.
+	 */
+	modranges = kmem_alloc(sizeof (rd_existing_t) * MAX_BOOT_MODULES,
+	    KM_SLEEP);
+	for (int i = 0; ; i++) {
+		uint64_t start, size;
+
+		modranges[i].phys = 0;
+
+		(void) snprintf(propname, sizeof (propname),
+		    "module-addr-%u", i);
+		if (do_bsys_getproplen(NULL, propname) <= 0)
+			break;
+		(void) do_bsys_getprop(NULL, propname, &start);
+
+		(void) snprintf(propname, sizeof (propname),
+		    "module-size-%u", i);
+		if (do_bsys_getproplen(NULL, propname) <= 0)
+			break;
+		(void) do_bsys_getprop(NULL, propname, &size);
+
+		modranges[i].phys = start;
+		modranges[i].size = size;
+	}
 
 	/* unmount boot ramdisk and release kmem usage */
 	kobj_boot_unmountroot();
@@ -1649,8 +1688,8 @@ release_bootstrap(void)
 			ASSERT(pp);
 			ASSERT(PAGE_LOCKED(pp));
 			ASSERT(!PP_ISFREE(pp));
-			if (root_is_ramdisk && pp_in_range(pp, ramdisk_start,
-			    ramdisk_end)) {
+			if ((root_is_ramdisk && pp_in_range(pp, ramdisk_start,
+			    ramdisk_end)) || pp_in_module(pp, modranges)) {
 				pp->p_next = rd_pages;
 				rd_pages = pp;
 				continue;
@@ -1668,6 +1707,7 @@ release_bootstrap(void)
 	}
 
 	PRM_POINT("Boot pages released");
+	kmem_free(modranges, sizeof (rd_existing_t) * MAX_BOOT_MODULES);
 }
 
 void *
