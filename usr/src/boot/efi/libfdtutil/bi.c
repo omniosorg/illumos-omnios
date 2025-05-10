@@ -165,14 +165,13 @@ bi_implarch_fdt(const void *fdtp)
 	    fdtp, 0, "compatible", &plen)) == NULL || plen < 1)
 		return;	/* impossible, but ok... */
 	/*
-	 * New compat, comma, old compat, NUL.
+	 * New compat + NUL + old compat (already terminated appropriately)
 	 */
-	clen = strlen(compat) + 1 + plen + 1;
+	clen = strlen(compat) + 1 + plen;
 	if ((compatible = malloc(clen)) == NULL)
 		return;
 	memset(compatible, 0, clen);
 	strcpy(compatible, compat);
-	strcat(compatible, ",");
 	memcpy(compatible + strlen(compat) + 1, prop->data, plen);
 	(void) fdt_setprop((void *)fdtp, 0, "compatible", compatible, clen);
 	free(compatible);
