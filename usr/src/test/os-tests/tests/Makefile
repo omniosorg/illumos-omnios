@@ -32,6 +32,7 @@ SUBDIRS =       \
 		execvpe \
 		file-locking \
 		hexdump \
+		idmap \
 		ilstr \
 		ksensor \
 		ksid \

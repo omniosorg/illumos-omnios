@@ -221,6 +221,7 @@ CTFMERGE=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfmerge
 CTFSTABS=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfstabs
 CTFSTRIP=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfstrip
 NDRGEN=		$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ndrgen
+MANLINK=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/manlink
 # XXXARM: Only used by aarch64 right now, should use everywhere
 $(AARCH64_BLD)GENASSYM=	$(ONBLD_TOOLS)/bin/genassym
 GENOFFSETS=	$(ONBLD_TOOLS)/bin/genoffsets
