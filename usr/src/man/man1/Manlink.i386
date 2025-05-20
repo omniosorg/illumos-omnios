@@ -19,3 +19,5 @@
 	ctags.1
 ../../../has/man/man1has/edit.1has
 	edit.1
+../../../has/man/man1has/vi.1has
+	vedit.1
