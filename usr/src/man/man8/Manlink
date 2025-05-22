@@ -61,6 +61,8 @@ hal-get-property.8
 	hal-set-property.8
 halt.8
 	poweroff.8
+in.cdpd.8
+	cdpd.8
 in.comsat.8
 	comsat.8
 in.fingerd.8
