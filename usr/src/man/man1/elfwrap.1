@@ -3,19 +3,16 @@
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License.
 .\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.  See the License for the specific language governing permissions and limitations under the License.
 .\" When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH ELFWRAP 1 "Sep 10, 2013"
+.TH ELFWRAP 1 "May 22, 2025"
 .SH NAME
 elfwrap \- wrap data in an \fBELF\fR file
 .SH SYNOPSIS
-.LP
 .nf
-\fBelfwrap\fR [\fB-64\fR] [\fB-o\fR \fIrelobj-file\fR] [\fB-z\fR target=\fBsparc\fR | \fBx86\fR]
+\fBelfwrap\fR [\fB-64\fR] [\fB-o\fR \fIrelobj-file\fR] [\fB-z\fR target=\fBaarch64\fR | \fBsparc\fR | \fBx86\fR]
 \fIdata-file\fR...
 .fi
 
 .SH DESCRIPTION
-.sp
-.LP
 The \fBelfwrap\fR utility creates an \fBELF\fR relocatable object file from one
 or more data files. The relocatable object encapsulates each data file within
 an individual section, together with symbols that can be used to reference the
@@ -24,11 +21,11 @@ link-edit. Users can reference the encapsulated data using the associated
 symbols.
 .sp
 .LP
-By default, a 32-bit \fBELF\fR relocatable object is created that is
+By default, an \fBELF\fR relocatable object is created that is
 appropriate for the machine on which \fBelfwrap\fR is executed. The \fB-64\fR
-option can be used to create a 64-bit \fBELF\fR relocatable object. The \fB-z
-target\fR option can be used to create a relocatable object for a specific
-machine type.
+option can be used to create a 64-bit \fBELF\fR relocatable object if the
+platform has a 32-bit variant. The \fB-z target\fR option can be used to
+create a relocatable object for a specific machine type.
 .LP
 Note -
 .sp
@@ -78,8 +75,6 @@ This symbol reflects the address of the first location after the
 .RE
 
 .SH OPTIONS
-.sp
-.LP
 The following options are supported:
 .sp
 .ne 2
@@ -104,21 +99,19 @@ Produce a relocatable object that is named \fIrelobj-file\fR.
 .sp
 .ne 2
 .na
-\fB\fB-z\fR target=\fBsparc\fR | \fBx86\fR\fR
+\fB\fB-z\fR target=\fBaarch64\fR | \fBsparc\fR | \fBx86\fR\fR
 .ad
 .sp .6
 .RS 4n
-Specifies the machine type for the output relocatable object. Supported targets
-are \fBsparc\fR and \fBx86\fR. The 32-bit machine type for the specified target
-is used unless the \fB-64\fR option is also present, in which case the
-corresponding 64-bit machine type is used. By default, the relocatable object
-that is generated is 32-bit for the machine one which \fBelfwrap\fR is
-executed.
+Specifies the machine type for the output relocatable object. Supported
+targets are \fBaarch64\fR, \fBsparc\fR and \fBx86\fR. The 32-bit machine type
+for the specified target is used unless the \fB-64\fR option is also present,
+or the machine has no 32bit variant, in which case the corresponding 64-bit
+machine type is used. By default, the relocatable object that is generated is
+for the machine on which \fBelfwrap\fR is executed.
 .RE
 
 .SH EXAMPLES
-.sp
-.LP
 The following example encapsulates the system \fBpasswd\fR file and the system
 \fBgroup\fR file within a relocatable object \fBpassgroup.o\fR.
 .sp
@@ -173,7 +166,6 @@ nobody4:x:65534:65534:SunOS 4.x NFS Anonymous Access User:/:
 .sp
 
 .SH FILES
-.sp
 .ne 2
 .na
 \fB\fBa.wrap.o\fR\fR
@@ -183,8 +175,6 @@ The default relocatable object file created.
 .RE
 
 .SH ATTRIBUTES
-.sp
-.LP
 See \fBattributes\fR(7) for descriptions of the following attributes:
 .sp
 
@@ -199,8 +189,6 @@ Interface Stability	Committed
 .TE
 
 .SH SEE ALSO
-.sp
-.LP
 .BR elfdump (1),
 .BR ld (1),
 .BR strings (1),

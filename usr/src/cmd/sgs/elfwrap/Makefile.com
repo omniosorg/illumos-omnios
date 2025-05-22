@@ -31,10 +31,15 @@ PROG=		elfwrap
 include		$(SRC)/cmd/Makefile.cmd
 include		$(SRC)/cmd/sgs/Makefile.com
 
+SRCDIR=		$(SGSHOME)/elfwrap
+
 COMOBJ =	main.o
 
-MACHOBJ =	machine.sparc.o	machine.sparcv9.o \
-		machine.i386.o	machine.amd64.o
+MACHOBJ =	machine.sparc.o		\
+		machine.sparcv9.o	\
+		machine.i386.o		\
+		machine.amd64.o		\
+		machine.aarch64.o
 
 COMOBJ32 =	elfwrap32.o
 
@@ -47,10 +52,7 @@ BLTOBJ =	msg.o
 OBJS=		$(BLTOBJ) $(COMOBJ) $(MACHOBJ) $(COMOBJ32) $(COMOBJ64) \
 		$(SGSCOMMONOBJ)
 
-MAPFILES =	$(MAPFILE.NGB)
-MAPOPTS =	$(MAPFILES:%=-Wl,-M%)
-
-CPPFLAGS =	-I. -I../common -I../../include $(CPPFLAGS.master) -I$(ELFCAP)
+CPPFLAGS =	-I. -I$(SRCDIR) -I$(SRCDIR)/common -I$(SRCDIR)/../include $(CPPFLAGS.master) -I$(ELFCAP)
 LLDFLAGS =
 LLDFLAGS64 =
 LDFLAGS +=	$(VERSREF) $(MAPOPTS) $(LLDFLAGS)
@@ -64,13 +66,13 @@ BLTMESG =	$(SGSMSGDIR)/elfwrap
 
 BLTFILES =	$(BLTDEFS) $(BLTDATA) $(BLTMESG)
 
-SGSMSGCOM =	../common/elfwrap.msg
+SGSMSGCOM =	$(SRCDIR)/common/elfwrap.msg
 SGSMSGTARG =	$(SGSMSGCOM)
 SGSMSGALL =	$(SGSMSGCOM)
 SGSMSGFLAGS +=	-h $(BLTDEFS) -d $(BLTDATA) -m $(BLTMESG) -n elfwrap_msg
 
-SRCS =		$(COMOBJ:%.o=../common/%.c) ../common/machine.c \
-		$(COMOBJ32:%32.o=../common/%.c) \
+SRCS =		$(COMOBJ:%.o=$(SRCDIR)/common/%.c) $(SRCDIR)/common/machine.c \
+		$(COMOBJ32:%32.o=$(SRCDIR)/common/%.c) \
 		$(SGSCOMMONOBJ:%.o=$(SGSCOMMON)/%.c) $(BLTDATA)
 
 CLEANFILES +=	$(BLTFILES)

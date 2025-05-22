@@ -243,6 +243,9 @@ output(const char *prog, int fd, const char *ofile, ushort_t mach,
 		case EM_AMD64:
 			target_init_amd64(&tdesc);
 			break;
+		case EM_AARCH64:
+			target_init_aarch64(&tdesc);
+			break;
 #else
 		default:
 			target_init(&tdesc);
@@ -276,6 +279,7 @@ output(const char *prog, int fd, const char *ofile, ushort_t mach,
 	 * and other target information.
 	 */
 	ehdr->e_ident[EI_DATA] = M_DATA;
+	ehdr->e_ident[EI_CLASS] = M_CLASS;
 	ehdr->e_type = ET_REL;
 	ehdr->e_version = EV_CURRENT;
 

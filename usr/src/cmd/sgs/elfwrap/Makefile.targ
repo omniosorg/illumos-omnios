@@ -26,15 +26,15 @@
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
-%.o:		../common/%.c
+%.o:		$(SRCDIR)/common/%.c
 		$(COMPILE.c) -o $@ $<
 		$(POST_PROCESS_O)
 
-%32.o:		../common/%.c
+%32.o:		$(SRCDIR)/common/%.c
 		$(COMPILE.c) -o $@ $<
 		$(POST_PROCESS_O)
 
-%64.o:		../common/%.c
+%64.o:		$(SRCDIR)/common/%.c
 		$(COMPILE.c) -D_ELF64 -o $@ $<
 		$(POST_PROCESS_O)
 
@@ -42,20 +42,24 @@
 		$(COMPILE.c) -o $@ $<
 		$(POST_PROCESS_O)
 
-%.sparc.o:	../common/%.c
+%.sparc.o:	$(SRCDIR)/common/%.c
 		$(COMPILE.c) -DELFWRAP_SPARC -o $@ $<
 		$(POST_PROCESS_O)
 
-%.sparcv9.o:	../common/%.c
+%.sparcv9.o:	$(SRCDIR)/common/%.c
 		$(COMPILE.c) -DELFWRAP_SPARC -D_ELF64 -o $@ $<
 		$(POST_PROCESS_O)
 
-%.i386.o:	../common/%.c
+%.i386.o:	$(SRCDIR)/common/%.c
 		$(COMPILE.c) -DELFWRAP_X86 -o $@ $<
 		$(POST_PROCESS_O)
 
-%.amd64.o:	../common/%.c
+%.amd64.o:	$(SRCDIR)/common/%.c
 		$(COMPILE.c) -DELFWRAP_X86 -D_ELF64 -o $@ $<
+		$(POST_PROCESS_O)
+
+%.aarch64.o:	$(SRCDIR)/common/%.c
+		$(COMPILE.c) -DELFWRAP_AARCH64 -D_ELF64 -o $@ $<
 		$(POST_PROCESS_O)
 
 $(PROG):	$(OBJS) $(MAPFILES)
@@ -66,8 +70,6 @@ all:		$(PROG)
 
 clean:
 		$(RM) $(OBJS) $(CLEANFILES)
-
-install:	all $(ROOTPROG)
 
 include		$(SRC)/cmd/Makefile.targ
 

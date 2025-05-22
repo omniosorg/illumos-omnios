@@ -25,7 +25,7 @@
  */
 
 /*
- * Wrap data in an elf file.
+ * Wrap data in an ELF file.
  */
 #include	<fcntl.h>
 #include	<unistd.h>
@@ -50,7 +50,7 @@ main(int argc, char **argv, char **envp)
 {
 	const char	*prog, *ofile = NULL, *pstr = NULL;
 	int		fd, var;
-	uchar_t		class = ELFCLASS32;
+	uchar_t		class = ELFCLASSNONE;
 	ushort_t	mach = EM_NONE;
 	ObjDesc_t	odesc = { NULL, 0, 0, 0 };
 
@@ -127,23 +127,46 @@ main(int argc, char **argv, char **envp)
 	 */
 	if (pstr) {
 		if (strcasecmp(pstr, MSG_ORIG(MSG_TARG_SPARC)) == 0) {
-			if (class == ELFCLASS64)
+			if (class == ELFCLASS64) {
 				mach = EM_SPARCV9;
-			else
+			} else {
 				mach = EM_SPARC;
-
+			}
 		} else if (strcasecmp(pstr, MSG_ORIG(MSG_TARG_X86)) == 0) {
-			if (class == ELFCLASS64)
+			if (class == ELFCLASS64) {
 				mach = EM_AMD64;
-			else
+			} else {
 				mach = EM_386;
-
+			}
+		} else if (strcasecmp(pstr, MSG_ORIG(MSG_TARG_AARCH64)) == 0) {
+			mach = EM_AARCH64;
 		} else {
 			(void) fprintf(stderr, MSG_INTL(MSG_ARG_BADTARG), prog,
 			    pstr);
 			return (1);
 		}
 	}
+
+	/*
+	 * AArch64 implies 64bit, others imply 32bit historically
+	 */
+	if (class == ELFCLASSNONE) {
+		if (mach == EM_AARCH64) {
+			class = ELFCLASS64;
+		} else {
+			class = ELFCLASS32;
+		}
+	}
+
+	/*
+	 * An unfortunate wart in the design -- we need to know the class
+	 * here, but only work out the machine later -- means we have to
+	 * default class separately for platforms that are 64-bit.
+	 */
+#if !defined(_MULTI_DATAMODEL)
+	if (mach == EM_NONE)
+		class = ELFCLASS64;
+#endif
 
 	/*
 	 * Create the input information for the new image.

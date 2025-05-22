@@ -27,6 +27,10 @@
 #ifndef	__ELFWRAP_H
 #define	__ELFWRAP_H
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 /*
  * Local include file for elfwrap.
  */
@@ -77,7 +81,7 @@ typedef struct {
 	Alist		*od_outsecs;	/* list of output sections */
 	size_t		od_symtabno;	/* number of symbol table entries */
 	size_t		od_strtabsz;	/* string table size */
-	size_t		od_shstrtabsz; 	/* section header string table size */
+	size_t		od_shstrtabsz;	/* section header string table size */
 } ObjDesc_t;
 
 /*
@@ -97,10 +101,7 @@ extern	void	target_init_sparc(TargDesc_t *);
 extern	void	target_init_sparcv9(TargDesc_t *);
 extern	void	target_init_i386(TargDesc_t *);
 extern	void	target_init_amd64(TargDesc_t *);
-#endif
-
-#ifdef	__cplusplus
-extern "C" {
+extern	void	target_init_aarch64(TargDesc_t *);
 #endif
 
 #ifdef	__cplusplus

@@ -12,6 +12,7 @@
 # Copyright 2019, Richard Lowe.
 
 SUBDIRS =		\
+	elfwrap		\
 	include		\
 	ld		\
 	libconv		\
@@ -25,6 +26,7 @@ install :=	TARGET= install
 clean :=	TARGET= clean
 clobber :=	TARGET= clobber
 
+elfwrap: sgsmsg include libconv libelf
 ld: sgsmsg include libconv libelf libld
 libconv: sgsmsg include
 libelf: sgsmsg include

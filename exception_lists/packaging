@@ -806,8 +806,9 @@ usr/lib/libjedec.so
 # the tools copy of the link-editor is not delivered
 #
 opt/onbld/bin/amd64			i386
-# The directory exclusions above cover bin/.../ld, should we ever not exclude
-# those directories, ld must be added here
+# The directory exclusions above cover bin/.../ld and elfwrap,
+# should we ever not exclude those directories, ld and elfwrap
+# must be added here
 opt/onbld/bin/i386/sgsmsg		i386
 opt/onbld/lib/i386/64/libelf.so		i386
 opt/onbld/lib/i386/64/libelf.so.1	i386
