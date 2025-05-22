@@ -607,6 +607,7 @@ MISC_KMODS	+= sol_ofs
 MISC_KMODS	+= strplumb
 MISC_KMODS	+= tem
 MISC_KMODS	+= tlimod
+MISC_KMODS	+= uathfw
 MISC_KMODS	+= usba usba10 usbs49_fw
 #MISC_KMODS	+= iommulib
 #MISC_KMODS	+= acpica
@@ -616,8 +617,6 @@ MISC_KMODS	+= usba usba10 usbs49_fw
 #MISC_KMODS	+= hpcsvc
 # XXXARM: Needs cross-elfwrap, probably
 #MISC_KMODS	+= mwlfw
-#XXXARM: Needs a cross elfwrap
-#MISC_KMODS	+= uathfw
 
 
 MISC_KMODS	+= klmmod klmops
