@@ -36,7 +36,7 @@ set name=pkg.description \
     value="Marvell 88W8363 IEEE802.11b/g Wireless Network Device Driver"
 set name=info.classification \
     value=org.opensolaris.category.2008:Drivers/Networking
-set name=org.illumos.for-arch value=i386
+set name=org.illumos.for-arch value=aarch64 value=i386
 dir  path=kernel group=sys
 dir  path=kernel/drv group=sys
 dir  path=kernel/drv/$(ARCH64) group=sys

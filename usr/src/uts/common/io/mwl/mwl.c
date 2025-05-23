@@ -332,7 +332,7 @@ static int	mwl_resume(struct mwl_softc *);
 
 #ifdef DEBUG
 static void
-mwl_debug(uint32_t dbg_flags, const int8_t *fmt, ...)
+mwl_debug(uint32_t dbg_flags, const char *fmt, ...)
 {
 	va_list args;
 
