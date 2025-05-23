@@ -31,4 +31,4 @@ MANFILES=	Kstat.3perl			\
 
 include		$(SRC)/man/Makefile.man
 
-install: $(ROOTMANFILES) $(ROOTMANLINKS)
+install:	$(ROOTMANFILES)
