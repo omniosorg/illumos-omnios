@@ -180,11 +180,10 @@ $(DBOOT_SYMS):	$(DBOOT_OBJS_DIR) $(DBOOT_OBJECTS) \
 	$(GLD) -nostdlib -static -pie --no-dynamic-linker \
 	    --no-warn-rwx-segments -T$(DBOOT_MAPFILE) -o $@ $(DBOOT_OBJECTS)
 
-# XXXARM: GOBJDUMP should be in Makefile.master
 $(DBOOT_BIN):	$(DBOOT_SYMS)
-	if [ `$(GNU_ROOT)/bin/gobjdump -t $(DBOOT_SYMS) | \
+	if [ `$(OBJDUMP) -t $(DBOOT_SYMS) | \
 	    fgrep '*UND*' | wc -l` != 0 ]; then \
-		$(GNU_ROOT)/bin/gobjdump -t $(DBOOT_SYMS) | fgrep '*UND*'; \
+		$(OBJDUMP) -t $(DBOOT_SYMS) | fgrep '*UND*'; \
 		exit 1; \
 	fi
 	$(OBJCOPY) --readonly-text -j .text -j .sdata -j .data \

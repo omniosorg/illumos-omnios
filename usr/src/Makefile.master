@@ -850,9 +850,9 @@ sparc_GNU_ROOT=		/usr
 aarch64_GNU_ROOT=	/usr
 GNU_ROOT=		$($(MACH)_GNU_ROOT)
 
-# XXXARM: Used building the booters etc, overriden
 GLD=		$(GNU_ROOT)/bin/gld
 OBJCOPY=	$(GNU_ROOT)/bin/gobjcopy
+OBJDUMP=	$(GNU_ROOT)/bin/gobjdump
 MKIMAGE=	/usr/bin/mkimage
 DTC=		/usr/bin/dtc
 
