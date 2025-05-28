@@ -27,7 +27,7 @@
 
 /*
  * This plugin creates memory configuration nodes and properties in the
- * PICL tree for Cheetah platforms.
+ * PICL tree for generic platforms.
  *
  * Subtree of memory-controller in the physical aspect.
  * memory-controller --- memory-module-group --- memory-module
@@ -564,7 +564,7 @@ create_physical_tree(picl_nodehdl_t mch, void *args)
 	struct mc_devgrp	mcdevgrp;
 	int			fd;
 
-	fd = (int)args;
+	fd = (int)(intptr_t)args;
 	/*
 	 * Get portid of memory-controller as the key to get its
 	 * configuration via ioctl.
@@ -693,7 +693,7 @@ find_mc_create_tree(picl_nodehdl_t rooth, int fd)
 	int		err;
 
 	err = ptree_walk_tree_by_class(rooth, PICL_CLASS_MEMORY_CONTROLLER,
-	    (void *)fd, create_physical_tree);
+	    (void *)(intptr_t)fd, create_physical_tree);
 	return (err);
 }
 
@@ -924,7 +924,7 @@ piclmemcfg_evhandler(const char *ename, const void *earg, size_t size,
 		return;
 
 	if (strcmp(ename, PICLEVENT_MC_ADDED) == 0)
-		(void) create_physical_tree(nodeh, (void *)fd);
+		(void) create_physical_tree(nodeh, (void *)(intptr_t)fd);
 	else if (strcmp(ename, PICLEVENT_MC_REMOVED) == 0)
 		/*
 		 * Delete the entry at the list only since class at PICL is

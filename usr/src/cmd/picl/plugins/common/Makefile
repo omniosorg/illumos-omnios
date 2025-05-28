@@ -26,9 +26,9 @@
 
 include $(SRC)/Makefile.master
 
-SUBDIRS=	piclevent .WAIT devtree .WAIT frutree .WAIT
-# XXXARM: Not 64bit clean
-$(NOT_AARCH64_BLD)SUBDIRS += .WAIT memcfg
+SUBDIRS=	piclevent devtree frutree memcfg
+
+frutree: devtree
 
 all :=		TARGET= all
 install :=	TARGET= install

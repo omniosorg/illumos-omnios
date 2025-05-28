@@ -56,9 +56,8 @@ link path=usr/lib/picl/plugins/libpiclevent.so target=./libpiclevent.so.1
 file path=usr/lib/picl/plugins/libpiclevent.so.1 group=sys
 link path=usr/lib/picl/plugins/libpiclfrutree.so target=./libpiclfrutree.so.1
 file path=usr/lib/picl/plugins/libpiclfrutree.so.1 group=sys
-$(not_aarch64)link path=usr/lib/picl/plugins/libpiclmemcfg.so \
-    target=./libpiclmemcfg.so.1
-$(not_aarch64)file path=usr/lib/picl/plugins/libpiclmemcfg.so.1 group=sys
+link path=usr/lib/picl/plugins/libpiclmemcfg.so target=./libpiclmemcfg.so.1
+file path=usr/lib/picl/plugins/libpiclmemcfg.so.1 group=sys
 dir  path=usr/lib/sysevent
 dir  path=usr/lib/sysevent/modules
 file path=usr/lib/sysevent/modules/picl_slm.so
