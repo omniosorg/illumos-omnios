@@ -46,17 +46,25 @@ FILEMODE=644
 
 i386_HDRS=			\
 	asy.h			\
+	avintr.h		\
+	dma_engine.h		\
 	fd_debug.h		\
 	fdc.h			\
 	fdmedia.h		\
 	firmload.h		\
 	gfx_private.h		\
+	i8272A.h		\
 	mouse.h			\
-	nvme.h
+	nvme.h			\
+	pic.h			\
+	pit.h			\
+	rtc.h
 
 aarch64_HDRS=			\
 	asy.h			\
+	avintr.h		\
 	gfx_private.h
+
 
 sparc_HDRS=			\
 	mouse.h			\
@@ -1120,15 +1128,6 @@ DKTPHDRS=		\
 	queue.h		\
 	tgcom.h		\
 	tgdk.h
-
-# "pc" header files used on i386 and aarch64 (XXXARM??)
-PCHDRS=			\
-	avintr.h	\
-	dma_engine.h	\
-	i8272A.h	\
-	pic.h		\
-	pit.h		\
-	rtc.h
 
 PCMCIAHDRS=		\
 	pcic_reg.h	\
