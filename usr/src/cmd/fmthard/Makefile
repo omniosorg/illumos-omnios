@@ -32,9 +32,6 @@ RELUSRSBIN=     ../usr/sbin
 ROOTSYMLINK=    $(ROOTETC)/$(PROG)
 LDLIBS +=	-ladm -lefi
 
-# XXXARM: Needs a proper cross-smatch
-SMATCH=off
-
 .KEEP_STATE:
 
 all: $(PROG)

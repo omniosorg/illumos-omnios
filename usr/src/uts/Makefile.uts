@@ -637,6 +637,3 @@ PRIVS_DEF = $(SRC)/uts/common/os/priv_defs
 #
 USBDEVS_AWK =	$(SRC)/uts/common/io/usb/usbdevs2h.awk
 USBDEVS_DATA =	$(SRC)/uts/common/io/usb/usbdevs
-
-# XXXARM: needs a cross-smatch
-$(AARCH64_BLD)SMATCH=off
