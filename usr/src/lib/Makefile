@@ -326,62 +326,60 @@ NOWAIT_SUBDIRS= $(SUBDIRS:.WAIT=)
 DCSUBDIRS=
 
 MSGSUBDIRS=		\
-	auditd_plugins	\
-	cfgadm_plugins	\
+	auditd_plugins		\
+	brand			\
+	cfgadm_plugins		\
 	gss_mechs/mech_dh	\
 	gss_mechs/mech_krb5	\
-	libbsm		\
-	libc		\
-	libcfgadm	\
-	libcontract	\
-	libcurses	\
-	libdhcputil	\
-	libdiskmgt	\
-	libdladm	\
-	libgrubmgmt	\
-	libgss		\
-	libidmap	\
-	libilb		\
-	libinstzones	\
-	libipadm	\
-	libipmp		\
-	libipsecutil	\
-	libnsl		\
-	libnwam		\
-	libofmt		\
-	libpam		\
-	libpicl		\
-	libpkg		\
-	libpool		\
-	libreparse	\
-	libsasl		\
-	libscf		\
-	libsecdb	\
-	libshare	\
-	libslp		\
-	libsmbfs	\
-	libsmedia	\
-	libtsol		\
-	libuutil	\
-	libvrrpadm	\
-	libvscan	\
-	libzfs		\
-	libzonecfg	\
-	madv		\
-	mpss		\
-	pyzfs		\
-	rpcsec_gss	\
+	krb5			\
+	libbsm			\
+	libc			\
+	libcfgadm		\
+	libcontract		\
+	libcurses		\
+	libdhcputil		\
+	libdiskmgt		\
+	libdladm		\
+	libgrubmgmt		\
+	libgss			\
+	libidmap		\
+	libilb			\
+	libinstzones		\
+	libipadm		\
+	libipmp			\
+	libipsecutil		\
+	libldap5		\
+	libnsl			\
+	libnwam			\
+	libofmt			\
+	libpam			\
+	libpicl			\
+	libpkg			\
+	libpool			\
+	libreparse		\
+	libsasl			\
+	libscf			\
+	libsecdb		\
+	libshare		\
+	libsldap		\
+	libslp			\
+	libsmbfs		\
+	libsmedia		\
+	libtsol			\
+	libuutil		\
+	libvrrpadm		\
+	libvscan		\
+	libzfs			\
+	libzonecfg		\
+	madv			\
+	mpss			\
+	pam_modules		\
+	pyzfs			\
+	rpcsec_gss		\
 	$($(MACH)_MSGSUBDIRS)
 
-# XXXARM
-# matching the reasons above, for actual builds
-$(NOT_AARCH64_BLD)MSGSUBDIRS += \
-	abi		\
-	brand		\
-	krb5		\
-	libldap5	\
-	libsldap	\
-	pam_modules	\
+# XXXARM: Not built on aarch64
+$(NOT_AARCH64_BLD)MSGSUBDIRS += abi
 
 sparc_MSGSUBDIRS=	\
 	libprtdiag	\
