@@ -70,9 +70,9 @@ CPPFLAGS += -D_REENTRANT
 CPPFLAGS += -I$(SRC)/uts/common/fs/zfs
 CPPFLAGS += -I$(SRC)/uts/common
 
-# XXXARM: AArch64 is not multilib
-$(NOT_AARCH64_BLD)CPPFLAGS += -D_SYSCALL32
-$(NOT_AARCH64_BLD)ROOTLINK = $(PROG:%=$(ROOTBIN64)/%)
+# Platforms without a 32bit variant don't need these
+$(BUILD32)CPPFLAGS += -D_SYSCALL32
+$(BUILD32)ROOTLINK = $(PROG:%=$(ROOTBIN64)/%)
 
 codes_bhyve.o := CPPFLAGS += -I$(SRC)/compat/bhyve
 codes_bhyve.o := CPPFLAGS += -I$(SRC)/compat/bhyve/amd64
