@@ -63,8 +63,8 @@ i386_HDRS=			\
 aarch64_HDRS=			\
 	asy.h			\
 	avintr.h		\
-	gfx_private.h
-
+	gfx_private.h		\
+	nvme.h
 
 sparc_HDRS=			\
 	mouse.h			\
