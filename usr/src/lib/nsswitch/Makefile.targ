@@ -28,9 +28,8 @@ all:		$(LIBS)
 # include global library targets.
 include		$(SRC)/lib/Makefile.targ
 
-
-$(ROOT32DYNLIB) := FILEMODE= 755
-$(ROOT64DYNLIB) := FILEMODE= 755
+$(ROOTDYNLIB) := FILEMODE= 755
+$(ROOTDYNLIB64) := FILEMODE= 755
 
 $(DYNLIB1) :=	CTFMERGE_POST = $(CTFMERGE_LIB)
 
@@ -48,6 +47,6 @@ objs/%.o pics/%.o: ../common/%.c
 
 # Leaf target makefiles establish exactly what they will install.  Use of
 # ROOTLIBS will install both the default archive library and DYNLIB1,
-# use of ROOT64DYNLIB creates DYNLIB1 only.
+# use of ROOTDYNLIB64 creates DYNLIB1 only.
 
 .KEEP_STATE:

@@ -31,6 +31,4 @@ LIBS =		$(DYNLIB1)
 
 include		../../Makefile.targ
 
-# XXXARM: This looks weird, but because of the naming in Makefile.com
-# which we should fix.
-install:	all $(ROOT32DYNLIB)
+install:	all $(ROOTDYNLIB)
