@@ -699,7 +699,8 @@ final class WeightedLoadObjective extends AbstractObjective
                     int cpuid = (int) currentCPU.getLongProperty("cpu.sys_id");
                     if (allCPUData.containsKey(Integer.valueOf(cpuid))) {
                         LocalityGroup lg =
-                            (LocalityGroup) allCPUData.get(Integer.valueOf(cpuid));
+                            (LocalityGroup) allCPUData.get(
+                            Integer.valueOf(cpuid));
                         if (lgroupdata.containsKey(lg)) {
                             LGroupData cpulgp = (LGroupData) lgroupdata.get(lg);
                             cpulgp.incNumcpu();

@@ -308,8 +308,8 @@ final class DoubleStatistic extends AbstractStatistic
 		if (count == 0)
 			throw new IllegalArgumentException("Cannot derive a " +
 			    "snapshot from an empty iterator");
-		return (new DoubleStatistic(Double.valueOf(total / count), first,
-			last));
+		return (new DoubleStatistic(Double.valueOf(total / count),
+			first, last));
 	}
 }
 
@@ -424,7 +424,8 @@ final class UnsignedInt64Statistic extends AbstractStatistic
 
 	public Double getDoubleValue()
 	{
-		return (Double.valueOf(((UnsignedInt64) getValue()).longValue()));
+		return (Double.valueOf(
+		    ((UnsignedInt64) getValue()).longValue()));
 	}
 
 	public Long getLongValue()

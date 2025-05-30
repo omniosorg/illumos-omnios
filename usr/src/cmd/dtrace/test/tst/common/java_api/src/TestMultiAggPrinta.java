@@ -112,7 +112,8 @@ public class TestMultiAggPrinta {
 	consumer.addConsumerListener(new ConsumerAdapter() {
 	    public void dataReceived(DataEvent e) {
 		ProbeData data = e.getProbeData();
-		List <org.opensolaris.os.dtrace.Record> records = data.getRecords();
+		List <org.opensolaris.os.dtrace.Record> records =
+		    data.getRecords();
 		for (org.opensolaris.os.dtrace.Record r : records) {
 		    if (r instanceof ExitRecord) {
 			ExitRecord exitRecord = (ExitRecord)r;
