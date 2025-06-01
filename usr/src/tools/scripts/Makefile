@@ -37,6 +37,7 @@ SCRIPTS=	\
 SHFILES= \
 	build_cscope \
 	checkpaths \
+	check-gitignore \
 	cstyle \
 	elfcmp \
 	flg.flp \

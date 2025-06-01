@@ -9,16 +9,8 @@
 # http://www.illumos.org/license/CDDL.
 #
 
-#
-# Copyright 2025 Oxide Computer Company
-#
+# Copyright 2025 Richard Lowe
 
-# Note: this does not try to ignore all files in a fully built workspace.
-# Rather, you are expected to "make clobber" before running "git status".
-
-/closed
-/log
-/packages
-/proto
-/webrev
-/.vscode
+.make.state
+*.html
+*.svg

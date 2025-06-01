@@ -781,6 +781,13 @@ opt/onbld/bin/i386/smatch	i386
 opt/onbld/share/smatch		i386 sparc
 
 #
+# check-gitignore script is used only within the source tree
+#
+# (XXXARM: it being listed explicitly means we need to guard it from the
+# ARM build)
+opt/onbld/bin/check-gitignore	i386
+
+#
 # libdwarf is private for the moment
 #
 lib/amd64/libdwarf.so			i386

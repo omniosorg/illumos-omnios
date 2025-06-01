@@ -20,7 +20,9 @@ PICS=	$(OBJECTS:%=pics/%)
 $(PICS) := CFLAGS += -_gcc=-fPIC
 $(PICS) := CCASFLAGS += -_gcc=-fPIC
 
-$(OBJS) $(PICS): machine x86
+$(INTEL_BLD)DIRDEP = x86
+
+$(OBJS) $(PICS): machine $(DIRDEP)
 
 objs pics:
 	-@mkdir -p $@
