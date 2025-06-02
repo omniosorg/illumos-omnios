@@ -488,7 +488,8 @@ class SystemSolver implements Solver {
 						    get(res);
 						if (newImp > imp.longValue())
 							resImp.put(res,
-							    Long.valueOf(newImp));
+							    Long.valueOf(
+							    newImp));
 					} else
 						resImp.put(res,
 						    Long.valueOf(newImp));

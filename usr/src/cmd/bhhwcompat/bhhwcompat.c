@@ -273,7 +273,7 @@ main(int argc, char **argv)
 	}
 
 	if (errflg != 0 || optind > argc)
-		errx(EXIT_FAILURE, "Usage: bhhwcompat [-cs]");
+		errx(EXIT_FAILURE, "Usage: bhhwcompat [-s]");
 
 	if ((g_fd = open("/dev/" CPUID_SELF_NAME, O_RDONLY)) == -1)
 		err(EXIT_FAILURE, "Failed to open /dev/%s", CPUID_SELF_NAME);
