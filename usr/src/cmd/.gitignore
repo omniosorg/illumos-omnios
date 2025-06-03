@@ -1317,7 +1317,7 @@ ndmpstat/ndmpstat
 netadm/_pmtab
 netadm/_sactab
 netadm/_sysconfig
-netadm/etc/ttydefs.cleanup
+netadm/flash/ttydefs.cleanup
 netadm/iu.ap
 netadm/log
 netadm/ttydefs
