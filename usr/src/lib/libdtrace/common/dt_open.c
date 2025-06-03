@@ -1318,6 +1318,9 @@ alloc:
 	if (dtrace_setopt(dtp, "libdir", _dtrace_libdir) != 0)
 		return (set_open_errno(dtp, errp, dtp->dt_errno));
 
+	if (dtrace_setopt(dtp, "sysroot", "/") != 0)
+		return (set_open_errno(dtp, errp, dtp->dt_errno));
+
 	return (dtp);
 }
 

@@ -322,6 +322,8 @@ struct dtrace_hdl {
 	dtrace_epid_t dt_last_epid;	/* most recently consumed EPID */
 	uint64_t dt_last_timestamp;	/* most recently consumed timestamp */
 	boolean_t dt_has_sugar;	/* syntactic sugar used? */
+	const char *dt_target;	/* compiler target name */
+	const char *dt_sysroot;	/* sysroot for compiler */
 };
 
 /*

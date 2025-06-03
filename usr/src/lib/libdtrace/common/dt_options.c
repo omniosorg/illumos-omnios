@@ -486,6 +486,22 @@ dt_opt_syslibdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 /*ARGSUSED*/
 static int
+dt_opt_sysroot(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtp->dt_sysroot = arg;
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
+dt_opt_target(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtp->dt_target = arg;
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
 dt_opt_tree(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	int m;
@@ -960,6 +976,8 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "stdc", dt_opt_stdc },
 	{ "strip", dt_opt_dflags, DTRACE_D_STRIP },
 	{ "syslibdir", dt_opt_syslibdir },
+	{ "sysroot", dt_opt_sysroot },
+	{ "target", dt_opt_target },
 	{ "tree", dt_opt_tree },
 	{ "tregs", dt_opt_tregs },
 	{ "udefs", dt_opt_invcflags, DTRACE_C_UNODEF },
