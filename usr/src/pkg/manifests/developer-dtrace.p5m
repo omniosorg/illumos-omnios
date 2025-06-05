@@ -155,9 +155,12 @@ dir  path=usr/lib/devfsadm group=sys
 dir  path=usr/lib/devfsadm/linkmod group=sys
 file path=usr/lib/devfsadm/linkmod/SUNW_dtrace_link.so group=sys
 dir  path=usr/lib/dtrace
-$(not_aarch64)dir path=usr/lib/dtrace/64
-$(not_aarch64)file path=usr/lib/dtrace/64/drti.o mode=0444
-$(not_aarch64)file path=usr/lib/dtrace/64/libdtrace_forceload.so mode=0555
+$(MULTILIB_ONLY)dir path=usr/lib/dtrace/$(ARCH64)
+$(MULTILIB_ONLY)file path=usr/lib/dtrace/$(ARCH64)/drti.o mode=0444
+$(MULTILIB_ONLY)file path=usr/lib/dtrace/$(ARCH64)/libdtrace_forceload.so \
+    mode=0555
+$(MULTILIB_ONLY)link path=usr/lib/dtrace/64 target=$(ARCH64)
+$(NOT_MULTILIB)link path=usr/lib/dtrace/64 target=.
 file path=usr/lib/dtrace/drti.o mode=0444
 file path=usr/lib/dtrace/errno.d mode=0444
 file path=usr/lib/dtrace/fc.d mode=0444

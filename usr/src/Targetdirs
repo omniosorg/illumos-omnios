@@ -288,6 +288,7 @@ DIRS=							\
 	/usr/lib/class/SDC				\
 	/usr/lib/class/TS				\
 	/usr/lib/crypto					\
+	/usr/lib/dtrace					\
 	/usr/lib/elfedit				\
 	/usr/lib/fm					\
 	/usr/lib/font					\
@@ -441,7 +442,7 @@ DIRS=							\
 	/var/tsol					\
 	/var/tsol/doors
 
-$(ENABLE_JAVA)DIRS += 	/usr/lib/pool
+$(ENABLE_JAVA)DIRS +=	/usr/lib/pool
 
 sparcv9_DIRS64=				\
 	/platform/sun4u			\
@@ -473,6 +474,7 @@ DIRSMULTILIB= \
 	/usr/lib/$(MACH64)/gss			\
 	/usr/lib/brand/sn1/$(MACH64)		\
 	/usr/lib/brand/solaris10/$(MACH64)	\
+	/usr/lib/dtrace/$(MACH64)		\
 	/usr/lib/elfedit/$(MACH64)		\
 	/usr/lib/fm/$(MACH64)			\
 	/usr/lib/fs/nfs/$(MACH64)		\
@@ -553,8 +555,9 @@ SYM.DIRS64= \
 	/lib/secure/64			\
 	/usr/lib/64			\
 	/usr/lib/brand/sn1/64		\
+	/usr/lib/dtrace/64		\
 	/usr/lib/elfedit/64		\
-	/usr/lib/fm/64 \
+	/usr/lib/fm/64			\
 	/usr/lib/link_audit/64		\
 	/usr/lib/lwp/64			\
 	/usr/lib/secure/64		\
@@ -657,6 +660,7 @@ $(BUILD64) $(ROOT)/lib/64:=		LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/lib/crypto/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/lib/secure/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/64:=		LINKDEST=$(MACH64)
+$(BUILD64) $(ROOT)/usr/lib/dtrace/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/elfedit/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/brand/sn1/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/brand/solaris10/64:=	LINKDEST=$(MACH64)
@@ -675,6 +679,7 @@ $(AARCH64_BLD) $(ROOT)/lib/64:=		LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/lib/crypto/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/lib/secure/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/64:=		LINKDEST=.
+$(AARCH64_BLD) $(ROOT)/usr/lib/dtrace/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/elfedit/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/brand/sn1/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/brand/solaris10/64:=	LINKDEST=.

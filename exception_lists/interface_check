@@ -65,10 +65,7 @@ PLUGIN		^usr/lib/sysevent/modules
 PLUGIN		^usr/perl5/5\.[^\\]*/lib
 PLUGIN		^usr/platform
 PLUGIN		^usr/sadm/lib/wbem
-# We unfortunately can't use MACH() here, since .../64/ is literal, and not a
-# link to to amd64 or sparcv9
-PLUGIN		^usr/lib/dtrace/libdtrace_forceload\.so$
-PLUGIN		^usr/lib/dtrace/64/libdtrace_forceload\.so$
+PLUGIN		^usr/lib/MACH(dtrace)/libdtrace_forceload\.so$
 
 # Objects that are not expected to contain versioning information.
 # Note that PLUGIN objects are automatically exempt from this,
