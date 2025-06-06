@@ -257,7 +257,7 @@ TOUCH=		/usr/bin/touch
 WC=		/usr/bin/wc
 XARGS=		/usr/bin/xargs
 ELFEDIT=	/usr/bin/elfedit
-DTRACE=		/usr/sbin/dtrace -xnolibs
+DTRACE=		/usr/sbin/dtrace -xnolibs -xsyslibdir=$(ROOT)/usr/lib/dtrace -xldpath=$(LD)
 UNIQ=		/usr/bin/uniq
 TAR=		/usr/bin/tar
 ASTBINDIR=	/usr/ast/bin
