@@ -701,6 +701,10 @@ opt/onbld/lib/i386/libsqlite-sys.so.2.8.15	i386
 opt/onbld/lib/i386/libuutil.so			i386
 opt/onbld/lib/i386/libuutil.so.1		i386
 
+# Private DTrace library
+opt/onbld/lib/i386/64/libdtrace.so		i386
+opt/onbld/lib/i386/64/libdtrace.so.1		i386
+
 #
 # Private socket filter API
 #

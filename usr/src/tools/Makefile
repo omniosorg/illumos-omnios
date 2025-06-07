@@ -81,8 +81,10 @@ UNSHIPPED_SUBDIRS =		\
 	$(SGSLIBLDDBG)		\
 	$(SGSLIBLD)		\
 	$(SGSLD)		\
+	dtrace			\
 	geniconvtbl		\
 	localedef		\
+	libdtrace		\
 	mandoc			\
 	rpcgen			\
 	tic			\
@@ -102,6 +104,10 @@ SUBDIRS=			\
 	$($(MACH)_SUBDIRS)	\
 	$(COMMON_SUBDIRS)	\
 	$(UNSHIPPED_SUBDIRS)
+
+# dtrace needs libdtrace and the elf world
+dtrace: libdtrace
+libdtrace: sgs
 
 include Makefile.tools
 

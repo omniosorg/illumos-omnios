@@ -257,7 +257,7 @@ TOUCH=		/usr/bin/touch
 WC=		/usr/bin/wc
 XARGS=		/usr/bin/xargs
 ELFEDIT=	/usr/bin/elfedit
-DTRACE=		/usr/sbin/dtrace -xnolibs -xsyslibdir=$(ROOT)/usr/lib/dtrace -xldpath=$(LD)
+DTRACE=		$(ONBLD_TOOLS)/bin/$(NATIVE_MACH64)/dtrace
 UNIQ=		/usr/bin/uniq
 TAR=		/usr/bin/tar
 ASTBINDIR=	/usr/ast/bin
@@ -788,6 +788,15 @@ aarch64_LD_TARGET =	$(MACH)
 LD_TARGET =	-z target=$($(MACH)_LD_TARGET)
 LD_TARGET64 =	-z target=$($(MACH)_LD_TARGET)
 
+i386_DTRACE_TARGET=	x86
+aarch64_DTRACE_TARGET=	aarch64
+DTRACE_TARGET=		-x target=$($(MACH)_DTRACE_TARGET) -32
+DTRACE_TARGET_64=	-x target=$($(MACH)_DTRACE_TARGET) -64
+
+# The DTrace sysroot is the proto area, not the sysroot, as we want to use the
+# workspace pieces.
+DTRACE_FLAGS= -xnolibs -G -xsysroot=$(ROOT) -xldpath=$(LD)
+
 #
 # Define compilation macros.
 #
@@ -797,8 +806,8 @@ COMPILE.cc=	$(CCC) $(CCFLAGS) $(CPPFLAGS) -c
 COMPILE64.cc=	$(CCC) $(CCFLAGS64) $(CPPFLAGS) -c
 COMPILE.s=	$(AS) $(ASFLAGS) $(AS_CPPFLAGS) -c
 COMPILE64.s=	$(AS) $(ASFLAGS64) $(AS_CPPFLAGS) -c
-COMPILE.d=	$(DTRACE) -G -32
-COMPILE64.d=	$(DTRACE) -G -64
+COMPILE.d=	$(DTRACE) $(DTRACE_TARGET) $(DTRACE_FLAGS)
+COMPILE64.d=	$(DTRACE) $(DTRACE_TARGET_64) $(DTRACE_FLAGS)
 COMPILE.b=	$(ELFWRAP) $(ELFWRAP_FLAGS$(CLASS))
 COMPILE64.b=	$(ELFWRAP) $(ELFWRAP_FLAGS$(CLASS))
 

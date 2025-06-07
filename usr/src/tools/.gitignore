@@ -46,12 +46,15 @@ ctf/stabs/i386/ctfstabs
 cw/cw
 elfextract/elfextract
 env/illumos
+dtrace/dtrace
 find_elf/find_elf
 findunref/exception_list
 findunref/findunref
 geniconvtbl/geniconvtbl
 install.bin/install.bin
 lex/lex
+libdtrace/*.[ch]
+libdtrace/y.output
 lintdump/lintdump
 localedef/localedef
 make/bin/make
