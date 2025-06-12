@@ -1010,7 +1010,7 @@ alloc:
 	else if (flags & DTRACE_O_ILP32)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_ILP32;
 
-#ifdef __sparc
+#if defined(__sparc)
 	/*
 	 * On SPARC systems, __sparc is always defined for <sys/isa_defs.h>
 	 * and __sparcv9 is defined if we are doing a 64-bit compile.
@@ -1021,9 +1021,7 @@ alloc:
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64 &&
 	    dt_cpp_add_arg(dtp, "-D__sparcv9") == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
-#endif
-
-#ifdef __x86
+#elif defined(__x86)
 	/*
 	 * On x86 systems, __i386 is defined for <sys/isa_defs.h> for 32-bit
 	 * compiles and __amd64 is defined for 64-bit compiles.  Unlike SPARC,
@@ -1036,14 +1034,13 @@ alloc:
 		if (dt_cpp_add_arg(dtp, "-D__i386") == NULL)
 			return (set_open_errno(dtp, errp, EDT_NOMEM));
 	}
-#endif
-
-#ifdef __aarch64__
+#elif defined(__aarch64__)
 	if (dt_cpp_add_arg(dtp, "-D__aarch64__") == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
-	if (dt_cpp_add_arg(dtp, "-D__aarch64") == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+#else
+#error Unknown ISA
 #endif
+
 	if (dtp->dt_conf.dtc_difversion < DIF_VERSION)
 		return (set_open_errno(dtp, errp, EDT_DIFVERS));
 

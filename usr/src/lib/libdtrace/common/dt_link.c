@@ -30,8 +30,8 @@
 #define	ELF_TARGET_ALL
 #include <elf.h>
 
-#include <sys/types.h>
 #include <sys/sysmacros.h>
+#include <sys/types.h>
 
 #include <unistd.h>
 #include <strings.h>
@@ -44,6 +44,7 @@
 #include <errno.h>
 #include <wait.h>
 #include <assert.h>
+#include <upanic.h>
 #include <sys/ipc.h>
 
 #include <dt_impl.h>
@@ -229,8 +230,9 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 			    dofr[j].dofr_offset + 4;
 			rel->r_info = ELF32_R_INFO(count + dep->de_global,
 			    R_SPARC_32);
-/* XXXARM: No actual 32bit ISA here */
 #elif defined(__aarch64__)
+			upanic("aarch64 has no 32-bit ISA",
+			    strlen("aarch64 has no 32-bit ISA"));
 #else
 #error unknown ISA
 #endif
@@ -498,9 +500,11 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	elf_file.ehdr.e_machine = EM_SPARC;
 #elif defined(__i386) || defined(__amd64)
 	elf_file.ehdr.e_machine = EM_386;
-#elif defined(__aarch64__)	/* XXXARM: Not actually 32bit */
+#elif defined(__aarch64__)
+			upanic("aarch64 has no 32-bit ISA",
+			    strlen("aarch64 has no 32-bit ISA"));
 #else
-#error Unknown platform
+#error Unknown ISA
 #endif
 	elf_file.ehdr.e_version = EV_CURRENT;
 	elf_file.ehdr.e_shoff = sizeof (Elf32_Ehdr);
@@ -641,7 +645,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 #elif defined(__aarch64__)
 	elf_file.ehdr.e_machine = EM_AARCH64;
 #else
-#error Unknown platform
+#error Unknown ISA
 #endif
 	elf_file.ehdr.e_version = EV_CURRENT;
 	elf_file.ehdr.e_shoff = sizeof (Elf64_Ehdr);
@@ -662,7 +666,6 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 
 	shp = &elf_file.shdr[ESHDR_DOF];
 	shp->sh_name = 11; /* DTRACE_SHSTRTAB64[11] = ".SUNW_dof" */
-	/* XXXARM: Hayashi made this writeable */
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SUNW_dof;
 	shp->sh_offset = off;
@@ -1145,7 +1148,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 #elif defined(__i386) || defined(__amd64)
 		emachine1 = emachine2 = EM_386;
 #elif defined(__aarch64__)
-		assert(0 && "Trying to create 32bit AArch64 DTrace object");
+			upanic("aarch64 has no 32-bit ISA",
+			    strlen("aarch64 has no 32-bit ISA"));
 #endif
 		symsize = sizeof (Elf32_Sym);
 	}
@@ -1517,16 +1521,6 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				rsym.st_shndx = SHN_SUNW_IGNORE;
 				(void) gelf_update_sym(data_sym, ndx, &rsym);
 			}
-
-			if (shdr_rel.sh_type == SHT_RELA) {
-				rela.r_info = GELF_R_INFO(ndx, 0);
-				gelf_update_rela(data_rel, i, &rela);
-			} else {
-				GElf_Rel rel;
-				rel.r_offset = rela.r_offset;
-				rel.r_info = GELF_R_INFO(ndx, 0);
-				gelf_update_rel(data_rel, i, &rel);
-			}
 		}
 	}
 
@@ -1678,51 +1672,13 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		int found = 0;
 		dt_dirpath_t *dirp;
 
-				for (dirp = dt_list_next(&dtp->dt_lib_path);
-		    dirp != NULL; dirp = dt_list_next(dirp)) {
-
-#if defined(_MULTI_DATAMODEL)
-			if (dtp->dt_oflags & DTRACE_O_LP64) {
-				(void) snprintf(drti, sizeof (drti),
-				    "%s/64/drti.o", dirp->dir_path);
-			} else
-#endif
-			{
-				(void) snprintf(drti, sizeof (drti),
-				    "%s/drti.o", dirp->dir_path);
-			}
-
-			int drtifd = open64(drti, O_RDONLY);
-			if (drtifd >= 0) {
-				Elf *elf = elf_begin(drtifd, ELF_C_READ, NULL);
-				if (elf) {
-					GElf_Ehdr ehdr;
-					if (elf_kind(elf) == ELF_K_ELF &&
-					    gelf_getehdr(elf, &ehdr) != NULL) {
-						if (ehdr.e_machine ==
-#if defined(__sparc)
-						    EM_SPARCV9
-#elif (defined(__i386) || defined(__amd64))
-						    EM_AMD64
-#elif defined(__aarch64__)
-						    EM_AARCH64
-#else
-#error Unknown platform
-#endif
-						   ) {
-							found = 1;
-						}
-					}
-					elf_end(elf);
-				}
-				close(drtifd);
-			}
-			if (found)
-				break;
+		if (dtp->dt_oflags & DTRACE_O_LP64) {
+			(void) snprintf(drti, sizeof (drti),
+			    "%s/64/drti.o", _dtrace_libdir);
+		} else {
+			(void) snprintf(drti, sizeof (drti),
+			    "%s/drti.o", _dtrace_libdir);
 		}
-		if (found == 0)
-			return (dt_link_error(dtp, NULL, -1, NULL,
-				    "drti.o not found\n"));
 
 		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, file, fd,
 		    drti) + 1;
