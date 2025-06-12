@@ -20,9 +20,13 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2017 Hayashi Naoyuki
  * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ */
+
+/*
+ * Copyright 2017 Hayashi Naoyuki
+ * Copyright 2025 Oxide Computer Company
  */
 
 /*
@@ -109,7 +113,7 @@ get_progbits_size(struct module *mp, struct proginfo *tp, struct proginfo *dp,
 	 * loop through sections to find out how much space we need
 	 * for text, data, (also bss that is already assigned)
 	 */
-	for (shn = 1; shn < mp->hdr.e_shnum; shn++) {
+	for (shn = 1; shn < mp->shnum; shn++) {
 		shp = (Shdr *)(mp->shdrs + shn * mp->hdr.e_shentsize);
 		if (!(shp->sh_flags & SHF_ALLOC))
 			continue;
