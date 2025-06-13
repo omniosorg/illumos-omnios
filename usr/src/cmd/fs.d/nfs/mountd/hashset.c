@@ -208,10 +208,7 @@ h_put(HASHSET h, const void *key)
 	h->h_table[indx] = e;
 	h->h_count++;
 
-	/* XXXARM: No dtrace yet */
-#ifndef __aarch64__
 	DTRACE_PROBE2(mountd, hashset, h->h_count, h->h_loadFactor);
-#endif
 
 	return (NULL);
 }

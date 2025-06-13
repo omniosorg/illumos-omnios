@@ -681,7 +681,7 @@ send_response:
 /* ARGSUSED */
 void
 nfsmapid_func(void *cookie, char *argp, size_t arg_size,
-						door_desc_t *dp, uint_t n_desc)
+    door_desc_t *dp, uint_t n_desc)
 {
 	struct mapid_arg	*mapargp;
 	struct mapid_res	mapres;
@@ -887,10 +887,7 @@ cb_update_domain(void *arg)
 {
 	char	*new_dname = (char *)arg;
 
-	/* XXXARM: No dtrace yet, especially cross-dtrace */
-#ifndef __aarch64__
 	DTRACE_PROBE1(nfsmapid, daemon__domain, new_dname);
-#endif
 	update_diag_file(new_dname);
 	idmap_kcall(FLUSH_KCACHES_ONLY);
 

@@ -306,10 +306,7 @@ do_logging_queue(logging_data *lq)
 		struct cln cln;
 
 		if (lq->ld_host == NULL) {
-			/* XXXARM: no dtrace */
-#ifndef __aarch64__
 			DTRACE_PROBE(mountd, name_by_lazy);
-#endif
 			cln_init_lazy(&cln, lq->ld_netid, lq->ld_nb);
 			host = cln_gethost(&cln);
 		} else
@@ -332,10 +329,7 @@ do_logging_queue(logging_data *lq)
 		(void) mutex_unlock(&logging_queue_lock);
 	}
 
-	/* XXXARM: no dtrace */
-#ifndef __aarch64__
 	DTRACE_PROBE1(mountd, logging_cleared, cleared);
-#endif
 }
 
 static void *
@@ -1134,18 +1128,12 @@ enqueue_logging_data(char *host, SVCXPRT *transp, char *path,
 	 * We might not yet have the host...
 	 */
 	if (host) {
-		/* XXXARM: No dtrace */
-#ifndef __aarch64__
 		DTRACE_PROBE1(mountd, log_host, host);
-#endif
 		lq->ld_host = strdup(host);
 		if (lq->ld_host == NULL)
 			goto cleanup;
 	} else {
-		/* XXXARM: No dtrace */
-#ifndef __aarch64__
 		DTRACE_PROBE(mountd, log_no_host);
-#endif
 
 		lq->ld_netid = strdup(transp->xp_netid);
 		if (lq->ld_netid == NULL)
@@ -1157,17 +1145,10 @@ enqueue_logging_data(char *host, SVCXPRT *transp, char *path,
 
 		nb = svc_getrpccaller(transp);
 		if (nb == NULL) {
-			/* XXXARM: no dtrace */
-#ifndef __aarch64__
 			DTRACE_PROBE(mountd, e__nb__enqueue);
-#endif
 			goto cleanup;
 		}
-
-		/* XXXARM: No dtrace */
-#ifndef __aarch64__
 		DTRACE_PROBE(mountd, nb_set_enqueue);
-#endif
 
 		lq->ld_nb->maxlen = nb->maxlen;
 		lq->ld_nb->len = nb->len;
@@ -1389,10 +1370,8 @@ mount(struct svc_req *rqstp)
 	 * error message.
 	 */
 	if (verbose) {
-		/* XXXARM: no dtrace */
-#ifndef __aarch64__
 		DTRACE_PROBE(mountd, name_by_verbose);
-#endif
+
 		if ((host = cln_gethost(&cln)) == NULL) {
 			/*
 			 * We failed to get a name for the client, even
@@ -1624,17 +1603,12 @@ reply:
 	    audit_status, error);
 	if (enqueued == FALSE) {
 		if (host == NULL) {
-			/* XXXARM: no dtrace */
-#ifndef __aarch64__
 			DTRACE_PROBE(mountd, name_by_in_thread);
-#endif
 			host = cln_gethost(&cln);
 		}
 
-		/* XXXARM: no dtrace */
-#ifndef __aarch64__
 		DTRACE_PROBE(mountd, logged_in_thread);
-#endif
+
 		audit_mountd_mount(host, path, audit_status); /* BSM */
 		if (!error)
 			mntlist_new(host, rpath); /* add entry to mount list */

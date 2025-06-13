@@ -38,8 +38,8 @@ LOCAL	  =	mountd.o netgroup.o rmtab.o nfsauth.o \
 OBJS	  =	$(FSLIB) $(LOCAL) $(COMMON)
 SRCS	  =	$(LOCAL:%.o=%.c) $(FSLIBSRC) ../lib/nfs_sec.c \
 		../lib/sharetab.c ../lib/daemon.c ../lib/smfcfg.c
-$(NOT_AARCH64_BLD)DSRC	  =	mountd_dt.d
-$(NOT_AARCH64_BLD)DOBJ	  =	$(DSRC:%.d=%.o)
+DSRC	  =	mountd_dt.d
+DOBJ	  =	$(DSRC:%.d=%.o)
 LDLIBS	 +=	-lrpcsvc -lnsl -lbsm -lsocket -linetutil -ltsnet -ltsol
 LDLIBS	 +=	-lnvpair -lscf -lumem
 CPPFLAGS +=	-D_REENTRANT -I../lib
@@ -49,8 +49,11 @@ CERRWARN +=	$(CNOWARN_UNINIT)
 # unreachable code in mountd.c is to please the C compiler.
 mountd.o :=	SMOFF += check_unreachable
 
+# XXXARM: This is ugly, but I'm not having better ideas
+$(AARCH64_BLD)COMPILE.d = $(COMPILE64.d)
+
 $(TYPEPROG):	$(OBJS)
-		$(NOT_AARCH64_BLD)$(COMPILE.d) -s $(DSRC) -o $(DOBJ) $(OBJS)
+		$(COMPILE.d) -s $(DSRC) -o $(DOBJ) $(OBJS)
 		$(LINK.c) -o $@ $(DOBJ) $(OBJS) $(LDLIBS)
 		$(POST_PROCESS)
 
