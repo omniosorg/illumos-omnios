@@ -750,7 +750,8 @@ scsi:		libfru libumem libdevid libdevinfo
 smbclnt:	libfakekernel pkcs11
 smbsrv:		libxnet libpthread librt libshare libidmap pkcs11 libsqlite \
 		libcryptoutil libreparse libcmdutils libresolv2 libsmbfs \
-		libuuid libfakekernel libads libgss libldap5 krb5 libmlrpc
+		libuuid libfakekernel libads libgss libldap5 krb5 libmlrpc \
+		libdtrace
 storage:	libdevice libdevinfo libdevid
 sun_fc:		libdevinfo libsysevent
 sun_sas:	libdevinfo libsysevent libkstat libdevid

@@ -80,7 +80,7 @@ CPPFLAGS += $(INCS)
 
 LDFLAGS += $(ZNOLAZYLOAD)
 LDFLAGS += '-R$$ORIGIN' '-R$$ORIGIN/..'
-LDLIBS += -L$(ROOT)/usr/lib/smbsrv
+LDLIBS += -L$(ROOT)/usr/lib/smbsrv -L$(ADJUNCT_PROTO)/usr/lib/mps
 LDLIBS += -lfksmbsrv -lfakekernel
 # prefer to keep libs ordered by dependence
 LDLIBS += -lmlsvc -lmlrpc -lsmbns -lsmb -lsmbfs -lgss

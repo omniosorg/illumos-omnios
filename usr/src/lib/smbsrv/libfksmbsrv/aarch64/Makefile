@@ -22,26 +22,12 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# Copyright 2013-2021 Tintri by DDN, Inc. All rights reserved.
+# Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
 #
 
-include $(SRC)/Makefile.master
+MACH_LDLIBS +=	-L$(ROOT)/usr/lib/smbsrv/
 
-SUBDIRS =		\
-	bind-helper	\
-	dtrace		\
-	fksmbd		\
-	nvlprint	\
-	smbadm		\
-	smbd		\
-	smbstat		\
-	test-crypt	\
-	test-msgbuf	\
-	testoplock
+include ../Makefile.com
+include ../../../Makefile.lib.64
 
-MSGSUBDIRS = smbadm smbstat
-
-
-
-include ../Makefile.cmd
-include ./Makefile.subdirs
+install: all $(ROOTLIBS) $(ROOTLINKS)

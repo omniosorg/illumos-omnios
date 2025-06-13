@@ -533,11 +533,12 @@ usr/lib/amd64/libfakekernel.so			i386
 #
 usr/lib/mdb/proc/libfksmbsrv.so			i386 sparc
 usr/lib/mdb/proc/amd64/libfksmbsrv.so		i386
+usr/lib/mdb/proc/aarch64/libfksmbsrv.so		aarch64
 usr/lib/mdb/proc/amd64/libmlsvc.so		i386
 usr/lib/smbsrv/bind-helper			i386 sparc aarch64
-usr/lib/smbsrv/fksmbd				i386 sparc
-usr/lib/smbsrv/libfksmbsrv.so			i386 sparc
-usr/lib/smbsrv/libfksmbsrv.so.1			i386 sparc
+usr/lib/smbsrv/fksmbd				i386 sparc aarch64
+usr/lib/smbsrv/libfksmbsrv.so			i386 sparc aarch64
+usr/lib/smbsrv/libfksmbsrv.so.1			i386 sparc aarch64
 usr/lib/smbsrv/amd64/libfksmbsrv.so		i386
 usr/lib/smbsrv/amd64/libfksmbsrv.so.1		i386
 usr/lib/smbsrv/libmlsvc.so			i386 sparc aarch64
@@ -549,10 +550,10 @@ usr/lib/smbsrv/libsmbns.so			i386 sparc aarch64
 usr/lib/smbsrv/amd64/libsmbns.so		i386
 usr/lib/smbsrv/amd64/libsmbns.so.1		i386
 usr/lib/smbsrv/nvlprint				i386 sparc aarch64
-usr/lib/smbsrv/test-msgbuf			i386 sparc
-usr/lib/smbsrv/test-decrypt			i386 sparc
-usr/lib/smbsrv/test-encrypt			i386 sparc
-usr/lib/smbsrv/testoplock			i386 sparc
+usr/lib/smbsrv/test-msgbuf			i386 sparc aarch64
+usr/lib/smbsrv/test-decrypt			i386 sparc aarch64
+usr/lib/smbsrv/test-encrypt			i386 sparc aarch64
+usr/lib/smbsrv/testoplock			i386 sparc aarch64
 #
 #
 # Private/Internal 64-bit libraries of smbsrv. Do not ship.

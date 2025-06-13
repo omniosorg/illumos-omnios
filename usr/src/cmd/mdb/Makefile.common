@@ -40,6 +40,7 @@ COMMON_MODULES_PROC =	\
 	libc		\
 	libfknsmb	\
 	libfksmbfs	\
+	libfksmbsrv	\
 	libmlsvc	\
 	libnvpair	\
 	libproc		\
@@ -51,10 +52,6 @@ COMMON_MODULES_PROC =	\
 	list		\
 	mdb_ds		\
 	mdb_test
-
-# XXXARM: Needs cross dtrace
-$(NOT_AARCH64_BLD)COMMON_MODULES_PROC +=	\
-	libfksmbsrv
 
 #
 # MDB modules used for debugging user processes which are only 64-bit
