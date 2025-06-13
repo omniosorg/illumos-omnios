@@ -40,17 +40,7 @@
 	ASSERT(!((readers) & URW_WRITE_LOCKED) ||	\
 		((readers) & ~URW_HAS_WAITERS) == URW_WRITE_LOCKED)
 
-/*
- * XXXARM: We need a cross-dtrace -G but don't have one, so all we can do is
- * kill the probes for now
- */
-#if defined(__aarch64__)
-#define	DTRACE_PROBE1(provider, name, arg1)
-#define DTRACE_PROBE2(provider, name, arg1, arg2)
-#define DTRACE_PROBE3(provider, name, arg1, arg2, arg3)
-#else	/* __aarch64__ */
 #include <sys/sdt.h>
-#endif
 
 /*
  * Find/allocate an entry for rwlp in our array of rwlocks held for reading.

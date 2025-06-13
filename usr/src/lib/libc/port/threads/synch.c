@@ -31,19 +31,7 @@
 #include "thr_uberdata.h"
 #include <sys/rtpriocntl.h>
 #include <atomic.h>
-
-/*
- * XXXARM: We need a cross-dtrace -G but don't have one, so all we can do is
- * kill the probes for now
- */
-#if defined(__aarch64__)
-#define	DTRACE_PROBE1(provider, name, arg1)
-#define DTRACE_PROBE2(provider, name, arg1, arg2)
-#define DTRACE_PROBE3(provider, name, arg1, arg2, arg3)
-#else	/* __aarch64__ */
 #include <sys/sdt.h>
-#endif
-
 
 #if defined(DEBUG)
 #define	INCR32(x)	(((x) != UINT32_MAX)? (x)++ : 0)

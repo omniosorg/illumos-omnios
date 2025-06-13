@@ -983,9 +983,8 @@ MOSTOBJS=			\
 	$(VALUES)		\
 	$(BITOBJS)
 
-# XXXARM: Enabling this needs a cross dtrace(8)
 TRACEOBJS=			\
-#	plockstat.o
+	plockstat.o
 
 # NOTE:	libc.so.1 must be linked with the minimal crti.o and crtn.o
 # modules whose source is provided in the $(SRC)/lib/crt directory.
