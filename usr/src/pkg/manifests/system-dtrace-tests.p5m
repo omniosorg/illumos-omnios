@@ -917,7 +917,7 @@ file path=opt/SUNWdtrt/tst/common/json/tst.strsize.d mode=0444
 file path=opt/SUNWdtrt/tst/common/json/tst.strsize.d.out mode=0444
 file path=opt/SUNWdtrt/tst/common/json/tst.usdt.d mode=0444
 file path=opt/SUNWdtrt/tst/common/json/tst.usdt.d.out mode=0444
-$(not_aarch64)file path=opt/SUNWdtrt/tst/common/json/tst.usdt.exe mode=0555
+file path=opt/SUNWdtrt/tst/common/json/tst.usdt.exe mode=0555
 dir  path=opt/SUNWdtrt/tst/common/lexer
 file path=opt/SUNWdtrt/tst/common/lexer/err.D_CHR_NL.char.d mode=0444
 file path=opt/SUNWdtrt/tst/common/lexer/err.D_CHR_NULL.char.d mode=0444
@@ -2010,9 +2010,9 @@ file path=opt/SUNWdtrt/tst/common/union/tst.UnionInside.d mode=0444
 dir  path=opt/SUNWdtrt/tst/common/usdt
 file path=opt/SUNWdtrt/tst/common/usdt/tst.andpid.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.argmap.d mode=0444
-$(not_aarch64)file path=opt/SUNWdtrt/tst/common/usdt/tst.argmap.exe mode=0555
+file path=opt/SUNWdtrt/tst/common/usdt/tst.argmap.exe mode=0555
 file path=opt/SUNWdtrt/tst/common/usdt/tst.args.d mode=0444
-$(not_aarch64)file path=opt/SUNWdtrt/tst/common/usdt/tst.args.exe mode=0555
+file path=opt/SUNWdtrt/tst/common/usdt/tst.args.exe mode=0555
 file path=opt/SUNWdtrt/tst/common/usdt/tst.badguess.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.corruptenv.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.deadstub.ksh mode=0444
@@ -2030,13 +2030,13 @@ file path=opt/SUNWdtrt/tst/common/usdt/tst.entryreturn.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.entryreturn.ksh.out mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.fork.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.fork.ksh.out mode=0444
-$(not_aarch64)file path=opt/SUNWdtrt/tst/common/usdt/tst.forker.exe mode=0555
+file path=opt/SUNWdtrt/tst/common/usdt/tst.forker.exe mode=0555
 file path=opt/SUNWdtrt/tst/common/usdt/tst.forker.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.guess32.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.guess64.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.header.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.include.ksh mode=0444
-$(not_aarch64)file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe.exe mode=0555
+file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe.exe mode=0555
 file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe1.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.lazyprobe2.ksh mode=0444
 file path=opt/SUNWdtrt/tst/common/usdt/tst.linkpriv.ksh mode=0444

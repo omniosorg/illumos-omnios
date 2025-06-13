@@ -73,8 +73,7 @@ CSRCS = \
 	ustack/tst.bigstack.c \
 	ustack/tst.spin.c
 
-# XXXARM: no cross-dtrace
-$(NOT_AARCH64_BLD)CSRCS +=	\
+CSRCS +=			\
 	json/tst.usdt.c		\
 	usdt/tst.argmap.c	\
 	usdt/tst.args.c		\
@@ -2770,6 +2769,9 @@ json/usdt.h: json/usdt.d
 	$(DTRACE) -h -s json/usdt.d -o json/usdt.h
 
 CLOBBERFILES +=	json/usdt.h
+
+# XXXARM: This is ugly, but I'm not having better ideas
+$(AARCH64_BLD)COMPILE.d= $(COMPILE64.d)
 
 json/usdt.o: json/usdt.d json/tst.usdt.o
 	$(COMPILE.d) -o json/usdt.o -s json/usdt.d json/tst.usdt.o
