@@ -121,9 +121,6 @@ extern void dprintf_setup(int *argc, char **argv);
  *     {printf("%u %p\n", arg1, arg2);}
  */
 
-/* XXXARM: We don't have a cross DTrace so we suffer */
-#ifndef __aarch64__
-
 #ifdef DTRACE_PROBE
 #undef	DTRACE_PROBE
 #endif	/* DTRACE_PROBE */
@@ -163,37 +160,6 @@ extern void dprintf_setup(int *argc, char **argv);
  * "return (SET_ERROR(log_error(EINVAL, info)));" would log the error twice).
  */
 #define	SET_ERROR(err) (ZFS_SET_ERROR(err), err)
-
-#else  /* __aarch64__ */
-
-#ifdef DTRACE_PROBE
-#undef	DTRACE_PROBE
-#endif	/* DTRACE_PROBE */
-#define	DTRACE_PROBE(a)
-
-#ifdef DTRACE_PROBE1
-#undef	DTRACE_PROBE1
-#endif	/* DTRACE_PROBE1 */
-#define	DTRACE_PROBE1(a, b, c)
-
-#ifdef DTRACE_PROBE2
-#undef	DTRACE_PROBE2
-#endif	/* DTRACE_PROBE2 */
-#define	DTRACE_PROBE2(a, b, c, d, e)
-
-#ifdef DTRACE_PROBE3
-#undef	DTRACE_PROBE3
-#endif	/* DTRACE_PROBE3 */
-#define	DTRACE_PROBE3(a, b, c, d, e, f, g)
-
-#ifdef DTRACE_PROBE4
-#undef	DTRACE_PROBE4
-#endif	/* DTRACE_PROBE4 */
-#define	DTRACE_PROBE4(a, b, c, d, e, f, g, h, i)
-
-#define	SET_ERROR(err) err
-
-#endif	/* __aarch64__ */
 
 /*
  * Threads
