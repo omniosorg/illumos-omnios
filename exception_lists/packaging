@@ -604,11 +604,11 @@ usr/lib/mdb/proc/amd64/libfksmbfs.so	i386
 usr/lib/mdb/proc/aarch64/libfknsmb.so	aarch64
 usr/lib/mdb/proc/aarch64/libfksmbfs.so	aarch64
 usr/lib/smbfs/amd64			i386
-usr/lib/smbfs/fksmbcl			i386 sparc
-usr/lib/smbfs/libfknsmb.so		i386 sparc
-usr/lib/smbfs/libfknsmb.so.1		i386 sparc
-usr/lib/smbfs/libfksmbfs.so		i386 sparc
-usr/lib/smbfs/libfksmbfs.so.1		i386 sparc
+usr/lib/smbfs/fksmbcl			i386 sparc aarch64
+usr/lib/smbfs/libfknsmb.so		i386 sparc aarch64
+usr/lib/smbfs/libfknsmb.so.1		i386 sparc aarch64
+usr/lib/smbfs/libfksmbfs.so		i386 sparc aarch64
+usr/lib/smbfs/libfksmbfs.so.1		i386 sparc aarch64
 
 #
 # FC related files
