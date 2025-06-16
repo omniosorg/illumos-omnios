@@ -49,6 +49,7 @@ tags
 
 # Make and build state
 .make.state*
+.make.dependency.*
 /.build.tstamp
 /ELF-data.*
 /check-*.out
