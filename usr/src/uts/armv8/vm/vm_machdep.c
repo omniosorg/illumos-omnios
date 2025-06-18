@@ -982,13 +982,14 @@ page_coloring_init(uint_t l2_sz, int l2_linesz, int l2_assoc)
 	ASSERT(mmu_page_sizes <= MMU_PAGE_SIZES);
 
 	ASSERT(ISP2(l2_linesz));
-	ASSERT(l2_sz > MMU_PAGESIZE);
 
 	/* l2_assoc is 0 for fully associative l2 cache */
-	if (l2_assoc)
+	if (l2_assoc) {
+		ASSERT3U(l2_sz, >, MMU_PAGESIZE);
 		l2_colors = MAX(1, l2_sz / (l2_assoc * MMU_PAGESIZE));
-	else
+	} else {
 		l2_colors = 1;
+	}
 
 	ASSERT(ISP2(l2_colors));
 
