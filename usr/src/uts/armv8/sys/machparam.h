@@ -42,8 +42,8 @@ extern "C" {
 #define	ADDRESS_C(c)	UINT64_C(c)
 #endif
 
-#define	NCPU		64
-#define	NCPU_LOG2	6
+#define	NCPU		128
+#define	NCPU_LOG2	7
 #define	NCPU_P2		(1 << NCPU_LOG2)
 
 #define	MMU_PAGE_SIZES	3
