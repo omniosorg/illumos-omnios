@@ -1508,9 +1508,10 @@ close_exec(uf_info_t *fip)
 
 	ufp = fip->fi_list;
 	for (fd = 0; fd < fip->fi_nfiles; fd++, ufp++) {
-		if ((fp = ufp->uf_file) != NULL &&
-		    ((ufp->uf_flag & FD_CLOEXEC) ||
-		    ((fp->f_flag & FWRITE) && pr_isself(fp->f_vnode)))) {
+		if ((fp = ufp->uf_file) == NULL)
+			continue;
+		if ((ufp->uf_flag & FD_CLOEXEC) ||
+		    ((fp->f_flag & FWRITE) && pr_isself(fp->f_vnode))) {
 			fpip = ufp->uf_fpollinfo;
 			mutex_enter(&fip->fi_lock);
 			mutex_enter(&ufp->uf_lock);
@@ -1540,6 +1541,14 @@ close_exec(uf_info_t *fip)
 			if (pfd)
 				port_close_fd(pfd);
 			(void) closef(fp);
+		} else if (ufp->uf_flag & FD_CLOFORK) {
+			/*
+			 * https://austingroupbugs.net/view.php?id=1851
+			 * FD_CLOFORK should not be preserved across exec
+			 */
+			mutex_enter(&ufp->uf_lock);
+			ufp->uf_flag &= ~FD_CLOFORK;
+			mutex_exit(&ufp->uf_lock);
 		}
 	}
 
