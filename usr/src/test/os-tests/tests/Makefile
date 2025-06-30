@@ -26,6 +26,7 @@ SUBDIRS_i386 =		\
 	zen_umc
 
 SUBDIRS =       \
+		comm_page \
 		cores \
 		ddi_ufm \
 		definit \

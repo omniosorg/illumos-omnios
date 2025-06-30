@@ -23,8 +23,8 @@
  * Copyright (c) 1988, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2017 Hayashi Naoyuki
  * Copyright 2021 Joyent, Inc.
- * Copyright 2021 Oxide Computer Company
  * Copyright 2022 Michael van der Westhuizen
+ * Copyright 2025 Oxide Computer Company
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -795,6 +795,7 @@ extern	void	stoplwp(void);
 extern	int	holdlwps(int);
 extern	int	holdwatch(void);
 extern	void	pokelwps(proc_t *);
+extern	void	runlwps(proc_t *, ushort_t);
 extern	void	continuelwps(proc_t *);
 extern	int	exitlwps(int);
 extern	void	lwp_ctmpl_copy(klwp_t *, klwp_t *);
