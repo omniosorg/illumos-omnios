@@ -49,7 +49,7 @@
 #include <sys/ddi_isa.h>
 #include <sys/model.h>
 #include <sys/devctl.h>
-#if defined(__i386) || defined(__amd64) || defined(__aarch64__)
+#if defined(__x86)
 #include <sys/dma_engine.h>
 #endif
 #include <sys/sunpm.h>
