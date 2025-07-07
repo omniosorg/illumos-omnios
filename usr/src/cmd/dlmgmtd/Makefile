@@ -35,7 +35,6 @@ CFGFILES=	datalink.conf
 include ../Makefile.cmd
 
 CSTD = $(CSTD_GNU99)
-C99LMODE = -Xc99=%all
 
 ROOTMANIFESTDIR=	$(ROOTSVCNETWORK)
 ROOTCFGDIR=		$(ROOTETC)/dladm
