@@ -607,7 +607,7 @@ ddihp_port_ops(ddi_hp_cn_handle_t *hdlp, ddi_hp_op_t op,
 				break;
 			default:
 				/* should never reach here */
-				ASSERT("unknown devinfo state");
+				panic("unknown devinfo state");
 			}
 			/*
 			 * Check DEVI(dip)->devi_state in case the node is
@@ -1165,7 +1165,7 @@ ddihp_port_upgrade_state(ddi_hp_cn_handle_t *hdlp,
 			break;
 		default:
 			/* should never reach here */
-			ASSERT("unknown devinfo state");
+			panic("unknown devinfo state");
 		}
 		curr_state = hdlp->cn_info.cn_state;
 		if (rv != DDI_SUCCESS) {
@@ -1245,7 +1245,7 @@ ddihp_port_downgrade_state(ddi_hp_cn_handle_t *hdlp,
 			break;
 		default:
 			/* should never reach here */
-			ASSERT("unknown devinfo state");
+			panic("unknown devinfo state");
 		}
 		curr_state = hdlp->cn_info.cn_state;
 		if (rv != DDI_SUCCESS) {

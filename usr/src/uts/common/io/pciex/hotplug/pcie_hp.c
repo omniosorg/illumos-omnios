@@ -975,7 +975,7 @@ pcie_hp_common_ops(dev_info_t *dip, char *cn_name, ddi_hp_op_t op,
 
 				goto port_state_done;
 			default:
-				ASSERT("unexpected state");
+				panic("unexpected state");
 			}
 		} else {
 			/* Downgrade state */
@@ -999,7 +999,7 @@ pcie_hp_common_ops(dev_info_t *dip, char *cn_name, ddi_hp_op_t op,
 
 				goto port_state_done;
 			default:
-				ASSERT("unexpected state");
+				panic("unexpected state");
 			}
 		}
 port_state_done:

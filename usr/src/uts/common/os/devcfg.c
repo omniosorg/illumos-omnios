@@ -1642,7 +1642,7 @@ i_ndi_config_node(dev_info_t *dip, ddi_node_state_t state, uint_t flag)
 			break;
 		default:
 			/* should never reach here */
-			ASSERT("unknown devinfo state");
+			panic("unknown devinfo state");
 		}
 	}
 
@@ -1720,7 +1720,7 @@ i_ndi_unconfig_node(dev_info_t *dip, ddi_node_state_t state, uint_t flag)
 				i_ddi_set_node_state(dip, DS_ATTACHED);
 			break;
 		default:
-			ASSERT("unknown devinfo state");
+			panic("unknown devinfo state");
 		}
 	}
 	da_log_enter(dip);

@@ -2726,7 +2726,7 @@ pciehpc_upgrade_slot_state(pcie_hp_slot_t *slot_p,
 			break;
 		default:
 			/* should never reach here */
-			ASSERT("unknown devinfo state");
+			panic("unknown devinfo state");
 		}
 	}
 
@@ -2819,7 +2819,7 @@ pciehpc_downgrade_slot_state(pcie_hp_slot_t *slot_p,
 			break;
 		default:
 			/* should never reach here */
-			ASSERT("unknown devinfo state");
+			panic("unknown devinfo state");
 		}
 	}
 
