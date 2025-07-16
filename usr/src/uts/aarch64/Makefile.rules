@@ -156,10 +156,6 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/coretemp/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
-$(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/hotplug/pcicfg/%.c
-	$(COMPILE.c) -o $@ $<
-	$(CTFCONVERT_O)
-
 $(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/imc/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
@@ -189,14 +185,6 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/mc-amd/%.c
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/pchtemp/%.c
-	$(COMPILE.c) -o $@ $<
-	$(CTFCONVERT_O)
-
-$(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/pci/%.c
-	$(COMPILE.c) -o $@ $<
-	$(CTFCONVERT_O)
-
-$(OBJS_DIR)/%.o:		$(UTSBASE)/aarch64/io/pciex/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
