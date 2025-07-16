@@ -56,7 +56,8 @@ file path=usr/share/man/man4d/ahci.4d
 driver name=ahci perms="* 0644 root sys" class=scsi-self-identifying \
     alias=pci8086,2822,p \
     alias=pci8086,282a,p \
-    alias=pciclass,010601
+    alias=pciclass,010601 \
+    alias=pciexclass,010601
 legacy pkg=SUNWahci \
     desc="Advanced Host Controller Interface (AHCI) SATA HBA Driver" \
     name="Advanced Host Controller Interface (AHCI) SATA HBA Driver"

@@ -46,7 +46,9 @@ file path=usr/share/man/man4d/sda.4d
 file path=usr/share/man/man4d/sdhost.4d
 driver name=sdhost perms="* 0644 root root" \
     alias=pciclass,080500 \
-    alias=pciclass,080501
+    alias=pciclass,080501 \
+    alias=pciexclass,080500 \
+    alias=pciexclass,080501
 legacy pkg=SUNWsdcard desc="SD/MMC Drivers" name="SD/MMC Drivers"
 license cr_Sun license=cr_Sun
 license lic_CDDL license=lic_CDDL

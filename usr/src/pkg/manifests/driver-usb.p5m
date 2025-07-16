@@ -250,14 +250,20 @@ link path=usr/share/man/man9s/usba_hcdi_register_args_t.9s \
 file path=usr/share/man/man9s/usba_pipe_handle_data.9s
 link path=usr/share/man/man9s/usba_pipe_handle_data_t.9s \
     target=usba_pipe_handle_data.9s
-driver name=ehci perms="* 0644 root sys" alias=pciclass,0c0320
+driver name=ehci perms="* 0644 root sys" \
+    alias=pciclass,0c0320 \
+    alias=pciexclass,0c0320
 driver name=hid perms="* 0600 root sys" alias=usbif,class3
 driver name=hubd perms="* 0644 root sys" alias=usbif,class9
-driver name=ohci perms="* 0644 root sys" alias=pciclass,0c0310
+driver name=ohci perms="* 0644 root sys" \
+    alias=pciclass,0c0310 \
+    alias=pciexclass,0c0310
 driver name=scsa2usb \
     alias=usb584,222 \
     alias=usbif,class8
-driver name=uhci perms="* 0644 root sys" alias=pciclass,0c0300
+driver name=uhci perms="* 0644 root sys" \
+    alias=pciclass,0c0300 \
+    alias=pciexclass,0c0300
 driver name=usb_ac perms="* 0600 root sys" alias=usbif,class1.1
 driver name=usb_as perms="* 0600 root sys" alias=usbif,class1.2
 driver name=usb_ia alias=usb,ia
