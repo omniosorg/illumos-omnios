@@ -73,6 +73,13 @@ static	void set_cache(int, void *, uint_t);
 static	void *get_cache(int);
 static	void free_cache();
 
+static int
+get_weakish_int(int *ip)
+{
+	return (ip == NULL ? 0 : *ip);
+}
+
+#define	_kmem_ready	get_weakish_int(&kmem_ready)
 
 /*
  *	There is only 1 open (mounted) device at any given time.
@@ -771,7 +778,7 @@ bufs_close(int fd)
 		 * Until kmem is ready, clear the inode cache when closing a
 		 * file.
 		 */
-		if (kmem_ready == 0)
+		if (_kmem_ready == 0)
 			free_cache();
 
 		return (0);
