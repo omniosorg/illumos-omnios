@@ -130,14 +130,11 @@ pcieadm_ofmt_errx(const char *fmt, ...)
 }
 
 /*
- * We determine if a node is PCI in a two step process. The first is to see if
- * the node's name starts with pci, and has an additional character that
- * indicates it's not the synthetic root of the tree. However, the node name
- * changes for some classes of devices such as GPUs. As such, for those we try
- * to look at the compatible property and see if we have a pciexclass or
- * pciclass entry. We look specifically for the class to make sure that we don't
- * fall for the synthetic nodes that have a compatible property of
- * 'pciex_root_complex'.
+ * Look at the compatible property and see if we have a "pciexclass,*" or
+ * "pciclass,*" entry. We look specifically for the class to make sure that we
+ * don't fall for the root of the PCI hierarchy on some platforms, which we
+ * give a compatible property of 'pciex_root_complex'.  Note that in this we
+ * differ from `ddi_is_pci_dip()` which matches such nodes.
  *
  * The compatible property is a single string that is actually a compressed
  * string. That is, there are multiple strings concatenated together in a single
@@ -146,14 +143,8 @@ pcieadm_ofmt_errx(const char *fmt, ...)
 static boolean_t
 pcieadm_di_node_is_pci(di_node_t node)
 {
-	const char *name;
 	char *compat;
 	int nents;
-
-	name = di_node_name(node);
-	if (strncmp("pci", name, 3) == 0) {
-		return (name[3] != '\0');
-	}
 
 	nents = di_prop_lookup_strings(DDI_DEV_T_ANY, node, "compatible",
 	    &compat);
