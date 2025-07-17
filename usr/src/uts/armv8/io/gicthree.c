@@ -89,6 +89,7 @@
 typedef struct {
 	/* Base address of, and handle to, the redistributor region */
 	caddr_t			base;
+	uint64_t		size;
 	ddi_acc_handle_t	hdl;
 } gicv3_redist_region_t;
 
@@ -329,8 +330,7 @@ gicv3_for_each_gicr(gicv3_conf_t *gc,
 	s = disable_interrupts();
 	for (i = 0; i < gc->gc_num_redist; ++i) {
 		r = &gc->gc_redist[i];
-		VERIFY(r->gr_rd_base != NULL);
-		VERIFY(r->gr_sgi_base != NULL);
+		VERIFY3P(r->gr_sgi_base, !=, NULL);
 		lock_set(&r->gr_lock);
 		(*fn)(r, a0, a1);
 		lock_clear(&r->gr_lock);
@@ -731,7 +731,7 @@ gicv3_deactivate(spo_ctx_t ctx __unused, intr_cookie_t cookie)
  * by CPU ID.
  */
 static int
-gicv3_assign_redistributors(gicv3_conf_t *gc)
+gicv3_assign_redistributors(dev_info_t *dip, gicv3_conf_t *gc)
 {
 	uint32_t		i;
 	uint64_t		gicr_typer;
@@ -750,26 +750,40 @@ gicv3_assign_redistributors(gicv3_conf_t *gc)
 	 */
 	num_redistributors = 0;
 	for (i = 0; i < gc->gc_num_redist_regions; ++i) {
-		cursor = gc->gc_redist_regions[i].base;
-		do {
+		gicv3_redist_region_t *rr = &gc->gc_redist_regions[i];
+		uint32_t local_redistributors = 0;
+		gicr_typer = 0;
+
+		for (cursor = rr->base;
+		    (cursor < (rr->base + rr->size) &&
+		    (gicr_typer & GICR_TYPER_Last) != GICR_TYPER_Last);
+		    local_redistributors++, num_redistributors++) {
+			if ((cursor + (GICR_FRAME_SIZE * 2)) >
+			    (rr->base + rr->size)) {
+				break;
+			}
+
 			ptr = cursor;
-			gicr_typer = ddi_get64(gc->gc_redist_regions[i].hdl,
+			gicr_typer = ddi_get64(rr->hdl,
 			    (uint64_t *)(cursor + GICR_TYPER));
-			/* skip over the rd and sgi frames */
 			cursor += (GICR_FRAME_SIZE * 2);
-			/* skip over the vlpi and reserved frames if present */
-			if (gicr_typer & GICR_TYPER_VLPIS)
+
+			if (gicr_typer & GICR_TYPER_VLPIS) {
 				cursor += (GICR_FRAME_SIZE * 2);
+				if (cursor > (rr->base + rr->size)) {
+					break;
+				}
+			}
+
 			if (gc->gc_redist_stride)
 				cursor = ptr + gc->gc_redist_stride;
-			num_redistributors++;
-		} while (!(gicr_typer & GICR_TYPER_Last));
+		}
 	}
 
 	/*
 	 * Check that we have at least as many redistributors as we do CPUs.
 	 */
-	VERIFY(num_redistributors >= max_ncpus);
+	VERIFY3U(num_redistributors, >=, max_ncpus);
 
 	/*
 	 * Allocate the redistributor structures.
@@ -784,10 +798,25 @@ gicv3_assign_redistributors(gicv3_conf_t *gc)
 	 * CPU index.
 	 */
 	for (i = 0; i < gc->gc_num_redist_regions; ++i) {
-		cursor = gc->gc_redist_regions[i].base;
-		do {
+		gicv3_redist_region_t *rr = &gc->gc_redist_regions[i];
+		uint32_t local_redistributors = 0;
+		gicr_typer = 0;
+
+		for (cursor = rr->base;
+		    (cursor < (rr->base + rr->size) &&
+		    (gicr_typer & GICR_TYPER_Last) != GICR_TYPER_Last);
+		    local_redistributors++, num_redistributors++) {
+			if ((cursor + (GICR_FRAME_SIZE * 2)) >
+			    (rr->base + rr->size)) {
+				dev_err(dip, CE_CONT, "?redistributor region "
+				    "overflow in region %u (%p), "
+				    "redistributor %u\n",
+				    i, rr->base, local_redistributors);
+				break;
+			}
+
 			ptr = cursor;
-			gicr_typer = ddi_get64(gc->gc_redist_regions[i].hdl,
+			gicr_typer = ddi_get64(rr->hdl,
 			    (uint64_t *)(cursor + GICR_TYPER));
 			gicr_rd_base = cursor;
 			cursor += GICR_FRAME_SIZE;
@@ -801,20 +830,27 @@ gicv3_assign_redistributors(gicv3_conf_t *gc)
 				gicr_vlpi_base = NULL;
 			}
 
+			if (cursor > (rr->base + rr->size)) {
+				dev_err(dip, CE_CONT, "?redistributor region "
+				    "overflow in region %u (%p), "
+				    "redistributor %u\n",
+				    i, rr->base, local_redistributors);
+				break;
+			}
+
 			affinity = AFF_GICR_TYPER_TO_PACKED(gicr_typer);
 
 			ci = cpuinfo_for_affinity(
 			    AFF_PACKED_TO_MPIDR(affinity));
-			VERIFY(ci != NULL);
-			VERIFY(ci->ci_id < gc->gc_num_redist);
+			VERIFY3P(ci, !=, NULL);
+			VERIFY3U(ci->ci_id, <, gc->gc_num_redist);
 
 			/*
 			 * Initialize the redistributor record.
 			 */
 			LOCK_INIT_CLEAR(&gc->gc_redist[ci->ci_id].gr_lock);
 			gc->gc_redist[ci->ci_id].gr_gc = gc;
-			gc->gc_redist[ci->ci_id].gr_hdlp =
-			    gc->gc_redist_regions[i].hdl;
+			gc->gc_redist[ci->ci_id].gr_hdlp = rr->hdl;
 			gc->gc_redist[ci->ci_id].gr_rd_base = gicr_rd_base;
 			gc->gc_redist[ci->ci_id].gr_sgi_base = gicr_sgi_base;
 			gc->gc_redist[ci->ci_id].gr_vlpi_base = gicr_vlpi_base;
@@ -824,18 +860,23 @@ gicv3_assign_redistributors(gicv3_conf_t *gc)
 
 			if (gc->gc_redist_stride)
 				cursor = ptr + gc->gc_redist_stride;
-		} while (!(gicr_typer & GICR_TYPER_Last));
+		}
 	}
 
 	/*
 	 * Iterate the cpuinfo ensuring that we have a redistributor for
 	 * each CPU.
 	 */
-	for (ci = cpuinfo_first(); ci != cpuinfo_end(); ci = cpuinfo_next(ci)) {
+	for (ci = cpuinfo_first();
+	    ci != cpuinfo_end();
+	    ci = cpuinfo_next(ci)) {
 		VERIFY(ci->ci_id < gc->gc_num_redist);
 		if (gc->gc_redist[ci->ci_id].gr_rd_base == NULL ||
-		    gc->gc_redist[ci->ci_id].gr_sgi_base == NULL)
+		    gc->gc_redist[ci->ci_id].gr_sgi_base == NULL) {
+			dev_err(dip, CE_WARN, "CPU %d does not have "
+			    "an asociated redistributor", ci->ci_id);
 			return (-1);
+		}
 	}
 
 	return (0);
@@ -959,7 +1000,7 @@ gicv3_cpu_init(spo_ctx_t ctx, cpu_t *cp)
  * Returns non-zero on error.
  */
 static int
-gicv3_init(gicv3_conf_t *gc)
+gicv3_init(dev_info_t *dip, gicv3_conf_t *gc)
 {
 	uint32_t	n;
 
@@ -971,8 +1012,9 @@ gicv3_init(gicv3_conf_t *gc)
 	/*
 	 * Allocate redistributors and assign pointers to them.
 	 */
-	if (gicv3_assign_redistributors(gc) != 0) {
+	if (gicv3_assign_redistributors(dip, gc) != 0) {
 		GICD_UNLOCK(gc);
+		dev_err(dip, CE_WARN, "gicv3_assign_redistributors failed");
 		return (DDI_FAILURE);
 	}
 
@@ -1117,7 +1159,9 @@ gicv3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 
 	if ((ret = ddi_dev_nregs(dip, &nregs)) != DDI_SUCCESS)
 		return (ret);
-	if (nregs < 2)	/* need at least a distributor and redistributor */
+
+	/* need at least a distributor and redistributor */
+	if (nregs < 2)
 		return (DDI_FAILURE);
 
 	if ((ret = ddi_soft_state_zalloc(
@@ -1156,9 +1200,12 @@ gicv3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 			ddi_soft_state_free(gicv3_soft_state, instance);
 			return (ret);
 		}
+
+		gc->gc_redist_regions[i].size =
+		    (uint64_t)i_ddi_pd_getreg(dip, 1 + i)->regspec_size;
 	}
 
-	if ((ret = gicv3_init(gc)) != DDI_SUCCESS) {
+	if ((ret = gicv3_init(dip, gc)) != DDI_SUCCESS) {
 		if (gc->gc_num_redist && gc->gc_redist)
 			kmem_free(gc->gc_redist,
 			    sizeof (gicv3_redistributor_t) * gc->gc_num_redist);
