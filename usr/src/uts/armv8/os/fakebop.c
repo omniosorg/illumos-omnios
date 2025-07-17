@@ -81,6 +81,7 @@ static paddr_t do_bop_phys_alloc(bootops_t *, size_t, int);
 static void do_bsys_free(bootops_t *, caddr_t, size_t);
 static char *do_bsys_nextprop(bootops_t *, char *);
 static void bsetprops(char *, char *);
+static void bsetprop32(char *, uint32_t);
 static void bsetprop64(char *, uint64_t);
 static void bsetpropsi(char *, int);
 static void bsetprop(int, char *, int, void *, int);
@@ -1064,7 +1065,7 @@ defcons_init(size_t size)
 
 	p = do_bsys_alloc(NULL, NULL, size, MMU_PAGESIZE);
 	*p = 0;
-	bsetprop32("deferred-console-buf", (uint32_t)((uintptr_t)&p));
+	bsetprop64("deferred-console-buf", (uint64_t)((uintptr_t)&p));
 	return (p);
 }
 
