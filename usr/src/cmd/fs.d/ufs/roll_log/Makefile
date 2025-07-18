@@ -25,6 +25,7 @@
 #
 
 include		../../Makefile.fstype
+include		$(SRC)/cmd/Makefile.ctf
 
 INCLUDES=	roll_log.h
 SRCS=		roll_log.c
@@ -44,6 +45,7 @@ $(MACH):
 
 $(MACH)/%.o:	%.c
 	$(COMPILE.c) -o $@ $<
+	$(POST_PROCESS_O)
 
 clean:
 	$(RM) $(OBJS)

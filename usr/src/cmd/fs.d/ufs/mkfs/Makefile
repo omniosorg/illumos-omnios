@@ -31,6 +31,7 @@ ATTMK=		$(LIBPROG)
 
 include		../../Makefile.fstype
 include		../Makefile.roll
+include		$(SRC)/cmd/Makefile.ctf
 
 CPPFLAGS +=	-I../../
 
