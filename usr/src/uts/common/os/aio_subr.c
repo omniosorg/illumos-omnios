@@ -1115,7 +1115,7 @@ aio_copyout_result(aio_req_t *reqp)
 		(void) suword32(&((aio_result32_t *)resultp)->aio_errno, error);
 	}
 #else
-	(void) suword32(&((aio_result_t *)resultp)->aio_return, retval);
+	(void) sulword(&((aio_result_t *)resultp)->aio_return, retval);
 	(void) suword32(&((aio_result_t *)resultp)->aio_errno, error);
 #endif
 }
@@ -1147,7 +1147,7 @@ aio_copyout_result_port(struct iovec *iov, struct buf *bp, void *resultp)
 		(void) suword32(&((aio_result32_t *)resultp)->aio_errno, errno);
 	}
 #else
-	(void) suword32(&((aio_result_t *)resultp)->aio_return, retval);
+	(void) sulword(&((aio_result_t *)resultp)->aio_return, retval);
 	(void) suword32(&((aio_result_t *)resultp)->aio_errno, errno);
 #endif
 }
