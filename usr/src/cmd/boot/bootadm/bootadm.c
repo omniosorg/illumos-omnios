@@ -3421,10 +3421,6 @@ use_mkisofs()
 		return (B_TRUE);
 	}
 
-	 /* XXXARM: For complicated reasons, aarch64 _must_ use hsfs right now */
-	if (is_flag_on(IS_AARCH64_TARGET))
-		return (B_TRUE);
-
 	/* If working on an alt-root, do not use HSFS unless asked via -F */
 	if (bam_alt_root)
 		return (B_FALSE);
