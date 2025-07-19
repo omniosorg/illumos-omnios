@@ -400,7 +400,7 @@ function create_cpio_archive
 	touch "$tarchive" \
 	    || fatal_error "Cannot create temporary archive $tarchive"
 
-	if [ $ISA != i386 ] ; then
+	if [ $ISA = sparc ] ; then
 		# compression does not work (yet?).
 		# The krtld does not support gzip but fiocompress
 		# does not seem to work either.
