@@ -3795,8 +3795,6 @@ impl_bus_initialprobe(void)
 {
 	struct bus_probe *probe;
 
-	modload("misc", "pci_autoconfig");
-
 	probe = bus_probes;
 	while (probe) {
 		/* run the probe functions */
