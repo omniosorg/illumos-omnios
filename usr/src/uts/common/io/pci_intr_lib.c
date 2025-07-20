@@ -1179,7 +1179,7 @@ pci_intx_get_ispec(dev_info_t *dip, dev_info_t *rdip, int inum)
 	ASSERT(ispec);
 
 	/* check if the intrspec_pri has been initialized */
-	if (!ispec->intrspec_pri) {
+	if (ispec->intrspec_pri == 0) {
 		if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, rdip,
 		    DDI_PROP_DONTPASS, "interrupt-priorities",
 		    &intpriorities, &num_intpriorities) == DDI_PROP_SUCCESS) {
@@ -1194,10 +1194,10 @@ pci_intx_get_ispec(dev_info_t *dip, dev_info_t *rdip, int inum)
 	}
 
 	/* Get interrupt line value */
-	if (!ispec->intrspec_vec) {
+	if (ispec->intrspec_vec == 0) {
 		if (pci_config_setup(rdip, &cfg_hdl) != DDI_SUCCESS) {
-			DDI_INTR_NEXDBG((CE_CONT, "pci_intx_get_iline: "
-			    "can't get config handle\n"));
+			DDI_INTR_NEXDBG((CE_CONT, "%s: "
+			    "can't get config handle\n", __func__));
 			return ((ddi_intrspec_t)ispec);
 		}
 
