@@ -295,81 +295,6 @@ static uint64_t pcicfg_unused_space(hole_t *, uint32_t *);
 static kmutex_t pcicfg_list_mutex; /* Protects the probe handle list */
 static pcicfg_phdl_t *pcicfg_phdl_list = NULL;
 
-#ifndef _DONT_USE_1275_GENERIC_NAMES
-/*
- * Class code table
- */
-static struct pcicfg_name_entry pcicfg_class_lookup [] = {
-
-	{ 0x001, "display" },
-	{ 0x100, "scsi" },
-	{ 0x101, "ide" },
-	{ 0x102, "fdc" },
-	{ 0x103, "ipi" },
-	{ 0x104, "raid" },
-	{ 0x105, "ata" },
-	{ 0x106, "sata" },
-	{ 0x200, "ethernet" },
-	{ 0x201, "token-ring" },
-	{ 0x202, "fddi" },
-	{ 0x203, "atm" },
-	{ 0x204, "isdn" },
-	{ 0x206, "mcd" },
-	{ 0x300, "display" },
-	{ 0x400, "video" },
-	{ 0x401, "sound" },
-	{ 0x500, "memory" },
-	{ 0x501, "flash" },
-	{ 0x600, "host" },
-	{ 0x601, "isa" },
-	{ 0x602, "eisa" },
-	{ 0x603, "mca" },
-	{ 0x604, "pci" },
-	{ 0x605, "pcmcia" },
-	{ 0x606, "nubus" },
-	{ 0x607, "cardbus" },
-	{ 0x609, "pci" },
-	{ 0x60a, "ib-pci" },
-	{ 0x700, "serial" },
-	{ 0x701, "parallel" },
-	{ 0x800, "interrupt-controller" },
-	{ 0x801, "dma-controller" },
-	{ 0x802, "timer" },
-	{ 0x803, "rtc" },
-	{ 0x900, "keyboard" },
-	{ 0x901, "pen" },
-	{ 0x902, "mouse" },
-	{ 0xa00, "dock" },
-	{ 0xb00, "cpu" },
-	{ 0xb01, "cpu" },
-	{ 0xb02, "cpu" },
-	{ 0xb10, "cpu" },
-	{ 0xb20, "cpu" },
-	{ 0xb30, "cpu" },
-	{ 0xb40, "coproc" },
-	{ 0xc00, "firewire" },
-	{ 0xc01, "access-bus" },
-	{ 0xc02, "ssa" },
-	{ 0xc03, "usb" },
-	{ 0xc04, "fibre-channel" },
-	{ 0xc05, "smbus" },
-	{ 0xc06, "ib" },
-	{ 0xd00, "irda" },
-	{ 0xd01, "ir" },
-	{ 0xd10, "rf" },
-	{ 0xd11, "btooth" },
-	{ 0xd12, "brdband" },
-	{ 0xd20, "802.11a" },
-	{ 0xd21, "802.11b" },
-	{ 0xe00, "i2o" },
-	{ 0xf01, "tv" },
-	{ 0xf02, "audio" },
-	{ 0xf03, "voice" },
-	{ 0xf04, "data" },
-	{ 0, 0 }
-};
-#endif /* _DONT_USE_1275_GENERIC_NAMES */
-
 /*
  * Module control operations
  */
@@ -2868,21 +2793,6 @@ pcicfg_free_resources(dev_info_t *dip, pcicfg_flags_t flags)
 
 	return (PCICFG_SUCCESS);
 }
-
-#ifndef _DONT_USE_1275_GENERIC_NAMES
-static char *
-pcicfg_get_class_name(uint32_t classcode)
-{
-	struct pcicfg_name_entry *ptr;
-
-	for (ptr = &pcicfg_class_lookup[0]; ptr->name != NULL; ptr++) {
-		if (ptr->class_code == classcode) {
-			return (ptr->name);
-		}
-	}
-	return (NULL);
-}
-#endif /* _DONT_USE_1275_GENERIC_NAMES */
 
 static dev_info_t *
 pcicfg_devi_find(dev_info_t *dip, uint_t device, uint_t function)
