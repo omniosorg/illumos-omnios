@@ -3767,8 +3767,6 @@ configure(void)
 
 	i_ddi_init_root();
 	impl_bus_reprobe();	/* Reprogram devices not set up by firmware */
-
-	i_ddi_attach_hw_nodes("dld");
 }
 
 dev_t
