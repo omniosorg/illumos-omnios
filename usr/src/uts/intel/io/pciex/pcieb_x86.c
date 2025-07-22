@@ -108,39 +108,6 @@ pcieb_plat_intr_ops(dev_info_t *dip, dev_info_t *rdip, ddi_intr_op_t intr_op,
 	return (i_ddi_intr_ops(dip, rdip, intr_op, hdlp, result));
 }
 
-/* shpc is not supported on x86 */
-/*ARGSUSED*/
-int
-pcieb_plat_pcishpc_probe(dev_info_t *dip, ddi_acc_handle_t config_handle)
-{
-	return (DDI_FAILURE);
-}
-
-/*
- * Dummy functions to get around the fact that there's no shpc module on x86
- * today
- */
-/*ARGSUSED*/
-int
-pcishpc_init(dev_info_t *dip)
-{
-	return (DDI_FAILURE);
-}
-
-/*ARGSUSED*/
-int
-pcishpc_uninit(dev_info_t *dip)
-{
-	return (DDI_FAILURE);
-}
-
-/*ARGSUSED*/
-int
-pcishpc_intr(dev_info_t *dip)
-{
-	return (DDI_INTR_UNCLAIMED);
-}
-
 /*ARGSUSED*/
 boolean_t
 pcieb_plat_pwr_disable(dev_info_t *dip)

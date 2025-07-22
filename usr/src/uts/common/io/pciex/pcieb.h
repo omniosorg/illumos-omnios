@@ -170,8 +170,6 @@ extern void	pcieb_plat_initchild(dev_info_t *child);
 extern void	pcieb_plat_uninitchild(dev_info_t *child);
 extern int	pcieb_plat_ctlops(dev_info_t *rdip, ddi_ctl_enum_t ctlop,
     void *arg);
-extern int	pcieb_plat_pcishpc_probe(dev_info_t *dip,
-    ddi_acc_handle_t config_handle);
 extern int	pcieb_plat_peekpoke(dev_info_t *dip, dev_info_t *rdip,
     ddi_ctl_enum_t ctlop, void *arg, void *result);
 extern void	pcieb_set_prot_scan(dev_info_t *dip, ddi_acc_impl_t *hdlp);
