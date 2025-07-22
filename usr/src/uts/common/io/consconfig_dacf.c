@@ -2135,12 +2135,20 @@ flush_deferred_console_buf(void)
 {
 	int rval;
 	vnode_t *vp;
-	uint_t defcons_buf;
 	char *kc, *bc, *defcons_kern_buf;
+
+#if defined(__aarch64__)
+	uint64_t defcons_buf;
+
+	defcons_buf = ddi_prop_get_int64(DDI_DEV_T_ANY, ddi_root_node(),
+	    DDI_PROP_DONTPASS, "deferred-console-buf", 0);
+#else
+	uint_t defcons_buf;
 
 	/* defcons_buf is in low memory, so an int works here */
 	defcons_buf = ddi_prop_get_int(DDI_DEV_T_ANY, ddi_root_node(),
 	    DDI_PROP_DONTPASS, "deferred-console-buf", 0);
+#endif
 
 	if (defcons_buf == 0)
 		return;
