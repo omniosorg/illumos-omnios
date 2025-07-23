@@ -2217,7 +2217,7 @@ pcie_get_rc_dip(dev_info_t *dip)
 	dev_info_t *rcdip;
 	pcie_bus_t *rc_bus_p;
 
-	for (rcdip = ddi_get_parent(dip); rcdip;
+	for (rcdip = dip; rcdip != NULL;
 	    rcdip = ddi_get_parent(rcdip)) {
 		rc_bus_p = PCIE_DIP2BUS(rcdip);
 		if (rc_bus_p && PCIE_IS_RC(rc_bus_p))
