@@ -3739,7 +3739,7 @@ pciehpc_dump_hpregs(pcie_hp_ctrl_t *ctrl_p)
 	PCIE_DBG("HotPlug interrupt Enabled	 = %s\n",
 	    control & PCIE_SLOTCTL_HP_INTR_EN ? "Yes":"No");
 
-	PCIE_DBG("Power Indicator LED = %s", pcie_led_state_text(
+	PCIE_DBG("Power Indicator LED = %s\n", pcie_led_state_text(
 	    pciehpc_led_state_to_hpc(pcie_slotctl_pwr_indicator_get(control))));
 
 	PCIE_DBG("Attn Indicator LED = %s\n",

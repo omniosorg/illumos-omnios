@@ -486,10 +486,10 @@ ddihp_cn_name_to_handle(dev_info_t *dip, char *cn_name)
 	ASSERT(DEVI_BUSY_OWNED(dip));
 
 	DDI_HP_IMPLDBG((CE_CONT, "ddihp_cn_name_to_handle: "
-	    "dip %p cn_name to find: %s", (void *)dip, cn_name));
+	    "dip %p cn_name to find: %s\n", (void *)dip, cn_name));
 	for (hdlp = DEVI(dip)->devi_hp_hdlp; hdlp; hdlp = hdlp->next) {
 		DDI_HP_IMPLDBG((CE_CONT, "ddihp_cn_name_to_handle: "
-		    "current cn_name: %s", hdlp->cn_info.cn_name));
+		    "current cn_name: %s\n", hdlp->cn_info.cn_name));
 
 		if (strcmp(cn_name, hdlp->cn_info.cn_name) == 0) {
 			/* found */
@@ -497,7 +497,7 @@ ddihp_cn_name_to_handle(dev_info_t *dip, char *cn_name)
 		}
 	}
 	DDI_HP_IMPLDBG((CE_CONT, "ddihp_cn_name_to_handle: "
-	    "failed to find cn_name"));
+	    "failed to find cn_name\n"));
 	return (NULL);
 }
 
@@ -1304,7 +1304,7 @@ ddihp_check_status_prop(dev_info_t *dip)
 		if (strcmp(status_prop, "disabled") == 0) {
 			rv = B_FALSE;
 			DDI_HP_IMPLDBG((CE_CONT, "ddihp_check_status_prop "
-			    "(%s%d): device is in disabled state",
+			    "(%s%d): device is in disabled state\n",
 			    ddi_driver_name(dip), ddi_get_instance(dip)));
 		} else if (strncmp(status_prop, "fail", 4) == 0) {
 			rv = B_FALSE;
