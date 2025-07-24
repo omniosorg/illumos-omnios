@@ -87,8 +87,6 @@ void (*pci_putb_func)(int bus, int dev, int func, int reg, uint8_t val);
 void (*pci_putw_func)(int bus, int dev, int func, int reg, uint16_t val);
 void (*pci_putl_func)(int bus, int dev, int func, int reg, uint32_t val);
 
-extern void (*pci_cfgacc_acc_p)(pci_cfgacc_req_t *req);
-
 /*
  * Internal routines
  */
@@ -246,9 +244,6 @@ pci_check(void)
 		mcfg_bus_start = ecfginfo[2];
 		mcfg_bus_end = ecfginfo[3];
 	}
-
-	/* See pci_cfgacc.c */
-	pci_cfgacc_acc_p = pci_cfgacc_acc;
 
 	return (B_TRUE);
 }

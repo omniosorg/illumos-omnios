@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#include <sys/pci_cfgacc.h>
 #include <sys/pcie.h>
 #include <sys/pciev.h>
 #include <sys/taskq_impl.h>
@@ -41,6 +42,9 @@ extern "C" {
 	PCIE_DIP2BUS(dip)->bus_bdg_secbus
 #define	PCI_GET_PCIE2PCI_SECBUS(dip) \
 	PCIE_DIP2BUS(dip)->bus_pcie2pci_secbus
+
+#define	DEVI_PORT_TYPE_PCIRC \
+	((PCI_CLASS_BRIDGE << 16) | (PCI_BRIDGE_HOST << 8))
 
 #define	DEVI_PORT_TYPE_PCI \
 	((PCI_CLASS_BRIDGE << 16) | (PCI_BRIDGE_PCI << 8) | \
@@ -379,6 +383,12 @@ typedef struct pice_fabric_data {
 	pcie_tag_t		pfd_tag_found;
 	pcie_tag_t		pfd_tag_act;
 } pcie_fabric_data_t;
+
+typedef void (*pcie_rc_cfgacc_impl_t)(pci_cfgacc_req_t *);
+
+typedef struct {
+	pcie_rc_cfgacc_impl_t pcie_rc_cfgspace_acc;
+} pcie_rc_data_t;
 
 /*
  * For hot plugged device, these data are init'ed during during probe
@@ -748,6 +758,7 @@ extern int pcie_link_retrain(dev_info_t *);
 
 #define	PCIE_ZALLOC(data) kmem_zalloc(sizeof (data), KM_SLEEP)
 
+extern boolean_t pcie_cfgspace_access_check(int, int, int, int, size_t);
 
 #ifdef	__cplusplus
 }

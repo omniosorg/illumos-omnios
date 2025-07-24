@@ -57,6 +57,7 @@ typedef struct pci_prop_data {
 	uint8_t ppd_mingrt;
 	uint8_t ppd_maxlat;
 	uint16_t ppd_status;
+	dev_info_t *ppd_rcdip;
 } pci_prop_data_t;
 
 typedef enum {
@@ -84,8 +85,8 @@ typedef enum {
 	PCI_PROP_E_DDI
 } pci_prop_failure_t;
 
-extern pci_prop_failure_t pci_prop_data_fill(ddi_acc_handle_t, uint8_t, uint8_t,
-    uint8_t, pci_prop_data_t *);
+extern pci_prop_failure_t pci_prop_data_fill(dev_info_t *, ddi_acc_handle_t,
+    uint8_t, uint8_t, uint8_t, pci_prop_data_t *);
 extern pci_prop_failure_t pci_prop_name_node(dev_info_t *,
     const pci_prop_data_t *);
 extern pci_prop_failure_t pci_prop_set_common_props(dev_info_t *,

@@ -3356,7 +3356,7 @@ pcicfg_probe_children(dev_info_t *parent, uint_t bus, uint_t device,
 	 */
 	(void) pcicfg_device_off(config_handle);
 
-	prop_ret = pci_prop_data_fill(config_handle, bus, device, func,
+	prop_ret = pci_prop_data_fill(NULL, config_handle, bus, device, func,
 	    &prop_data);
 	if (prop_ret != PCI_PROP_OK) {
 		cmn_err(CE_WARN, "hotplug: failed to get basic PCI data for "

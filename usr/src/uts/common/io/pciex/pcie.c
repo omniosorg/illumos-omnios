@@ -3707,3 +3707,50 @@ pcie_fabric_setup(dev_info_t *dip)
 	fab->pfd_flags &= ~PCIE_FABRIC_F_SCANNING;
 	ndi_devi_exit(pdip);
 }
+
+boolean_t
+pcie_cfgspace_access_check(int bus, int dev, int func, int reg, size_t len)
+{
+	if (bus < 0 || bus >= PCI_MAX_BUS_NUM) {
+		return (B_FALSE);
+	}
+
+	if (dev < 0 || dev >= PCI_MAX_DEVICES) {
+		return (B_FALSE);
+	}
+
+	/*
+	 * Due to the advent of ARIs we want to make sure that we're not overly
+	 * stringent here. ARIs retool how the bits are used for the device and
+	 * function. This means that if dev == 0, allow func to be up to 0xff.
+	 */
+	if (func < 0 || (dev != 0 && func >= PCI_MAX_FUNCTIONS) ||
+	    (dev == 0 && func >= PCIE_ARI_MAX_FUNCTIONS)) {
+		return (B_FALSE);
+	}
+
+	/*
+	 * Technically the maximum register is determined by the parent. At this
+	 * point we have no way of knowing what is PCI or PCIe and will rely on
+	 * mmio to solve this for us.
+	 */
+	if (reg < 0 || reg >= PCIE_CONF_HDR_SIZE) {
+		return (B_FALSE);
+	}
+
+	if (!IS_P2ALIGNED(reg, len)) {
+#ifdef	DEBUG
+		/*
+		 * While there are legitimate reasons we might try to access
+		 * nonexistent devices and functions, misaligned accesses are at
+		 * least strongly suggestive of kernel bugs.  Let's see what
+		 * this finds.
+		 */
+		cmn_err(CE_WARN, "misaligned PCI config space access at "
+		    "%x/%x/%x reg 0x%x len %lu\n", bus, dev, func, reg, len);
+#endif
+		return (B_FALSE);
+	}
+
+	return (B_TRUE);
+}

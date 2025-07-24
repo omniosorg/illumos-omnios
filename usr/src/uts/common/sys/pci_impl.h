@@ -70,14 +70,19 @@ extern "C" {
 #define	PCI_FORW_PORT		0xcfa
 #define	PCI_CADDR2(device, indx) \
 		(0xc000 | (((device) & 0xf) <<  8) | (indx))
+#endif	/* __x86 */
 
 typedef struct	pci_acc_cfblk {
+#if defined(__aarch64__)
+	dev_info_t *c_rootdip;		/* root complex dip */
+#endif
 	uchar_t	c_busnum;		/* bus number */
 	uchar_t c_devnum;		/* device number */
 	uchar_t c_funcnum;		/* function number */
-	uchar_t c_fill;			/* reserve field */
+	uchar_t c_pad;			/* fill the last word */
 } pci_acc_cfblk_t;
 
+#if defined(__x86)
 struct pci_bus_resource {
 	struct memlist *io_avail;	/* available free io res */
 	struct memlist *io_used;	/* used io res */

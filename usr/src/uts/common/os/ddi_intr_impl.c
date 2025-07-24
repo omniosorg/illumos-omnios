@@ -570,7 +570,7 @@ set_intr_affinity(ddi_intr_handle_t h, processorid_t tgt)
 	return (ret);
 }
 
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 ddi_acc_handle_t
 i_ddi_get_pci_config_handle(dev_info_t *dip)
 {

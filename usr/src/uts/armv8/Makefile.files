@@ -77,7 +77,9 @@ CORE_OBJS +=			\
 	psci.o			\
 	arch_timer.o		\
 	earlybsa.o		\
-	cpuinfo.o
+	cpuinfo.o		\
+	pci_cfgacc.o		\
+	pci_cfgacc_armv8.o
 
 #
 #	Add the SMBIOS subsystem object files directly to the list of objects

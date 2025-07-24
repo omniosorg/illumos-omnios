@@ -151,7 +151,10 @@
 #include <sys/cmn_err.h>
 #include <sys/pci.h>
 #include <sys/pcie.h>
+#if defined(__x86)
 #include <sys/pci_cfgspace.h>
+#endif
+#include <sys/pci_cfgacc.h>
 #include <sys/pci_props.h>
 #include <sys/sysmacros.h>
 #include <sys/plat/pci_prd.h>
@@ -393,8 +396,16 @@ static uint8_t
 pci_prop_get8(ddi_acc_handle_t acc, const pci_prop_data_t *prop, uint16_t off)
 {
 	if (acc == NULL) {
-		return ((*pci_getb_func)(prop->ppd_bus, prop->ppd_dev,
-		    prop->ppd_func, off));
+#if defined(__x86)
+		if (prop->ppd_rcdip == NULL) {
+			return ((*pci_getb_func)(prop->ppd_bus, prop->ppd_dev,
+			    prop->ppd_func, off));
+		}
+#endif
+		VERIFY3P(prop->ppd_rcdip, !=, NULL);
+		return (pci_cfgacc_get8(prop->ppd_rcdip,
+		    PCI_GETBDF(prop->ppd_bus, prop->ppd_dev, prop->ppd_func),
+		    off));
 	} else {
 		return (pci_config_get8(acc, off));
 	}
@@ -404,8 +415,16 @@ static uint16_t
 pci_prop_get16(ddi_acc_handle_t acc, const pci_prop_data_t *prop, uint16_t off)
 {
 	if (acc == NULL) {
-		return ((*pci_getw_func)(prop->ppd_bus, prop->ppd_dev,
-		    prop->ppd_func, off));
+#if defined(__x86)
+		if (prop->ppd_rcdip == NULL) {
+			return ((*pci_getw_func)(prop->ppd_bus, prop->ppd_dev,
+			    prop->ppd_func, off));
+		}
+#endif
+		VERIFY3P(prop->ppd_rcdip, !=, NULL);
+		return (pci_cfgacc_get16(prop->ppd_rcdip,
+		    PCI_GETBDF(prop->ppd_bus, prop->ppd_dev, prop->ppd_func),
+		    off));
 	} else {
 		return (pci_config_get16(acc, off));
 	}
@@ -415,8 +434,16 @@ static uint32_t
 pci_prop_get32(ddi_acc_handle_t acc, const pci_prop_data_t *prop, uint16_t off)
 {
 	if (acc == NULL) {
-		return ((*pci_getl_func)(prop->ppd_bus, prop->ppd_dev,
-		    prop->ppd_func, off));
+#if defined(__x86)
+		if (prop->ppd_rcdip == NULL) {
+			return ((*pci_getl_func)(prop->ppd_bus, prop->ppd_dev,
+			    prop->ppd_func, off));
+		}
+#endif
+		VERIFY3P(prop->ppd_rcdip, !=, NULL);
+		return (pci_cfgacc_get32(prop->ppd_rcdip,
+		    PCI_GETBDF(prop->ppd_bus, prop->ppd_dev, prop->ppd_func),
+		    off));
 	} else {
 		return (pci_config_get32(acc, off));
 	}
@@ -467,13 +494,14 @@ pci_prop_data_fill_pcie(ddi_acc_handle_t acc, pci_prop_data_t *prop,
  * a bit odd. Not all devices in the wild actually follow the spec.
  */
 pci_prop_failure_t
-pci_prop_data_fill(ddi_acc_handle_t acc, uint8_t bus, uint8_t dev, uint8_t func,
-    pci_prop_data_t *prop)
+pci_prop_data_fill(dev_info_t *rcdip, ddi_acc_handle_t acc, uint8_t bus,
+    uint8_t dev, uint8_t func, pci_prop_data_t *prop)
 {
 	uint8_t htype, cap_off, max_cap = PCI_CAP_MAX_PTR;
 	uint16_t status;
 
 	bzero(prop, sizeof (pci_prop_data_t));
+	prop->ppd_rcdip = rcdip;
 	prop->ppd_bus = bus;
 	prop->ppd_dev = dev;
 	prop->ppd_func = func;
