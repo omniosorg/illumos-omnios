@@ -1200,6 +1200,10 @@ typedef struct pci_phys_spec pci_regspec_t;
 #define	PCI_REG_ADDR_G(x)	(((x) & PCI_REG_ADDR_M) >> PCI_REG_ADDR_SHIFT)
 #define	PCI_REG_BDFR_G(x)	((x) & PCI_REG_BDFR_M)
 
+/*
+ * Encode the BDFR into the pci_phys_hi of a PCI 1275 address cell, such as in
+ * "reg".
+ */
 #define	PCI_REG_MAKE_BDFR(b, d, f, r)	( \
 	    (uint_t)(b) << PCI_REG_BUS_SHIFT | \
 	    (uint_t)(d) << PCI_REG_DEV_SHIFT | \
