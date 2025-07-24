@@ -37,39 +37,23 @@
 extern "C" {
 #endif
 
-#if defined(__i386) || defined(__amd64)
-
+#if defined(__x86)
 /*
- * There are two ways to access the PCI configuration space on X86
+ * There are two x86-specific ways to access the PCI configuration
  *	Access method 2 is the older method
  *	Access method 1 is the newer method and is preferred because
  *	  of the problems in trying to lock the configuration space
  *	  for MP machines using method 2.  See PCI Local BUS Specification
  *	  Revision 2.0 section 3.6.4.1 for more details.
  *
- * In addition, on IBM Sandalfoot and a few related machines there's
- * still another mechanism.  See PReP 1.1 section 6.1.7.
+ *  There is also the generic memory-mapped CAM mechanism, and mandated the
+ *        with PCIe ECAM mechanism, implemented elsewhere.
  */
 
 #define	PCI_MECHANISM_UNKNOWN		-1
 #define	PCI_MECHANISM_NONE		0
-#if defined(__i386) || defined(__amd64)
 #define	PCI_MECHANISM_1			1
 #define	PCI_MECHANISM_2			2
-#else
-#error "Unknown processor type"
-#endif
-
-
-#ifndef FALSE
-#define	FALSE   0
-#endif
-
-#ifndef TRUE
-#define	TRUE    1
-#endif
-
-#define	PCI_FUNC_MASK			0x07
 
 /* these macros apply to Configuration Mechanism #1 */
 #define	PCI_CONFADD		0xcf8
@@ -81,6 +65,7 @@ extern "C" {
 			    | (((function) & 0x7) << 8) | ((reg) & 0xfc))
 
 /* these macros apply to Configuration Mechanism #2 */
+#define	PCI_FUNC_MASK		0x07
 #define	PCI_CSE_PORT		0xcf8
 #define	PCI_FORW_PORT		0xcfa
 #define	PCI_CADDR2(device, indx) \
@@ -135,7 +120,7 @@ extern void pci_memlist_merge(struct memlist **, struct memlist **);
 extern struct memlist *pci_memlist_dup(struct memlist *);
 extern int pci_memlist_count(struct memlist *);
 
-#endif /* __i386 || __amd64 */
+#endif /* __x86 */
 
 /* Definitions for minor numbers */
 #define	PCI_MINOR_NUM(x, y)		(((uint_t)(x) << 8) | ((y) & 0xFF))
