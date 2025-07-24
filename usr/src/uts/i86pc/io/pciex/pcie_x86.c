@@ -62,7 +62,7 @@ pcie_plat_pwr_setup(dev_info_t *dip)
 }
 
 /*
- * Undo whatever is done in pcie_plat_pwr_common_setup
+ * Undo whatever is done in pcie_plat_pwr_setup
  */
 /* ARGSUSED */
 void
