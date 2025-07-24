@@ -137,18 +137,6 @@ extern int pci_memlist_count(struct memlist *);
 
 #endif /* __i386 || __amd64 || __aarch64__ */
 
-#if defined(__aarch64__) && 0
-
-/* XXXARM: this needs a lot of investigation and cleanup */
-typedef struct	pci_acc_cfblk {
-	uchar_t	c_busnum;		/* bus number */
-	uchar_t	c_devnum;		/* device number */
-	uchar_t	c_funcnum;		/* function number */
-	uchar_t	c_fill;			/* reserve field */
-} pci_acc_cfblk_t;
-
-#endif
-
 /* Definitions for minor numbers */
 #define	PCI_MINOR_NUM(x, y)		(((uint_t)(x) << 8) | ((y) & 0xFF))
 #define	PCI_MINOR_NUM_TO_PCI_DEVNUM(x)	((x) & 0xFF)
