@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-#if defined(__i386) || defined(__amd64) || defined(__aarch64__)
+#if defined(__i386) || defined(__amd64)
 
 /*
  * There are two ways to access the PCI configuration space on X86
@@ -53,7 +53,7 @@ extern "C" {
 
 #define	PCI_MECHANISM_UNKNOWN		-1
 #define	PCI_MECHANISM_NONE		0
-#if defined(__i386) || defined(__amd64) || defined(__aarch64__)
+#if defined(__i386) || defined(__amd64)
 #define	PCI_MECHANISM_1			1
 #define	PCI_MECHANISM_2			2
 #else
@@ -135,7 +135,7 @@ extern void pci_memlist_merge(struct memlist **, struct memlist **);
 extern struct memlist *pci_memlist_dup(struct memlist *);
 extern int pci_memlist_count(struct memlist *);
 
-#endif /* __i386 || __amd64 || __aarch64__ */
+#endif /* __i386 || __amd64 */
 
 /* Definitions for minor numbers */
 #define	PCI_MINOR_NUM(x, y)		(((uint_t)(x) << 8) | ((y) & 0xFF))
