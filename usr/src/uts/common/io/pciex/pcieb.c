@@ -167,6 +167,7 @@
 #include <sys/disp.h>
 #include <sys/pcie_pwr.h>
 #include <sys/hotplug/pci/pcie_hp.h>
+#include <sys/plat/pci_prd.h>
 #include "pcieb.h"
 #include "pcieb_ioctl.h"
 #ifdef PX_PLX
@@ -860,6 +861,7 @@ pcieb_name_child(dev_info_t *child, char *name, int namelen)
 	uint_t device, func;
 	char **unit_addr;
 	uint_t n;
+	pci_prd_compat_flags_t flags = pci_prd_compat_flags();
 
 	/*
 	 * For .conf nodes, use unit-address property as name
@@ -903,7 +905,7 @@ pcieb_name_child(dev_info_t *child, char *name, int namelen)
 		device = 0;
 	}
 
-	if (func != 0)
+	if ((func != 0) || (flags & PCI_PRD_COMPAT_1275))
 		(void) snprintf(name, namelen, "%x,%x", device, func);
 	else
 		(void) snprintf(name, namelen, "%x", device);

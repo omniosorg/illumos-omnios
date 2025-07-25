@@ -112,18 +112,20 @@
  *
  * Traditionally, node naming was originally driven by the PROM on SPARC which
  * used IEEE 1275 Open Firmware device class names instead of just the device
- * IDs that we have settled on. On our platforms there are two exceptions to
- * this. If we find an ISA compatible system and the PCI PRD indicates that the
- * platform supports ISA, then we will override that. In addition, a subset of
- * the display class codes have historically been used to name a device node
- * "display".
+ * IDs that we have settled on. Devicetree.org trees, used on ARM, are based
+ * on this and the same applies there.   On x86 platforms there are two
+ * exceptions to this. If we find an ISA compatible system and the PCI PRD
+ * indicates that the platform supports ISA, then we will override that. In
+ * addition, a subset of the display class codes have historically been used
+ * to name a device node "display".
  *
  * Our order for naming device nodes is:
  *
  * 1. Check for display.
  * 2. Check for ISA.
- * 3. Attempt to use the subsystem.
- * 4. Fall back to the normal vendor and device.
+ * 3. Check for 1275 compatibility
+ * 4. Attempt to use the subsystem.
+ * 5. Fall back to the normal vendor and device.
  *
  * Platforms can influence this in the following ways:
  *
@@ -131,6 +133,7 @@
  *   o Bridges will not use the subsystem IDs if PCI_PRD_COMPAT_SUBSYS is set.
  *   o The node name will always start with "pci" if
  *     PCI_PRD_COMPAT_PCI_NODE_NAME is set.
+ *   o 1275 compatible naming only happens if PCI_PRD_COMPAT_1275 is set.
  *
  * Unit Address
  * ------------
@@ -269,31 +272,116 @@ pci_prop_use_subsystem(const pci_prop_data_t *prop,
 	return (prop->ppd_subvid != 0);
 }
 
+struct pci_class_to_1275_name {
+	struct {
+		uint8_t class;
+		uint8_t subclass;
+	} pci;
+	const char *name;
+};
+
+/*
+ * These are taken from the IEEE 1275 Open Firmware bus binding for PCI
+ * version 2.1, section 2.5 "FCode Evaluation Semantics", Table 1.
+ *
+ * The PCI Express bus binding incorporates this same table by reference.
+ */
+static const struct pci_class_to_1275_name pci_class_to_1275[] = {
+	{ { PCI_CLASS_NONE, PCI_NONE_VGA }, "display" },
+	{ { PCI_CLASS_MASS, PCI_MASS_SCSI}, "scsi" },
+	{ { PCI_CLASS_MASS, PCI_MASS_IDE }, "ide" },
+	{ { PCI_CLASS_MASS, PCI_MASS_FD }, "fdc" },
+	{ { PCI_CLASS_MASS, PCI_MASS_IPI }, "ipi" },
+	{ { PCI_CLASS_MASS, PCI_MASS_RAID }, "raid" },
+	{ { PCI_CLASS_NET, PCI_NET_ENET }, "ethernet" },
+	{ { PCI_CLASS_NET, PCI_NET_TOKEN }, "token-ring" },
+	{ { PCI_CLASS_NET, PCI_NET_FDDI }, "fddi" },
+	{ { PCI_CLASS_NET, PCI_NET_ATM }, "atm" },
+	{ { PCI_CLASS_DISPLAY, PCI_DISPLAY_VGA }, "display" },
+	{ { PCI_CLASS_MM, PCI_MM_VIDEO }, "video" },
+	{ { PCI_CLASS_MM, PCI_MM_AUDIO }, "sound" },
+	{ { PCI_CLASS_MEM, PCI_MEM_RAM }, "memory" },
+	{ { PCI_CLASS_MEM, PCI_MEM_FLASH }, "flash" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_HOST }, "host" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_ISA }, "isa" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_EISA }, "eisa" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_MC }, "mca" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_PCI }, "pci" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_PCMCIA }, "pcmcia" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_NUBUS }, "nubus" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_CARDBUS }, "cardbus" },
+	{ { PCI_CLASS_BRIDGE, PCI_BRIDGE_STPCI }, "pci" },
+	{ { PCI_CLASS_COMM, PCI_COMM_GENERIC_XT }, "serial" },
+	{ { PCI_CLASS_COMM, PCI_COMM_PARALLEL }, "parallel" },
+	{ { PCI_CLASS_PERIPH, PCI_PERIPH_PIC }, "interrupt-controller" },
+	{ { PCI_CLASS_PERIPH, PCI_PERIPH_DMA }, "dma-controller" },
+	{ { PCI_CLASS_PERIPH, PCI_PERIPH_TIMER }, "timer" },
+	{ { PCI_CLASS_PERIPH, PCI_PERIPH_RTC }, "rtc" },
+	{ { PCI_CLASS_INPUT, PCI_INPUT_KEYBOARD }, "keyboard" },
+	{ { PCI_CLASS_INPUT, PCI_INPUT_DIGITIZ }, "pen" },
+	{ { PCI_CLASS_INPUT, PCI_INPUT_MOUSE }, "mouse" },
+	{ { PCI_CLASS_DOCK, PCI_DOCK_GENERIC }, "dock" },
+	{ { PCI_CLASS_PROCESSOR, PCI_PROCESSOR_386 }, "cpu" },
+	{ { PCI_CLASS_SERIALBUS, PCI_SERIAL_FIRE }, "firewire" },
+	{ { PCI_CLASS_SERIALBUS, PCI_SERIAL_ACCESS }, "access-bus" },
+	{ { PCI_CLASS_SERIALBUS, PCI_SERIAL_SSA }, "ssa" },
+	{ { PCI_CLASS_SERIALBUS, PCI_SERIAL_USB }, "usb" },
+	{ { PCI_CLASS_SERIALBUS, PCI_SERIAL_FIBRE }, "fibre-channel" },
+};
+
+static const char *
+pci_prop_class_to_1275_name(const pci_prop_data_t *prop)
+{
+	for (int i = 0; i < ARRAY_SIZE(pci_class_to_1275); i++) {
+		if ((pci_class_to_1275[i].pci.class == prop->ppd_class) &&
+		    (pci_class_to_1275[i].pci.subclass == prop->ppd_subclass)) {
+			return (pci_class_to_1275[i].name);
+		}
+	}
+
+	return (NULL);
+}
+
+static void
+pci_prop_to_node_name(const pci_prop_data_t *prop, char *buf, size_t bufsz)
+{
+	pci_prd_compat_flags_t flags = pci_prd_compat_flags();
+
+	if (pci_prop_class_is_vga(prop)) {
+		strlcpy(buf, "display", bufsz);
+	} else if (pci_prop_class_is_isa(prop) &&
+	    (flags & PCI_PRD_COMPAT_ISA)) {
+		strlcpy(buf, "isa", bufsz);
+	} else {
+		if (flags & PCI_PRD_COMPAT_1275) {
+			const char *generic = pci_prop_class_to_1275_name(prop);
+
+			if (generic != NULL) {
+				strlcpy(buf, generic, bufsz);
+				return;
+			}
+		}
+
+		const char *prefix = pci_prop_nodename_prefix(prop, flags);
+		if (pci_prop_use_subsystem(prop, flags)) {
+			(void) snprintf(buf, bufsz, "%s%x,%x", prefix,
+			    prop->ppd_subvid, prop->ppd_subsys);
+		} else {
+			(void) snprintf(buf, bufsz, "%s%x,%x", prefix,
+			    prop->ppd_vendid, prop->ppd_devid);
+		}
+	}
+}
+
 /*
  * Name a device node per the theory statement.
  */
 pci_prop_failure_t
 pci_prop_name_node(dev_info_t *dip, const pci_prop_data_t *prop)
 {
-	char buf[64];
-	pci_prd_compat_flags_t flags = pci_prd_compat_flags();
+	char buf[64] = {0};
 
-	if (pci_prop_class_is_vga(prop)) {
-		(void) snprintf(buf, sizeof (buf), "display");
-	} else if (pci_prop_class_is_isa(prop) &&
-	    (flags & PCI_PRD_COMPAT_ISA) != 0) {
-		(void) snprintf(buf, sizeof (buf), "isa");
-	} else {
-		const char *prefix = pci_prop_nodename_prefix(prop, flags);
-
-		if (pci_prop_use_subsystem(prop, flags)) {
-			(void) snprintf(buf, sizeof (buf), "%s%x,%x", prefix,
-			    prop->ppd_subvid, prop->ppd_subsys);
-		} else {
-			(void) snprintf(buf, sizeof (buf), "%s%x,%x", prefix,
-			    prop->ppd_vendid, prop->ppd_devid);
-		}
-	}
+	pci_prop_to_node_name(prop, buf, sizeof (buf));
 
 	if (ndi_devi_set_nodename(dip, buf, 0) != NDI_SUCCESS) {
 		return (PCI_PROP_E_NDI);
@@ -582,7 +670,7 @@ pci_prop_set_common_props(dev_info_t *dip, const pci_prop_data_t *prop)
 		    prop->ppd_subsys);
 	}
 
-	if (prop->ppd_func > 0) {
+	if ((prop->ppd_func > 0) || (flags & PCI_PRD_COMPAT_1275)) {
 		(void) snprintf(unitaddr, sizeof (unitaddr), "%x,%x",
 		    prop->ppd_dev, prop->ppd_func);
 	} else {

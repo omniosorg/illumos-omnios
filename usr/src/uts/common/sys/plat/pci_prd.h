@@ -148,7 +148,13 @@ typedef enum {
 	 * and unqualified (',p' and ',s') aliases will be created for PCI.  See
 	 * uts/common/io/pciex/pcie_props.c.
 	 */
-	PCI_PRD_COMPAT_SUBSYS		= 1 << 2
+	PCI_PRD_COMPAT_SUBSYS		= 1 << 2,
+	/*
+	 * Indicates that we need IEEE 1275-compatible node naming.  This
+	 * names nodes based on the mechanism described in the IEEE 1275 PCI
+	 * bus binding section 2.5 "FCode Evaluation Semantics".
+	 */
+	PCI_PRD_COMPAT_1275		= 1 << 3,
 } pci_prd_compat_flags_t;
 
 extern pci_prd_compat_flags_t pci_prd_compat_flags(void);

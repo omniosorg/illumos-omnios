@@ -490,7 +490,7 @@ extern "C" {
 #endif
 
 /*
- * The following set of definitions characterize Solaris on ARM's
+ * The following set of definitions characterize illumos on ARM's
  * 64-bit systems.
  */
 #elif defined(__aarch64__)
@@ -545,7 +545,6 @@ extern "C" {
 #define	_PSM_MODULES
 #define	_RTC_CONFIG
 #define	_SOFT_HOSTID
-#define	_DONT_USE_1275_GENERIC_NAMES
 #define	_TLS_VARIANT 1
 
 /*
