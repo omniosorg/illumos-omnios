@@ -289,6 +289,7 @@ COMMON_SUBDIRS=	\
 	pcidr		\
 	pcieadm		\
 	pcieb		\
+	pcitool		\
 	perl		\
 	pfexec		\
 	pfexecd		\
@@ -460,7 +461,6 @@ $(ENABLE_JAVA)COMMON_SUBDIRS += $(JAVA_SUBDIRS)
 # abi - not interesting
 # bnu - uses FILE internals not available to LP64
 # latencytop - needs glib
-# pcitool - not ported
 # powertop - not ported
 # rmformat - not ported (or useful?)
 #
@@ -490,7 +490,6 @@ $(NOT_AARCH64_BLD)COMMON_SUBDIRS +=	\
 	latencytop	\
 	luxadm		\
 	oawk		\
-	pcitool		\
 	powertop	\
 	prtdiag		\
 	refer		\

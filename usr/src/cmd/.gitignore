@@ -1389,7 +1389,7 @@ pcidb/pcidb
 pcidr/pcidr
 pcieadm/pcieadm
 pcieb/pcieb
-pcitool/i386/pcitool
+pcitool/*/pcitool
 
 perl/contrib/Sun/Solaris/Intrs/*/Intrs.c
 perl/contrib/Sun/Solaris/Kstat/*/Kstat.c
