@@ -41,6 +41,7 @@
 #include <sys/memlist.h>
 #include <sys/pci.h>
 #include <sys/pci_impl.h>
+#include <sys/pci_memlist.h>
 #include <sys/pci_cfgspace_impl.h>
 #include <sys/sunndi.h>
 #include <sys/systm.h>

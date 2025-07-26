@@ -170,6 +170,7 @@
 #include <sys/sunndi.h>
 #include <sys/pci.h>
 #include <sys/pci_impl.h>
+#include <sys/pci_memlist.h>
 #include <sys/pcie_impl.h>
 #include <sys/pci_props.h>
 #include <sys/memlist.h>
