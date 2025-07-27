@@ -1062,7 +1062,7 @@ pciehpc_set_slot_name(pcie_hp_ctrl_t *ctrl_p)
 	uchar_t		*slotname_data;
 	int		*slotnum;
 	uint_t		count;
-	int		len;
+	uint_t		len;
 	int		invalid_slotnum = 0;
 	uint32_t	slot_capabilities;
 
@@ -1096,8 +1096,9 @@ pciehpc_set_slot_name(pcie_hp_ctrl_t *ctrl_p)
 	 *	else if valid slot number exists then it is "pcie<slot-num>".
 	 *	else it will be "pcie<sec-bus-number>dev0"
 	 */
-	if (ddi_getlongprop(DDI_DEV_T_ANY, ctrl_p->hc_dip, DDI_PROP_DONTPASS,
-	    "slot-names", (caddr_t)&slotname_data, &len) == DDI_PROP_SUCCESS) {
+	if (ddi_prop_lookup_byte_array(DDI_DEV_T_ANY, ctrl_p->hc_dip,
+	    DDI_PROP_DONTPASS, "slot-names", &slotname_data, &len) ==
+	    DDI_PROP_SUCCESS) {
 		char tmp_name[256];
 
 		/*

@@ -1928,6 +1928,18 @@ pcishpc_set_slot_name(pcie_hp_ctrl_t *ctrl_p, int slot)
 	 *	else if valid slot number exists then it is "pci<slot-num>".
 	 *	else it will be "pci<sec-bus-number>dev<dev-number>"
 	 */
+	/*
+	 * XXXARM: The "slot-names" property is unusual, in that the first
+	 * four bytes form an integer, which is followed by bytes as string
+	 * data.
+	 *
+	 * What this code needs to do, unfortunately, is to get the property
+	 * as a byte array, and handle the first four bytes as an integer
+	 * itself.  The problem being, I can't find anything with a
+	 * "slot-names" property to be certain what order this integer is in.
+	 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 	if (ddi_getlongprop(DDI_DEV_T_ANY, ctrl_p->hc_dip, DDI_PROP_DONTPASS,
 	    "slot-names", (caddr_t)&slotname_data, &len) == DDI_PROP_SUCCESS) {
 		bit_mask = slotname_data[3] | (slotname_data[2] << 8) |
@@ -1990,6 +2002,7 @@ pcishpc_set_slot_name(pcie_hp_ctrl_t *ctrl_p, int slot)
 		    slot_p->hs_phy_slot_num);
 		kmem_free(slotname_data, len);
 	}
+#pragma GCC diagnostic pop
 
 	if (invalid_slotnum) {
 		char tmp_name[256];
