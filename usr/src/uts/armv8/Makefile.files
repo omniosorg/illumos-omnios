@@ -182,3 +182,5 @@ ASSYM_DEPS +=			\
 	vpanic.o
 
 PCI_PRD_OBJS += pci_prd_armv8.o pci_memlist.o
+
+PCIE_MISC_OBJS += pcie_armv8.o

@@ -835,6 +835,16 @@ fcnname##_info:								\
 	END_MODULE(rpcsec_gss);
 #endif
 
+/*
+ * Stubs for PCI configurator module (misc/pcicfg).
+ * These are necessary because of the circular dependency between misc/pcie
+ * and misc/pcicfg
+ */
+	MODULE(pcicfg,misc);
+	STUB(pcicfg, pcicfg_configure, 0);
+	STUB(pcicfg, pcicfg_unconfigure, 0);
+	END_MODULE(pcicfg);
+
 #ifndef IWSCN_MODULE
 	MODULE(iwscn,drv);
 	STUB(iwscn, srpop, 0);
