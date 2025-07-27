@@ -153,7 +153,7 @@ file path=kernel/drv/$(ARCH64)/nulldriver group=sys
 file path=kernel/drv/$(ARCH64)/openeepr group=sys
 file path=kernel/drv/$(ARCH64)/options group=sys
 $(not_aarch64)file path=kernel/drv/$(ARCH64)/pci_pci group=sys
-$(not_aarch64)file path=kernel/drv/$(ARCH64)/pcieb group=sys
+file path=kernel/drv/$(ARCH64)/pcieb group=sys
 file path=kernel/drv/$(ARCH64)/physmem group=sys
 file path=kernel/drv/$(ARCH64)/poll group=sys
 $(i386_ONLY)file path=kernel/drv/$(ARCH64)/power group=sys
@@ -223,7 +223,7 @@ $(i386_ONLY)file path=kernel/drv/mc-amd.conf group=sys
 file path=kernel/drv/mm.conf group=sys
 file path=kernel/drv/openeepr.conf group=sys
 file path=kernel/drv/options.conf group=sys
-$(not_aarch64)file path=kernel/drv/pcieb.conf group=sys
+file path=kernel/drv/pcieb.conf group=sys
 file path=kernel/drv/physmem.conf group=sys
 file path=kernel/drv/poll.conf group=sys
 $(i386_ONLY)file path=kernel/drv/power.conf group=sys
@@ -541,7 +541,7 @@ $(i386_ONLY)driver name=pci_pci class=pci \
     alias=pci1014,22 \
     alias=pciclass,060400 \
     alias=pciclass,060401
-$(i386_ONLY)driver name=pcieb \
+driver name=pcieb \
     alias=pciexclass,060400 \
     alias=pciexclass,060401
 driver name=physmem perms="* 0600 root sys"

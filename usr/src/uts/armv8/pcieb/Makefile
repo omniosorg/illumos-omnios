@@ -19,8 +19,6 @@
 # CDDL HEADER END
 #
 #
-# uts/intel/pcieb/Makefile
-#
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
@@ -42,12 +40,12 @@ CONF_SRCDIR	= $(UTSBASE)/common/io/pciex
 #
 #	Include common rules.
 #
-include $(UTSBASE)/intel/Makefile.intel
+include $(UTSBASE)/armv8/Makefile.armv8
 
 #
 #	Define targets
 #
-ALL_TARGET	= $(BINARY) $(SRC_CONFILE)
+ALL_TARGET	= $(BINARY) $(SRC_CONFFILE)
 INSTALL_TARGET	= $(BINARY) $(ROOTMODULE) $(ROOT_CONFFILE)
 
 #
@@ -73,4 +71,8 @@ install:	$(INSTALL_DEPS)
 #
 #	Include common targets.
 #
-include $(UTSBASE)/intel/Makefile.targ
+include $(UTSBASE)/armv8/Makefile.targ
+
+$(OBJS_DIR)/%.o:		$(UTSBASE)/armv8/io/pciex/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)

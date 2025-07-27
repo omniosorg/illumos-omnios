@@ -227,6 +227,7 @@ DRV_KMODS += gictwo
 DRV_KMODS += gicthree
 DRV_KMODS += pl03one
 DRV_KMODS += efifb
+DRV_KMODS += pcieb
 
 #
 #	'Dacf' Modules (/kernel/dacf):
