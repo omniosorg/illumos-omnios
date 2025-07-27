@@ -180,3 +180,5 @@ ASSYM_DEPS +=			\
 	locore.o		\
 	swtch.o			\
 	vpanic.o
+
+PCI_PRD_OBJS += pci_prd_armv8.o pci_memlist.o
