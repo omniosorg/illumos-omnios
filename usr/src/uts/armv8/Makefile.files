@@ -79,8 +79,6 @@ CORE_OBJS +=			\
 	earlybsa.o		\
 	cpuinfo.o
 
-CORE_OBJS += $(PCI_STRING_OBJS)
-
 #
 #	Add the SMBIOS subsystem object files directly to the list of objects
 #	built into unix itself; this is all common code except for smb_dev.c.
