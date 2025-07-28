@@ -47,7 +47,6 @@ CORE_OBJS +=			\
 	vm_machdep.o		\
 	aarch64_mmu.o		\
 	ddi_impl.o		\
-	avintr.o		\
 	exceptions.o		\
 	swtch.o			\
 	syspic.o		\

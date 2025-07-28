@@ -42,7 +42,6 @@
 #include <sys/door.h>
 #include <sys/debug.h>
 #include <sys/smp_impldefs.h>
-#include <sys/rtc.h>
 #include <sys/stddef.h>
 #include <sys/types.h>
 #include <sys/conf.h>

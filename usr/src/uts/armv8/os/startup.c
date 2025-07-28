@@ -77,7 +77,6 @@
 #include <sys/kobj.h>
 #include <sys/kobj_lex.h>
 #include <sys/systeminfo.h>
-#include <sys/rtc.h>
 #include <sys/smbios.h>
 #include <sys/clconf.h>
 #include <sys/kdi.h>

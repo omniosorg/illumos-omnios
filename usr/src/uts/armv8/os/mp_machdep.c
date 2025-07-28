@@ -35,7 +35,6 @@
 #include <sys/strlog.h>
 #include <sys/clock.h>
 #include <sys/debug.h>
-#include <sys/rtc.h>
 #include <sys/cpupart.h>
 #include <sys/cpuvar.h>
 #include <sys/cpu_event.h>
