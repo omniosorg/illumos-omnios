@@ -391,9 +391,9 @@ typedef struct {
 } pcie_rc_data_t;
 
 /*
- * For hot plugged device, these data are init'ed during during probe
- * For non-hotplugged device, these data are init'ed in pci_autoconfig (on x86),
- * or in px_attach()(on sparc).
+ * For hot plugged device, these data are init'ed during during probe For
+ * non-hotplugged device, these data are init'ed in pci_autoconfig (on x86),
+ * pcierc (on aarch64), or in px_attach (on sparc).
  *
  * For root complex the fields are initialized in pcie_rc_init_bus();
  * for others part of the fields are initialized in pcie_init_bus(),

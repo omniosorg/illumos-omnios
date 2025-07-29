@@ -586,6 +586,7 @@ MISC_KMODS	+= net80211
 MISC_KMODS	+= neti
 MISC_KMODS	+= nfs_dlboot
 MISC_KMODS	+= nfssrv
+MISC_KMODS	+= pcierc
 MISC_KMODS	+= qlc_fw_2200
 MISC_KMODS	+= qlc_fw_2300
 MISC_KMODS	+= qlc_fw_2400

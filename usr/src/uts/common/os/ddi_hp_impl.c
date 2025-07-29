@@ -53,7 +53,7 @@
  * The goals of the hotplug framework are to provide common interfaces for nexus
  * drivers, device drivers, and userland programs to build a foundation for
  * implementing hotplug for a variety of devices. Notably, common support for
- * PCIe devices is available. See also: the nexus driver for PCIe devices at
+ * PCIe devices is available. See also: the i86 nexus driver for PCIe devices at
  * uts/i86pc/io/pciex/npe.c.
  *
  *

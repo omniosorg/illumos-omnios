@@ -5074,13 +5074,13 @@ nvme_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	nvme_detect_quirks(nvme);
 
 	/*
-	 * Set up event handlers for hot removal. While npe(4D) supports the hot
-	 * removal event being injected for devices, the same is not true of all
-	 * of our possible parents (i.e. pci(4D) as of this writing). The most
-	 * common case this shows up is in some virtualization environments. We
-	 * should treat this as non-fatal so that way devices work but leave
-	 * this set up in such a way that if a nexus does grow support for this
-	 * we're good to go.
+	 * Set up event handlers for hot removal. While npe(4D) and pcierc(4D)
+	 * support the hot removal event being injected for devices, the same
+	 * is not true of all of our possible parents (i.e. pci(4D) as of this
+	 * writing). The most common case this shows up is in some
+	 * virtualization environments. We should treat this as non-fatal so
+	 * that way devices work but leave this set up in such a way that if a
+	 * nexus does grow support for this we're good to go.
 	 */
 	if (ddi_get_eventcookie(nvme->n_dip, DDI_DEVI_REMOVE_EVENT,
 	    &nvme->n_rm_cookie) == DDI_SUCCESS) {

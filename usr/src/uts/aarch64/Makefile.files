@@ -143,6 +143,12 @@ STRATEGY_OBJS += strategy.o
 
 DEVFDT_OBJS += devfdt.o
 
+PCIERC_OBJS +=		\
+	pci_boot.o	\
+	pci_common.o	\
+	pci_tools.o	\
+	pcierc.o
+
 #
 #	Kernel linker
 #

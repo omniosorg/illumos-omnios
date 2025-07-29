@@ -63,6 +63,7 @@ typedef	phandle_t pnode_t;
 #define	OBP_COMPATIBLE		"compatible"
 #define	OBP_STATUS		"status"
 #define	OBP_BOARDNUM		"board#"
+#define	OBP_BUS_RANGE		"bus-range"
 
 #define	OBP_MAC_ADDR		"mac-address"
 #define	OBP_STDINPATH		"stdin-path"

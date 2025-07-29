@@ -31,6 +31,7 @@
 
 file path=kernel/drv/$(ARCH)/devfdt
 file path=kernel/drv/devfdt.conf
+file path=kernel/misc/$(ARCH)/pcierc mode=0755
 dir  path=platform/armv8
 dir  path=platform/armv8/kernel
 dir  path=platform/armv8/kernel/$(ARCH)
@@ -52,9 +53,9 @@ file path=platform/armv8/kernel/drv/ns16550a.conf
 dir  path=platform/armv8/kernel/misc
 dir  path=platform/armv8/kernel/misc/$(ARCH)
 file path=platform/armv8/kernel/misc/$(ARCH)/gfx_private group=sys mode=0755
+file path=platform/armv8/kernel/misc/$(ARCH)/pci_prd group=sys mode=0755
 file path=platform/armv8/kernel/misc/$(ARCH)/pcie mode=0755
 file path=platform/armv8/kernel/misc/$(ARCH)/platmod mode=0755
-file path=platform/armv8/kernel/misc/$(ARCH)/pci_prd group=sys mode=0755
 dir  path=platform/armv8/kernel/tod
 dir  path=platform/armv8/kernel/tod/$(ARCH)
 file path=platform/armv8/kernel/tod/$(ARCH)/pl03one mode=0755

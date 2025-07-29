@@ -1915,14 +1915,8 @@ impl_xlate_ranges(dev_info_t *child, uint32_t *in, size_t in_len,
 	uint64_t		caddr;
 	uint64_t		paddr;
 	uint64_t		size;
-	char			**compats;
-	int			ncompats;
+	char			*devtype;
 	int			max_cac = 2;
-	static const char	*known_3cell[] = {
-		"pciex_root_complex",
-	};
-	static const int	num_known_3cell =
-	    (int)(sizeof (known_3cell) / sizeof (known_3cell[0]));
 
 	/* zero-length input means identity mapping */
 	if (in_len == 0) {
@@ -1940,25 +1934,24 @@ impl_xlate_ranges(dev_info_t *child, uint32_t *in, size_t in_len,
 
 	/*
 	 * Explicitly allow children with a known 3 address-cell format, such
-	 * as PCIe root complexes. Our code will just shift the extra data off
+	 * as PCI devices. Our code will just shift the non-address data off
 	 * the end of the child address.
+	 *
+	 * XXXARM: The PCIe nexus drivers replace this with an interpreted
+	 * version (which is a hack, but so would be doing it here).
 	 */
-	if (ddi_prop_lookup_string_array(DDI_DEV_T_ANY, child,
-	    DDI_PROP_DONTPASS, OBP_COMPATIBLE,
-	    &compats, (uint_t *)&ncompats) == DDI_PROP_SUCCESS) {
-		for (n = 0; n < ncompats; ++n) {
-			for (i = 0; i < num_known_3cell; ++i) {
-				if (strcmp(compats[n], known_3cell[i]) == 0) {
-					max_cac = 3;
-					break;
-				}
-
-				if (max_cac == 3)
-					break;
-			}
+	if (ddi_prop_lookup_string(DDI_DEV_T_ANY, child,
+	    DDI_PROP_DONTPASS, OBP_DEVICETYPE, &devtype) == DDI_PROP_SUCCESS) {
+		/*
+		 * strncmp(devtype, "pci", 3) is probably enough, but let's be
+		 * defensive
+		 */
+		if ((strcmp(devtype, "pci") == 0) ||
+		    (strcmp(devtype, "pciex") == 0)) {
+			max_cac = 3;
 		}
 
-		ddi_prop_free(compats);
+		ddi_prop_free(devtype);
 	}
 
 	pac = ddi_prop_get_int(DDI_DEV_T_ANY, pdip, 0,
