@@ -240,5 +240,6 @@ DACF_KMODS += consconfig_dacf
 MISC_KMODS += bootdev
 MISC_KMODS += gfx_private
 MISC_KMODS += pci_prd
+MISC_KMODS += pcicfg
 MISC_KMODS += pcie
 MISC_KMODS += platmod
