@@ -1,0 +1,200 @@
+= AArch64 PCI Express Implementation
+Richard Lowe <richlowe@richlowe.net>
+:toc:
+:doctype: article
+
+== Introduction
+
+The PCI, PCI-X and PCI Express support in illumos is historically machine
+dependent, with a growing body of shared and shareable code.
+
+x86 has **pci(4D)** driving legacy PCI host bridges, and **npe(4D)** driving
+PCIe root complexes.  SPARC had separate drivers for two different PCI host
+bridges (**pcisch(4D)** and **pcipsy(4D)**), and a PCI express root complex
+driver **px(4D)**.
+
+This somewhat reflects the two different ways PCI and PCIe are presented to us
+by host firmware, but probably most reflect Sun's org chart at any given point
+in time.
+
+Focussing on enumeration:
+
+x86:: All PCI enumeration -- including of root complexes -- is driven by the
+  operating system via **pci_autoconfig**.  The PRD discovers root complexes
+  based on ACPI or BIOS, and enumerates the buses itself (potentially finding
+  additional root complexes).  With trivial exceptions regarding configuration
+  space access mechanism (and perhaps less trivial ones regarding bugs), all
+  hardware is equivalent.
+
+SPARC:: All PCI enumeration -- including of leaf devices -- is driven by
+  firmware, the operating system has a complete device tree and need not
+  enumerate buses itself.  Hardware is (potentially) whatever it wants to be,
+  as long as it complies with the IEEE 1275 bus bindings.
+
+The two kinds of AArch64 system fall between these two extremes.
+
+Flat Device Tree (FDT):: The platform provides the OS with a device tree which
+   contains at least the root complexes of the system.  Further enumeration
+   must be performed by the OS, but should the root complex have child nodes
+   in the tree they should merged into the enumerated tree discovered from
+   the bus.  This allows for the FDT blob to provide _only_ additional
+   properties for devices on the bus, while enumeration of the bus provides
+   the rest.  Importantly, firmware such as u-boot does not change this even
+   though it enumerates and programs the bus.
+
+ACPI:: The platform provides information for each root complex, and the OS
+   enumerates below there (much like the common FDT case).  This is
+   effectively the same as the x86 case except that we may choose to trust the
+   firmware to present a complete picture (presuming the quality of firmware
+   implementation has improved considerably, especially when not needing a
+   compatibility BIOS interface)
+
+In both cases hardware may be whatever it wants, though in the FDT case it
+must follow the bus bindings.
+
+== Implementation
+
+We're assuming that no relevant hardware has solely a PCI host bridge, and no
+PCIe support.  We only implement PCIe root complexes, PCI devices are assumed
+to be either on the PCIe root as Integrated Endpoints or past a bridge.
+
+Each type of PCIe root complex has its own device driver, functioning as a
+nexus for devices on that bus (or range of buses).  The differences between
+these types might be minimal -- the configuration space access method --
+or (at least in theory) large.
+
+We assume that the commonality of systems is roughly like this:
+
+1. Just standard PCIe (E)CAM (**pci-host-ecam-generic**, **pci-host-cam-generic**)
+2. vendor-specific configuration space mechanism (**brcm,bcm2711-pcie**)
+3. platform-specific configuration space mechanism (<<den-0115, DEN 0115>>)
+4. something somehow worse
+
+Realistically only the first two or three matter, leaving a distinction that
+is really only in how we access configuration space.
+
+We implement device drivers for each root complex type, which provide access
+to configuration space on their buses to the system.  These drivers share a
+large amount of code, in the `misc/pcierc` (pcie root complex) module, which
+actually implements the PCIe support provided to the rest of the system (and
+is fully derived from **npe(4D)**).
+
+=== Configuration Space
+
+Configuration space access is very different per platform, because of the
+nature of the platforms.  PCIe says that ECAM should always be the way, but in
+practice this isn't true for us.
+
+On x86 we have `pci_getN_func` and `pci_putN_func`, where N is a mnemonic
+size.  These dispatch depending on the traditional config space access
+mechanisms.  On top of these is `pci_cfgacc_acc_p` a pointer to a function
+taking a request structure, and `pci_cfgacc_acc` (to which `pci_cfgacc_acc_p`
+points).
+
+This all stems from the fact that on this platform we have architecturally no
+concept of a root complex device provided by the system.  We discover and
+create the device node ourselves dupring PCI enumeration, meaning we need
+access to configuration space _before_ we have any device information.
+
+On SPARC configuration space is always available via well known means (because
+Sun designed the systems, and on sun4v because it is firmware mediated), but
+requires device information from the root complex.
+
+The AArch64 implementation is a simplification of both of these.  Like on
+SPARC it is mandatory that we have the root complex device information to
+hand, unlike x86 we never need access to configuration space without having an
+associated root device.
+
+[sidebar]
+.Firmware Mediated Configuration Space Access
+--
+All sun4v systems, and some ARM systems provide access to PCI configuration
+space mediated by the firmware.  The operating system makes hyper calls which
+the firmware fields and firmware-provided drivers access configuration space.
+
+We choose not to use this exclusively (unlike sun4v), and currently do not use
+it at all.  The availability of this feature is not reflected in the device
+tree and must be probed separately.
+
+On ACPI systems, this would when a root without an MCFG was found (and we
+could use a more-specific driver, ideally).
+
+It is not documented what happens if we use a mixture of firmware-mediated and
+other accesses.
+--
+
+On AArch64 all configuration space access goes through `pci_cfgacc_acc` and
+no other means exists.
+
+`pci_cfgacc_acc` dispatches based on the root complex dip to a function that
+provides actual device-specific configuration space access.  This is stored as
+part of an **pcie_rc_data_t** in the bus-private data of the "up" bus of the
+root complex dip.
+
+=== Enumeration
+
+The mechanics of device enumeration are a strict subset of what happens on
+x86, we check each possible device on each possible bus creating devinfo
+nodes.  We do not have to discover root complexes as they're given to us
+explicitly by firmware.  Unlike i86pc (but like Oxide), we ignore any
+configuration from firmware and reprogram the buses ourselves.
+
+What is different from x86 (and SPARC) however, is that our PCIe root
+complex drivers are expected to perform self-enumeration as described in
+(<<psarc-2002-168, PSARC 2002/168>>).
+
+The first time requested by the `BUS_CONFIG_ALL` operation, we fully enumerate
+all buses we control.  No other operations have non-default implementations.
+
+Currently, this device enumeration is done via the subset of x86-style
+enumeration previously described.  It is a long term goal to replace this with
+a **pcicfg(4D)**-driven approach.
+
+=== PCIe Segmentation
+
+Newer versions of PCI Express support the concept of bus segments
+in the address space, allowing for more than 255 busses per system (but not per
+segment).  In effect another level of hierarchy, the segment, is added above
+the bus.  illumos does not support this yet
+
+However, the PCIe namespace is implicitly segmented along root-complex lines,
+traffic cannot be routed between them and each has its own space of 255
+busses.  We support this in theory, but userland tools (etc.) have not been
+updated.
+
+=== PCI Resource Discovery module
+
+The PRD interfaces (see: <<ipd-21, IPD 21 PCI Platform Unification>>) exist to
+provide common PCI interfaces between platforms and perhaps most especially
+sub-platforms.
+
+We implement only those interfaces that are relevant.  Others, such as
+thorough root complex enumeration are probably not needed in a world of modern
+firmware.  In general, we implement the pieces we need and not those we don't
+(yet).  This may grow to cover the differences between FDT and ACPI for
+instance.
+
+=== Structure
+
+Nexus drivers for each root complex (**ecam(4D)**, **bcm2711_pcie(4D)**)
+
+The shared functionality of these is implemented by a new module
+**misc/pcierc**, This exists only to keep **misc/pcie** as common as it is
+without introducing a large body of platform-specific functionality onto the
+side.
+
+**misc/pcie** as on other platforms implements the common PCIe code.
+
+**misc/pci_prd** implements the minimal amount of PRD interface in use
+
+**pci_common.o** as on other platorms implements common PCI/PCIe code.
+
+== References
+[#psarc-2002-168]
+- link:https://illumos.org/opensolaris/ARChive/PSARC/2002/168/[PSARC/2002/168 Bus Config]
+
+[#den-0115]
+- link:https://developer.arm.com/documentation/den0115/latest/[DEN 0115 Arm PCI Configuration Space Access Firmware Interface]
+
+[#ipd-21]
+- link:https://github.com/illumos/ipd/blob/master/ipd/0021/README.md[IPD 21 PCI Platform Unification]
