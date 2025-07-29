@@ -45,8 +45,7 @@ ROOTMODULE	= $(ROOT_PSM_MISC_DIR)/$(MODULE)
 #
 #	dependency
 #
-# XXXPCI: no PCI yet, and this uses old config space access
-# LDFLAGS	+=      -Nmisc/pci_autoconfig
+LDFLAGS	+=      -Nmisc/pcie
 
 #
 #	Include common rules.

@@ -161,10 +161,14 @@ GICTHREE_OBJS += gicthree.o
 
 PL03ONE_OBJS += pl03one.o
 
-# XXXPCI: Resurrect gfxp_pci.o when we're ready
-GFX_PRIVATE_OBJS	+= gfx_private.o gfxp_segmap.o \
-			   gfxp_devmap.o gfxp_vm.o \
-			   gfxp_fb.o gfxp_bitmap.o
+GFX_PRIVATE_OBJS	+=		\
+			gfx_private.o	\
+			gfxp_bitmap.o	\
+			gfxp_devmap.o	\
+			gfxp_fb.o	\
+			gfxp_pci.o	\
+			gfxp_segmap.o	\
+			gfxp_vm.o
 
 EFIFB_OBJS		+= efifb.o
 
