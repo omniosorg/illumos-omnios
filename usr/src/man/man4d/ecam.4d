@@ -1,0 +1,29 @@
+.\"
+.\" This file and its contents are supplied under the terms of the
+.\" Common Development and Distribution License ("CDDL"), version 1.0.
+.\" You may only use this file in accordance with the terms of version
+.\" 1.0 of the CDDL.
+.\"
+.\" A full copy of the text of the CDDL should have accompanied this
+.\" source.  A copy of the CDDL is also available via the Internet at
+.\" http://www.illumos.org/license/CDDL.
+.\"
+.\"
+.\" Copyright 2025 Richard Lowe
+.\"
+.Dd March 15, 2025
+.Dt ECAM 4D
+.Os
+.Sh NAME
+.Nm ecam
+.Nd Standard PCI Express bus nexus driver
+.Sh DESCRIPTION
+The
+.Nm
+driver supports standard PCI Express root complexes on AArch64 systems.
+.Sh SEE ALSO
+.Xr pcie 5
+.br
+.Lk https://www.openfirmware.info/data/docs/bus.pci.pdf The IEEE 1275 PCI bus binding
+.br
+.Lk https://www.devicetree.org/open-firmware/bindings/pci/pci-express.txt The IEEE 1275 PCI Express bus binding

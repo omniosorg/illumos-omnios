@@ -30,6 +30,7 @@
 #
 
 file path=kernel/drv/$(ARCH)/devfdt
+file path=kernel/drv/$(ARCH)/ecam
 file path=kernel/drv/devfdt.conf
 file path=kernel/misc/$(ARCH)/pcierc mode=0755
 dir  path=platform/armv8
@@ -61,9 +62,11 @@ dir  path=platform/armv8/kernel/tod/$(ARCH)
 file path=platform/armv8/kernel/tod/$(ARCH)/pl03one mode=0755
 file path=usr/lib/devfsadm/linkmod/SUNW_misc_link_aarch64.so
 file path=usr/share/man/man4d/devfdt.4d
+file path=usr/share/man/man4d/ecam.4d
 file path=usr/share/man/man4d/simple-bus.4d
 driver name=arm_gtmr alias=arm,armv8-timer
 driver name=devfdt perms="* 0400 root sys"
+driver name=ecam alias=pci-host-ecam-generic
 driver name=efifb
 driver name=gicthree alias=arm,gic-v3
 driver name=gictwo \

@@ -40,6 +40,14 @@ extern "C" {
 	((uint8_t)f & 0x7)) :	\
 	((((uint16_t)b & 0xff) << 8) + ((uint8_t)f & 0xff)))
 
+/*
+ * The following macros can be used to decode the cfgacc bdf into constituent
+ * values.
+ */
+#define	PCI_CFGACC_BUS(req)	(((req->bdf) & 0xff00) >> 8)
+#define	PCI_CFGACC_DEV(req)	(((req->bdf) & 0xf8) >> 3)
+#define	PCI_CFGACC_FUNC(req)	(((req->bdf) & 0x7))
+
 typedef union pci_cfg_data {
 	uint8_t b;
 	uint16_t w;

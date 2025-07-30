@@ -149,6 +149,8 @@ PCIERC_OBJS +=		\
 	pci_tools.o	\
 	pcierc.o
 
+ECAM_OBJS += ecam.o
+
 #
 #	Kernel linker
 #
