@@ -61,7 +61,12 @@ USR_RPI4_ISYS_DIR	= $(USR_RPI4_INC_DIR)/sys
 #
 #	Define modules.
 #
-RPI4_KMODS		= platmod bcm2711_emmctwo bcm2711_genet bcm2711_sensors
+RPI4_KMODS	=	\
+	bcm2711_emmctwo \
+	bcm2711_genet	\
+	bcm2711_pcie	\
+	bcm2711_sensors \
+	platmod
 
 #
 #	Include the makefiles which define build rule templates, the

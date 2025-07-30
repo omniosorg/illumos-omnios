@@ -37,6 +37,7 @@
 # bcm2711 drivers
 BCM2711_EMMCTWO_OBJS	+= bcm2711_emmctwo.o
 BCM2711_GENET_OBJS	+= bcm2711_genet.o
+BCM2711_PCIE_OBJS	+= bcm2711_pcie.o
 BCM2711_SENSORS_OBJS	+= bcm2711_sensors.o
 
 # Raspberry Pi 4 platform module
