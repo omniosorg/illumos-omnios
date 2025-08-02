@@ -47,13 +47,17 @@ FILEMODE=644
 
 i386_HDRS=			\
 	asy.h			\
+	avintr.h		\
 	fd_debug.h		\
 	fdc.h			\
 	fdmedia.h		\
 	firmload.h		\
 	gfx_private.h		\
 	mouse.h			\
-	nvme.h
+	nvme.h			\
+	pcic_reg.h		\
+	pcic_var.h
+
 
 sparc_HDRS=			\
 	mouse.h			\
@@ -201,7 +205,6 @@ CHKHDRS=			\
 	dls.h			\
 	dls_mgmt.h		\
 	dls_impl.h		\
-	dma_i8237A.h		\
 	dnlc.h			\
 	door.h			\
 	door_data.h		\
@@ -210,10 +213,6 @@ CHKHDRS=			\
 	dtrace_impl.h		\
 	dumpadm.h		\
 	dumphdr.h		\
-	ecppsys.h		\
-	ecppio.h		\
-	ecppreg.h		\
-	ecppvar.h		\
 	edonr.h			\
 	efi_partition.h		\
 	elf.h			\
@@ -1118,17 +1117,6 @@ DKTPHDRS=		\
 	queue.h		\
 	tgcom.h		\
 	tgdk.h
-
-# "pc" header files used on i386
-PCHDRS=			\
-	avintr.h	\
-	dma_engine.h	\
-	i8272A.h	\
-	pcic_reg.h	\
-	pcic_var.h	\
-	pic.h		\
-	pit.h		\
-	rtc.h
 
 NXGEHDRS=			\
 	nxge.h			\
