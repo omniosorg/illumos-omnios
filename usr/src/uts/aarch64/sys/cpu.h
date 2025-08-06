@@ -34,7 +34,7 @@ extern "C" {
 #if defined(_KERNEL) && !defined(_ASM)
 
 #define	SMT_PAUSE()	\
-    __asm__ __volatile__("yield":::"memory")
+    __asm__ __volatile__("isb":::"memory")
 
 #endif
 

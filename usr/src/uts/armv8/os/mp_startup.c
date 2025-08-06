@@ -97,7 +97,7 @@ mp_startup_wait(cpuset_t *sp, processorid_t cpuid)
 
 	for (tempset = *sp; !CPU_IN_SET(tempset, cpuid);
 	    tempset = *(volatile cpuset_t *)sp) {
-		__asm__ volatile("yield");
+		__asm__ volatile("isb");
 	}
 	CPUSET_ATOMIC_DEL(*(cpuset_t *)sp, cpuid);
 }
@@ -110,7 +110,7 @@ mp_startup_signal(cpuset_t *sp, processorid_t cpuid)
 	CPUSET_ATOMIC_ADD(*(cpuset_t *)sp, cpuid);
 	for (tempset = *sp; CPU_IN_SET(tempset, cpuid);
 	    tempset = *(volatile cpuset_t *)sp) {
-		__asm__ volatile("yield");
+		__asm__ volatile("isb");
 	}
 }
 
