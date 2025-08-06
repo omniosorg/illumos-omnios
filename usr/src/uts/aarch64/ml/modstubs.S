@@ -835,25 +835,6 @@ fcnname##_info:								\
 	END_MODULE(rpcsec_gss);
 #endif
 
-/*
- * Stubs for PCI configurator module (misc/pcicfg).
- */
-#ifndef PCICFG_MODULE
-	MODULE(pcicfg,misc);
-	STUB(pcicfg, pcicfg_configure, 0);
-	STUB(pcicfg, pcicfg_unconfigure, 0);
-	END_MODULE(pcicfg);
-#endif
-
-/*
- * Stubs for pcieb nexus driver.
- */
-#ifndef PCIEB_MODULE
-	MODULE(pcieb,drv);
-	STUB(pcieb, pcieb_intel_error_workaround, 0);
-	END_MODULE(pcieb);
-#endif
-
 #ifndef IWSCN_MODULE
 	MODULE(iwscn,drv);
 	STUB(iwscn, srpop, 0);
@@ -1108,40 +1089,6 @@ fcnname##_info:								\
 	NO_UNLOAD_STUB(dcopy, dcopy_cmd_post, nomod_minus_one);
 	NO_UNLOAD_STUB(dcopy, dcopy_cmd_poll, nomod_minus_one);
 	END_MODULE(dcopy);
-#endif
-
-/*
- * Stubs for acpica
- */
-#ifndef ACPICA_MODULE
-	MODULE(acpica,misc);
-	NO_UNLOAD_STUB(acpica, AcpiOsReadPort, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiOsWritePort, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiInstallNotifyHandler, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiRemoveNotifyHandler, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiEvaluateObject, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiEvaluateObjectTyped, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiWriteBitRegister, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiReadBitRegister, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, AcpiOsFree, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, acpica_get_handle_cpu, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, acpica_get_global_FADT, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, acpica_write_cpupm_capabilities,
-	    nomod_minus_one)		       ;
-	NO_UNLOAD_STUB(acpica, __acpi_wbinvd, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpica, acpi_reset_system, nomod_minus_one) ;
-	END_MODULE(acpica);
-#endif
-
-/*
- * Stubs for acpidev
- */
-#ifndef ACPIDEV_MODULE
-	MODULE(acpidev,misc);
-	NO_UNLOAD_STUB(acpidev, acpidev_dr_get_cpu_numa_info, nomod_minus_one) ;
-	NO_UNLOAD_STUB(acpidev, acpidev_dr_free_cpu_numa_info,
-	    nomod_minus_one) ;
-	END_MODULE(acpidev);
 #endif
 
 #ifndef IPNET_MODULE
