@@ -639,9 +639,6 @@ fcnname##_info:								\
  */
 #ifndef BOOTDEV_MODULE
 	MODULE(bootdev,misc);
-/*
- * XXXARM: Not implemented
- */
 	STUB(bootdev, i_promname_to_devname, 0);
 	STUB(bootdev, i_convert_boot_device_name, 0);
 	END_MODULE(bootdev);
