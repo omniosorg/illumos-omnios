@@ -865,6 +865,11 @@ fcnname##_info:								\
 
 /*
  * Stubs for checkpoint-resume module
+ *
+ * We neither have nor intend to have this support on ARM, but this stub
+ * is not a modstub in the traditional sense of providing dependency-less
+ * auto-loading, but instead this is what forms the canonical cpr()
+ * definition should a platform not have the misc/cpr module.
  */
 #ifndef CPR_MODULE
 	MODULE(cpr,misc);
