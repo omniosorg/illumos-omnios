@@ -55,7 +55,7 @@ file path=kernel/drv/$(ARCH64)/usb_ac group=sys
 file path=kernel/drv/$(ARCH64)/usb_as group=sys
 file path=kernel/drv/$(ARCH64)/usb_ia group=sys
 file path=kernel/drv/$(ARCH64)/usb_mid group=sys
-$(not_aarch64)file path=kernel/drv/$(ARCH64)/usbprn group=sys
+file path=kernel/drv/$(ARCH64)/usbprn group=sys
 file path=kernel/drv/$(ARCH64)/xhci group=sys
 file path=kernel/drv/ehci.conf group=sys
 file path=kernel/drv/ohci.conf group=sys
@@ -262,7 +262,7 @@ driver name=usb_ac perms="* 0600 root sys" alias=usbif,class1.1
 driver name=usb_as perms="* 0600 root sys" alias=usbif,class1.2
 driver name=usb_ia alias=usb,ia
 driver name=usb_mid alias=usb,device
-$(not_aarch64)driver name=usbprn perms="* 0666 root sys" alias=usbif,class7.1
+driver name=usbprn perms="* 0666 root sys" alias=usbif,class7.1
 $(i386_ONLY)driver name=xhci perms="* 0644 root sys" alias=pciclass,0c0330
 legacy pkg=SUNWusb desc="USBA (USB framework) and USB Device Drivers" \
     name="USB Device Drivers"

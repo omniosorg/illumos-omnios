@@ -218,6 +218,7 @@ CHKHDRS=			\
 	dtrace_impl.h		\
 	dumpadm.h		\
 	dumphdr.h		\
+	ecppsys.h		\
 	edonr.h			\
 	efi_partition.h		\
 	elf.h			\

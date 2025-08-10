@@ -45,7 +45,6 @@ HDRS	=			\
 	dma_i8237A.h		\
 	ecppio.h		\
 	ecppreg.h		\
-	ecppsys.h		\
 	ecppvar.h		\
 	fasttrap_isa.h		\
 	fp.h			\
