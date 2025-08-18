@@ -140,6 +140,7 @@ fill_xcpuinfo(const ACPI_MADT_GENERIC_INTERRUPT *gicc,
 	xci->xci_ppver = CPUINFO_ENABLE_METHOD_PSCI;
 	xci->xci_parked_addr = 0;
 	xci->xci_cpuif = gicc->CpuInterfaceNumber;
+	xci->xci_uid = gicc->Uid;
 
 	return (0);
 }

@@ -103,6 +103,7 @@ fill_cpuinfo(const struct xboot_cpu_info *xci, struct cpuinfo *ci)
 	ci->ci_ppver = xci->xci_ppver;
 	ci->ci_parked_addr = xci->xci_parked_addr;
 	ci->ci_cpuif = xci->xci_cpuif;
+	ci->ci_uid = xci->xci_uid;
 	return (0);
 }
 

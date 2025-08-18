@@ -273,6 +273,9 @@ fill_xcpuinfo(const void *fdtp, int nodeoff, struct xboot_cpu_info *xci)
 			return (-1);
 	}
 
+	/* the Uid field is ACPI-specific */
+	xci->xci_uid = 0;
+
 	xci->xci_cpuif = 0;
 	if (!is_gicv3(fdtp)) {
 		/*
