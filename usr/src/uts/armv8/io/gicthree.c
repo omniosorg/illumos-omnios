@@ -883,7 +883,11 @@ gicv3_assign_redistributors(dev_info_t *dip, gicv3_conf_t *gc)
 }
 
 /*
- * Initialize a single redistributor, applying initial configuration.
+ * Initialize a single redistributor
+ *
+ * In the case of the boot processor we apply initial configuration default
+ * values. In the case of application processors we apply the configuration
+ * currently active on the boot processor.
  */
 static void
 gicv3_init_gicr(gicv3_redistributor_t *r,
@@ -903,18 +907,66 @@ gicv3_init_gicr(gicv3_redistributor_t *r,
 	gicr_sgi_write4(r, GICR_IGROUPR0, 0xFFFFFFFF);
 	gicr_sgi_write4(r, GICR_IGRPMODR0, 0x0);
 
-	/*
-	 * Initialize interrupt priorities for per-CPU interrupts,
-	 * setting them to the lowest possible priority.
-	 */
-	for (int i = 0; i < 8; ++i)
-		gicr_sgi_write4(r, GICR_IPRIORITYRn(i), 0xffffffff);
+	if (CPU->cpu_id == 0) {
+		/*
+		 * Initialize interrupt priorities for per-CPU interrupts,
+		 * setting them to the lowest possible priority.
+		 */
+		for (int i = 0; i < 8; ++i)
+			gicr_sgi_write4(r, GICR_IPRIORITYRn(i), 0xffffffff);
 
-	/*
-	 * Set all PPIs to level triggered (SGIs are always edge
-	 * triggered).
-	 */
-	gicr_sgi_write4(r, GICR_ICFGR1, 0x0);
+		/*
+		 * Explicitly set all SGIs to edge triggered, which is the
+		 * default.
+		 */
+		gicr_sgi_write4(r, GICR_ICFGR0, 0xaaaaaaaa);
+
+		/*
+		 * Set all PPIs to level sensitive by default.
+		 */
+		gicr_sgi_write4(r, GICR_ICFGR1, 0x0);
+
+		/*
+		 * SGIs and PPIs have already been disabled at the
+		 * start of this function.
+		 */
+	} else {
+		gicv3_redistributor_t *r0 = &r->gr_gc->gc_redist[0];
+
+		lock_set(&r0->gr_lock);
+
+		/*
+		 * Initialize interrupt priorities for per-CPU interrupts from
+		 * the boot processor.
+		 */
+		for (int i = 0; i < 8; ++i) {
+			gicr_sgi_write4(r, GICR_IPRIORITYRn(i),
+			    gicr_sgi_read4(r0, GICR_IPRIORITYRn(i)));
+		}
+
+		/*
+		 * Configure SGIs from the boot processor.
+		 */
+		gicr_sgi_write4(r, GICR_ICFGR0,
+		    gicr_sgi_read4(r0, GICR_ICFGR0));
+
+		/*
+		 * Configure PPIs from the boot processor.
+		 */
+		gicr_sgi_write4(r, GICR_ICFGR1,
+		    gicr_sgi_read4(r0, GICR_ICFGR1));
+
+		/*
+		 * Enable SGIs and PPIs that are enabled on the boot processor.
+		 *
+		 * Others have been explicitly disabled at the start of this
+		 * function.
+		 */
+		gicr_sgi_write4(r, GICR_ISENABLER0,
+		    gicr_sgi_read4(r0, GICR_ISENABLER0));
+
+		lock_clear(&r0->gr_lock);
+	}
 }
 
 /*
@@ -979,6 +1031,11 @@ gicv3_cpu_init_raw(gicv3_conf_t *gc, cpu_t *cp)
 	 * interface.
 	 */
 	write_icc_igrpen1_el1(ICC_IGRPEN1_EL1_Enable);
+
+	/*
+	 * Configure SGIs and PPIs in this CPU's GIC redistributor.
+	 */
+	gicv3_init_gicr(&gc->gc_redist[cp->cpu_id], 0, 0);
 
 	/*
 	 * Finally, tell the world we're ready.
@@ -1098,11 +1155,6 @@ gicv3_init(dev_info_t *dip, gicv3_conf_t *gc)
 	 * Done touching the distributor.
 	 */
 	GICD_UNLOCK(gc);
-
-	/*
-	 * Reset all of the redistributors.
-	 */
-	gicv3_for_each_gicr(gc, gicv3_init_gicr, 0, 0);
 
 	/*
 	 * No CPUs have been configured yet.
