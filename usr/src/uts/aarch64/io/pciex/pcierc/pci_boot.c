@@ -697,10 +697,10 @@ set_ppb_res(dev_info_t *rcdip, dev_info_t *dip, uchar_t bus, uchar_t dev,
 	}
 
 	if (base > limit) {
-		cmn_err(CE_NOTE, MSGHDR "DISABLE %4s range",
+		dcmn_err(CE_NOTE, MSGHDR "DISABLE %4s range",
 		    ddi_node_name(dip), bus, dev, func, tag);
 	} else {
-		cmn_err(CE_NOTE,
+		dcmn_err(CE_NOTE,
 		    MSGHDR "PROGRAM %4s range 0x%lx ~ 0x%lx",
 		    ddi_node_name(dip), bus, dev, func, tag, base, limit);
 	}
@@ -956,7 +956,7 @@ fix_ppb_res(dev_info_t *rcdip, struct pci_bus_resource *pci_bus_res,
 			if (addr != 0) {
 				add_ranges_prop(pci_bus_res, secbus, B_TRUE);
 
-				cmn_err(CE_NOTE,
+				dcmn_err(CE_NOTE,
 				    MSGHDR "PROGRAM  I/O range 0x%lx ~ 0x%lx "
 				    "(subtractive bridge)",
 				    ddi_node_name(dip), bus, dev, func,
@@ -972,7 +972,7 @@ fix_ppb_res(dev_info_t *rcdip, struct pci_bus_resource *pci_bus_res,
 			if (addr != 0) {
 				add_ranges_prop(pci_bus_res, secbus, B_TRUE);
 
-				cmn_err(CE_NOTE,
+				dcmn_err(CE_NOTE,
 				    MSGHDR "PROGRAM  MEM range 0x%lx ~ 0x%lx "
 				    "(subtractive bridge)",
 				    ddi_node_name(dip), bus, dev, func,
@@ -1706,7 +1706,7 @@ add_bar_reg_props(dev_info_t *rcdip, struct pci_bus_resource *pci_bus_res,
 			} else {
 				uint32_t nbase;
 
-				cmn_err(CE_NOTE, MSGHDR "BAR%u  "
+				dcmn_err(CE_NOTE, MSGHDR "BAR%u  "
 				    "I/O REPROG 0x%x ~ 0x%x",
 				    ddi_node_name(rcdip), bus, dev, func,
 				    bar, base, len);
@@ -1874,7 +1874,7 @@ add_bar_reg_props(dev_info_t *rcdip, struct pci_bus_resource *pci_bus_res,
 			} else {
 				uint64_t nbase, nbase_hi = 0;
 
-				cmn_err(CE_NOTE, MSGHDR "BAR%u "
+				dcmn_err(CE_NOTE, MSGHDR "BAR%u "
 				    "%s%s REPROG 0x%lx ~ 0x%lx",
 				    ddi_node_name(rcdip), bus, dev, func, bar,
 				    pf ? "PMEM" : "MEM",
