@@ -2084,14 +2084,14 @@ add_reg_props(dev_info_t *rcdip, dev_info_t *dip,
 	/* add the three hard-decode, aliased address spaces for VGA */
 	if ((baseclass == PCI_CLASS_DISPLAY && subclass == PCI_DISPLAY_VGA) ||
 	    (baseclass == PCI_CLASS_NONE && subclass == PCI_NONE_VGA)) {
-		dev_err(dip, CE_PANIC, "ARM PCI does not support legacy VGA");
+		dev_err(dip, CE_NOTE, "ARM PCI does not support legacy VGA");
 	}
 
 	/* add the hard-decode, aliased address spaces for 8514 */
 	if ((baseclass == PCI_CLASS_DISPLAY) &&
 	    (subclass == PCI_DISPLAY_VGA) &&
 	    (progclass & PCI_DISPLAY_IF_8514)) {
-		dev_err(dip, CE_PANIC, "ARM PCI does not support legacy VGA");
+		dev_err(dip, CE_NOTE, "ARM PCI does not support legacy VGA");
 	}
 
 done:
@@ -2226,7 +2226,7 @@ add_ppb_props(dev_info_t *rcdip, dev_info_t *dip,
 
 	if (pci_cfgacc_get16(rcdip, PCI_GETBDF(bus, dev, func),
 	    PCI_BCNF_BCNTRL) & PCI_BCNF_BCNTRL_VGA_ENABLE) {
-		dev_err(dip, CE_PANIC, "ARM PCI does not support legacy VGA");
+		dev_err(dip, CE_NOTE, "ARM PCI does not support legacy VGA");
 	}
 
 	add_bus_range_prop(pci_bus_res, secbus);
