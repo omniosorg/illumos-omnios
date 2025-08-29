@@ -279,7 +279,7 @@ promif_getproplen(pnode_t nodeid, const char *name)
 	    &len);
 
 	if (prop == NULL) {
-		if (strcmp(name, "name") == 0) {
+		if (strcmp(name, OBP_NAME) == 0) {
 			const char *name_ptr = fdt_get_name(fdtp, offset, &len);
 			if (!name_ptr)
 				return (-1);
@@ -292,7 +292,7 @@ promif_getproplen(pnode_t nodeid, const char *name)
 
 			return (len + 1);
 		}
-		if (strcmp(name, "unit-address") == 0) {
+		if (strcmp(name, OBP_UNIT_ADDRESS) == 0) {
 			const char *name_ptr = fdt_get_name(fdtp, offset, &len);
 			if (!name_ptr)
 				return (-1);
@@ -328,7 +328,7 @@ promif_getprop(pnode_t nodeid, const char *name, void *value)
 	const void *prop = fdt_getprop(fdtp, offset, name, &len);
 
 	if (prop == NULL) {
-		if (strcmp(name, "name") == 0) {
+		if (strcmp(name, OBP_NAME) == 0) {
 			const char *name_ptr = fdt_get_name(fdtp, offset, &len);
 			const char *p = strchr(name_ptr, '@');
 
@@ -345,7 +345,7 @@ promif_getprop(pnode_t nodeid, const char *name, void *value)
 
 			return (len + 1);
 		}
-		if (strcmp(name, "unit-address") == 0) {
+		if (strcmp(name, OBP_UNIT_ADDRESS) == 0) {
 			const char *name_ptr = fdt_get_name(fdtp, offset, &len);
 			const char *p = strchr(name_ptr, '@');
 			if (p) {
@@ -384,7 +384,7 @@ promif_nextprop(pnode_t nodeid, const char *name, char *next)
 	 * The first time we're called, present the "name" pseudo-property
 	 */
 	if (name[0] == '\0') {
-		strlcpy(next, "name", OBP_MAXPROPNAME);
+		strlcpy(next, OBP_NAME, OBP_MAXPROPNAME);
 		return (next);
 	}
 
@@ -392,12 +392,12 @@ promif_nextprop(pnode_t nodeid, const char *name, char *next)
 	 * The second time we're called, present the "unit-address"
 	 * pseudo-property, if appropriate
 	 */
-	if (strcmp(name, "name") == 0) {
+	if (strcmp(name, OBP_NAME) == 0) {
 		int len;
 		const char *fullname = fdt_get_name(fdtp, offset, &len);
 
 		if (strchr(fullname, '@') != NULL) {
-			strlcpy(next, "unit-address", OBP_MAXPROPNAME);
+			strlcpy(next, OBP_UNIT_ADDRESS, OBP_MAXPROPNAME);
 			return (next);
 		}
 
@@ -420,8 +420,8 @@ promif_nextprop(pnode_t nodeid, const char *name, char *next)
 			 * If we reach here with name equal to one of our
 			 * pseudo-properties, give the first real property.
 			 */
-			if ((strcmp(name, "name") == 0) ||
-			    (strcmp(name, "unit-address") == 0)) {
+			if ((strcmp(name, OBP_NAME) == 0) ||
+			    (strcmp(name, OBP_UNIT_ADDRESS) == 0)) {
 				strlcpy(next, name0, OBP_MAXPROPNAME);
 				return (next);
 			}
@@ -482,13 +482,13 @@ get_prop_int(pnode_t node, const char *name, int def)
 static int
 get_address_cells(pnode_t node)
 {
-	return (get_prop_int(get_parent(node), "#address-cells", 2));
+	return (get_prop_int(get_parent(node), OBP_ADDRESS_CELLS, 2));
 }
 
 static int
 get_size_cells(pnode_t node)
 {
-	return (get_prop_int(get_parent(node), "#size-cells", 2));
+	return (get_prop_int(get_parent(node), OBP_SIZE_CELLS, 2));
 }
 
 static int
@@ -515,12 +515,12 @@ static int
 get_reg_bounds(pnode_t node, int index, uint64_t *base, uint64_t *size)
 {
 	size_t off;
-	int len = promif_getproplen(node, "reg");
+	int len = promif_getproplen(node, OBP_REG);
 	if (len <= 0)
 		return (-1);
 
 	uint32_t *regs = __builtin_alloca(len);
-	promif_getprop(node, "reg", (caddr_t)regs);
+	promif_getprop(node, OBP_REG, (caddr_t)regs);
 
 	int address_cells = get_address_cells(node);
 	int size_cells = get_size_cells(node);
@@ -604,7 +604,7 @@ boolean_t
 prom_fdt_is_compatible(pnode_t node, const char *name)
 {
 	int len;
-	char *prop_name = "compatible";
+	char *prop_name = OBP_COMPATIBLE;
 	len = promif_getproplen(node, prop_name);
 	if (len <= 0)
 		return (B_FALSE);
@@ -649,16 +649,16 @@ prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 			continue;
 		}
 
-		int len = promif_getproplen(parent, "ranges");
+		int len = promif_getproplen(parent, OBP_RANGES);
 		if (len <= 0) {
 			parent = get_parent(parent);
 			continue;
 		}
 
-		int address_cells = get_prop_int(parent, "#address-cells", 2);
-		int size_cells = get_prop_int(parent, "#size-cells", 2);
+		int address_cells = get_prop_int(parent, OBP_ADDRESS_CELLS, 2);
+		int size_cells = get_prop_int(parent, OBP_SIZE_CELLS, 2);
 		int parent_address_cells = get_prop_int(
-		    get_parent(parent), "#address-cells", 2);
+		    get_parent(parent), OBP_ADDRESS_CELLS, 2);
 
 		if ((len % CELLS_1275_TO_BYTES(address_cells +
 		    parent_address_cells + size_cells)) != 0) {
@@ -667,7 +667,7 @@ prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 		}
 
 		uint32_t *ranges = __builtin_alloca(len);
-		promif_getprop(parent, "ranges", (caddr_t)ranges);
+		promif_getprop(parent, OBP_RANGES, (caddr_t)ranges);
 		int ranges_cells =
 		    (address_cells + parent_address_cells + size_cells);
 

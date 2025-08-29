@@ -97,7 +97,7 @@ pci_common_name_child(dev_info_t *child, char *name, int namelen)
 		 * For .conf node, use "unit-address" property
 		 */
 		if (ddi_prop_lookup_string_array(DDI_DEV_T_ANY, child,
-		    DDI_PROP_DONTPASS, "unit-address", &unit_addr, &n) !=
+		    DDI_PROP_DONTPASS, OBP_UNIT_ADDRESS, &unit_addr, &n) !=
 		    DDI_PROP_SUCCESS) {
 			cmn_err(CE_WARN, "cannot find unit-address in %s.conf",
 			    ddi_get_name(child));

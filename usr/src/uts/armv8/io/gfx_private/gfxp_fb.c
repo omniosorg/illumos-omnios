@@ -30,6 +30,7 @@
 #include <sys/kd.h>
 #include <sys/fbio.h>
 #include <sys/gfx_private.h>
+#include <sys/obpdefs.h>
 #include "gfxp_fb.h"
 
 #define	MYNAME	"gfxp_fb"
@@ -216,7 +217,7 @@ gfxp_fb_attach(dev_info_t *devi, ddi_attach_cmd_t cmd, gfxp_fb_softc_ptr_t ptr)
 	mutex_init(&(softc->lock), NULL, MUTEX_DRIVER, NULL);
 
 	error = ddi_prop_lookup_string(DDI_DEV_T_ANY, ddi_get_parent(devi),
-	    DDI_PROP_DONTPASS, "device_type", &parent_type);
+	    DDI_PROP_DONTPASS, OBP_DEVICETYPE, &parent_type);
 	if (error == DDI_SUCCESS) {
 		if (STREQ(parent_type, "pci") || STREQ(parent_type, "pciex"))
 			pci_pcie_bus = 1;

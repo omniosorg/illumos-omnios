@@ -2251,7 +2251,7 @@ add_bus_range_prop(struct pci_bus_resource *pci_bus_res, int bus)
 	bus_range[0] = bus;
 	bus_range[1] = pci_bus_res[bus].sub_bus;
 	(void) ndi_prop_update_int_array(DDI_DEV_T_NONE, pci_bus_res[bus].dip,
-	    "bus-range", (int *)bus_range, 2);
+	    OBP_BUS_RANGE, (int *)bus_range, 2);
 }
 
 /*

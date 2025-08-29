@@ -55,6 +55,7 @@ typedef	phandle_t pnode_t;
  */
 
 #define	OBP_NAME		"name"
+#define	OBP_UNIT_ADDRESS	"unit-address"
 #define	OBP_REG			"reg"
 #define	OBP_INTR		"intr"
 #define	OBP_RANGES		"ranges"

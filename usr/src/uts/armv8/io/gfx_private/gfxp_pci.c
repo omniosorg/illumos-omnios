@@ -66,6 +66,7 @@
 #include <sys/callb.h>
 #include <sys/pci_cfgacc.h>
 #include <sys/gfx_private.h>
+#include <sys/obpdefs.h>
 
 extern dev_info_t *pcie_get_rc_dip(dev_info_t *);
 
@@ -88,7 +89,7 @@ gfxp_pci_get_bsf(dev_info_t *dip, uint8_t *bus, uint8_t *dev, uint8_t *func)
 
 	/* get "reg" property */
 	rc = ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip,
-	    DDI_PROP_DONTPASS, "reg", (int **)&pci_rp, (uint_t *)&length);
+	    DDI_PROP_DONTPASS, OBP_REG, (int **)&pci_rp, (uint_t *)&length);
 	if ((rc != DDI_SUCCESS) || (length <
 	    (sizeof (pci_regspec_t) / sizeof (int)))) {
 		return (DDI_FAILURE);

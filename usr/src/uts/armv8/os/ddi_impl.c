@@ -2417,7 +2417,7 @@ create_efifb(void)
 	compatible[0] = compat0;
 	compatible[1] = compat1;
 	err = ndi_prop_update_string_array(DDI_DEV_T_NONE, xdip,
-	    "compatible", compatible, 2);
+	    OBP_COMPATIBLE, compatible, 2);
 	VERIFY3U(err, ==, DDI_SUCCESS);
 
 	err = ndi_prop_update_string(DDI_DEV_T_NONE, xdip,

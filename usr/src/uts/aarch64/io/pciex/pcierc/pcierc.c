@@ -426,7 +426,7 @@ pcierc_bus_map(dev_info_t *dip, dev_info_t *rdip, ddi_map_req_t *mp,
 		 * make sure that everything is okay.
 		 */
 		if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, rdip,
-		    DDI_PROP_DONTPASS, "reg", (int **)&pci_rp, &nelem) !=
+		    DDI_PROP_DONTPASS, OBP_REG, (int **)&pci_rp, &nelem) !=
 		    DDI_PROP_SUCCESS)
 			return (DDI_FAILURE);
 
@@ -678,7 +678,7 @@ pcierc_ctlops(dev_info_t *dip, dev_info_t *rdip,
 
 		*(int *)result = 0;
 		if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, rdip,
-		    DDI_PROP_DONTPASS, "reg", (int **)&drv_regp,
+		    DDI_PROP_DONTPASS, OBP_REG, (int **)&drv_regp,
 		    &reglen) != DDI_PROP_SUCCESS) {
 			return (DDI_FAILURE);
 		}
