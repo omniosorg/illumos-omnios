@@ -81,8 +81,8 @@ void
 kobj_sync_instruction_memory(caddr_t addr, size_t len)
 {
 	uint64_t ctr = read_ctr_el0();
-	uint64_t inst_line_size = CTR_IMINLINE_SIZE(ctr);
-	uint64_t data_line_size = CTR_DMINLINE_SIZE(ctr);
+	uint64_t inst_line_size = 4ul << (ctr & 0xful);
+	uint64_t data_line_size = 4ul << ((ctr & 0xf0000ul) >> 16);
 
 	for (uintptr_t v = P2ALIGN((uintptr_t)addr, data_line_size);
 	    v < (uintptr_t)addr + len; v += data_line_size) {
