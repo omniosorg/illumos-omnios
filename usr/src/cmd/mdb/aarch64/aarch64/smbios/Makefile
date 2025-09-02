@@ -13,15 +13,17 @@
 # Copyright 2020 Oxide Computer Company
 #
 
-MODULE = libsmbios.so
-MDBTGT = proc
+
+MODULE = smbios.so
+MDBTGT = kvm
 
 MODSRCS = smbios.c
+MODSRCS_DIR = ../../../../common/modules/smbios
 
 include ../../../../Makefile.cmd
 include ../../../../Makefile.cmd.64
-include ../../Makefile.amd64
+include ../../Makefile.aarch64
 include ../../../Makefile.module
 
-MODSRCS_DIR = ../../../common/modules/smbios
+MODULE_BUILD_TYPE = mdb
 LDLIBS += -lsmbios

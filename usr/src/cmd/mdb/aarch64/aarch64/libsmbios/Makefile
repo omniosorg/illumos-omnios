@@ -13,8 +13,15 @@
 # Copyright 2020 Oxide Computer Company
 #
 
-include $(SRC)/Makefile.master
+MODULE = libsmbios.so
+MDBTGT = proc
 
-$(BUILD64)SUBDIRS += $(MACH64)
+MODSRCS = smbios.c
 
-include ../../../Makefile.subdirs
+include ../../../../Makefile.cmd
+include ../../../../Makefile.cmd.64
+include ../../Makefile.aarch64
+include ../../../Makefile.module
+
+MODSRCS_DIR = ../../../common/modules/smbios
+LDLIBS += -lsmbios

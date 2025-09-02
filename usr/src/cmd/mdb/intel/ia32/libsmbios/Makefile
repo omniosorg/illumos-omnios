@@ -22,5 +22,5 @@ include ../../../../Makefile.cmd
 include ../../Makefile.ia32
 include ../../../Makefile.module
 
-MODSRCS_DIR = ../../modules/smbios
+MODSRCS_DIR = ../../../common/modules/smbios
 LDLIBS += -lsmbios

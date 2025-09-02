@@ -30,7 +30,6 @@ SUBDIRS = mdb_kb \
 	generic_cpu \
 	amd_opteron \
 	sata \
-	smbios \
 	vmm
 
 include ../../Makefile.subdirs

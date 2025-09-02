@@ -32,10 +32,7 @@ MODULES =				\
 	$(COMMON_MODULES_PROC_64BIT)	\
 	$(COMMON_MODULES_KVM)
 
-MODULES += disk_label uhci
-
-# XXXARM: Not ported
-#MODULES += libsmbios
+MODULES += disk_label libsmbios uhci
 
 SUBDIRS = mdb mdb_ks kmdb libstand libstandctf .WAIT $(MODULES)
 
