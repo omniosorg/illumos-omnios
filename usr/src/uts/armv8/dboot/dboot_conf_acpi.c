@@ -22,6 +22,7 @@
 #include <sys/acpi/platform/acsolaris.h>
 #include <sys/acpi/actypes.h>
 #include <sys/acpi/actbl.h>
+#include <sys/acpi/actbl2.h>
 #include <sys/cpuinfo.h>
 #include <sys/controlregs.h>
 #include <sys/machparam.h>
@@ -117,6 +118,17 @@ get_madt(void)
 		return (NULL);
 
 	return ((const ACPI_TABLE_MADT *)hdr);
+}
+
+static const ACPI_TABLE_MCFG *
+get_mcfg(void)
+{
+	const ACPI_TABLE_HEADER *hdr;
+
+	if ((hdr = find_acpi_table(ACPI_SIG_MCFG)) == NULL)
+		return (NULL);
+
+	return ((const ACPI_TABLE_MCFG *)hdr);
 }
 
 static int
@@ -249,6 +261,27 @@ dboot_configure_acpi_cpuinfo(struct xboot_info *bi)
 	return (0);
 }
 
+static void
+dboot_count_pcierc(struct xboot_info *bi)
+{
+	const ACPI_TABLE_MCFG *mcfg;
+	UINT32 mcfglen;
+	UINT32 alloclen;
+
+	if ((mcfg = get_mcfg()) == NULL)
+		return;
+
+	memcpy(&mcfglen, &mcfg->Header.Length, sizeof (mcfglen));
+	if (mcfglen < sizeof (ACPI_TABLE_MCFG))
+		return;
+
+	alloclen = mcfglen - sizeof (ACPI_TABLE_MCFG);
+	if (alloclen % sizeof (ACPI_MCFG_ALLOCATION) != 0)
+		return;
+
+	bi->bi_pcierc_cnt = alloclen / sizeof (ACPI_MCFG_ALLOCATION);
+}
+
 int
 dboot_configure_acpi(void)
 {
@@ -268,5 +301,6 @@ dboot_configure_acpi(void)
 	bi->bi_psci_conduit_hvc = (flags & ACPI_FADT_PSCI_USE_HVC) ? 1 : 0;
 
 	boot_psci_init(bi);
+	dboot_count_pcierc(bi);
 	return (dboot_configure_acpi_cpuinfo(bi));
 }

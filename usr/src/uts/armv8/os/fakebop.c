@@ -1046,6 +1046,9 @@ build_firmware_properties(struct xboot_info *xbp __maybe_unused)
 	if (xbp->bi_smbios != 0)
 		bsetprop64("smbios-address", xbp->bi_smbios);
 
+	if (xbp->bi_pcierc_cnt != 0)
+		bsetprop32("num-known-pcierc", xbp->bi_pcierc_cnt);
+
 #if defined(_USE_FDT)
 	if (xbp->bi_fdt != 0) {
 		const void *fdtp = (void *)xbp->bi_fdt;

@@ -124,6 +124,7 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		dprintf("  %s: 0x%lx\n", "bi_hyp_stubs", bi->bi_hyp_stubs);
 		dprintf("  %s: 0x%x\n", "bi_bsvc_uart_type",
 		    bi->bi_bsvc_uart_type);
+		dprintf("  %s: 0x%x\n", "bi_pcierc_cnt", bi->bi_pcierc_cnt);
 		dprintf("  %s: 0x%x\n", "bi_module_cnt", bi->bi_module_cnt);
 		dprintf("  %s: 0x%x\n", "bi_psci_version", bi->bi_psci_version);
 		dprintf("  %s: 0x%x\n", "bi_psci_conduit_hvc",
@@ -150,6 +151,8 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		    bi->bi_framebuffer == 0 ? "Absent" : "Present");
 		dboot_printf("  %s: %luHz\n", "Timer Frequency",
 		    bi->bi_arch_timer_freq);
+		dboot_printf("  %s: %u\n", "PCIe Root Complexes",
+		    bi->bi_pcierc_cnt);
 		dboot_printf("  %s: %u.%u\n", "PSCI Version",
 		    bi->bi_psci_version >> 16, bi->bi_psci_version & 0xffff);
 		dboot_printf("  %s: %s\n", "PSCI Conduit",

@@ -192,7 +192,19 @@ struct memseg *memseg_base;
 
 vmem_t		*device_arena;
 uintptr_t	toxic_addr = (uintptr_t)NULL;
-size_t		toxic_size = 1024 * 1024 * 1024; /* Sparc uses 1 gig too */
+size_t		toxic_size = 1024 * 1024 * 1024;
+/*
+ * Boot passes us the number of known PCIe root complexes to us.
+ *
+ * We allocate 256MiB of device arena VA for each root complex, assuming that
+ * in the general case these will require ECAM configuration space mappings.
+ *
+ * We limit the number of supported root complexes to 64, requiring 16GiB of VA.
+ * In the general case we'll have one to eight root complexes, where eight root
+ * complexes requires 2GiB of VA.
+ */
+#define	MAX_KNOWN_PCIERC	64
+
 
 /*
  * Simple boot time debug facilities
@@ -1419,6 +1431,20 @@ layout_kernel_va(void)
 	toxic_addr =
 	    ROUND_UP_LPAGE((uintptr_t)segzio_base + mmu_ptob(segziosize));
 	PRM_DEBUG(toxic_addr);
+
+	if (do_bsys_getproplen(NULL, "num-known-pcierc") > 0) {
+		uint32_t pval;
+		do_bsys_getprop(NULL, "num-known-pcierc", &pval);
+		if (pval != 0 && pval > MAX_KNOWN_PCIERC) {
+			pval = MAX_KNOWN_PCIERC;
+		}
+		if (pval > 0) {
+			toxic_size += (pval * (256ul * (1024ul * 1024ul)));
+		}
+	}
+
+	PRM_DEBUG(toxic_size);
+
 	segmap_start = ROUND_UP_LPAGE(toxic_addr + toxic_size);
 
 	/*

@@ -389,6 +389,29 @@ dboot_configure_fdt_cpuinfo(const void *fdtp, struct xboot_info *bi)
 	return (0);
 }
 
+static void
+dboot_count_pcierc_compat(const void *fdtp, struct xboot_info *bi,
+    const char *compat)
+{
+	int off = fdt_node_offset_by_compatible(fdtp, -1, compat);
+
+	while (off != -FDT_ERR_NOTFOUND) {
+		bi->bi_pcierc_cnt++;
+		off = fdt_node_offset_by_compatible(fdtp, off, compat);
+	}
+}
+
+static void
+dboot_count_pcierc(const void *fdtp, struct xboot_info *bi)
+{
+	static const char *ecam = "pci-host-ecam-generic";
+	static const char *rpi4 = "brcm,bcm2711-pcie";
+
+	bi->bi_pcierc_cnt = 0;
+	dboot_count_pcierc_compat(fdtp, bi, ecam);
+	dboot_count_pcierc_compat(fdtp, bi, rpi4);
+}
+
 int
 dboot_configure_fdt(void)
 {
@@ -463,5 +486,6 @@ dboot_configure_fdt(void)
 			    fdt32_to_cpu(*((const uint32_t *)pval));
 	}
 
+	dboot_count_pcierc(fdtp, bi);
 	return (dboot_configure_fdt_cpuinfo(fdtp, bi));
 }
