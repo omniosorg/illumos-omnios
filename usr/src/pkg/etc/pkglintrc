@@ -16,18 +16,12 @@ do_pub_checks = True
 version.pattern = *,5.11-
 pkglint001.5.report-linted = False
 
-# XXXARM: Disable the missing_smf_fmri check on ARM because they require
-# pkgdepend, which we don't have yet
 pkglint.exclude = \
 	pkg.lint.pkglint_action.PkgActionChecker.linted \
 	pkg.lint.pkglint_manifest.PkgManifestChecker.linted \
 	pkg.lint.pkglint_manifest.PkgManifestChecker.bogus_description \
 	pkg.lint.pkglint_manifest.PkgManifestChecker.naming \
-	pkg.lint.pkglint_manifest.PkgManifestChecker.duplicate_deps \
-	pkg.lint.pkglint_manifest.PkgManifestChecker.missing_smf_fmri
+	pkg.lint.pkglint_manifest.PkgManifestChecker.duplicate_deps
 
-# XXXARM: packages that don't appear for arm-reasons
-# - osnet-incorporation -- probably from lacking pkgdepend
+# This is not an error
 pkglint.action005.1.missing-deps = \
-	pkg:/consolidation/osnet/osnet-incorporation
-
