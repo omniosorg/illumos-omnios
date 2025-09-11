@@ -29,8 +29,6 @@ include ../../../Makefile.cmd.64
 
 CFLAGS64 += $(CCVERBOSE)
 
-# XXXARM: needs a cross-smatch
-SMATCH=off
 include ../../Makefile.bld
 
 include ../../../Makefile.targ
