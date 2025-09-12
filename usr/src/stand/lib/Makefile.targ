@@ -19,9 +19,10 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2017 Hayashi Naoyuki
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
+#
+# ident	"%Z%%M%	%I%	%E% SMI"
 #
 
 all alllibs: $(LIBS)
@@ -32,21 +33,20 @@ clean:
 clobber: clean
 	$(RM) $(LIBS) $(CLOBBERFILES)
 
-$(ROOTLIBS): all $(ROOTLIBDIR)
 install: all .WAIT $(ROOTLIBDIR) .WAIT $(ROOTLIBS)
 
-lint lintcheck: $(SRCS)
+lint lintcheck: $$(SRCS)
 	$(LINT.c) $(SRCS) -L$(ROOTLIBDIR) $(LDLIBS)
 
 objs:
 	-@mkdir -p $@
 
-$(LIBRARY): objs .WAIT $(OBJS)
+$(LIBRARY): objs .WAIT $$(OBJS)
 	$(BUILD.AR)
 	$(POST_PROCESS_A)
 
-$(LINTLIB): $(SRCS)
-	$(LINT.c) -o $(LIBNAME) $(SRCS) 2>&1
+$(LINTLIB): $$(SRCS)
+	$(LINT.c) -o $(LIBNAME) $(SRCS) 2>&1 
 
 objs/%.o: $(SRCDIR)/%.c
 	$(COMPILE.c) -o $@ $<

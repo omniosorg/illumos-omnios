@@ -51,5 +51,4 @@ usr/src/tools/onbld/Checks/Mapfile
 usr/src/tools/scripts/
 usr/src/uts/Makefile.mapfile
 usr/src/uts/common/mapfiles/dtrace.mapfile.awk
-usr/src/psm/stand/boot/aarch64/rpi4/mapfile
-usr/src/psm/stand/boot/aarch64/virt/mapfile
+

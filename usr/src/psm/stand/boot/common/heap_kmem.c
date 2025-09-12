@@ -23,9 +23,6 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-/*
- * Copyright 2017 Hayashi Naoyuki
- */
 
 #if 1
 #undef DEBUG
@@ -70,7 +67,6 @@
 #include <sys/salib.h>
 #include <sys/saio.h>
 #include <sys/promif.h>
-#include <stdbool.h>
 
 /*
  * The node header structure.
@@ -85,6 +81,7 @@
  * blocks together.
  */
 
+typedef enum {false, true} bool;
 typedef struct	freehdr	*Freehdr;
 typedef struct	dblk	*Dblk;
 
@@ -586,17 +583,6 @@ kmem_alloc(size_t nbytes, int kmflag)
 	return (retblock);
 
 } /* kmem_alloc */
-
-void *
-kmem_zalloc(size_t size, int flag)
-{
-	void *ret = kmem_alloc(size, flag);
-
-	if (ret != NULL)
-		bzero(ret, size);
-
-	return (ret);
-}
 
 /*
  * Return a block to the free space tree.

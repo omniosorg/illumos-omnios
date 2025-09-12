@@ -46,7 +46,6 @@ static	char	prom_dev_type = 0;
  * do know how to interpret solaris slices.
  */
 unsigned long unix_startblk = 0;
-size_t unix_numblks = 0;
 
 /*
  *	The various flavors of PROM make this grotesque.

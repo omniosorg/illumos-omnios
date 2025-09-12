@@ -23,12 +23,12 @@
 # Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# ident	"%Z%%M%	%I%	%E% SMI"
+#
 
 LIBRARY = libufs.a
 OBJECTS = ufsops.o lufsboot.o
 
 include	../Makefile.com
-
-CERRWARN += -_gcc14=-Wno-dangling-pointer
 
 include ../../Makefile.targ

@@ -64,22 +64,39 @@ int	npagesize = 0;
 uint_t	icache_flush = 0;
 char	*cpulist = NULL;
 char	*mmulist = NULL;
-char	*module_path;		/* path for kernel modules */
+extern char *module_path;		/* path for kernel modules */
 
 /*
  * This file gets compiled in LP64 (for sun4u) and ILP32 models.
  * For LP64 compilation, the "client" file we load and run may be LP64 or ILP32,
  * and during bringup, the LP64 clients may have ELF32 headers.
  */
+#ifdef	_ELF64_SUPPORT
 /*
  * Bootstrap vector for ELF32 LP64 client
  */
+Elf32_Boot *elfbootvecELF32_64;
 Elf64_Boot *elfbootvecELF64;	/* ELF bootstrap vector for Elf64 LP64 */
 
 #define	OK		((func_t)0)
 
 #define	FAIL_READELF64	((uint64_t)0)
 #define	FAIL_ILOAD64	((Elf64_Addr)-1)
+#endif	/* _ELF64_SUPPORT */
+
+/*
+ * And by an ILP32 client. The non-sun4u/LP64 booters use these.
+ * Also, the sun4u booter must create this for ILP32 clients.
+ */
+Elf32_Boot *elfbootvec;		/* ELF bootstrap vector normal ILP32 */
+
+/*
+ * Read in a Unix executable file and return its entry point.
+ * Handle the various a.out formats correctly.
+ * "fd" is the standalone file descriptor to read from.
+ * Print informative little messages if "print" is on.
+ * Returns -1 for errors.
+ */
 
 #ifdef DEBUG
 static int debug = 1;
@@ -89,11 +106,13 @@ static int debug = 0;
 
 #define	dprintf		if (debug) printf
 
+#ifdef	_ELF64_SUPPORT
 typedef struct {
 	uint_t	a_type;
 	union {
 		uint64_t a_val;
 		uint64_t a_ptr;
+		void	(*a_fcn)();	/* XXX - UNUSED? */
 	} a_un;
 } auxv64_t;
 
@@ -103,7 +122,10 @@ extern int client_isLP64;
 
 static uint64_t read_elf64(int, int, Elf64_Ehdr *);
 static Elf64_Addr iload64(char *, Elf64_Phdr *, Elf64_Phdr *, auxv64_t **);
+#endif	/* _ELF64_SUPPORT */
 
+static func_t	read_elf32(int, int, Elf32_Ehdr *);
+static func_t	iload32(char *, Elf32_Phdr *, Elf32_Phdr *, auxv32_t **);
 static caddr_t	segbrk(caddr_t *, size_t, size_t);
 static int	openpath(char *, char *, int);
 static char	*getmodpath(char *);
@@ -145,17 +167,12 @@ xread(int fd, char *p, size_t nbytes)
 	return (bytesread);
 }
 
-/*
- * Read in a Unix executable file and return its entry point.
- * Handle the various a.out formats correctly.
- * "fd" is the standalone file descriptor to read from.
- * Print informative little messages if "print" is on.
- * Returns -1 for errors.
- */
 func_t
 readfile(int fd, int print)
 {
+#ifdef	_ELF64_SUPPORT
 	uint64_t elf64_go2;
+#endif	/* _ELF64_SUPPORT */
 
 	ssize_t i;
 	int shared = 0;
@@ -200,6 +217,7 @@ readfile(int fd, int print)
 			}
 
 
+#ifdef	_ELF64_SUPPORT
 			dprintf("ELF file CLASS 0x%x 32 is %x 64 is %x\n",
 			    elfhdr.e_ident[EI_CLASS], ELFCLASS32, ELFCLASS64);
 
@@ -210,7 +228,9 @@ readfile(int fd, int print)
 				return ((elf64_go2 == FAIL_READELF64) ? FAIL :
 				    (func_t)elf64_go2);
 
-			}
+			} else
+#endif	/* _ELF64_SUPPORT */
+				return (read_elf32(fd, print, &elfhdr));
 		} else {
 			printf("File not executable.\n");
 			return (FAIL);
@@ -219,6 +239,380 @@ readfile(int fd, int print)
 	return (FAIL);
 }
 
+/*
+ * Macros to add attribute/values to the ELF bootstrap vector
+ * and the aux vector. Use the type-cast to convert integers
+ * to pointers first to suppress the gcc warning.
+ */
+#define	AUX(p, a, v)	{ (p)->a_type = (a); \
+			((p)++)->a_un.a_val = (int32_t)(uintptr_t)(v); }
+
+#define	EBV(p, a, v)	{ (p)->eb_tag = (a); \
+			((p)++)->eb_un.eb_val = (Elf32_Word)(uintptr_t)(v); }
+
+static func_t
+read_elf32(int fd, int print, Elf32_Ehdr *elfhdrp)
+{
+	Elf32_Phdr *phdr;	/* program header */
+	Elf32_Nhdr *nhdr;	/* note header */
+	int nphdrs, phdrsize;
+	caddr_t allphdrs;
+	caddr_t	namep, descp;
+	Elf32_Addr loadaddr, base;
+	size_t offset = 0;
+	size_t size;
+	uintptr_t off;
+	int	i;
+	int	bss_seen = 0;
+	int interp = 0;				/* interpreter required */
+	static char dlname[MAXPATHLEN];		/* name of interpeter */
+	uint_t dynamic;				/* dynamic tags array */
+	Elf32_Phdr *thdr;			/* "text" program header */
+	Elf32_Phdr *dhdr;			/* "data" program header */
+	func_t entrypt;				/* entry point of standalone */
+
+	/* Initialize pointers so we won't free bogus ones on elferror */
+	allphdrs = NULL;
+	nhdr = NULL;
+
+#ifdef _ELF64_SUPPORT
+	if (verbosemode)
+		printf("Elf32 client\n");
+#endif	/* _ELF64_SUPPORT */
+
+	if (elfhdrp->e_phnum == 0 || elfhdrp->e_phoff == 0)
+		goto elferror;
+
+	/* use uintptr_t to suppress the gcc warning */
+	entrypt = (func_t)(uintptr_t)elfhdrp->e_entry;
+	if (verbosemode)
+		dprintf("Entry point: %p\n", (void *)entrypt);
+
+	/*
+	 * Allocate and read in all the program headers.
+	 */
+	nphdrs = elfhdrp->e_phnum;
+	phdrsize = nphdrs * elfhdrp->e_phentsize;
+	allphdrs = (caddr_t)kmem_alloc(phdrsize, 0);
+	if (allphdrs == NULL)
+		goto elferror;
+	if (verbosemode)
+		dprintf("lseek: args = %x %x %x\n", fd, elfhdrp->e_phoff, 0);
+	if (lseek(fd, elfhdrp->e_phoff, 0) == -1)
+		goto elferror;
+	if (xread(fd, allphdrs, phdrsize) != phdrsize)
+		goto elferror;
+
+	/*
+	 * First look for PT_NOTE headers that tell us what pagesize to
+	 * use in allocating program memory.
+	 */
+	npagesize = 0;
+	for (i = 0; i < nphdrs; i++) {
+		void *note_buf;
+
+		phdr = (Elf32_Phdr *)(allphdrs + elfhdrp->e_phentsize * i);
+		if (phdr->p_type != PT_NOTE)
+			continue;
+		if (verbosemode) {
+			dprintf("allocating 0x%x bytes for note hdr\n",
+			    phdr->p_filesz);
+		}
+		if ((note_buf = kmem_alloc(phdr->p_filesz, 0)) == NULL)
+			goto elferror;
+		if (verbosemode)
+			dprintf("seeking to 0x%x\n", phdr->p_offset);
+		if (lseek(fd, phdr->p_offset, 0) == -1)
+			goto elferror;
+		if (verbosemode) {
+			dprintf("reading 0x%x bytes into %p\n",
+			    phdr->p_filesz, (void *)nhdr);
+		}
+		nhdr = (Elf32_Nhdr *)note_buf;
+		if (xread(fd, (caddr_t)nhdr, phdr->p_filesz) != phdr->p_filesz)
+			goto elferror;
+		if (verbosemode) {
+			dprintf("p_note namesz %x descsz %x type %x\n",
+			    nhdr->n_namesz, nhdr->n_descsz, nhdr->n_type);
+		}
+
+		/*
+		 * Iterate through all ELF PT_NOTE elements looking for
+		 * ELF_NOTE_SOLARIS which, if present, will specify the
+		 * executable's preferred pagesize.
+		 */
+		do {
+			namep = (caddr_t)(nhdr + 1);
+
+			if (nhdr->n_namesz == strlen(ELF_NOTE_SOLARIS) + 1 &&
+			    strcmp(namep, ELF_NOTE_SOLARIS) == 0 &&
+			    nhdr->n_type == ELF_NOTE_PAGESIZE_HINT) {
+				descp = namep + roundup(nhdr->n_namesz, 4);
+				npagesize = *(int *)descp;
+				if (verbosemode)
+					dprintf("pagesize is %x\n", npagesize);
+			}
+
+			offset += sizeof (Elf32_Nhdr) + roundup(nhdr->n_namesz,
+			    4) + roundup(nhdr->n_descsz, 4);
+
+			nhdr = (Elf32_Nhdr *)((char *)note_buf + offset);
+		} while (offset < phdr->p_filesz);
+
+		kmem_free(note_buf, phdr->p_filesz);
+		nhdr = NULL;
+	}
+
+	/*
+	 * Next look for PT_LOAD headers to read in.
+	 */
+	if (print)
+		printf("Size: ");
+	for (i = 0; i < nphdrs; i++) {
+		phdr = (Elf32_Phdr *)(allphdrs + elfhdrp->e_phentsize * i);
+		if (verbosemode) {
+			dprintf("Doing header 0x%x\n", i);
+			dprintf("phdr\n");
+			dprintf("\tp_offset = %x, p_vaddr = %x\n",
+			    phdr->p_offset, phdr->p_vaddr);
+			dprintf("\tp_memsz = %x, p_filesz = %x\n",
+			    phdr->p_memsz, phdr->p_filesz);
+		}
+		if (phdr->p_type == PT_LOAD) {
+			if (verbosemode)
+				dprintf("seeking to 0x%x\n", phdr->p_offset);
+			if (lseek(fd, phdr->p_offset, 0) == -1)
+				goto elferror;
+
+			if (phdr->p_flags == (PF_R | PF_W) &&
+			    phdr->p_vaddr == 0) {
+				/*
+				 * It's a PT_LOAD segment that is RW but
+				 * not executable and has a vaddr
+				 * of zero.  This is relocation info that
+				 * doesn't need to stick around after
+				 * krtld is done with it.  We allocate boot
+				 * memory for this segment, since we don't want
+				 * it mapped in permanently as part of
+				 * the kernel image.
+				 */
+				if ((loadaddr = (uintptr_t)
+				    kmem_alloc(phdr->p_memsz, 0)) == 0)
+					goto elferror;
+				/*
+				 * Save this to pass on
+				 * to the interpreter.
+				 */
+				phdr->p_vaddr = (Elf32_Addr)loadaddr;
+			} else {
+				if (print)
+					printf("0x%x+", phdr->p_filesz);
+				/*
+				 * If we found a new pagesize above, use it
+				 * to adjust the memory allocation.
+				 */
+				loadaddr = phdr->p_vaddr;
+				if (use_align && npagesize != 0) {
+					off = loadaddr & (npagesize - 1);
+					size = roundup(phdr->p_memsz + off,
+					    npagesize);
+					base = loadaddr - off;
+				} else {
+					npagesize = 0;
+					size = phdr->p_memsz;
+					base = loadaddr;
+				}
+				/*
+				 *  Check if it's text or data.
+				 */
+				if (phdr->p_flags & PF_W)
+					dhdr = phdr;
+				else
+					thdr = phdr;
+
+				/*
+				 * If memory size is zero just ignore this
+				 * header.
+				 */
+				if (size == 0)
+					continue;
+
+				if (verbosemode)
+					dprintf("allocating memory: %x %lx "
+					    "%x\n", base, size, npagesize);
+				/*
+				 * We're all set up to read.
+				 * Now let's allocate some memory.
+				 */
+
+				/* use uintptr_t to suppress the gcc warning */
+				if (get_progmemory((caddr_t)(uintptr_t)base,
+				    size, npagesize))
+					goto elferror;
+			}
+
+			if (verbosemode) {
+				dprintf("reading 0x%x bytes into 0x%x\n",
+				    phdr->p_filesz, loadaddr);
+			}
+			/* use uintptr_t to suppress the gcc warning */
+			if (xread(fd, (caddr_t)(uintptr_t)loadaddr,
+			    phdr->p_filesz) != phdr->p_filesz)
+				goto elferror;
+
+			/* zero out BSS */
+			if (phdr->p_memsz > phdr->p_filesz) {
+				loadaddr += phdr->p_filesz;
+				if (verbosemode) {
+					dprintf("bss from 0x%x size 0x%x\n",
+					    loadaddr,
+					    phdr->p_memsz - phdr->p_filesz);
+				}
+				/* use uintptr_t to suppress the gcc warning */
+				bzero((void *)(uintptr_t)loadaddr,
+				    phdr->p_memsz - phdr->p_filesz);
+				bss_seen++;
+				if (print)
+					printf("0x%x Bytes\n",
+					    phdr->p_memsz - phdr->p_filesz);
+			}
+
+			/* force instructions to be visible to icache */
+			if (phdr->p_flags & PF_X) {
+				sync_instruction_memory(
+				    (caddr_t)(uintptr_t)phdr->p_vaddr,
+				    phdr->p_memsz);
+			}
+		} else if (phdr->p_type == PT_INTERP) {
+			/*
+			 * Dynamically-linked executable.
+			 */
+			interp = 1;
+			if (lseek(fd, phdr->p_offset, 0) == -1) {
+				goto elferror;
+			}
+			/*
+			 * Get the name of the interpreter.
+			 */
+			if (xread(fd, dlname, phdr->p_filesz) !=
+			    phdr->p_filesz ||
+			    dlname[phdr->p_filesz - 1] != '\0')
+				goto elferror;
+		} else if (phdr->p_type == PT_DYNAMIC) {
+			dynamic = phdr->p_vaddr;
+		}
+	}
+
+	if (!bss_seen && print)
+		printf("0 Bytes\n");
+
+	/*
+	 * Load the interpreter
+	 * if there is one.
+	 */
+	if (interp) {
+		Elf32_Boot bootv[EB_MAX];		/* Bootstrap vector */
+		auxv32_t auxv[__BOOT_NAUXV_IMPL];	/* Aux vector */
+		Elf32_Boot *bv = bootv;
+		auxv32_t *av = auxv;
+		size_t vsize;
+
+		/*
+		 * Load it.
+		 */
+		if ((entrypt = iload32(dlname, thdr, dhdr, &av)) == FAIL)
+			goto elferror;
+		/*
+		 * Build bootstrap and aux vectors.
+		 */
+		setup_aux();
+		EBV(bv, EB_AUXV, 0); /* fill in later */
+		EBV(bv, EB_PAGESIZE, pagesize);
+		EBV(bv, EB_DYNAMIC, dynamic);
+		EBV(bv, EB_NULL, 0);
+
+		AUX(av, AT_BASE, entrypt);
+		AUX(av, AT_ENTRY, elfhdrp->e_entry);
+		AUX(av, AT_PAGESZ, pagesize);
+		AUX(av, AT_PHDR, allphdrs);
+		AUX(av, AT_PHNUM, elfhdrp->e_phnum);
+		AUX(av, AT_PHENT, elfhdrp->e_phentsize);
+		if (use_align)
+			AUX(av, AT_SUN_LPAGESZ, npagesize);
+		AUX(av, AT_SUN_IFLUSH, icache_flush);
+		if (cpulist != NULL)
+			AUX(av, AT_SUN_CPU, cpulist);
+		if (mmulist != NULL)
+			AUX(av, AT_SUN_MMU, mmulist);
+		AUX(av, AT_NULL, 0);
+		/*
+		 * Realloc vectors and copy them.
+		 */
+		vsize = (caddr_t)bv - (caddr_t)bootv;
+		if ((elfbootvec = (Elf32_Boot *)kmem_alloc(vsize, 0)) == NULL)
+			goto elferror;
+		bcopy((char *)bootv, (char *)elfbootvec, vsize);
+
+		size = (caddr_t)av - (caddr_t)auxv;
+		if (size > sizeof (auxv)) {
+			printf("readelf: overrun of available aux vectors\n");
+			kmem_free(elfbootvec, vsize);
+			goto elferror;
+		}
+		/* use uintptr_t to suppress the gcc warning */
+		if ((elfbootvec->eb_un.eb_ptr =
+		    (Elf32_Addr)(uintptr_t)kmem_alloc(size, 0)) == 0) {
+			kmem_free(elfbootvec, vsize);
+			goto elferror;
+		}
+		/* use uintptr_t to suppress the gcc warning */
+		bcopy(auxv,
+		    (void *)(uintptr_t)(elfbootvec->eb_un.eb_ptr), size);
+
+#if defined(_ELF64_SUPPORT)
+		/*
+		 * Make an LP64 copy of the vector for use by 64-bit standalones
+		 * even if they have ELF32.
+		 */
+		if ((elfbootvecELF32_64 = (Elf32_Boot *)kmem_alloc(vsize, 0))
+		    == NULL)
+			goto elferror;
+		bcopy(bootv, elfbootvecELF32_64, vsize);
+
+		size = (av - auxv) * sizeof (auxv64_t);
+		/* use uintptr_t to suppress the gcc warning */
+		if ((elfbootvecELF32_64->eb_un.eb_ptr =
+		    (Elf32_Addr)(uintptr_t)kmem_alloc(size, 0)) == 0) {
+			kmem_free(elfbootvecELF32_64, vsize);
+			goto elferror;
+		} else {
+			auxv64_t *a64 =
+			    (auxv64_t *)(uintptr_t)
+			    elfbootvecELF32_64->eb_un.eb_ptr;
+			auxv32_t *a = auxv;
+
+			for (a = auxv; a < av; a++) {
+				a64->a_type = a->a_type;
+				a64->a_un.a_val = a->a_un.a_val;
+				a64++;
+			}
+		}
+#endif	/* _ELF64_SUPPORT */
+	} else {
+		kmem_free(allphdrs, phdrsize);
+	}
+	return (entrypt);
+
+elferror:
+	if (allphdrs != NULL)
+		kmem_free(allphdrs, phdrsize);
+	if (nhdr != NULL)
+		kmem_free(nhdr, phdr->p_filesz);
+	printf("Elf32 read error.\n");
+	return (FAIL);
+}
+
+#ifdef	_ELF64_SUPPORT
 /*
  * Macros to add attribute/values to the ELF bootstrap vector
  * and the aux vector.
@@ -415,7 +809,7 @@ read_elf64(int fd, int print, Elf64_Ehdr *elfhdrp)
 				 */
 				if (phdr->p_flags & PF_W)
 					dhdr = phdr;
-				else if (phdr->p_flags & PF_X)
+				else
 					thdr = phdr;
 
 				if (verbosemode)
@@ -572,7 +966,156 @@ elf64error:
 	printf("Elf64 read error.\n");
 	return (FAIL_READELF64);
 }
+#endif	/* _ELF64_SUPPORT */
 
+/*
+ * Load the interpreter.  It expects a
+ * relocatable .o capable of bootstrapping
+ * itself.
+ */
+static func_t
+iload32(char *rtld, Elf32_Phdr *thdr, Elf32_Phdr *dhdr, auxv32_t **avp)
+{
+	Elf32_Ehdr *ehdr = NULL;
+	uintptr_t dl_entry = 0;
+	uint_t i;
+	int fd;
+	int size;
+	caddr_t shdrs = NULL;
+	caddr_t etext, edata;
+
+	/* use uintptr_t to suppress the gcc warning */
+	etext = (caddr_t)(uintptr_t)thdr->p_vaddr + thdr->p_memsz;
+	edata = (caddr_t)(uintptr_t)dhdr->p_vaddr + dhdr->p_memsz;
+
+	/*
+	 * Get the module path.
+	 */
+	module_path = getmodpath(filename);
+
+	if ((fd = openpath(module_path, rtld, O_RDONLY)) < 0) {
+		printf("boot: cannot find %s\n", rtld);
+		goto errorx;
+	}
+	dprintf("Opened %s OK\n", rtld);
+	AUX(*avp, AT_SUN_LDNAME, rtld);
+	/*
+	 * Allocate and read the ELF header.
+	 */
+	if ((ehdr = (Elf32_Ehdr *)kmem_alloc(sizeof (Elf32_Ehdr), 0)) == NULL) {
+		printf("boot: alloc error reading ELF header (%s).\n", rtld);
+		goto error;
+	}
+
+	if (xread(fd, (char *)ehdr, sizeof (*ehdr)) != sizeof (*ehdr)) {
+		printf("boot: error reading ELF header (%s).\n", rtld);
+		goto error;
+	}
+
+	size = ehdr->e_shentsize * ehdr->e_shnum;
+	if ((shdrs = (caddr_t)kmem_alloc(size, 0)) == NULL) {
+		printf("boot: alloc error reading ELF header (%s).\n", rtld);
+		goto error;
+	}
+	/*
+	 * Read the section headers.
+	 */
+	if (lseek(fd, ehdr->e_shoff, 0) == -1 ||
+	    xread(fd, shdrs, size) != size) {
+		printf("boot: error reading section headers\n");
+		goto error;
+	}
+	AUX(*avp, AT_SUN_LDELF, ehdr);
+	AUX(*avp, AT_SUN_LDSHDR, shdrs);
+	/*
+	 * Load sections into the appropriate dynamic segment.
+	 */
+	for (i = 1; i < ehdr->e_shnum; i++) {
+		Elf32_Shdr *sp;
+		caddr_t *spp;
+		caddr_t load;
+
+		sp = (Elf32_Shdr *)(shdrs + (i*ehdr->e_shentsize));
+		/*
+		 * If it's not allocated and not required
+		 * to do relocation, skip it.
+		 */
+		if (!(sp->sh_flags & SHF_ALLOC) &&
+		    sp->sh_type != SHT_RELA &&
+		    sp->sh_type != SHT_SYMTAB &&
+		    sp->sh_type != SHT_STRTAB)
+			continue;
+		/*
+		 * If the section is read-only,
+		 * it goes in as text.
+		 */
+		spp = (sp->sh_flags & SHF_WRITE)? &edata: &etext;
+		/*
+		 * Make some room for it.
+		 */
+		load = segbrk(spp, sp->sh_size, sp->sh_addralign);
+		if (load == NULL) {
+			printf("boot: allocating memory for sections failed\n");
+			goto error;
+		}
+		/*
+		 * Compute the entry point of the linker.
+		 */
+		if (dl_entry == 0 &&
+		    !(sp->sh_flags & SHF_WRITE) &&
+		    (sp->sh_flags & SHF_EXECINSTR)) {
+			dl_entry = (uintptr_t)load + ehdr->e_entry;
+		}
+		/*
+		 * If it's bss, just zero it out.
+		 */
+		if (sp->sh_type == SHT_NOBITS) {
+			bzero(load, sp->sh_size);
+		} else {
+			/*
+			 * Read the section contents.
+			 */
+			if (lseek(fd, sp->sh_offset, 0) == -1 ||
+			    xread(fd, load, sp->sh_size) != sp->sh_size) {
+				printf("boot: error reading sections\n");
+				goto error;
+			}
+		}
+		/*
+		 * Assign the section's virtual addr. Use uintptr_t to
+		 * suppress the gcc warning.
+		 */
+		sp->sh_addr = (Elf32_Off)(uintptr_t)load;
+		/*
+		 * Force instructions to be visible to icache. Use
+		 * uintptr_t to suppress the gcc warning as well.
+		 */
+		if (sp->sh_flags & SHF_EXECINSTR)
+			sync_instruction_memory((caddr_t)(uintptr_t)sp->sh_addr,
+			    sp->sh_size);
+	}
+	/*
+	 * Update sizes of segments.
+	 */
+	thdr->p_memsz = (Elf32_Word)((uintptr_t)etext - thdr->p_vaddr);
+	dhdr->p_memsz = (Elf32_Word)((uintptr_t)edata - dhdr->p_vaddr);
+
+	/* load and relocate symbol tables in SAS */
+	(void) close(fd);
+	return ((func_t)dl_entry);
+
+error:
+	(void) close(fd);
+errorx:
+	if (ehdr)
+		kmem_free(ehdr, sizeof (Elf32_Ehdr));
+	if (shdrs)
+		kmem_free(shdrs, size);
+	printf("boot: error loading interpreter (%s)\n", rtld);
+	return (FAIL);
+}
+
+#ifdef	_ELF64_SUPPORT
 /*
  * Load the interpreter.  It expects a
  * relocatable .o capable of bootstrapping
@@ -732,6 +1275,7 @@ errorx:
 	printf("boot: error loading interpreter (%s)\n", rtld);
 	return (FAIL_ILOAD64);
 }
+#endif	/* _ELF64_SUPPORT */
 
 /*
  * Extend the segment's "break" value by bytes.

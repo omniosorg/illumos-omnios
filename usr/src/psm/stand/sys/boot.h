@@ -27,6 +27,8 @@
 #ifndef _BOOT_H
 #define	_BOOT_H
 
+#pragma ident	"%Z%%M%	%I%	%E% SMI"
+
 /*
  * Platform-independent declarations for the secondary bootloader
  * (in psm/stand/boot).
@@ -50,12 +52,17 @@ extern	char *systype;
 
 extern	struct memlist *pfreelistp, *vfreelistp, *pinstalledp;
 
+
+
 /*
  * Global variables from readfile.c
  */
 extern	int (*readfile(int fd, int print))();
 
+#ifdef _ELF64_SUPPORT
+extern Elf32_Boot *elfbootvecELF32_64;	/* Bootstrap vector ELF32 LP64 client */
 extern Elf64_Boot *elfbootvecELF64;	/* Bootstrap vector for Elf64 LP64 */
+#endif
 
 
 

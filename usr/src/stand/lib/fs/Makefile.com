@@ -28,6 +28,12 @@ DIRREL	= ../
 
 include ../../Makefile.com
 
+#
+# Right now, the filesystem modules are only clean when -y is used -- some
+# needs to go finish cleaning them up, at which point this can be removed.
+#
+lint lintcheck := LINTFLAGS += -y
+
 CERRWARN += -_gcc=-Wno-type-limits
 CERRWARN += -_gcc=-Wno-parentheses
 CERRWARN += $(CNOWARN_UNINIT)

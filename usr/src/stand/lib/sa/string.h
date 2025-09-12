@@ -23,9 +23,6 @@
  * Copyright 2003 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-/*
- * Copyright 2017 Hayashi Naoyuki
- */
 
 #ifndef _SA_STRING_H
 #define	_SA_STRING_H
@@ -70,7 +67,6 @@ extern char	*strerror(int);
 extern char	*strdup(const char *);
 extern long	strtol(const char *, char **, int);
 extern unsigned long strtoul(const char *, char **, int);
-extern size_t	strnlen(const char *, size_t);
 
 #ifdef __cplusplus
 }

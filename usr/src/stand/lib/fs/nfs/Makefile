@@ -25,15 +25,12 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 #
-#
-# Copyright 2017 Hayashi Naoyuki
-#
 
 LIBRARY = libnfs.a
 LOCOBJS = auth_none.o auth_unix.o bootparams.o getdents.o \
 	  getdents3.o getdents4.o lookup.o mount.o \
 	  nfsops.o nfs2ops.o nfs3ops.o nfs4ops.o pathname.o pmap.o rpc.o \
-	  clnt_budp.o clnt_btcp.o clnt_common.o nfs_xdr.o nfs3_xdr.o nfs4_xdr.o xdr_rec.o
+	  clnt_budp.o clnt_btcp.o nfs_xdr.o nfs3_xdr.o nfs4_xdr.o xdr_rec.o
 
 RPC_CMNOBJS = rpc_prot.o
 CMNOBJS = bootparam_xdr.o

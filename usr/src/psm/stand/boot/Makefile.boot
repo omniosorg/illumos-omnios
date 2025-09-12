@@ -53,5 +53,3 @@ DIRMODE		= 755
 CERRWARN += -_gcc=-Wno-parentheses
 CERRWARN += $(CNOWARN_UNINIT)
 CERRWARN += -_gcc=-Wno-char-subscripts
-
-CFLAGS +=	-_gcc=-ffunction-sections -_gcc=-fdata-sections

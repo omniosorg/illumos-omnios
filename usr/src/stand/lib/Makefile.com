@@ -18,7 +18,6 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2017 Hayashi Naoyuki
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
@@ -36,10 +35,6 @@ LIBS +=		$(LIBRARY)
 CFLAGS +=	$(CCVERBOSE)
 LDFLAGS =	-r
 LDLIBS +=	-lsa
-
-CFLAGS +=	-_gcc=-ffunction-sections -_gcc=-fdata-sections
-
-CSTD= $(CSTD_GNU99)
 
 #
 # Reset ROOTLIBDIR to an alternate directory so that we don't clash with
@@ -76,19 +71,14 @@ CMNDIR =	.
 # the proto area since those headers match libc's implementation, and
 # libc is of course not available to standalone binaries.
 #
-CPPDEFS	= 	-D$(KARCH) -D_BOOT -D_KERNEL -D_MACHDEP
-CPPINCS_sparc= 	-YI,$(STANDDIR)/lib/sa -I$(STANDDIR)/lib/sa \
+CPPDEFS	=	-D$(KARCH) -D_BOOT -D_KERNEL -D_MACHDEP
+CPPINCS	=	-YI,$(STANDDIR)/lib/sa -I$(STANDDIR)/lib/sa \
 		-I$(STANDDIR) -I$(SRCDIR) -I$(CMNDIR) \
 		-I$(STANDDIR)/$(MACH) -I$(SYSDIR)/common $(ARCHDIRS) \
 		-I$(SYSDIR)/sun4 -I$(SYSDIR)/$(KARCH)
 
-CPPINCS_aarch64= -YI,$(STANDDIR)/lib/sa \
-		-I$(STANDDIR) -I$(SRCDIR) -I$(CMNDIR) \
-		-I$(STANDDIR)/$(MACH) -I$(SYSDIR)/common $(ARCHDIRS) \
-		-I$(SYSDIR)/$(KARCH)
-
-CPPFLAGS =	$(CPPDEFS) $(CPPINCS_$(MACH))
-AS_CPPFLAGS =	$(CPPDEFS) $(CPPINCS_$(MACH):-YI,%=-I%)
+CPPFLAGS =	$(CPPDEFS) $(CPPINCS)
+AS_CPPFLAGS =	$(CPPDEFS) $(CPPINCS:-YI,%=-I%)
 ASFLAGS =	-D__STDC__ -D_ASM
 
 #
@@ -98,7 +88,6 @@ ASFLAGS =	-D__STDC__ -D_ASM
 #
 OPENSSL_SRC = ../../../common/openssl
 OPENSSL_BUILD_CPPFLAGS_sparc = -DB_ENDIAN
-OPENSSL_BUILD_CPPFLAGS_aarch64 = -DL_ENDIAN
 OPENSSL_BUILD_CPPFLAGS = -DOPENSSL_NO_ECDH -DOPENSSL_NO_ECDSA \
 			-DOPENSSL_NO_HW_4758_CCA -DOPENSSL_NO_HW_AEP \
 			-DOPENSSL_NO_HW_ATALLA -DOPENSSL_NO_HW_CHIL \
@@ -140,6 +129,3 @@ SOCKCPPFLAGS = -I$(STANDDIR)/lib/sock -D_SYS_STREAM_H
 STACKPROTECT = none
 
 .KEEP_STATE:
-
-# XXXARM: need a cross-smatch
-SMATCH=off

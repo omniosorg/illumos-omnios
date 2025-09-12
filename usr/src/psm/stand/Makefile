@@ -19,15 +19,13 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2017 Hayashi Naoyuki
 # Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
 include ../../Makefile.master
 
-SUBDIRS_sparc= lib boot cpr bootlst
-SUBDIRS=$(SUBDIRS_$(MACH))
+SUBDIRS= lib boot cpr bootlst
 
 all		:=	TARGET= all
 install		:=	TARGET= install

@@ -18,7 +18,6 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2017 Hayashi Naoyuki
 # Copyright 2014 Gary Mills
 #
 # Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
@@ -29,7 +28,6 @@ include Makefile.com
 
 i386_SUBDIRS =
 sparc_SUBDIRS =
-aarch64_SUBDIRS = libfdt fs/zfs
 SUBDIRS = fs/hsfs fs/nfs fs/ufs inet sa sock tcpstubs xdr \
 	tcp $($(MACH)_SUBDIRS)
 

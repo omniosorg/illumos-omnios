@@ -72,6 +72,7 @@ OBJS		= $(C_SRC:%.c=%.o) $(S_SRC:%.s=%.o)
 L_OBJS		= $(OBJS:%.o=%.ln)
 
 CPPDEFS		= $(ARCHOPTS) -D$(PLATFORM) -D_BOOT -D_KERNEL -D_MACHDEP
+CPPDEFS		+= -D_ELF64_SUPPORT
 CPPINCS		+= -I$(TOP_CMN_DIR)
 CPPINCS		+= -I$(SRC)/uts/common
 CPPINCS		+= -I$(SRC)/uts/sun

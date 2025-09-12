@@ -22,9 +22,6 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-/*
- * Copyright 2017 Hayashi Naoyuki
- */
 
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -41,17 +38,6 @@
  * as the host byte order is the same as the network byte order (big endian).
  */
 
-#undef htonll
-#undef ntohll
-#undef htonl
-#undef ntohl
-#undef htons
-#undef ntohs
-
-uint32_t htonl(uint32_t);
-uint32_t htonl(uint32_t);
-uint32_t ntohl(uint32_t);
-uint16_t htons(uint16_t);
 
 #ifdef	_LITTLE_ENDIAN
 uint64_t
