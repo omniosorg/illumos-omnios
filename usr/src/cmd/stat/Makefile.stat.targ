@@ -10,10 +10,23 @@
 #
 
 #
-# Copyright (c) 2012, Joyent, Inc.
+# Copyright 2025 Hans Rosenfeld
 #
 
-This directory contains various unit tests for parts of the sgs source tree.
-There currently is no master runner for these tests, you should run them
-individually. You will need to manually make test executable. Currently tests
-expect to be given a path to the proto area.
+OBJS += $(COMMON_OBJS)
+
+.KEEP_STATE:
+
+all: $(PROG)
+
+install: all $(ROOTPROG)
+
+$(PROG): $(OBJS)
+	$(LINK.c) -o $(PROG) $(OBJS) $(LDLIBS)
+	$(POST_PROCESS)
+
+clean:
+	-$(RM) $(OBJS)
+
+
+include $(SRC)/cmd/Makefile.targ
