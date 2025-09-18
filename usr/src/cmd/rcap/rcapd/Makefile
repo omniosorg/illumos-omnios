@@ -22,6 +22,7 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright 2025 Hans Rosenfeld
 
 include ../../Makefile.cmd
 include ../../Makefile.cmd.64
@@ -45,19 +46,9 @@ SRCS =	rcapd_main.c \
 	rcapd_collection_zone.c \
 	rcapd_mapping.c \
 	rcapd_rfd.c \
-	rcapd_scanner.c \
-	rcapd_stat.c \
-	utils.c
+	rcapd_scanner.c
 
-LINTSRCS = rcapd_main.c \
-	rcapd_collection.c \
-	rcapd_collection_project.c \
-	rcapd_collection_zone.c \
-	rcapd_mapping.c \
-	rcapd_rfd.c \
-	rcapd_scanner.c \
-	$(COMMON_DIR)/rcapd_stat.c \
-	$(COMMON_DIR)/utils.c
+COMMON_SRCS = rcapd_stat.c utils.c rcapd_conf.c
 
 $(NOT_RELEASE_BUILD)CPPFLAGS	+= -DDEBUG
 CPPFLAGS			+= -DDEBUG_MSG
@@ -65,19 +56,14 @@ CPPFLAGS			+= -I$(COMMON_DIR)
 LDLIBS			+= -lkstat -lproc -lproject -lumem -lscf
 LDLIBS			+= $(EXTRA_LDLIBS)
 
-LINTFLAGS64		+= -u
-
-OBJS =			$(SRCS:%.c=%.o) rcapd_conf.o
+OBJS =			$(SRCS:%.c=%.o) $(COMMON_SRCS:%.c=%.o)
 
 POFILES =		$(OBJS:%.o=%.po)
 POFILE =		$(PROG).po
 
-CLOBBERFILES +=		$(POFILES) $(POFILE)
+CLEANFILES =		$(OBJS) $(COMMON_SRCS)
 
 include ../Makefile.com
-
-.NO_PARALLEL:
-.PARALLEL: $(OBJS)
 
 all: $(PROG)
 
@@ -90,11 +76,7 @@ $(PROG): $(OBJS)
 check: $(CHKMANIFEST)
 
 clean:
-	$(RM) $(OBJS)
-	$(RM) rcapd_conf.c
-
-lint:
-	$(LINT.c) $(LINTSRCS) $(LDLIBS)
+	$(RM) $(CLEANFILES)
 
 $(POFILE): $(POFILES)
 	$(RM) $@
