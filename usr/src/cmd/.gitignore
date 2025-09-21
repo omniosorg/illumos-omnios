@@ -188,6 +188,7 @@ auditrecord/mkmsg
 auditreduce/auditreduce
 auditset/svc-auditset
 auditstat/auditstat
+auditstat/timestamp.c
 
 auths/auths
 
@@ -317,6 +318,7 @@ cmd-inet/usr.bin/finger
 cmd-inet/usr.bin/ftp/ftp
 cmd-inet/usr.bin/nc/nc
 cmd-inet/usr.bin/netstat/netstat
+cmd-inet/usr.bin/netstat/timestamp.c
 cmd-inet/usr.bin/pppd/pppd
 cmd-inet/usr.bin/pppdump/pppdump
 cmd-inet/usr.bin/pppstats/pppstats
@@ -411,6 +413,7 @@ consadm/*/consadm
 coreadm/coreadm
 
 cpc/cpustat/cpustat
+cpc/cpustat/timestamp.c
 cpc/cputrack/cputrack
 
 cpio/cpio
@@ -445,6 +448,7 @@ ctfmerge/ctfmerge
 ctrun/ctrun
 
 ctstat/ctstat
+ctstat/timestamp.c
 
 ctwatch/ctwatch
 
@@ -702,11 +706,11 @@ fm/fminject/*/inj_grammar.c
 fm/fminject/*/inj_grammar.h
 fm/fminject/*/inj_lex.c
 fm/fmstat/*/fmstat
+fm/fmstat/*/timestamp.c
 fm/fmtopo/*/fmtopo
 fm/ipmitopo/*/ipmitopo
 fm/mcdecode/mcdecode
-fm/notify/smtp-notify/i386/process_msg_template.sh
-fm/notify/smtp-notify/aarch64/process_msg_template.sh
+fm/notify/smtp-notify/*/process_msg_template.sh
 fm/notify/smtp-notify/*/smtp-notify
 fm/notify/snmp-notify/*/snmp-notify
 fm/scripts/buildcode
@@ -768,6 +772,7 @@ fs.d/nfs/nfsmapid/nfsmapid
 fs.d/nfs/nfsmapid/nfsmapid_test
 fs.d/nfs/nfsref/nfsref
 fs.d/nfs/nfsstat/nfsstat
+fs.d/nfs/nfsstat/timestamp.c
 fs.d/nfs/rquotad/rquota_xdr.c
 fs.d/nfs/rquotad/rquotad
 fs.d/nfs/share/sharetab
@@ -977,6 +982,7 @@ install.d/install.d
 intrd/intrd
 
 intrstat/intrstat
+intrstat/timestamp.c
 
 ipcrm/ipcrm
 
@@ -1430,6 +1436,7 @@ pools/poolcfg/poolcfg_grammar.h
 pools/poolcfg/poolcfg_lex.c
 pools/poold/poold
 pools/poolstat/poolstat
+pools/poolstat/timestamp.c
 
 power/pmconfig
 power/power.conf
@@ -1513,8 +1520,17 @@ raidz_test/raidz_test
 ramdiskadm/ramdiskadm
 
 rcap/rcapadm/rcapadm
+rcap/rcapadm/rcapd_conf.c
+rcap/rcapadm/rcapd_stat.c
+rcap/rcapadm/utils.c
 rcap/rcapd/rcapd
+rcap/rcapd/rcapd_conf.c
+rcap/rcapd/rcapd_stat.c
+rcap/rcapd/utils.c
 rcap/rcapstat/rcapstat
+rcap/rcapstat/rcapd_conf.c
+rcap/rcapstat/timestamp.c
+rcap/rcapstat/utils.c
 
 rcm_daemon/*/rcm_daemon
 
@@ -1881,10 +1897,40 @@ ssh/THIRDPARTYLICENSE
 
 stat/arcstat/arcstat
 stat/fsstat/fsstat
+stat/fsstat/common.c
+stat/fsstat/timestamp.c
 stat/iostat/iostat
+stat/iostat/acquire.c
+stat/iostat/acquire_iodevs.c
+stat/iostat/common.c
+stat/iostat/dsr.c
+stat/iostat/mnt.c
+stat/iostat/timestamp.c
+stat/iostat/walkers.c
 stat/kstat/kstat
+stat/kstat/acquire.c
+stat/kstat/acquire_iodevs.c
+stat/kstat/common.c
+stat/kstat/dsr.c
+stat/kstat/mnt.c
+stat/kstat/timestamp.c
+stat/kstat/walkers.c
 stat/mpstat/mpstat
+stat/mpstat/acquire.c
+stat/mpstat/acquire_iodevs.c
+stat/mpstat/common.c
+stat/mpstat/dsr.c
+stat/mpstat/mnt.c
+stat/mpstat/timestamp.c
+stat/mpstat/walkers.c
 stat/vmstat/vmstat
+stat/vmstat/acquire.c
+stat/vmstat/acquire_iodevs.c
+stat/vmstat/common.c
+stat/vmstat/dsr.c
+stat/vmstat/mnt.c
+stat/vmstat/timestamp.c
+stat/vmstat/walkers.c
 
 stmfadm/stmfadm
 stmfproxy/aluaadm/aluaadm
@@ -2228,6 +2274,7 @@ zonestat/zonestat/zonestat
 zonestat/zonestatd/zonestatd
 
 zpool/zpool
+zpool/timestamp.c
 
 zstreamdump/zstreamdump
 
