@@ -298,7 +298,7 @@ typedef union {
 } Conv_phdr_flags_buf_t;
 
 /* conv_sec_flags() */
-#define	CONV_SEC_FLAGS_BUFSIZE		190
+#define	CONV_SEC_FLAGS_BUFSIZE		211
 typedef union {
 	Conv_inv_buf_t			inv_buf;
 	char				buf[CONV_SEC_FLAGS_BUFSIZE];

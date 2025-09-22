@@ -29,8 +29,9 @@
  */
 #include	<string.h>
 #include	<sys/param.h>
-#include	<sys/elf_SPARC.h>
+#include	<sys/elf_aarch64.h>
 #include	<sys/elf_amd64.h>
+#include	<sys/elf_SPARC.h>
 #include	<_conv.h>
 #include	<sections_msg.h>
 
@@ -472,6 +473,7 @@ conv_sec_flags_strings(Conv_fmt_flags_t fmt_flags)
 	MSG_SHF_EXCLUDE_CF_SIZE		+ CONV_EXPN_FIELD_DEF_SEP_SIZE + \
 	MSG_SHF_ORDERED_CF_SIZE		+ CONV_EXPN_FIELD_DEF_SEP_SIZE + \
 	MSG_SHF_AMD64_LARGE_CF_SIZE	+ CONV_EXPN_FIELD_DEF_SEP_SIZE + \
+        MSG_SHF_AARCH64_PURECODE_CF_SIZE + CONV_EXPN_FIELD_DEF_SEP_SIZE + \
 	CONV_INV_BUFSIZE + CONV_EXPN_FIELD_DEF_SUFFIX_SIZE
 
 	/*
@@ -493,6 +495,7 @@ conv_sec_flags_strings(Conv_fmt_flags_t fmt_flags)
 #define	ALL	ELFOSABI_NONE, EM_NONE
 #define	SOL	ELFOSABI_SOLARIS, EM_NONE
 #define	AMD	ELFOSABI_NONE, EM_AMD64
+#define	ARM	ELFOSABI_NONE, EM_AARCH64
 
 	static const Val_desc2 vda_cf[] = {
 		{ SHF_WRITE,		ALL,	MSG_SHF_WRITE_CF },
@@ -508,6 +511,7 @@ conv_sec_flags_strings(Conv_fmt_flags_t fmt_flags)
 		{ SHF_EXCLUDE,		SOL,	MSG_SHF_EXCLUDE_CF },
 		{ SHF_ORDERED,		SOL,	MSG_SHF_ORDERED_CF },
 		{ SHF_AMD64_LARGE,	AMD,	MSG_SHF_AMD64_LARGE_CF },
+		{ SHF_AARCH64_PURECODE,	ARM,	MSG_SHF_AARCH64_PURECODE_CF },
 		{ 0,			0 }
 	};
 	static const Val_desc2 vda_nf[] = {
@@ -524,6 +528,7 @@ conv_sec_flags_strings(Conv_fmt_flags_t fmt_flags)
 		{ SHF_EXCLUDE,		SOL,	MSG_SHF_EXCLUDE_NF },
 		{ SHF_ORDERED,		SOL,	MSG_SHF_ORDERED_NF },
 		{ SHF_AMD64_LARGE,	AMD,	MSG_SHF_AMD64_LARGE_NF },
+		{ SHF_AARCH64_PURECODE,	ARM,	MSG_SHF_AARCH64_PURECODE_NF },
 		{ 0,			0 }
 	};
 

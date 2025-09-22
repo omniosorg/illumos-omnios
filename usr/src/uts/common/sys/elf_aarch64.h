@@ -271,6 +271,7 @@ extern "C" {
 /*
  * Processor specific section types
  */
+#define	SHF_AARCH64_PURECODE	0x20000000
 #define	SHF_ORDERED		0x40000000
 #define	SHF_EXCLUDE		0x80000000
 #define	SHN_BEFORE		0xff00
