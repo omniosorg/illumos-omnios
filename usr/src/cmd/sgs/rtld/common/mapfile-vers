@@ -182,7 +182,7 @@ $if _x86
 $elif _sparc
 				  SIZE = addrsize[176];
 $elif _arm
-				  SIZE = addrsize[2066];
+				  SIZE = addrsize[2090];
 $else
 $error Unknown architecture
 $endif

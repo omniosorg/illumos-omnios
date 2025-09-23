@@ -39,7 +39,7 @@ extern "C" {
 
 /*
  * These are taken from the ARM psABI
- * ELF for the ARM 64-bit Architecture (AArch64) 2022Q1.
+ * ELF for the ARM 64-bit Architecture (AArch64) 2025Q2.
  *
  * Note that in the ARM ABI relocations are non-consecutive and grouped, so
  * R_AARCH64_NUM is not equal to the number of actual possible relocations,
@@ -60,7 +60,7 @@ extern "C" {
 #define	R_AARCH64_PREL64	260
 #define	R_AARCH64_PREL32	261
 #define	R_AARCH64_PREL16	262
-/* XXXARM: gap */
+/* intentional gap */
 #define	R_AARCH64_PLT32		314
 
 /*
@@ -97,11 +97,11 @@ extern "C" {
 #define	R_AARCH64_ADR_PREL_PG_HI21_NC	276
 #define	R_AARCH64_ADD_ABS_LO12_NC	277
 #define	R_AARCH64_LDST8_ABS_LO12_NC	278
-/* XXXARM: gap */
+/* intentional gap */
 #define	R_AARCH64_LDST16_ABS_LO12_NC	284
 #define	R_AARCH64_LDST32_ABS_LO12_NC	285
 #define	R_AARCH64_LDST64_ABS_LO12_NC	286
-/* XXXARM: gap */
+/* intentional gap */
 #define	R_AARCH64_LDST128_ABS_LO12_NC	299
 
 /*
@@ -111,7 +111,7 @@ extern "C" {
  */
 #define	R_AARCH64_TSTBR14	279
 #define	R_AARCH64_CONDBR19	280
-/* XXXARM: gap */
+/* intentional gap */
 #define	R_AARCH64_JUMP26	282
 #define	R_AARCH64_CALL26	283
 
@@ -148,6 +148,8 @@ extern "C" {
  */
 #define	R_AARCH64_GOTREL64	307
 #define	R_AARCH64_GOTREL32	308
+/* intentional gap */
+#define	R_AARCH64_GOTPCREL32	315
 
 /*
  * ABI: Static AArch64 relocations
@@ -194,7 +196,7 @@ extern "C" {
 #define	R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC	536
 #define	R_AARCH64_TLSLD_LDST64_DTPREL_LO12	537
 #define	R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC	538
-/* XXXARM: gap */
+/* intentional gap */
 #define	R_AARCH64_TLSLD_LDST128_DTPREL_LO12	572
 #define	R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC	573
 
@@ -226,7 +228,7 @@ extern "C" {
 #define	R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC	557
 #define	R_AARCH64_TLSLE_LDST64_TPREL_LO12	558
 #define	R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC	559
-/* XXXARM: gap */
+/* intentional gap */
 #define	R_AARCH64_TLSLE_LDST128_TPREL_LO12	570
 #define	R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC	571
 
@@ -245,9 +247,42 @@ extern "C" {
 #define	R_AARCH64_TLSDESC_CALL		569
 
 /*
+ * ABI: Relocations for PAuth ABI Extension
+ */
+#define	R_AARCH64_AUTH_ABS64			580
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G0		581
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G0_NC	582
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G1		583
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G1_NC	584
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G2		585
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G2_NC	586
+#define	R_AARCH64_AUTH_MOVW_GOTOFF_G3		587
+#define	R_AARCH64_AUTH_GOT_LD_PREL19		588
+#define	R_AARCH64_AUTH_LD64_GOTOFF_LO15		589
+#define	R_AARCH64_AUTH_ADR_GOT_PAGE		590
+#define	R_AARCH64_AUTH_LD64_GOT_LO12_NC		591
+#define	R_AARCH64_AUTH_LD64_GOTPAGE_LO15	592
+#define	R_AARCH64_AUTH_GOT_ADD_LO12_NC		593
+#define	R_AARCH64_AUTH_GOT_ADR_PREL_LO21	594
+#define	R_AARCH64_AUTH_TLSDESC_ADR_PAGE21	595
+#define	R_AARCH64_AUTH_TLSDESC_LD64_LO12	596
+#define	R_AARCH64_AUTH_TLSDESC_ADD_LO12		597
+
+/*
+ * ABI: Structure Protection Instruction Relocations
+ */
+#define	R_AARCH64_PATCHINST	316
+
+/*
+ * ABI: Structure Protection Data Relocations
+ */
+#define	R_AARCH64_FUNCINIT64	317
+
+/*
  * ABI: Dynamic relocations
  */
 /* R_AARCH64_ABS64 is also in this table */
+/* R_AARCH64_AUTH_ABS64 is also in this table */
 #define	R_AARCH64_COPY		1024
 #define	R_AARCH64_GLOB_DAT	1025
 #define	R_AARCH64_JUMP_SLOT	1026
@@ -261,8 +296,13 @@ extern "C" {
 #define	R_AARCH64_TLS_TPREL	1030
 #define	R_AARCH64_TLSDESC	1031
 #define	R_AARCH64_IRELATIVE	1032
+/* intentional gap */
+#define	R_AARCH64_AUTH_RELATIVE		1041
+#define	R_AARCH64_AUTH_GLOB_DAT		1042
+#define	R_AARCH64_AUTH_TLSDESC		1043
+#define	R_AARCH64_AUTH_IRELATIVE	1044
 
-#define	R_AARCH64_NUM	1033	/* R_AARCH64_IRELATIVE + 1 */
+#define	R_AARCH64_NUM	1045	/* R_AARCH64_AUTH_IRELATIVE + 1 */
 
 #define	R_AARCH64_TLS_DTPMOD64	R_AARCH64_TLS_DTPMOD
 #define	R_AARCH64_TLS_DTPREL64	R_AARCH64_TLS_DTPREL
