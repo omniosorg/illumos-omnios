@@ -1071,11 +1071,7 @@ cpuid_gather_arm_features(void *features)
 	cpuid_regs.mmfr0 = read_id_aa64mmfr0();
 	cpuid_regs.mmfr1 = read_id_aa64mmfr1();
 	cpuid_regs.mmfr2 = read_id_aa64mmfr2();
-#if 0				/* XXXARM: binutils doesn't support this */
 	cpuid_regs.mmfr3 = read_id_aa64mmfr3();
-#else
-	cpuid_regs.mmfr3 = 0;
-#endif
 
 	/* These are initialized later based on FEAT_SVE, and FEAT_SME */
 	cpuid_regs.zfr0 = 0;
