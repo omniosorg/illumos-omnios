@@ -57,11 +57,13 @@ typedef int32_t level_t;
 
 #define	PTE_ISVALID(pte)	((pte) & PTE_VALID)
 #define	PTE_EQUIV(a, b)		(((a) | PTE_AF) == ((b) | PTE_AF))
-#undef PTE_ISPAGE		/* XXXARM */
-#define	PTE_ISPAGE(p, l)	(PTE_ISVALID(p) && (((l) == PAGE_LEVEL) || (((p) & PTE_TYPE_MASK) == PTE_BLOCK)))
+#define	PTE_ISPAGE(p, l)	(PTE_ISVALID(p) && (((l) == PAGE_LEVEL) || \
+	(((p) & PTE_TYPE_MASK) == PTE_BLOCK)))
 
-#define	MAKEPTE(pfn, l)		(((pfn) << MMU_PAGESHIFT) | PTE_SH_INNER | (l == PAGE_LEVEL? PTE_PAGE: PTE_BLOCK))
-#define	MAKEPTP(pfn, l, k)	(((pfn) << MMU_PAGESHIFT) | PTE_TABLE | ((k)? (PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER): PTE_TABLE_PXNT))
+#define	MAKEPTE(pfn, l)		(((pfn) << MMU_PAGESHIFT) | PTE_SH_INNER | \
+	(l == PAGE_LEVEL? PTE_PAGE: PTE_BLOCK))
+#define	MAKEPTP(pfn, l, k)	(((pfn) << MMU_PAGESHIFT) | PTE_TABLE | \
+	((k)? (PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER): PTE_TABLE_PXNT))
 
 #define	TOP_LEVEL(hat)		MAX_PAGE_LEVEL
 
