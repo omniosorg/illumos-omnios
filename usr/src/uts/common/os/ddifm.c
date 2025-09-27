@@ -351,7 +351,7 @@ fm_dev_ereport_postv(dev_info_t *dip, dev_info_t *eqdip,
 	char			class[ERPT_CLASS_SZ];
 	char			path[MAXPATHLEN];
 
-/* XXXARM: va_list isn't a pointer for aarch64 */
+/* va_list isn't a pointer for aarch64 */
 #if !defined(__aarch64__)
 	ASSERT(ap != NULL);	/* must supply at least ereport version */
 #endif
