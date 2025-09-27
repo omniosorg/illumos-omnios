@@ -238,7 +238,6 @@ legacy pkg=SUNWsndmr desc="Sendmail Configuration Files" name="Sendmail (root)"
 legacy pkg=SUNWsndmu desc="Sendmail Utilities" name="Sendmail (/usr)"
 license cr_Sun license=cr_Sun
 license lic_CDDL license=lic_CDDL
-# XXXARM: Because we don't actually build sendmail, we don't get the license
 license usr/src/cmd/sendmail/THIRDPARTYLICENSE \
     license=usr/src/cmd/sendmail/THIRDPARTYLICENSE
 depend type=require fmri=runtime/perl$(PERL_PKGVERS)
