@@ -37,7 +37,8 @@
 #include <sys/feature_tests.h>
 
 #include <sys/types.h>
-#include <sys/regset.h>
+#include <sys/mcontext.h>
+#include <sys/fp.h>
 #if !defined(_XPG4_2) || defined(__EXTENSIONS__)
 #include <sys/signal.h>
 #endif

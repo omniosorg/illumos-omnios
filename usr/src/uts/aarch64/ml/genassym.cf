@@ -3,6 +3,8 @@ include <sys/pcb.h>
 include <sys/controlregs.h>
 include <sys/trap.h>
 include <sys/privregs.h>
+include <sys/mcontext.h>
+include <sys/fp.h>
 
 define	MODS_SIZE		sizeof(struct mod_stub_info)
 define	MODS_INSTFCN		offsetof(struct mod_stub_info, mods_func_adr)

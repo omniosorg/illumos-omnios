@@ -1,6 +1,9 @@
 include <sys/types.h>
 include <sys/time_impl.h>
 include <sys/trap.h>
+include <sys/regset.h>
+include <sys/fp.h>
+include <sys/mcontext.h>
 
 include <signal.h>
 

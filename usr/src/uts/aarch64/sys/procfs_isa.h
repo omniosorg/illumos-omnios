@@ -35,6 +35,8 @@
  */
 
 #include <sys/regset.h>
+#include <sys/mcontext.h>
+#include <sys/fp.h>
 
 #ifdef	__cplusplus
 extern "C" {

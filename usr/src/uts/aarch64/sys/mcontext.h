@@ -32,63 +32,63 @@
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T		*/
 /*	All Rights Reserved	*/
 
-#ifndef	_SYS_REGSET_H
-#define	_SYS_REGSET_H
+#ifndef _SYS_MCONTEXT_H
+#define	_SYS_MCONTEXT_H
 
 #include <sys/feature_tests.h>
+#include <sys/fp.h>
 
 #if !defined(_ASM)
 #include <sys/types.h>
 #endif
-#include <sys/mcontext.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/*
+ * A gregset_t is defined as an array type for compatibility with the reference
+ * source. This is important due to differences in the way the C language
+ * treats arrays and structures as parameters.
+ */
+#define	_NGREG	36
+
+#ifndef _ASM
+typedef long	greg_t;
+typedef greg_t	gregset_t[_NGREG];
+
+/*
+ * Floating point definitions.
+ */
+typedef struct fpu {
 #if !defined(_XPG4_2) || defined(__EXTENSIONS__)
-#define	REG_X0		0
-#define	REG_X1		1
-#define	REG_X2		2
-#define	REG_X3		3
-#define	REG_X4		4
-#define	REG_X5		5
-#define	REG_X6		6
-#define	REG_X7		7
-#define	REG_X8		8
-#define	REG_X9		9
-#define	REG_X10		10
-#define	REG_X11		11
-#define	REG_X12		12
-#define	REG_X13		13
-#define	REG_X14		14
-#define	REG_X15		15
-#define	REG_X16		16
-#define	REG_X17		17
-#define	REG_X18		18
-#define	REG_X19		19
-#define	REG_X20		20
-#define	REG_X21		21
-#define	REG_X22		22
-#define	REG_X23		23
-#define	REG_X24		24
-#define	REG_X25		25
-#define	REG_X26		26
-#define	REG_X27		27
-#define	REG_X28		28
-#define	REG_X29		29
-#define	REG_FP		REG_X29
-#define	REG_X30		30
-#define	REG_LR		REG_X30
-#define	REG_SP		31
-#define	REG_PC		32
-#define	REG_SPSR	33
-#define	REG_TP		34
+	fpreg_t			d_fpregs[32];
+	uint32_t		fp_cr;
+	uint32_t		fp_sr;
+#else
+	fpreg_t			__d_fpregs[32];
+	uint32_t		__fp_cr;
+	uint32_t		__fp_sr;
+#endif
+} fpregset_t;
 
-#endif	/* !defined(_XPG4_2) || defined(__EXTENSIONS__) */
+/*
+ * Structure mcontext defines the complete hardware machine state.
+ */
+typedef struct {
+#if !defined(_XPG4_2) || defined(__EXTENSIONS__)
+	gregset_t	gregs;	/* general register set */
+	fpregset_t	fpregs;	/* floating point register set */
+#else
+	gregset_t	__gregs;	/* general register set */
+	fpregset_t	__fpregs;	/* floating point register set */
+#endif
+} mcontext_t;
 
-#ifdef	__cplusplus
+#endif	/* _ASM */
+
+#ifdef __cplusplus
 }
 #endif
 
-#endif	/* _SYS_REGSET_H */
+#endif /* _SYS_MCONTEXT_H */

@@ -49,6 +49,7 @@ HDRS	=			\
 	machlock.h		\
 	machsig.h		\
 	machtypes.h		\
+	mcontext.h		\
 	mutex_impl.h		\
 	obpdefs.h		\
 	old_procfs.h		\

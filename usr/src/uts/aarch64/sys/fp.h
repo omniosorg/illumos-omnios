@@ -134,16 +134,29 @@ extern "C" {
 /* [0] invalid operation cumulative exception since last cleared? */
 #define	FPSR_IOC	(1 << 0)
 
-#ifdef _KERNEL
-
 #define	FPCR_INIT	(FPCR_RM_RN << FPCR_RM_SHIFT)
+
+#ifndef _ASM
+typedef upad128_t fpreg_t;
+
+/*
+ * Kernel's FPU save area
+ */
+typedef struct {
+	fpreg_t			kfpu_regs[32];
+	uint32_t		kfpu_cr;
+	uint32_t		kfpu_sr;
+} kfpu_t;
+
+typedef struct fpu_ctx {
+	kfpu_t		fpu_regs;	/* kernel save area for FPU */
+} fpu_ctx_t;
 
 extern void fp_save(fpu_ctx_t *ctx);
 extern void fp_restore(fpu_ctx_t *ctx);
 extern void fp_init(void);
 extern int fp_fenflt(void);
-
-#endif	/* _KERNEL */
+#endif	/* _ASM */
 
 #ifdef __cplusplus
 }

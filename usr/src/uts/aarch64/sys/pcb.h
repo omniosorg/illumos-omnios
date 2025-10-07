@@ -28,17 +28,15 @@
 #define	_SYS_PCB_H
 
 #include <sys/cpu.h>
+#include <sys/fp.h>
 #include <sys/regset.h>
+#include <sys/mcontext.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#ifndef _ASM
-typedef struct fpu_ctx {
-	kfpu_t		fpu_regs;	/* kernel save area for FPU */
-} fpu_ctx_t;
-
+#if !defined(_ASM)
 typedef struct pcb {
 	fpu_ctx_t	pcb_fpu;
 	uint_t		pcb_flags;	/* state flags; cleared on fork */
