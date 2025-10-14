@@ -145,8 +145,16 @@ get_enable_method(const void *fdtp, int nodeoff)
 	int		plen;
 
 	plen = 0;
-	if ((prop = fdt_getprop(fdtp, nodeoff, "enable-method", &plen)) == NULL)
+	/*
+	 * When booting on a single CPU host (e.g. qemu) there may not be a
+	 * per-CPU enable-method, so go looking in the root.
+	 */
+	if ((prop = fdt_getprop(fdtp, nodeoff, "enable-method", &plen)) ==
+	    NULL) {
+		if (fdt_path_offset(fdtp, "/psci") >= 0)
+			return (CPUINFO_ENABLE_METHOD_PSCI);
 		return (CPUNODE_BAD_ENABLE_METHOD);
+	}
 	if (plen == 0)
 		return (CPUNODE_BAD_ENABLE_METHOD);
 
