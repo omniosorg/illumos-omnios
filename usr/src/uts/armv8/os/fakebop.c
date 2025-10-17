@@ -278,6 +278,7 @@ map_phys(bootops_t *bop, pte_t pte_attr, caddr_t vaddr, uint64_t paddr)
 	}
 	l4_ptbl[l4_idx] = paddr | pte_attr | PTE_PAGE;
 	dsb(ish);
+	isb();
 }
 
 void
