@@ -36,13 +36,13 @@
 #ifndef	_SYS_AUXV_H
 #define	_SYS_AUXV_H
 
-#include <sys/types.h>
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
 #if !defined(_ASM)
+#include <sys/types.h>
+
 typedef struct
 {
 	int	a_type;
@@ -144,6 +144,7 @@ typedef struct {
 #define	AT_SUN_HWCAP2	2023
 #define	AT_SUN_HWCAP3	2029
 
+#if !defined(_ASM)
 #if defined(_KERNEL)
 /*
  * User info regarding machine attributes, respectively reported to native and
@@ -160,6 +161,7 @@ extern uint_t auxv_hwcap32_3;
 #else
 extern uint_t getisax(uint32_t *, uint_t);
 #endif	/* _KERNEL */
+#endif	/* !_ASM */
 
 #define	AT_SUN_IFLUSH	2010	/* flush icache? */
 #define	AT_SUN_CPU	2011	/* cpu name */

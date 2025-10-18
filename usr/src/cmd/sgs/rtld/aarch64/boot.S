@@ -74,14 +74,8 @@
  * point for the a.out.
  */
 #include <sys/asm_linkage.h>
+#include <sys/auxv.h>
 #include <link.h>
-
-/*
- * XXXARM: Can't include auxv.h in ASM sources, we should
- * probably fix it properly
- */
-#define	AT_NULL	0
-#define	AT_BASE	7
 
 	ENTRY(_rt_boot)
 	mov	x28, sp				// x28 <- boot structure from kernel
