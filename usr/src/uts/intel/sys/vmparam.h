@@ -49,15 +49,10 @@ extern "C" {
 /*
  * USRSTACK is the top (end) of the user stack.
  */
-#if defined(__amd64)
 #define	USRSTACK	USERLIMIT
 #define	USRSTACK32	0x8048000
+/* This is used for LP64 SF1_SUNW_ADDR32 processes */
 #define	USRSTACK64_32	USERLIMIT32
-#elif defined(__i386)
-#define	USRSTACK	0x8048000
-#define	USRSTACK32	USRSTACK
-#define	USRSTACK64_32	USRSTACK
-#endif
 
 /*
  * Implementation architecture independent sections of the kernel use

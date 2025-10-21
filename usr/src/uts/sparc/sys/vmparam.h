@@ -51,6 +51,7 @@ extern "C" {
  */
 #define	USRSTACK	USERLIMIT
 #define	USRSTACK32	USERLIMIT32
+/* This is used for LP64 SF1_SUNW_ADDR32 processes */
 #define	USRSTACK64_32	USERLIMIT32
 
 /*

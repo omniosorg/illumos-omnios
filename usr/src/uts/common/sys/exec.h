@@ -95,7 +95,7 @@ typedef struct uarg {
 	uint_t	stk_prot;
 	uint_t	dat_prot;
 	int	traceinval;
-	int	addr32;
+	boolean_t addr32;		/* LP64 process with SF1_SUNW_ADDR32 */
 	model_t	to_model;
 	model_t	from_model;
 	size_t	to_ptrsize;

@@ -134,6 +134,11 @@ extern "C" {
  * Define upper limit on user address space
  */
 #define	USERLIMIT	(ADDRESS_C(1) << (VA_BITS - 1))
+
+/*
+ * This limit, traditionally for ILP32 processes, may also be applied to LP64
+ * processes with the SF1_SUNW_ADDR32 flag set.
+ */
 #define	USERLIMIT32	((ADDRESS_C(1) << 32) - 0x1000)
 
 /*
