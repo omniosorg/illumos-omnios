@@ -48,8 +48,11 @@ extern "C" {
  * resources so that in normal use a single mmu region map entry (smeg)
  * can be used to map both the stack and shared libraries
  */
-#define	MAXSSIZ		(0x7ffff000)	/* max stack size limit */
+#define	MAXSSIZ		LONG_MAX	/* max stack size limit */
 #define	DFLSSIZ		(8*1024*1024)	/* initial stack size limit */
+
+/* The default maximum stack size in an ILP32 process*/
+#define	MAXSSIZ32	INT32_MAX
 
 /*
  * Minimum allowable virtual address space to be used

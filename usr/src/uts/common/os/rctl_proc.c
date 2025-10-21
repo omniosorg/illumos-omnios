@@ -307,24 +307,10 @@ rctlproc_init(void)
 	    RCENTITY_PROCESS, RCTL_GLOBAL_LOWERABLE | RCTL_GLOBAL_DENY_ALWAYS |
 	    RCTL_GLOBAL_SIGNAL_NEVER | RCTL_GLOBAL_BYTES,
 	    ULONG_MAX, UINT32_MAX, &rctl_default_ops);
-#ifdef _LP64
-#ifdef __sparc
 	rctlproc_legacy[RLIMIT_STACK] = rctl_register("process.max-stack-size",
 	    RCENTITY_PROCESS, RCTL_GLOBAL_LOWERABLE | RCTL_GLOBAL_DENY_ALWAYS |
 	    RCTL_GLOBAL_SIGNAL_NEVER | RCTL_GLOBAL_BYTES,
-	    LONG_MAX, INT32_MAX, &proc_stack_ops);
-#else	/* __sparc */
-	rctlproc_legacy[RLIMIT_STACK] = rctl_register("process.max-stack-size",
-	    RCENTITY_PROCESS, RCTL_GLOBAL_LOWERABLE | RCTL_GLOBAL_DENY_ALWAYS |
-	    RCTL_GLOBAL_SIGNAL_NEVER | RCTL_GLOBAL_BYTES,
-	    MAXSSIZ, USRSTACK32 - PAGESIZE, &proc_stack_ops);
-#endif	/* __sparc */
-#else 	/* _LP64 */
-	rctlproc_legacy[RLIMIT_STACK] = rctl_register("process.max-stack-size",
-	    RCENTITY_PROCESS, RCTL_GLOBAL_LOWERABLE | RCTL_GLOBAL_DENY_ALWAYS |
-	    RCTL_GLOBAL_SIGNAL_NEVER | RCTL_GLOBAL_BYTES,
-	    USRSTACK - PAGESIZE, USRSTACK - PAGESIZE, &proc_stack_ops);
-#endif
+	    MAXSSIZ, MAXSSIZ32, &proc_stack_ops);
 	rctlproc_legacy[RLIMIT_CORE] = rctl_register("process.max-core-size",
 	    RCENTITY_PROCESS, RCTL_GLOBAL_LOWERABLE | RCTL_GLOBAL_DENY_ALWAYS |
 	    RCTL_GLOBAL_SIGNAL_NEVER | RCTL_GLOBAL_BYTES,

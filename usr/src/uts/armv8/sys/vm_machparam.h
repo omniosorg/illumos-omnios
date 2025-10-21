@@ -52,6 +52,9 @@ extern "C" {
 #define	MAXSSIZ		(USRSTACK - 64*1024)
 #define	DFLSSIZ		(8*1024*1024)
 
+/* The default maximum stack size in an ILP32 process (aarch64 has none) */
+#define	MAXSSIZ32	0
+
 /*
  * The following are limits beyond which the hard or soft limits for stack
  * and data cannot be increased. These may be viewed as fundamental

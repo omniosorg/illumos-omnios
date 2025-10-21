@@ -48,7 +48,7 @@ extern "C" {
  * the page directory entry which also maps the initial text and data,
  * and makes the default slightly bigger than the 8MB on SPARC.
  */
-#ifdef __amd64
+
 /*
  * On amd64, the stack grows down from just below KERNELBASE (see the
  * definition of USERLIMIT in i86pc/sys/machparam.h). Theoretically,
@@ -63,10 +63,10 @@ extern "C" {
  * For 32bit processes, the stack is below the text segment.
  */
 #define	MAXSSIZ		(32ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL)
-#else
-#define	MAXSSIZ		(USRSTACK - 1024*1024)
-#endif /* __amd64 */
 #define	DFLSSIZ		(8*1024*1024 + ((USRSTACK) & 0x3FFFFF))
+
+/* The default maximum stack size in an ILP32 process */
+#define	MAXSSIZ32	USRSTACK32 - PAGESIZE
 
 /*
  * Size of the kernel segkmem system pte table.  This virtual
