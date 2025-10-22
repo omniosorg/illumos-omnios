@@ -51,8 +51,9 @@ extern "C" {
  * USRSTACK is the top (end) of the user stack.
  */
 #define	USRSTACK	USERLIMIT
-/* XXXARM: I feel like we should booby-trap these in case they're referenced */
-#define	USRSTACK32	USERLIMIT32
+
+/* NB: aarch64 has no 32bit processes and thus no USRSTACK32 */
+
 /* This is used for LP64 SF1_SUNW_ADDR32 processes */
 #define	USRSTACK64_32	USERLIMIT32
 

@@ -2032,12 +2032,15 @@ exec_args(execa_t *uap, uarg_t *args, intpdata_t *intp, void **auxvpp)
 			usrstack = (char *)USRSTACK64_32;
 		else
 			usrstack = (char *)USRSTACK;
-	} else {
+	}
+#ifdef _MULTI_DATAMODEL
+	else {
 		args->to_ptrsize = sizeof (int32_t);
 		args->ncargs = NCARGS32;
 		args->stk_align = STACK_ALIGN32;
 		usrstack = (char *)USRSTACK32;
 	}
+#endif	/* _MULTI_DATAMODEL */
 
 	ASSERT(P2PHASE((uintptr_t)usrstack, args->stk_align) == 0);
 
