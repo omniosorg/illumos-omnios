@@ -129,7 +129,6 @@ extern "C" {
  * minimum size for segzio
  */
 #define	SEGZIOMINSIZE	(400L * 1024 * 1024L)			/* 400M */
-#define	SEGZIOMAXSIZE	(512L * 1024L * 1024L * 1024L)		/* 512G */
 
 /*
  * Define upper limit on user address space

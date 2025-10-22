@@ -22,6 +22,7 @@
 /*
  * Copyright 2025 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
  */
 
@@ -1397,28 +1398,17 @@ layout_kernel_va(void)
 	PRM_DEBUG(segkpsize);
 
 	/*
-	 * segzio is used for ZFS cached data. It uses a distinct VA
-	 * segment (from kernel heap) so that we can easily tell not to
-	 * include it in kernel crash dumps on 64 bit kernels. The trick is
-	 * to give it lots of VA, but not constrain the kernel heap.
-	 * We scale the size of segzio linearly with physmem up to
-	 * SEGZIOMAXSIZE. Above that amount it scales at 50% of physmem.
+	 * segzio is used for ZFS cached data. For segzio, we use 1.5x physmem.
 	 */
 	segzio_base = segkp_base + mmu_ptob(segkpsize);
 	if (segzio_fromheap) {
 		segziosize = 0;
 	} else {
 		size_t physmem_size = mmu_ptob(physmem);
-		size_t size = (segziosize == 0) ?
-		    physmem_size : mmu_ptob(segziosize);
+		size_t size = (segziosize != 0) ? mmu_ptob(segziosize) :
+		    (physmem_size * 3) / 2;
 
-		if (size < SEGZIOMINSIZE)
-			size = SEGZIOMINSIZE;
-		if (size > SEGZIOMAXSIZE) {
-			size = SEGZIOMAXSIZE;
-			if (physmem_size > size)
-				size += (physmem_size - size) / 2;
-		}
+		size = MAX(size, SEGZIOMINSIZE);
 		segziosize = mmu_btop(ROUND_UP_LPAGE(size));
 	}
 	PRM_DEBUG(segziosize);
