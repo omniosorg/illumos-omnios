@@ -98,8 +98,9 @@ CORE_OBJS +=			\
 	ppage.o			\
 	prom_reboot.o		\
 	prom_panic.o		\
-	startup.o		\
+	softhostid.o		\
 	ssp.o			\
+	startup.o		\
 	xpv_timestamp.o		\
 	todpc_subr.o		\
 	trap.o			\

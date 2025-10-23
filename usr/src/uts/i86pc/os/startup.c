@@ -160,10 +160,7 @@ extern void ssp_init(void);
 extern int size_pse_array(pgcnt_t, int);
 
 #if defined(_SOFT_HOSTID)
-
-static int32_t set_soft_hostid(void);
-static char hostid_file[] = "/etc/hostid";
-
+extern int32_t soft_hostid(void);
 #endif
 
 void *gfx_devinfo_list;
@@ -1623,14 +1620,14 @@ startup_modules(void)
 		}
 	}
 
-
+#if defined(_SOFT_HOSTID)
 	/*
 	 * Originally clconf_init() apparently needed the hostid.  But
 	 * this no longer appears to be true - it uses its own nodeid.
 	 * By placing the hostid logic here, we are able to make use of
 	 * the SMBIOS UUID.
 	 */
-	if ((h = set_soft_hostid()) == HW_INVALID_HOSTID) {
+	if ((h = soft_hostid()) == HW_INVALID_HOSTID) {
 		cmn_err(CE_WARN, "Unable to set hostid");
 	} else {
 		for (v = h, cnt = 0; cnt < 10; cnt++) {
@@ -1643,6 +1640,7 @@ startup_modules(void)
 			*cp++ = d[cnt] + '0';
 		*cp = 0;
 	}
+#endif
 
 	/*
 	 * Set up the CPU module subsystem for the boot cpu in the native
@@ -2724,219 +2722,6 @@ pat_sync(void)
 }
 
 #endif /* !__xpv */
-
-#if defined(_SOFT_HOSTID)
-/*
- * On platforms that do not have a hardware serial number, attempt
- * to set one based on the contents of /etc/hostid.  If this file does
- * not exist, assume that we are to generate a new hostid and set
- * it in the kernel, for subsequent saving by a userland process
- * once the system is up and the root filesystem is mounted r/w.
- *
- * In order to gracefully support upgrade on OpenSolaris, if
- * /etc/hostid does not exist, we will attempt to get a serial number
- * using the legacy method (/kernel/misc/sysinit).
- *
- * If that isn't present, we attempt to use an SMBIOS UUID, which is
- * a hardware serial number.  Note that we don't automatically trust
- * all SMBIOS UUIDs (some older platforms are defective and ship duplicate
- * UUIDs in violation of the standard), we check against a blacklist.
- *
- * In an attempt to make the hostid less prone to abuse
- * (for license circumvention, etc), we store it in /etc/hostid
- * in rot47 format.
- */
-static int atoi(char *);
-
-/*
- * Set this to non-zero in /etc/system if you think your SMBIOS returns a
- * UUID that is not unique. (Also report it so that the smbios_uuid_blacklist
- * array can be updated.)
- */
-int smbios_broken_uuid = 0;
-
-/*
- * List of known bad UUIDs.  This is just the lower 32-bit values, since
- * that's what we use for the host id.  If your hostid falls here, you need
- * to contact your hardware OEM for a fix for your BIOS.
- */
-static unsigned char
-smbios_uuid_blacklist[][16] = {
-
-	{	/* Reported bad UUID (Google search) */
-		0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05,
-		0x00, 0x06, 0x00, 0x07, 0x00, 0x08, 0x00, 0x09,
-	},
-	{	/* Known bad DELL UUID */
-		0x4C, 0x4C, 0x45, 0x44, 0x00, 0x00, 0x20, 0x10,
-		0x80, 0x20, 0x80, 0xC0, 0x4F, 0x20, 0x20, 0x20,
-	},
-	{	/* Uninitialized flash */
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-	},
-	{	/* All zeros */
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-	},
-};
-
-static int32_t
-uuid_to_hostid(const uint8_t *uuid)
-{
-	/*
-	 * Although the UUIDs are 128-bits, they may not distribute entropy
-	 * evenly.  We would like to use SHA or MD5, but those are located
-	 * in loadable modules and not available this early in boot.  As we
-	 * don't need the values to be cryptographically strong, we just
-	 * generate 32-bit vaue by xor'ing the various sequences together,
-	 * which ensures that the entire UUID contributes to the hostid.
-	 */
-	uint32_t	id = 0;
-
-	/* first check against the blacklist */
-	for (int i = 0; i < (sizeof (smbios_uuid_blacklist) / 16); i++) {
-		if (bcmp(smbios_uuid_blacklist[0], uuid, 16) == 0) {
-			cmn_err(CE_CONT, "?Broken SMBIOS UUID. "
-			    "Contact BIOS manufacturer for repair.\n");
-			return ((int32_t)HW_INVALID_HOSTID);
-		}
-	}
-
-	for (int i = 0; i < 16; i++)
-		id ^= ((uuid[i]) << (8 * (i % sizeof (id))));
-
-	/* Make sure return value is positive */
-	return (id & 0x7fffffff);
-}
-
-static int32_t
-set_soft_hostid(void)
-{
-	struct _buf *file;
-	char tokbuf[MAXNAMELEN];
-	token_t token;
-	int done = 0;
-	u_longlong_t tmp;
-	int i;
-	int32_t hostid = (int32_t)HW_INVALID_HOSTID;
-	unsigned char *c;
-	smbios_system_t smsys;
-
-	/*
-	 * If /etc/hostid file not found, we'd like to get a pseudo
-	 * random number to use at the hostid.  A nice way to do this
-	 * is to read the real time clock.  To remain xen-compatible,
-	 * we can't poke the real hardware, so we use tsc_read() to
-	 * read the real time clock.
-	 */
-
-	if ((file = kobj_open_file(hostid_file)) == (struct _buf *)-1) {
-		/*
-		 * hostid file not found - try to load sysinit module
-		 * and see if it has a nonzero hostid value...use that
-		 * instead of generating a new hostid here if so.
-		 */
-		if ((i = modload("misc", "sysinit")) != -1) {
-			if (strlen(hw_serial) > 0)
-				hostid = (int32_t)atoi(hw_serial);
-			(void) modunload(i);
-		}
-
-		/*
-		 * We try to use the SMBIOS UUID. But not if it is blacklisted
-		 * in /etc/system.
-		 */
-		if ((hostid == HW_INVALID_HOSTID) &&
-		    (smbios_broken_uuid == 0) &&
-		    (ksmbios != NULL) &&
-		    (smbios_info_system(ksmbios, &smsys) != SMB_ERR) &&
-		    (smsys.smbs_uuidlen >= 16)) {
-			hostid = uuid_to_hostid(smsys.smbs_uuid);
-		}
-
-		/*
-		 * Generate a "random" hostid using the clock.  These
-		 * hostids will change on each boot if the value is not
-		 * saved to a persistent /etc/hostid file.
-		 */
-		if (hostid == HW_INVALID_HOSTID) {
-			hostid = tsc_read() & 0x0CFFFFF;
-		}
-	} else {
-		/* hostid file found */
-		while (!done) {
-			token = kobj_lex(file, tokbuf, sizeof (tokbuf));
-
-			switch (token) {
-			case POUND:
-				/*
-				 * skip comments
-				 */
-				kobj_find_eol(file);
-				break;
-			case STRING:
-				/*
-				 * un-rot47 - obviously this
-				 * nonsense is ascii-specific
-				 */
-				for (c = (unsigned char *)tokbuf;
-				    *c != '\0'; c++) {
-					*c += 47;
-					if (*c > '~')
-						*c -= 94;
-					else if (*c < '!')
-						*c += 94;
-				}
-				/*
-				 * now we should have a real number
-				 */
-
-				if (kobj_getvalue(tokbuf, &tmp) != 0)
-					kobj_file_err(CE_WARN, file,
-					    "Bad value %s for hostid",
-					    tokbuf);
-				else
-					hostid = (int32_t)tmp;
-
-				break;
-			case EOF:
-				done = 1;
-				/* FALLTHROUGH */
-			case NEWLINE:
-				kobj_newline(file);
-				break;
-			default:
-				break;
-
-			}
-		}
-		if (hostid == HW_INVALID_HOSTID) /* didn't find a hostid */
-			kobj_file_err(CE_WARN, file,
-			    "hostid missing or corrupt");
-
-		kobj_close_file(file);
-	}
-	/*
-	 * hostid is now the value read from /etc/hostid, or the
-	 * new hostid we generated in this routine or HW_INVALID_HOSTID if not
-	 * set.
-	 */
-	return (hostid);
-}
-
-static int
-atoi(char *p)
-{
-	int i = 0;
-
-	while (*p != '\0')
-		i = 10 * i + (*p++ - '0');
-
-	return (i);
-}
-
-#endif /* _SOFT_HOSTID */
 
 void
 get_system_configuration(void)

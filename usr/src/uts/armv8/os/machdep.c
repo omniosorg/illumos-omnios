@@ -785,6 +785,21 @@ abort_sequence_enter(char *msg)
 		audit_exitprom(1);
 }
 
+#if defined(_SOFT_HOSTID)
+/*
+ * Generate an ephemeral hostid for hostid(1), hw_serial, etc.
+ * This may then be preserved /etc/hostid and become the system hostid.
+ *
+ * No real effort is made to make this more than approximately unique, we
+ * return some bits of the hardware timer.
+ */
+int32_t
+mach_ephemeral_hostid(void)
+{
+	return (arch_timer_count() & 0x0cfffff);
+}
+#endif
+
 void
 progressbar_key_abort(ldi_ident_t li)
 {}

@@ -79,7 +79,8 @@ CORE_OBJS +=			\
 	earlybsa.o		\
 	cpuinfo.o		\
 	pci_cfgacc.o		\
-	pci_cfgacc_armv8.o
+	pci_cfgacc_armv8.o	\
+	softhostid.o
 
 #
 #	Add the SMBIOS subsystem object files directly to the list of objects

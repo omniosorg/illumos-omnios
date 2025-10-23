@@ -23,6 +23,7 @@
  * Copyright 2025 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
  * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright 2012 DEY Storage Systems, Inc.  All rights reserved.
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
  */
 
@@ -104,8 +105,7 @@ extern void mach_init(void);
 extern void set_platform_defaults(void);
 extern time_t process_rtc_config_file(void);
 
-static int32_t set_soft_hostid(void);
-static char hostid_file[] = "/etc/hostid";
+extern int32_t soft_hostid(void);
 
 #define	TERABYTE		(1ul << 40)
 #define	PHYSMEM_MAX64		mmu_btop(64 * TERABYTE)
@@ -1088,135 +1088,6 @@ startup_kmem(void)
 	PRM_POINT("startup_kmem() done");
 }
 
-/*
- * On platforms that do not have a hardware serial number, attempt
- * to set one based on the contents of /etc/hostid.  If this file does
- * not exist, assume that we are to generate a new hostid and set
- * it in the kernel, for subsequent saving by a userland process
- * once the system is up and the root filesystem is mounted r/w.
- *
- * In order to gracefully support upgrade on OpenSolaris, if
- * /etc/hostid does not exist, we will attempt to get a serial number
- * using the legacy method (/kernel/misc/sysinit).
- *
- * In an attempt to make the hostid less prone to abuse
- * (for license circumvention, etc), we store it in /etc/hostid
- * in rot47 format.
- */
-static int atoi(char *);
-
-static int32_t
-set_soft_hostid(void)
-{
-	struct _buf *file;
-	char tokbuf[MAXNAMELEN];
-	token_t token;
-	int done = 0;
-	u_longlong_t tmp;
-	int i;
-	int32_t hostid = (int32_t)HW_INVALID_HOSTID;
-	unsigned char *c;
-	hrtime_t tsc;
-
-	/*
-	 * If /etc/hostid file not found, we'd like to get a pseudo
-	 * random number to use at the hostid.  A nice way to do this
-	 * is to read the real time clock.  To remain xen-compatible,
-	 * we can't poke the real hardware, so we use tsc_read() to
-	 * read the real time clock.  However, there is an ominous
-	 * warning in tsc_read that says it can return zero, so we
-	 * deal with that possibility by falling back to using the
-	 * (hopefully random enough) value in tenmicrodata.
-	 */
-
-	if ((file = kobj_open_file(hostid_file)) == (struct _buf *)-1) {
-		/*
-		 * hostid file not found - try to load sysinit module
-		 * and see if it has a nonzero hostid value...use that
-		 * instead of generating a new hostid here if so.
-		 */
-		if ((i = modload("misc", "sysinit")) != -1) {
-			if (strlen(hw_serial) > 0)
-				hostid = (int32_t)atoi(hw_serial);
-			(void) modunload(i);
-		}
-		if (hostid == HW_INVALID_HOSTID) {
-			tsc = arch_timer_count();
-			hostid = (int32_t)tsc & 0x0CFFFFF;
-		}
-	} else {
-		/* hostid file found */
-		while (!done) {
-			token = kobj_lex(file, tokbuf, sizeof (tokbuf));
-
-			switch (token) {
-			case POUND:
-				/*
-				 * skip comments
-				 */
-				kobj_find_eol(file);
-				break;
-			case STRING:
-				/*
-				 * un-rot47 - obviously this
-				 * nonsense is ascii-specific
-				 */
-				for (c = (unsigned char *)tokbuf;
-				    *c != '\0'; c++) {
-					*c += 47;
-					if (*c > '~')
-						*c -= 94;
-					else if (*c < '!')
-						*c += 94;
-				}
-				/*
-				 * now we should have a real number
-				 */
-
-				if (kobj_getvalue(tokbuf, &tmp) != 0)
-					kobj_file_err(CE_WARN, file,
-					    "Bad value %s for hostid",
-					    tokbuf);
-				else
-					hostid = (int32_t)tmp;
-
-				break;
-			case EOF:
-				done = 1;
-				/* FALLTHROUGH */
-			case NEWLINE:
-				kobj_newline(file);
-				break;
-			default:
-				break;
-
-			}
-		}
-		if (hostid == HW_INVALID_HOSTID) /* didn't find a hostid */
-			kobj_file_err(CE_WARN, file,
-			    "hostid missing or corrupt");
-
-		kobj_close_file(file);
-	}
-	/*
-	 * hostid is now the value read from /etc/hostid, or the
-	 * new hostid we generated in this routine or HW_INVALID_HOSTID if not
-	 * set.
-	 */
-	return (hostid);
-}
-
-static int
-atoi(char *p)
-{
-	int i = 0;
-
-	while (*p != '\0')
-		i = 10 * i + (*p++ - '0');
-
-	return (i);
-}
-
 static void
 startup_modules(void)
 {
@@ -1297,23 +1168,6 @@ startup_modules(void)
 	dispinit();
 
 	/*
-	 * This is needed here to initialize hw_serial[] for cluster booting.
-	 */
-	if ((h = set_soft_hostid()) == HW_INVALID_HOSTID) {
-		cmn_err(CE_WARN, "Unable to set hostid");
-	} else {
-		for (v = h, cnt = 0; cnt < 10; cnt++) {
-			d[cnt] = (char)(v % 10);
-			v /= 10;
-			if (v == 0)
-				break;
-		}
-		for (cp = hw_serial; cnt >= 0; cnt--)
-			*cp++ = d[cnt] + '0';
-		*cp = 0;
-	}
-
-	/*
 	 * Create a kernel device tree. First, create rootnex and
 	 * then invoke bus specific code to probe devices.
 	 */
@@ -1351,12 +1205,22 @@ startup_modules(void)
 		}
 	}
 
-	/*
-	 * Set up the CPU module subsystem for the boot cpu in the native
-	 * case, and all physical cpu resource in the xpv dom0 case.
-	 * Modifies the device tree, so this must be done after
-	 * setup_ddi().
-	 */
+#if defined(_SOFT_HOSTID)
+	if ((h = soft_hostid()) == HW_INVALID_HOSTID) {
+		cmn_err(CE_WARN, "Unable to set hostid");
+	} else {
+		for (v = h, cnt = 0; cnt < 10; cnt++) {
+			d[cnt] = (char)(v % 10);
+			v /= 10;
+			if (v == 0)
+				break;
+		}
+		for (cp = hw_serial; cnt >= 0; cnt--)
+			*cp++ = d[cnt] + '0';
+		*cp = 0;
+	}
+#endif
+
 	/*
 	 * Fake a prom tree such that /dev/openprom continues to work
 	 */

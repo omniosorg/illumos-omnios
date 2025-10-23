@@ -1499,3 +1499,18 @@ do_hotinlines(struct module *mp)
 #endif	/* __xpv */
 	}
 }
+
+#if defined(_SOFT_HOSTID)
+/*
+ * Generate an ephemeral hostid for hostid(1), hw_serial, etc.
+ * This may then be preserved /etc/hostid and become the system hostid.
+ *
+ * No real effort is made to make this more than approximately unique, we
+ * return some bits of the hardware timer.
+ */
+int32_t
+mach_ephemeral_hostid(void)
+{
+	return (tsc_read() & 0x0cfffff);
+}
+#endif /* _SOFT_HOSTID */

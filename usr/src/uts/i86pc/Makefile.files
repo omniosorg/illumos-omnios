@@ -118,6 +118,7 @@ CORE_OBJS +=			\
 	prom_panic.o		\
 	prom_reboot.o		\
 	pwrnow.o		\
+	softhostid.o		\
 	speedstep.o		\
 	ssp.o			\
 	startup.o		\
