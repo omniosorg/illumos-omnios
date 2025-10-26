@@ -21,7 +21,7 @@
 
 /*
  * Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  * Copyright 2025 Oxide Computer Company
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
@@ -447,10 +447,31 @@ print_system(smbios_hdl_t *shp, FILE *fp)
 		return;
 	}
 
+	/*
+	 * SMBIOS definition section 3.3.2.1 is clear that the first three
+	 * fields are little-endian, but this utility traditionally got this
+	 * wrong, and followed RFC 4122.  We keep this old behavior, but also
+	 * provide a corrected UUID.  The specification clarified this in
+	 * version 2.7, but this was first implemented prior to that.
+	 */
 	oprintf(fp, "  UUID: ");
-	for (i = 0; i < s.smbs_uuidlen; i++) {
+	oprintf(fp, "%02x%02x%02x%02x-%02x%02x-%02x%02x-",
+	    s.smbs_uuid[0], s.smbs_uuid[1], s.smbs_uuid[2], s.smbs_uuid[3],
+	    s.smbs_uuid[4], s.smbs_uuid[5], s.smbs_uuid[6], s.smbs_uuid[7]);
+	for (i = 8; i < s.smbs_uuidlen; i++) {
 		oprintf(fp, "%02x", s.smbs_uuid[i]);
-		if (i == 3 || i == 5 || i == 7 || i == 9)
+		if (i == 9)
+			oprintf(fp, "-");
+	}
+	oprintf(fp, "\n");
+
+	oprintf(fp, "  UUID (Endian-corrected): ");
+	oprintf(fp, "%08x-%04hx-%04hx-", *((uint_t *)&s.smbs_uuid[0]),
+	    *((ushort_t *)&s.smbs_uuid[4]),
+	    *((ushort_t *)&s.smbs_uuid[6]));
+	for (i = 8; i < s.smbs_uuidlen; i++) {
+		oprintf(fp, "%02x", s.smbs_uuid[i]);
+		if (i == 9)
 			oprintf(fp, "-");
 	}
 	oprintf(fp, "\n");
@@ -1534,6 +1555,40 @@ print_boot(smbios_hdl_t *shp, FILE *fp)
 }
 
 static void
+print_mgmtdev(smbios_hdl_t *shp, id_t id, FILE *fp)
+{
+	smbios_mgmtdev_t md;
+
+	if (smbios_info_mgmtdev(shp, id, &md) == -1) {
+		smbios_warn(shp, "failed to read management device");
+		return;
+	}
+
+	str_print(fp, "  Description", md.smbmd_desc);
+	desc_printf(smbios_mgmtdev_dtype_desc(md.smbmd_dtype), fp,
+	    "  Device Type: 0x%x", md.smbmd_dtype);
+	oprintf(fp, "  Address: 0x%x\n", md.smbmd_addr);
+	desc_printf(smbios_mgmtdev_atype_desc(md.smbmd_atype), fp,
+	    "  Address Type: 0x%x", md.smbmd_atype);
+}
+
+static void
+print_mgmtcomp(smbios_hdl_t *shp, id_t id, FILE *fp)
+{
+	smbios_mgmtcomp_t mc;
+
+	if (smbios_info_mgmtcomp(shp, id, &mc) == -1) {
+		smbios_warn(shp, "failed to read management device component");
+		return;
+	}
+
+	str_print(fp, "  Description", mc.smbmc_desc);
+	id_printf(fp, "  Management Device Handle: ", mc.smbmc_mgmtdev);
+	id_printf(fp, "  Component Handle: ", mc.smbmc_comp);
+	id_printf(fp, "  Threshold Handle: ", mc.smbmc_thresh);
+}
+
+static void
 print_ipmi(smbios_hdl_t *shp, FILE *fp)
 {
 	smbios_ipmi_t i;
@@ -1932,6 +1987,44 @@ print_strprop_info(smbios_hdl_t *shp, id_t id, FILE *fp)
 }
 
 static void
+print_tpm(smbios_hdl_t *shp, id_t id, FILE *fp)
+{
+	size_t i;
+	smbios_tpm_t tpm;
+
+	if (smbios_info_tpm(shp, id, &tpm) != 0) {
+		smbios_warn(shp, "failed to read TPM information");
+		return;
+	}
+
+	oprintf(fp, "  Vendor ID: ");
+	for (i = 0; i < ARRAY_SIZE(tpm.smbtpm_vid); i++) {
+		/*
+		 * We've found some vendors terminate this with a NUL. If we
+		 * find that, then we consider that the end and stop printing.
+		 */
+		if (tpm.smbtpm_vid[i] == '\0')
+			break;
+
+		if (isascii(tpm.smbtpm_vid[i]) && isprint(tpm.smbtpm_vid[i])) {
+			(void) oprintf(fp, "%c", tpm.smbtpm_vid[i]);
+		} else {
+			oprintf(fp, "\\x%02x", tpm.smbtpm_vid[i]);
+		}
+	}
+	oprintf(fp, "\n");
+	oprintf(fp, "  Spec Version: %u.%u\n", tpm.smbtpm_major,
+	    tpm.smbtpm_minor);
+	oprintf(fp, "  Firmware Version 1: 0x%x\n", tpm.smbtpm_fwv1);
+	oprintf(fp, "  Firmware Version 2: 0x%x\n", tpm.smbtpm_fwv2);
+	str_print(fp, "  Description", tpm.smbtpm_desc);
+	flag64_printf(fp, "Characteristics",
+	    tpm.smbtpm_chars, sizeof (tpm.smbtpm_chars) * NBBY,
+	    smbios_tpm_char_name, smbios_tpm_char_desc);
+	oprintf(fp, "  OEM-defined: 0x%x", tpm.smbtpm_oem);
+}
+
+static void
 print_fwinfo(smbios_hdl_t *shp, id_t id, FILE *fp)
 {
 	smbios_fwinfo_t fw;
@@ -2121,6 +2214,14 @@ print_struct(smbios_hdl_t *shp, const smbios_struct_t *sp, void *fp)
 		oprintf(fp, "\n");
 		print_boot(shp, fp);
 		break;
+	case SMB_TYPE_MGMTDEV:
+		oprintf(fp, "\n");
+		print_mgmtdev(shp, sp->smbstr_id, fp);
+		break;
+	case SMB_TYPE_MGMTDEVCP:
+		oprintf(fp, "\n");
+		print_mgmtcomp(shp, sp->smbstr_id, fp);
+		break;
 	case SMB_TYPE_IPMIDEV:
 		oprintf(fp, "\n");
 		print_ipmi(shp, fp);
@@ -2140,6 +2241,10 @@ print_struct(smbios_hdl_t *shp, const smbios_struct_t *sp, void *fp)
 	case SMB_TYPE_PROCESSOR_INFO:
 		oprintf(fp, "\n");
 		print_processor_info(shp, sp->smbstr_id, fp);
+		break;
+	case SMB_TYPE_TPM:
+		oprintf(fp, "\n");
+		print_tpm(shp, sp->smbstr_id, fp);
 		break;
 	case SMB_TYPE_STRPROP:
 		oprintf(fp, "\n");

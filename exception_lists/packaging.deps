@@ -25,6 +25,7 @@ pkg:/library/security/openssl-3
 pkg:/library/security/openssl-3/32
 pkg:/library/security/openssl-30
 pkg:/library/security/trousers
+pkg:/library/security/trousers/32
 pkg:/library/zlib
 pkg:/ooce/runtime/expect
 pkg:/package/pkg
@@ -49,6 +50,7 @@ pkg:/system/library/gcc-10-runtime
 pkg:/system/library/gcc-7-runtime
 pkg:/system/library/gcc-runtime
 pkg:/system/library/libdbus
+pkg:/system/library/libdbus/32
 pkg:/system/library/libdbus-glib
 pkg:/system/library/mozilla-nss
 pkg:/system/management/snmp/net-snmp
