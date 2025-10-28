@@ -32,7 +32,6 @@ extern "C" {
 
 #define	ipltospl(n)	(n)
 #define	spltoipl(n)	(n)
-#define	spltopri(n)	(n)
 
 #define	SPL8		15
 #define	SPL7		13
