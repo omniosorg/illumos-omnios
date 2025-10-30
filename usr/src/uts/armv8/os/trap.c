@@ -833,6 +833,15 @@ trap(uint16_t ec, uint64_t esr, caddr_t addr, struct regs *rp)
 
 			ct->t_sig_check = 0;
 
+	 		/*
+	 		 * As in other code paths that check against
+	 		 * TP_CHANGEBIND, we perform the check first without
+	 		 * p_lock held -- only acquiring p_lock in the
+	 		 * unlikely event that it is indeed set.  This is safe
+	 		 * because we are doing this after the astoff(); if we
+	 		 * are racing another thread setting TP_CHANGEBIND on
+	 		 * us, we will pick it up on a subsequent lap through.
+	 		 */
 			if (curthread->t_proc_flag & TP_CHANGEBIND) {
 				mutex_enter(&p->p_lock);
 				if (curthread->t_proc_flag & TP_CHANGEBIND) {
