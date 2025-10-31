@@ -63,7 +63,6 @@ INC_PATH	+= -I$(UTSBASE)/common/io/bpf
 #
 
 CERRWARN	+= $(CNOWARN_UNINIT)
-CERRWARN	+= -_gcc=-Wno-type-limits
 CERRWARN	+= -_gcc=-Wno-parentheses
 
 # needs work
