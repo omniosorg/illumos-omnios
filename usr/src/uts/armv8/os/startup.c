@@ -992,6 +992,11 @@ startup_end(void)
 	PRM_POINT("configure() done");
 
 	/*
+	 * Set up the FPU save area for LWP0.
+	 */
+	lwp_fp_init(&lwp0);
+
+	/*
 	 * Set the isa_list string to the defined instruction sets we
 	 * support.
 	 */
