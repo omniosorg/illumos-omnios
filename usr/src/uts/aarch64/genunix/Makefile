@@ -91,6 +91,13 @@ CERRWARN	+= -_gcc=-Wno-empty-body
 CERRWARN	+= -_gcc=-Wno-override-init
 
 #
+# Some compilers default to stripping unused debug information from
+# objects. Since genunix is used as the uniquification source for CTF data
+# in the kernel, explicitly keep as much debug data as possible.
+#
+CFLAGS		+= $(CALLSYMS)
+
+#
 #	Default build targets.
 #
 .KEEP_STATE:
