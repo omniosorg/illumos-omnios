@@ -68,7 +68,6 @@ LDFLAGS		+= -Nmisc/klmmod
 # Please do not carry these forward to new Makefiles.
 #
 
-CERRWARN	+= -_gcc=-Wno-parentheses
 CERRWARN	+= -_gcc=-Wno-type-limits
 CERRWARN	+= -_gcc=-Wno-unused-variable
 CERRWARN	+= -_gcc=-Wno-unused-label
