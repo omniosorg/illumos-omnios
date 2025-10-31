@@ -163,16 +163,16 @@ install:	$(INSTALL_DEPS)
 $(UNIX_O):	$(OBJECTS) $(CTFEXTRAOBJS)
 	$(LD) -r -o $@ $(OBJECTS) $(OBJS_DIR)/vers.o
 
-$(UNIX_BIN):	$(UNIX_O) $(MODSTUBS_O) $(KRTLD_O) $(MAPFILE) $(GENLIB) \
+$(UNIX_BIN):	$(UNIX_O) $(MODSTUBS_O) $(KRTLD_O) $(UNIX_MAPFILE) $(GENLIB) \
 		$(DTRACESTUBS) $(DBOOT_O)
-	$(LD) -dy -b -o $@ -e dboot_image -znointerp -M $(MAPFILE) \
+	$(LD) -dy -b -o $@ -e dboot_image -znointerp -M $(UNIX_MAPFILE) \
 	    $(DBOOT_O) $(UNIX_O) $(MODSTUBS_O) $(KRTLD_O) \
 	    $(LIBOPTS) $(DTRACESTUBS)
 	$(CTFMERGE_UNIQUIFY_AGAINST_GENUNIX) $(LIBGEN_OBJS)
 	$(POST_PROCESS)
 
 symcheck:	$(UNIX_O) $(KRTLD_O) $(MODSTUBS_O) $(LIBS)
-	$(LD) -dy -b -o $(SYM_MOD) -M $(MAPFILE) \
+	$(LD) -dy -b -o $(SYM_MOD) -M $(UNIX_MAPFILE) \
 	$(UNIX_O) $(KRTLD_O) $(MODSTUBS_O) $(LIBOPTS) $(DTRACESTUBS)
 
 $(KRTLD_O):	$(KRTLD_OBJECTS)
