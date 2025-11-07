@@ -142,7 +142,6 @@ extern "C" {
  */
 #define	HEAPTEXT_SIZE	(64 * 1024 * 1024)	/* bytes */
 
-/* XXXARM: not used */
 #define	ARGSBASE	HOLE_START
 
 /*
