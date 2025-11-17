@@ -100,6 +100,7 @@ CERRWARN += -_gcc=-Wno-parentheses
 CERRWARN += -_gcc=-Wno-unused-variable
 CERRWARN += -_gcc=-Wno-misleading-indentation
 CERRWARN += -_gcc=-Wno-unused-but-set-variable
+CERRWARN += -_gcc=-Wno-unknown-pragmas
 CERRWARN += $(CNOWARN_UNINIT)
 SMATCH=off
 

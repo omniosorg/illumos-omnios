@@ -61,9 +61,6 @@ _ex_unwind_local(void)
 }
 #endif	/* __aarch64__ */
 
-#pragma unknown_control_flow(_ex_clnup_handler)
-#pragma unknown_control_flow(_ex_unwind_local)
-
 /*
  * _t_cancel(fp):calls cleanup handlers if there are any in
  *		 frame (fp), and calls _ex_unwind() to call

@@ -185,6 +185,7 @@ os-tests/tests/i386/ldt
 os-tests/tests/imc/imc_test
 os-tests/tests/libtopo/digraph-test
 os-tests/tests/mac/mac_cksum
+os-tests/tests/mac/mac_lso
 os-tests/tests/mac/mac_parsing
 os-tests/tests/minttl/minttl
 os-tests/tests/minttl/minttl_err
