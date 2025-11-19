@@ -28,11 +28,7 @@
  * Copyright 2025 Michael van der Westhuizen
  */
 
-#if 1
-#undef DEBUG
-#endif
-
-/*  #define	DEBUG ON */
+/*  #define	DBOOT_KMEM_DEBUG ON */
 
 /*
  * Conditions on use:
@@ -155,7 +151,7 @@ struct kmem_info {
 
 struct map *kernelmap;
 
-#ifdef DEBUG
+#ifdef DBOOT_KMEM_DEBUG
 static void prtree(Freehdr, char *);
 #endif
 
@@ -169,8 +165,8 @@ kmem_init(void)
 	int i;
 	struct need_to_free *ntf;
 
-#ifdef DEBUG
-dboot_printf("kmem_init entered\n");
+#ifdef DBOOT_KMEM_DEBUG
+	dboot_printf("kmem_init entered\n");
 #endif
 
 	kmem_info.free_root = NIL;
@@ -181,9 +177,9 @@ dboot_printf("kmem_init entered\n");
 	for (i = 0; i < NEED_TO_FREE_SIZE; i++) {
 		ntf[i].addr = 0;
 	}
-#ifdef DEBUG
-dboot_printf("kmem_init returning\n");
-prtree(kmem_info.free_root, "kmem_init");
+#ifdef DBOOT_KMEM_DEBUG
+	dboot_printf("kmem_init returning\n");
+	prtree(kmem_info.free_root, "kmem_init");
 #endif
 }
 
@@ -445,9 +441,9 @@ kmem_alloc(size_t nbytes, int kmflag)
 	Freehdr right_son;
 	char	 *retblock;	/* Address returned to the user */
 	int s;
-#ifdef	DEBUG
+#ifdef	DBOOT_KMEM_DEBUG
 	dboot_printf("kmem_alloc(nbytes 0x%lx)\n", nbytes);
-#endif	/* DEBUG */
+#endif	/* DBOOT_KMEM_DEBUG */
 
 	if (nbytes == 0) {
 		return (NULL);
@@ -534,8 +530,10 @@ kmem_alloc(size_t nbytes, int kmflag)
 		x = getfreehdr();
 		if ((uintptr_t)a->block->data & ALIGNMASK) {
 			size_t size;
-			if (a->size <= ALIGNMORE(a->block->data))
-				dboot_panic("kmem_alloc: short block allocated");
+			if (a->size <= ALIGNMORE(a->block->data)) {
+				dboot_panic("kmem_alloc: short "
+				    "block allocated");
+			}
 			size = nbytes + ALIGNMORE(a->block->data);
 			x->block = a->block;
 			x->size = ALIGNMORE(a->block->data);
@@ -570,13 +568,13 @@ kmem_alloc(size_t nbytes, int kmflag)
 			freehdr(a);
 		}
 	}
-#ifdef DEBUG
+#ifdef DBOOT_KMEM_DEBUG
 	prtree(kmem_info.free_root, "kmem_alloc");
 #endif
 
 	splx(s);
 	bzero(retblock, nbytes);
-#ifdef DEBUG
+#ifdef DBOOT_KMEM_DEBUG
 	dboot_printf("kmem_alloc  bzero complete - returning %p\n", retblock);
 #endif
 	return (retblock);
@@ -615,15 +613,11 @@ kmem_free(void *ptr, size_t nbytes)
 	size_t	 neigh_size;	/* Size of potential neighbor */
 	int s;
 
-#ifdef DEBUG
-dboot_printf("kmem_free (ptr %p nbytes %lx)\n", ptr, nbytes);
-prtree(kmem_info.free_root, "kmem_free");
+#ifdef DBOOT_KMEM_DEBUG
+	dboot_printf("kmem_free (ptr %p nbytes %lx)\n", ptr, nbytes);
+	prtree(kmem_info.free_root, "kmem_free");
 #endif
 
-#ifdef	lint
-	neigh_block = bkmem_zalloc(nbytes);
-	neigh_block = neigh_block;
-#endif
 	if (nbytes == 0) {
 		return;
 	}
@@ -689,7 +683,8 @@ prtree(kmem_info.free_root, "kmem_free");
 			 * This block has already been freed
 			 * as "ptr == neigh_block"
 			 */
-			dboot_panic("kmem_free: block already free as neighbor");
+			dboot_panic("kmem_free: block already free "
+			    "as neighbor");
 		} /* else */
 		neighbor = *np;
 	} /* while */
@@ -698,9 +693,9 @@ prtree(kmem_info.free_root, "kmem_free");
 	 * Insert the new node into the free space tree
 	 */
 	insert((Dblk) ptr, nbytes, &kmem_info.free_root);
-#ifdef DEBUG
-dboot_printf("exiting kmem_free\n");
-prtree(kmem_info.free_root, "kmem_free");
+#ifdef DBOOT_KMEM_DEBUG
+	dboot_printf("exiting kmem_free\n");
+	prtree(kmem_info.free_root, "kmem_free");
 #endif
 	splx(s);
 } /* kmem_free */
@@ -784,9 +779,9 @@ morecore(size_t nbytes)
 {
 	enum RESOURCES type = RES_BOOTSCRATCH;
 	Dblk p;
-#ifdef	DEBUG
+#ifdef	DBOOT_KMEM_DEBUG
 	dboot_printf("morecore(nbytes 0x%lx)\n", nbytes);
-#endif	/* DEBUG */
+#endif	/* DBOOT_KMEM_DEBUG */
 
 
 	nbytes = roundup(nbytes, PAGESIZE);
@@ -795,7 +790,7 @@ morecore(size_t nbytes)
 		return (false);
 	}
 	kmem_free((caddr_t)p, nbytes);
-#ifdef DEBUG
+#ifdef DBOOT_KMEM_DEBUG
 	dboot_printf("morecore() returing, p = %p\n", p);
 #endif
 	return (true);
@@ -812,9 +807,9 @@ getfreehdr(void)
 {
 	Freehdr	r;
 	int	n = 0;
-#ifdef	DEBUG
+#ifdef	DBOOT_KMEM_DEBUG
 	dboot_printf("getfreehdr()\n");
-#endif	/* DEBUG */
+#endif	/* DBOOT_KMEM_DEBUG */
 
 	if (kmem_info.free_hdr_list != NIL) {
 		r = kmem_info.free_hdr_list;
@@ -828,10 +823,10 @@ getfreehdr(void)
 			freehdr(&r[n]);
 		}
 	}
-#ifdef	DEBUG
+#ifdef	DBOOT_KMEM_DEBUG
 	dboot_printf("getfreehdr: freed %x headers\n", n);
 	dboot_printf("getfreehdr: returning %p\n", r);
-#endif	/* DEBUG */
+#endif	/* DBOOT_KMEM_DEBUG */
 	return (r);
 }
 
@@ -843,16 +838,16 @@ getfreehdr(void)
 void
 freehdr(Freehdr p)
 {
-#ifdef	DEBUG
+#ifdef	DBOOT_KMEM_DEBUG
 	dboot_printf("freehdr(%p)\n", p);
-#endif	/* DEBUG */
+#endif	/* DBOOT_KMEM_DEBUG */
 	p->left = kmem_info.free_hdr_list;
 	p->right = NIL;
 	p->block = NULL;
 	kmem_info.free_hdr_list = p;
 }
 
-#ifdef DEBUG
+#ifdef DBOOT_KMEM_DEBUG
 /*
  * Diagnostic routines
  */
@@ -882,4 +877,4 @@ prtree(Freehdr p, char *cp)
 		depth--;
 	}
 }
-#endif /* DEBUG */
+#endif /* DBOOT_KMEM_DEBUG */
