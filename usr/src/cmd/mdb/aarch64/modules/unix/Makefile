@@ -27,7 +27,9 @@
 MODULE = unix.so
 MDBTGT = kvm
 
-MODSRCS = unix.c
+MODSRCS =	\
+	mmu.c	\
+	unix.c
 
 include ../../../../Makefile.cmd
 include ../../../../Makefile.cmd.64

@@ -22,6 +22,8 @@
 #include <sys/modctl.h>
 #include <sys/sunddi.h>
 
+#include "mmu.h"
+
 static int
 arm_features_dcmd(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
@@ -195,10 +197,17 @@ static const mdb_dcmd_t dcmds[] = {
 	{ "arm_features", ":", "dump the arm_features vector",
 	    arm_features_dcmd },
 	{ "interrupts", "", "print interrupts", gic_interrupts_dcmd },
+	{ "memseg_list", ":", "show memseg list", memseg_list },
 	{ NULL },
 };
 
-static const mdb_modinfo_t modinfo = { MDB_API_VERSION, dcmds, NULL };
+static const mdb_walker_t walkers[] = {
+	{ "memseg", "walk the memseg structures",
+	    memseg_walk_init, memseg_walk_step, memseg_walk_fini },
+	{ NULL }
+};
+
+static const mdb_modinfo_t modinfo = { MDB_API_VERSION, dcmds, walkers };
 
 const mdb_modinfo_t *
 _mdb_init(void)
