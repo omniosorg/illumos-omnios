@@ -118,6 +118,7 @@ typedef struct cpu_ucode_info {
 	uint32_t	cui_platid;		/* platform id */
 	uint32_t	cui_rev;		/* microcode revision */
 	uint32_t	cui_pending_rev;	/* pending microcode revision */
+	uint32_t	cui_boot_rev;		/* rev at kernel start */
 	void		*cui_pending_ucode;	/* pending microcode update */
 	size_t		cui_pending_size;	/* pending microcode size */
 } cpu_ucode_info_t;
@@ -151,6 +152,7 @@ typedef struct ucode_source {
 	ucode_errno_t	(*us_validate)(uint8_t *, int);
 	ucode_errno_t	(*us_extract)(ucode_update_t *, uint8_t *, int);
 	ucode_errno_t	(*us_locate)(cpu_t *, cpu_ucode_info_t *);
+	ucode_errno_t	(*us_locate_fallback)(cpu_t *, cpu_ucode_info_t *);
 } ucode_source_t;
 #define	UCODE_SOURCE(x) DATA_SET(ucode_source_set, x)
 
