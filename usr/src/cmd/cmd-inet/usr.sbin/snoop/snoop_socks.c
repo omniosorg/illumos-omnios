@@ -240,7 +240,6 @@ interpret_socks_call(int flags, char *line, int fraglen)
 				show_string(line, fraglen, 20));
 	}
 
-out:
 	return (fraglen);
 }
 
@@ -328,7 +327,6 @@ interpret_socks_reply(int flags, char *line, int fraglen)
 		show_space();
 	}
 
-out:
 	return (fraglen);
 }
 

@@ -51,7 +51,6 @@ include $(UTSBASE)/aarch64/Makefile.aarch64
 # Please do not carry these forward to new Makefiles.
 #
 CFLAGS		+= $(CCVERBOSE)
-CERRWARN	+= -_gcc=-Wno-unused-label
 
 #
 #	Depends on misc/audiosup

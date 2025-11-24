@@ -1582,7 +1582,7 @@ get_map(pname, pushstat)
 
 	} else
 		retval = FALSE; /* barf again at YPOLDVERS */
-cleanup:
+
 	clnt_destroy(domb.dom_client);
 	return (retval);
 }

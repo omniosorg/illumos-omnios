@@ -58,7 +58,6 @@ CPPFLAGS	+= -I. -D_KERNEL
 
 LDFLAGS         += -Nmisc/mac -Nmisc/net80211 -Ndrv/random -Ndrv/ip
 
-CERRWARN	+= -_gcc=-Wno-unused-label
 CERRWARN	+= $(CNOWARN_UNINIT)
 
 #

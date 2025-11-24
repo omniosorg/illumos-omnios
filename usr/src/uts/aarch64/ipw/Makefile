@@ -46,7 +46,6 @@ ROOTMODULE	= $(ROOT_DRV_DIR)/$(MODULE)
 include $(UTSBASE)/aarch64/Makefile.aarch64
 
 CERRWARN	+= -_gcc=-Wno-switch
-CERRWARN	+= -_gcc=-Wno-unused-label
 CERRWARN	+= -_gcc=-Wno-parentheses
 CERRWARN	+= $(CNOWARN_UNINIT)
 

@@ -2655,7 +2655,7 @@ aio_cleanup_thread(aio_t *aiop)
 		}
 		mutex_exit(&as->a_contents);
 	}
-exit:
+
 	mutex_exit(&as->a_contents);
 	ASSERT((curproc->p_flag & (SEXITLWPS|SKILLED)));
 	aston(curthread);	/* make thread do post_syscall */

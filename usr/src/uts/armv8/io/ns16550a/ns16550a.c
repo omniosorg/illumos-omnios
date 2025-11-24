@@ -1709,7 +1709,7 @@ nodrain:
 		ns16550_set_icr(ns16550, 0, RIEN);
 	}
 	mutex_exit(&ns16550->ns16550_excl_hi);
-out:
+
 	ttycommon_close(&nsasync->nsasync_ttycommon);
 
 	/*

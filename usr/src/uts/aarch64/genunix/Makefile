@@ -78,7 +78,6 @@ CPPFLAGS	+= -I$(SRC)/uts/common/fs/zfs
 
 CPPFLAGS	+= -I$(UTSBASE)/armv8
 
-CERRWARN	+= -_gcc=-Wno-unused-label
 CERRWARN	+= -_gcc=-Wno-unused-variable
 CERRWARN	+= -_gcc=-Wno-unused-value
 CERRWARN	+= -_gcc=-Wno-unused-function

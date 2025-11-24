@@ -66,7 +66,6 @@ INC_PATH	+= -I$(UTSBASE)/common/fs/zfs
 
 CERRWARN	+= -_gcc=-Wno-switch
 CERRWARN	+= -_gcc=-Wno-parentheses
-CERRWARN	+= -_gcc=-Wno-unused-label
 CERRWARN	+= $(CNOWARN_UNINIT)
 
 #

@@ -50,7 +50,6 @@ include $(UTSBASE)/aarch64/Makefile.aarch64
 # should endeavor to investigate and remove these for maximum coverage, please
 # do not carry these forward to new Makefiles blindly.
 #
-CERRWARN	+= -_gcc=-Wno-unused-label
 CERRWARN	+= -_gcc=-Wno-unused-variable
 CERRWARN	+= -_gcc=-Wno-unused-function
 CERRWARN	+= $(CNOWARN_UNINIT)

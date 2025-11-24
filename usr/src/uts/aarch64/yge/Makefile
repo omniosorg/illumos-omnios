@@ -60,7 +60,6 @@ LDFLAGS		+=  -N misc/mac -N misc/mii
 # to investigate and remove these for maximum coverage.
 # Please do not carry these forward to new Makefiles.
 #
-CERRWARN	+= -_gcc=-Wno-unused-label
 
 #
 #

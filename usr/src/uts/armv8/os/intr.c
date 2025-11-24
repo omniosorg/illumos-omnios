@@ -497,7 +497,6 @@ dosoftint_prolog(
 	uint_t pil;
 	hrtime_t now;
 
-top:
 	ASSERT(st_pending == mcpu->mcpu_softinfo.st_pending);
 
 	pil = bsrw_insn((uint16_t)st_pending);
