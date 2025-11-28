@@ -355,7 +355,7 @@
 #define	TTBR_BADDR48_SHIFT	12
 #define	TTBR_BADDR48_MASK	(0xfffffffffull << TTBR_BADDR48_SHIFT)
 #define	TTBR_CNP_SHIFT		0
-#define	TRBR_CNP_MASK		(0x1ull << TTBR_CNP_SHIFT)
+#define	TTBR_CNP_MASK		(0x1ull << TTBR_CNP_SHIFT)
 
 
 #define	PSR_N		(1u<<31)
