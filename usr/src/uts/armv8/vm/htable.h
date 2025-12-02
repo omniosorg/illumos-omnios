@@ -27,7 +27,7 @@
  */
 
 #ifndef _VM_HTABLE_H
-#define _VM_HTABLE_H
+#define	_VM_HTABLE_H
 
 #ifdef	__cplusplus
 extern "C" {
@@ -76,7 +76,7 @@ typedef struct htable htable_t;
  * Flags values for htable ht_flags field:
  *
  * HTABLE_SHARED_PFN - this htable had its PFN assigned from sharing another
- * 	htable. Used by hat_share() for ISM.
+ *	htable. Used by hat_share() for ISM.
  */
 #define	HTABLE_SHARED_PFN	(0x01)
 
@@ -88,7 +88,7 @@ typedef struct htable htable_t;
  * that the secondary hash for the htable mutex winds up begin different in
  * every address space.
  */
-#define	HTABLE_NUM_HASH	(MMU_PAGESIZE / sizeof(htable_t *))
+#define	HTABLE_NUM_HASH	(MMU_PAGESIZE / sizeof (htable_t *))
 #define	HTABLE_HASH(hat, va, lvl)					\
 	((((va) >> LEVEL_SHIFT(1)) + ((va) >> 28) + (lvl) +		\
 	((uintptr_t)(hat) >> 4)) & (HTABLE_NUM_HASH - 1))
@@ -103,8 +103,9 @@ typedef struct htable htable_t;
  */
 #define	HTABLE_NUM_PTES(ht)	NPTEPERPT
 
-#define	HTABLE_LAST_PAGE(ht)	\
-	((ht)->ht_vaddr - MMU_PAGESIZE + ((uintptr_t)HTABLE_NUM_PTES(ht) * LEVEL_SIZE((ht)->ht_level)))
+#define	HTABLE_LAST_PAGE(ht)			\
+	((ht)->ht_vaddr - MMU_PAGESIZE +	\
+	((uintptr_t)HTABLE_NUM_PTES(ht) * LEVEL_SIZE((ht)->ht_level)))
 
 #define	NEXT_ENTRY_VA(va, l)	((va & LEVEL_MASK(l)) + LEVEL_SIZE(l))
 
@@ -112,19 +113,23 @@ typedef struct htable htable_t;
 
 extern void htable_init(void);
 extern htable_t *htable_lookup(struct hat *hat, uintptr_t vaddr, level_t level);
-extern htable_t *htable_create(struct hat *hat, uintptr_t vaddr, level_t level, htable_t *shared);
+extern htable_t *htable_create(struct hat *hat, uintptr_t vaddr, level_t level,
+    htable_t *shared);
 extern void htable_acquire(htable_t *);
 extern void htable_release(htable_t *ht);
 extern void htable_destroy(htable_t *ht);
 extern void htable_purge_hat(struct hat *hat);
-extern htable_t *htable_getpte(struct hat *, uintptr_t, uint_t *, pte_t *, level_t);
+extern htable_t *htable_getpte(struct hat *, uintptr_t, uint_t *, pte_t *,
+    level_t);
 extern htable_t *htable_getpage(struct hat *hat, uintptr_t va, uint_t *entry);
 extern void htable_initial_reserve(uint_t);
 extern void htable_reserve(uint_t);
 extern void htable_adjust_reserve(void);
 extern size_t htable_mapped(struct hat *);
-extern void htable_attach(struct hat *, uintptr_t, level_t, struct htable *, pfn_t);
-extern pte_t htable_walk(struct hat *hat, htable_t **ht, uintptr_t *va, uintptr_t eaddr);
+extern void htable_attach(struct hat *, uintptr_t, level_t, struct htable *,
+    pfn_t);
+extern pte_t htable_walk(struct hat *hat, htable_t **ht, uintptr_t *va,
+    uintptr_t eaddr);
 
 #define	HTABLE_WALK_TO_END ((uintptr_t)-1)
 
@@ -134,7 +139,8 @@ extern pte_t pte_get(htable_t *, uint_t entry);
 
 #define	LPAGE_ERROR (-(pte_t)1)
 extern pte_t pte_set(htable_t *, uint_t entry, pte_t new, void *);
-extern pte_t pte_inval(htable_t *ht, uint_t entry, pte_t old, pte_t *ptr, boolean_t tlb);
+extern pte_t pte_inval(htable_t *ht, uint_t entry, pte_t old, pte_t *ptr,
+    boolean_t tlb);
 extern pte_t pte_update(htable_t *ht, uint_t entry, pte_t old, pte_t new);
 extern void pte_copy(htable_t *src, htable_t *dest, uint_t entry, uint_t cnt);
 

@@ -61,7 +61,7 @@ kdi_vtop(uintptr_t vaddr, uint64_t *pap)
 		return (ENOENT);
 
 	*pap = ((par & PAR_PA_MASK) | (vaddr & MMU_PAGEOFFSET));
-	return 0;
+	return (0);
 }
 
 int

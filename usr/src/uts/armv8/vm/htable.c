@@ -97,8 +97,10 @@ kmutex_t htable_mutex[NUM_HTABLE_MUTEX];
 /*
  * forward declarations
  */
-static void link_ptp(htable_t *higher, htable_t *new, uintptr_t vaddr, boolean_t is_kernel);
-static void unlink_ptp(htable_t *higher, htable_t *old, uintptr_t vaddr, boolean_t is_kernel);
+static void link_ptp(htable_t *higher, htable_t *new, uintptr_t vaddr,
+    boolean_t is_kernel);
+static void unlink_ptp(htable_t *higher, htable_t *old, uintptr_t vaddr,
+    boolean_t is_kernel);
 static void htable_free(htable_t *ht);
 static pte_t pte_cas(htable_t *ht, uint_t entry, pte_t old, pte_t new);
 
@@ -292,7 +294,7 @@ htable_steal_active(hat_t *hat, uint_t cnt, uint_t threshold,
 	uintptr_t	va;
 	pte_t	pte;
 
-	h = h_start = h_seed++ % (MMU_PAGESIZE / sizeof(htable_t *));
+	h = h_start = h_seed++ % (MMU_PAGESIZE / sizeof (htable_t *));
 	do {
 		higher = NULL;
 		HTABLE_ENTER(h);
@@ -347,7 +349,8 @@ htable_steal_active(hat_t *hat, uint_t cnt, uint_t threshold,
 			 * Steal it and unlink the page table.
 			 */
 			higher = ht->ht_parent;
-			unlink_ptp(higher, ht, ht->ht_vaddr, ((hat == kas.a_hat)? B_TRUE: B_FALSE));
+			unlink_ptp(higher, ht, ht->ht_vaddr,
+			    ((hat == kas.a_hat) ? B_TRUE : B_FALSE));
 
 			/*
 			 * remove from the hash list
@@ -376,7 +379,7 @@ htable_steal_active(hat_t *hat, uint_t cnt, uint_t threshold,
 		HTABLE_EXIT(h);
 		if (higher != NULL)
 			htable_release(higher);
-		if (++h == (MMU_PAGESIZE / sizeof(htable_t *)))
+		if (++h == (MMU_PAGESIZE / sizeof (htable_t *)))
 			h = 0;
 	} while (*stolen < cnt && h != h_start);
 }
@@ -848,7 +851,7 @@ htable_purge_hat(hat_t *hat)
 	/*
 	 * walk thru the htable hash table and free all the htables in it.
 	 */
-	for (h = 0; h < (MMU_PAGESIZE / sizeof(htable_t *)); ++h) {
+	for (h = 0; h < (MMU_PAGESIZE / sizeof (htable_t *)); ++h) {
 		while ((ht = hat->hat_ht_hash[h]) != NULL) {
 			if (ht->ht_next)
 				ht->ht_next->ht_prev = ht->ht_prev;
@@ -869,7 +872,8 @@ htable_purge_hat(hat_t *hat)
  * one level higher. We are always holding the HASH_ENTER() when doing this.
  */
 static void
-unlink_ptp(htable_t *higher, htable_t *old, uintptr_t vaddr, boolean_t is_kernel)
+unlink_ptp(htable_t *higher, htable_t *old, uintptr_t vaddr,
+    boolean_t is_kernel)
 {
 	uint_t	entry = htable_va2entry(vaddr, higher);
 	pte_t	expect = MAKEPTP(old->ht_pfn, old->ht_level, is_kernel);
@@ -1003,7 +1007,8 @@ htable_release(htable_t *ht)
 			/*
 			 * Unlink the pagetable.
 			 */
-			unlink_ptp(higher, ht, va, ((hat == kas.a_hat)? B_TRUE: B_FALSE));
+			unlink_ptp(higher, ht, va,
+			    ((hat == kas.a_hat) ? B_TRUE : B_FALSE));
 
 			/*
 			 * remove this htable from its hash list
@@ -1050,8 +1055,10 @@ htable_lookup(hat_t *hat, uintptr_t vaddr, level_t level)
 
 	if (level == TOP_LEVEL(hat)) {
 		base = 0;
-		if (!(base <= vaddr && vaddr <= (base + HTABLE_NUM_PTES(hat->hat_htable) * LEVEL_SIZE(level) - 1))) {
-			return NULL;
+		if (!(base <= vaddr && vaddr <=
+		    (base + HTABLE_NUM_PTES(hat->hat_htable) *
+		    LEVEL_SIZE(level) - 1))) {
+			return (NULL);
 		}
 	} else {
 		base = vaddr & LEVEL_MASK(level + 1);
@@ -1195,7 +1202,8 @@ try_again:
 		} else {
 			ht = new;
 			if (higher != NULL) {
-				link_ptp(higher, ht, base, ((hat == kas.a_hat)? B_TRUE: B_FALSE));
+				link_ptp(higher, ht, base,
+				    ((hat == kas.a_hat) ? B_TRUE : B_FALSE));
 				ht->ht_parent = higher;
 			}
 			ht->ht_next = hat->hat_ht_hash[h];
@@ -1366,7 +1374,7 @@ htable_scan(htable_t *ht, uintptr_t *vap, uintptr_t eaddr)
 		va += pgsize;
 		if (va >= eaddr)
 			break;
-		pte_ptr += sizeof(pte_t);
+		pte_ptr += sizeof (pte_t);
 		ASSERT(pte_ptr <= end_pte_ptr);
 		if (pte_ptr == end_pte_ptr)
 			break;
@@ -1662,8 +1670,10 @@ pte_set(htable_t *ht, uint_t entry, pte_t new, void *ptr)
 	do {
 		prev = GET_PTE(ptep);
 		n = new;
-		if (PTE_ISVALID(n) && (prev & PTE_PFN_MASK) == (new & PTE_PFN_MASK))
+		if (PTE_ISVALID(n) &&
+		    (prev & PTE_PFN_MASK) == (new & PTE_PFN_MASK)) {
 			n |= prev & PTE_AF;
+		}
 
 		/*
 		 * Another thread may have installed this mapping already,
@@ -1758,8 +1768,10 @@ pte_inval(
 	 */
 	do {
 		oldpte = GET_PTE(ptep);
-		if (expect != 0 && (oldpte & PTE_PFN_MASK) != (expect & PTE_PFN_MASK))
+		if (expect != 0 &&
+		    (oldpte & PTE_PFN_MASK) != (expect & PTE_PFN_MASK)) {
 			goto done;
+		}
 		found = CAS_PTE(ptep, oldpte, 0);
 	} while (found != oldpte);
 	if (tlb && (oldpte & PTE_AF))
@@ -1858,7 +1870,7 @@ hat_dump(void)
 	 * Dump all page tables
 	 */
 	for (hat = kas.a_hat; hat != NULL; hat = hat->hat_next) {
-		for (h = 0; h < (MMU_PAGESIZE / sizeof(htable_t *)); ++h) {
+		for (h = 0; h < (MMU_PAGESIZE / sizeof (htable_t *)); ++h) {
 			for (ht = hat->hat_ht_hash[h]; ht; ht = ht->ht_next) {
 				dump_page(ht->ht_pfn);
 			}

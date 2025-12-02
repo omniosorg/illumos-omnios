@@ -44,22 +44,23 @@ hat_kpm_pfn2va(pfn_t pfn)
 pfn_t
 hat_kpm_va2pfn(caddr_t vaddr)
 {
-	return mmu_btop((uintptr_t)vaddr - SEGKPM_BASE);
+	return (mmu_btop((uintptr_t)vaddr - SEGKPM_BASE));
 }
 
 caddr_t
 hat_kpm_mapin(struct page *pp, struct kpme *kpme)
 {
-	return hat_kpm_pfn2va(pp->p_pagenum);
+	return (hat_kpm_pfn2va(pp->p_pagenum));
 }
 
 void
 hat_kpm_mapout(struct page *pp, struct kpme *kpme, caddr_t vaddr)
 {}
 
-caddr_t hat_kpm_mapin_pfn(pfn_t pfn)
+caddr_t
+hat_kpm_mapin_pfn(pfn_t pfn)
 {
-	return hat_kpm_pfn2va(pfn);
+	return (hat_kpm_pfn2va(pfn));
 }
 
 void
@@ -69,7 +70,7 @@ hat_kpm_mapout_pfn(pfn_t pfn)
 caddr_t
 hat_kpm_page2va(struct page *pp, int checkswap)
 {
-	return hat_kpm_pfn2va(pp->p_pagenum);
+	return (hat_kpm_pfn2va(pp->p_pagenum));
 }
 
 page_t *
@@ -83,7 +84,8 @@ hat_kpm_vaddr2page(caddr_t vaddr)
 int
 hat_kpm_fault(hat_t *hat, caddr_t vaddr)
 {
-	panic("pagefault in seg_kpm.  hat: 0x%p  vaddr: 0x%p", (void *)hat, (void *)vaddr);
+	panic("pagefault in seg_kpm.  hat: 0x%p  vaddr: 0x%p",
+	    (void *)hat, (void *)vaddr);
 
 	return (0);
 }
@@ -105,7 +107,8 @@ void
 hat_kpm_addmem_mseg_insert(struct memseg *msp)
 {}
 
-void hat_kpm_addmem_memsegs_update(struct memseg *msp)
+void
+hat_kpm_addmem_memsegs_update(struct memseg *msp)
 {}
 
 caddr_t

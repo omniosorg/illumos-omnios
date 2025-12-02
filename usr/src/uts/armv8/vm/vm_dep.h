@@ -130,7 +130,7 @@ extern page_t ****page_freelists;
  */
 extern page_t ***page_cachelists;
 
-#define	PAGE_CACHELISTS(mnode, color, mtype) 		\
+#define	PAGE_CACHELISTS(mnode, color, mtype)		\
 	(*(page_cachelists[mtype] + (color)))
 
 /*
@@ -157,7 +157,7 @@ extern page_t *page_get_mnode_cachelist(uint_t, uint_t, int, int);
  * simply return the limits of the given mnode, which then
  * determines the length of hpm_counters array for the mnode.
  */
-#define	HPM_COUNTERS_LIMITS(mnode, physbase, physmax, first) 	\
+#define	HPM_COUNTERS_LIMITS(mnode, physbase, physmax, first)	\
 	{							\
 		(physbase) = mem_node_config[(mnode)].physbase;	\
 		(physmax) = mem_node_config[(mnode)].physmax;	\
@@ -376,7 +376,8 @@ extern int	l2cache_sz, l2cache_linesz, l2cache_assoc;
 
 #define	L2CACHE_ALIGN		l2cache_linesz
 #define	L2CACHE_ALIGN_MAX	64
-#define	CPUSETSIZE()		(l2cache_assoc ? (l2cache_sz / l2cache_assoc) : MMU_PAGESIZE)
+#define	CPUSETSIZE()		(l2cache_assoc ? \
+	(l2cache_sz / l2cache_assoc) : MMU_PAGESIZE)
 
 /*
  * Return the log2(pagesize(szc) / MMU_PAGESIZE) --- or the shift count

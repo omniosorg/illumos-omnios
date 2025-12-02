@@ -347,19 +347,21 @@ mdb_aarch64_kvm_frame(void *argp, uintptr_t pc, uint_t argc, const long *argv,
 boolean_t
 mdb_aarch64_prev_callcheck(uintptr_t pcp)
 {
-    uint32_t instr;
+	uint32_t instr;
 
-    if (pcp < 4 || mdb_vread(&instr, sizeof (instr), pcp - 4) != sizeof (instr))
-        return (B_FALSE);
+	if ((pcp < 4) ||
+	    mdb_vread(&instr, sizeof (instr), pcp - 4) != sizeof (instr)) {
+		return (B_FALSE);
+	}
 
-    // AArch64 instructions are little-endian
-    // Check for BL <label> - opcode: 0b100101 = 0x25 in bits [31:26]
-    if ((instr & 0xfc000000) == 0x94000000)
-        return (B_TRUE);
+	// AArch64 instructions are little-endian
+	// Check for BL <label> - opcode: 0b100101 = 0x25 in bits [31:26]
+	if ((instr & 0xfc000000) == 0x94000000)
+		return (B_TRUE);
 
-    // Check for BLR Xn - exact encoding: 0Xd63f0000 | (Rn << 5)
-    if ((instr & 0xfffffc1f) == 0xd63f0000)
-        return (B_TRUE);
+	// Check for BLR Xn - exact encoding: 0Xd63f0000 | (Rn << 5)
+	if ((instr & 0xfffffc1f) == 0xd63f0000)
+		return (B_TRUE);
 
-    return (B_FALSE);
+	return (B_FALSE);
 }

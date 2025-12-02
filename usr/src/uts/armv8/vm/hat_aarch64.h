@@ -27,7 +27,7 @@
  */
 
 #ifndef _VM_HAT_AARCH64_H
-#define _VM_HAT_AARCH64_H
+#define	_VM_HAT_AARCH64_H
 
 #ifdef	__cplusplus
 extern "C" {
@@ -164,7 +164,8 @@ extern kcondvar_t hat_list_cv;
  */
 typedef paddr_t hat_mempte_t;				/* phys addr of PTE */
 extern hat_mempte_t hat_mempte_setup(caddr_t addr);
-extern void hat_mempte_remap(pfn_t, caddr_t, hat_mempte_t, uint_t attr, uint_t flags);
+extern void hat_mempte_remap(pfn_t, caddr_t, hat_mempte_t,
+    uint_t attr, uint_t flags);
 extern void hat_mempte_release(caddr_t addr, hat_mempte_t);
 
 /*
@@ -200,10 +201,12 @@ extern void halt(char *fmt);
 /*
  * aarch64 specific routines for use online in setup or armv8/vm files
  */
-extern void hat_kern_alloc(caddr_t segmap_base, size_t segmap_size, caddr_t ekernelheap);
+extern void hat_kern_alloc(caddr_t segmap_base, size_t segmap_size,
+    caddr_t ekernelheap);
 extern void hat_kern_setup(void);
 extern void hat_tlb_inval(struct hat *hat, uintptr_t va);
-extern void hat_pte_unmap(htable_t *ht, uint_t entry, uint_t flags, pte_t old_pte, void *pte_ptr, boolean_t tlb);
+extern void hat_pte_unmap(htable_t *ht, uint_t entry, uint_t flags,
+    pte_t old_pte, void *pte_ptr, boolean_t tlb);
 extern void hat_init_finish(void);
 extern caddr_t hat_kpm_pfn2va(pfn_t pfn);
 extern pfn_t hat_kpm_va2pfn(caddr_t);
