@@ -294,7 +294,7 @@ htable_steal_active(hat_t *hat, uint_t cnt, uint_t threshold,
 	uintptr_t	va;
 	pte_t	pte;
 
-	h = h_start = h_seed++ % (MMU_PAGESIZE / sizeof (htable_t *));
+	h = h_start = h_seed++ % mmu.hash_cnt;
 	do {
 		higher = NULL;
 		HTABLE_ENTER(h);
@@ -379,7 +379,7 @@ htable_steal_active(hat_t *hat, uint_t cnt, uint_t threshold,
 		HTABLE_EXIT(h);
 		if (higher != NULL)
 			htable_release(higher);
-		if (++h == (MMU_PAGESIZE / sizeof (htable_t *)))
+		if (++h == mmu.hash_cnt)
 			h = 0;
 	} while (*stolen < cnt && h != h_start);
 }
@@ -851,7 +851,7 @@ htable_purge_hat(hat_t *hat)
 	/*
 	 * walk thru the htable hash table and free all the htables in it.
 	 */
-	for (h = 0; h < (MMU_PAGESIZE / sizeof (htable_t *)); ++h) {
+	for (h = 0; h < mmu.hash_cnt; ++h) {
 		while ((ht = hat->hat_ht_hash[h]) != NULL) {
 			if (ht->ht_next)
 				ht->ht_next->ht_prev = ht->ht_prev;
@@ -914,9 +914,8 @@ link_ptp(htable_t *higher, htable_t *new, uintptr_t vaddr, boolean_t is_kernel)
 	pte_t	newptp = MAKEPTP(new->ht_pfn, new->ht_level, is_kernel);
 	pte_t	found;
 
-	ASSERT(higher->ht_busy > 0);
-
-	ASSERT(new->ht_level != MAX_PAGE_LEVEL);
+	ASSERT3U(higher->ht_busy, >, 0);
+	ASSERT3U(new->ht_level, !=, mmu.max_level);
 
 	HTABLE_INC(higher->ht_valid_cnt);
 
@@ -982,7 +981,7 @@ htable_release(htable_t *ht)
 				 * At and above max_page_level, free if it's for
 				 * a boot-time kernel mapping below kernelbase.
 				 */
-				if (level >= MAX_PAGE_LEVEL &&
+				if (level >= mmu.max_page_level &&
 				    (hat != kas.a_hat || va >= kernelbase))
 					break;
 			}
@@ -1258,7 +1257,7 @@ htable_attach(
 	extern page_t	*boot_claim_page(pfn_t);
 
 	ht = htable_get_reserve();
-	if (level == MAX_PAGE_LEVEL)
+	if (level == mmu.max_level)
 		kas.a_hat->hat_htable = ht;
 	ht->ht_hat = hat;
 	ht->ht_parent = parent;
@@ -1454,10 +1453,10 @@ htable_walk(
 	 * Find the level of the largest pagesize used by this HAT.
 	 */
 	if (hat->hat_ism_pgcnt > 0) {
-		max_mapped_level = MAX_PAGE_LEVEL;
+		max_mapped_level = mmu.max_page_level;
 	} else {
 		max_mapped_level = 0;
-		for (l = 1; l <= MAX_PAGE_LEVEL; ++l)
+		for (l = 1; l <= mmu.max_page_level; ++l)
 			if (hat->hat_pages_mapped[l] != 0)
 				max_mapped_level = l;
 	}
@@ -1518,7 +1517,7 @@ htable_getpte(
 	level_t		l;
 	uint_t		e;
 
-	ASSERT(level <= MAX_PAGE_LEVEL);
+	ASSERT(level <= mmu.max_page_level);
 
 	for (l = 0; l <= level; ++l) {
 		ht = htable_lookup(hat, vaddr, l);
@@ -1547,7 +1546,7 @@ htable_getpage(struct hat *hat, uintptr_t vaddr, uint_t *entry)
 	uint_t		e;
 	pte_t	pte;
 
-	ht = htable_getpte(hat, vaddr, &e, &pte, MAX_PAGE_LEVEL);
+	ht = htable_getpte(hat, vaddr, &e, &pte, mmu.max_page_level);
 	if (ht == NULL)
 		return (NULL);
 
@@ -1756,7 +1755,7 @@ pte_inval(
 	pte_t	found;
 
 	ASSERT(!(ht->ht_flags & HTABLE_SHARED_PFN));
-	ASSERT(ht->ht_level <= MAX_PAGE_LEVEL);
+	ASSERT(ht->ht_level <= mmu.max_page_level);
 
 	if (pte_ptr != NULL)
 		ptep = pte_ptr;
@@ -1797,7 +1796,7 @@ pte_update(
 
 	ASSERT(new != 0);
 	ASSERT(!(ht->ht_flags & HTABLE_SHARED_PFN));
-	ASSERT(ht->ht_level <= MAX_PAGE_LEVEL);
+	ASSERT(ht->ht_level <= mmu.max_page_level);
 
 	ptep = PT_INDEX_PTR(hat_kpm_pfn2va(ht->ht_pfn), entry);
 	found = CAS_PTE(ptep, expect, new);
@@ -1869,7 +1868,7 @@ hat_dump(void)
 	 * Dump all page tables
 	 */
 	for (hat = kas.a_hat; hat != NULL; hat = hat->hat_next) {
-		for (h = 0; h < (MMU_PAGESIZE / sizeof (htable_t *)); ++h) {
+		for (h = 0; h < mmu.hash_cnt; ++h) {
 			for (ht = hat->hat_ht_hash[h]; ht; ht = ht->ht_next) {
 				dump_page(ht->ht_pfn);
 			}

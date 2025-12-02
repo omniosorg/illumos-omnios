@@ -345,6 +345,9 @@ page_t ***page_cachelists;
 
 /*
  * Used by page layer to know about page sizes
+ *
+ * This array is terminated by an entry which is all 0s, hence the + 1.
+ * See at least page_szc() for this.
  */
 hw_pagesize_t hw_page_array[MAX_NUM_LEVEL + 1];
 

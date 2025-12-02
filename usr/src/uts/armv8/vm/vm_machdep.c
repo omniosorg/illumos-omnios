@@ -234,8 +234,11 @@ page_t ***page_cachelists;
 
 /*
  * Used by page layer to know about page sizes
+ *
+ * This array is terminated by an entry which is all 0s, hence the + 1.
+ * See at least page_szc() for this.
  */
-hw_pagesize_t hw_page_array[MAX_PAGE_LEVEL + 1];
+hw_pagesize_t hw_page_array[MMU_PAGE_SIZES + 1];
 
 kmutex_t	*fpc_mutex[NPC_MUTEX];
 kmutex_t	*cpc_mutex[NPC_MUTEX];
@@ -276,7 +279,7 @@ map_pgsz(int maptype, struct proc *p, caddr_t addr, size_t len, int memcntl)
 		/*
 		 * use the pages size that best fits len
 		 */
-		for (l = MAX_PAGE_LEVEL; l > 0; --l) {
+		for (l = mmu.max_page_level; l > 0; --l) {
 			if (LEVEL_SIZE(l) > max_lpsize || len < LEVEL_SIZE(l)) {
 				continue;
 			} else {
@@ -293,7 +296,7 @@ map_pgsz(int maptype, struct proc *p, caddr_t addr, size_t len, int memcntl)
 		return (pgsz);
 
 	case MAPPGSZ_ISM:
-		for (l = MAX_PAGE_LEVEL; l > 0; --l) {
+		for (l = mmu.max_page_level; l > 0; --l) {
 			if (len >= LEVEL_SIZE(l))
 				return (LEVEL_SIZE(l));
 		}
@@ -531,7 +534,7 @@ map_addr_proc(
 		 */
 		align_amount = ELF_AARCH64_MAXPGSZ;
 	} else {
-		int lvl = MAX_PAGE_LEVEL;
+		int lvl = mmu.max_page_level;
 
 		while (lvl && len < LEVEL_SIZE(lvl))
 			--lvl;
@@ -1009,7 +1012,7 @@ page_coloring_init(uint_t l2_sz, int l2_linesz, int l2_assoc)
 	page_coloring_shift = lowbit(CPUSETSIZE());
 
 	/* initialize number of colors per page size */
-	for (i = 0; i <= MAX_PAGE_LEVEL; i++) {
+	for (i = 0; i <= mmu.max_page_level; i++) {
 		hw_page_array[i].hp_size = LEVEL_SIZE(i);
 		hw_page_array[i].hp_shift = LEVEL_SHIFT(i);
 		hw_page_array[i].hp_pgcnt = LEVEL_SIZE(i) >> LEVEL_SHIFT(0);
@@ -1029,7 +1032,7 @@ page_coloring_init(uint_t l2_sz, int l2_linesz, int l2_assoc)
 		ASSERT(a > 0);
 		ASSERT(a < 16);
 
-		for (i = 0; i <= MAX_PAGE_LEVEL; i++) {
+		for (i = 0; i <= mmu.max_page_level; i++) {
 			if ((colors = hw_page_array[i].hp_colors) <= 1) {
 				colorequivszc[i] = 0;
 				continue;
@@ -1050,7 +1053,7 @@ page_coloring_init(uint_t l2_sz, int l2_linesz, int l2_assoc)
 		if (a > 15)
 			a = 15;
 
-		for (i = 0; i <= MAX_PAGE_LEVEL; i++) {
+		for (i = 0; i <= mmu.max_page_level; i++) {
 			if ((colors = hw_page_array[i].hp_colors) <= 1) {
 				continue;
 			}

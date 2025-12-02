@@ -36,7 +36,14 @@ extern "C" {
 #include <sys/pte.h>
 #include <sys/machparam.h>
 
-typedef int32_t level_t;
+/*
+ * The type of "level_t" is signed so that it can be used like:
+ *	level_t	l;
+ *	...
+ *	while (--l >= 0)
+ *		...
+ */
+typedef int8_t level_t;
 
 /*
  * The software bits are used by the HAT to track attributes.
@@ -49,7 +56,6 @@ typedef int32_t level_t;
  *
  */
 #define	PAGE_LEVEL		(0)
-#define	MAX_PAGE_LEVEL		(MMU_PAGE_LEVELS - 1)
 
 #define	PTE_SOFTWARE		PTE_SFW_MASK
 #define	PTE_NOSYNC		(0x4ul << PTE_SFW_SHIFT)
@@ -65,10 +71,10 @@ typedef int32_t level_t;
 #define	MAKEPTP(pfn, l, k)	(((pfn) << MMU_PAGESHIFT) | PTE_TABLE | \
 	((k)? (PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER): PTE_TABLE_PXNT))
 
-#define	TOP_LEVEL(hat)		MAX_PAGE_LEVEL
+#define	TOP_LEVEL(hat)		(mmu.max_level)
 
 /*
- * HAT/MMU parameters that depend on kernel mode and/or processor type
+ * HAT/MMU parameters that depend on processor type or configuration
  */
 struct htable;
 struct hat_mmu_info {
@@ -76,9 +82,13 @@ struct hat_mmu_info {
 	uintptr_t kmap_eaddr;	/* end addr of kmap */
 	struct htable **kmap_htables; /* htables for segmap + 32 bit heap */
 	pte_t *kmap_ptes;	/* mapping of pagetables that map kmap */
-	uint32_t max_asid;
-	int max_level;
-	uintptr_t kernelbase;
+	uint16_t max_asid;	/* maximum address-space identifier */
+
+	uint_t num_level;	/* Number of paging levels in use */
+	uint_t max_level;	/* num_level - 1 */
+	uint_t max_page_level;	/* maximum level at which we can map a page */
+
+	uint_t hash_cnt;	/* cnt of entries in htable_hash_cache */
 };
 extern struct hat_mmu_info mmu;
 

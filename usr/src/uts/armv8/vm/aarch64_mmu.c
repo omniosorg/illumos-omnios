@@ -166,7 +166,7 @@ hat_kern_alloc(
 	 * the entire top level page table for the kernel. Make sure there's
 	 * enough reserve for that too.
 	 */
-	table_cnt += NPTEPERPT - ((kernelbase >> LEVEL_SHIFT(MAX_PAGE_LEVEL)) &
+	table_cnt += NPTEPERPT - ((kernelbase >> LEVEL_SHIFT(mmu.max_level)) &
 	    (NPTEPERPT - 1));
 
 	/*

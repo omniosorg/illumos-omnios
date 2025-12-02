@@ -88,10 +88,9 @@ typedef struct htable htable_t;
  * that the secondary hash for the htable mutex winds up begin different in
  * every address space.
  */
-#define	HTABLE_NUM_HASH	(MMU_PAGESIZE / sizeof (htable_t *))
 #define	HTABLE_HASH(hat, va, lvl)					\
 	((((va) >> LEVEL_SHIFT(1)) + ((va) >> 28) + (lvl) +		\
-	((uintptr_t)(hat) >> 4)) & (HTABLE_NUM_HASH - 1))
+	((uintptr_t)(hat) >> 4)) & (mmu.hash_cnt - 1))
 
 /*
  * Compute the last page aligned VA mapped by an htable.
