@@ -1218,7 +1218,8 @@ asy_resume(dev_info_t *devi)
 		mutex_exit(&asy->asy_excl_hi);
 		mutex_exit(&asy->asy_excl);
 		mutex_exit(&asy->asy_soft_sr);
-		asyerror(asy, CE_WARN, "Cannot identify UART chip at %p",
+		ASY_DPRINTF(asy, ASY_DEBUG_INIT,
+		    "Cannot identify UART chip at %p",
 		    (void *)asy->asy_ioaddr);
 		return (DDI_FAILURE);
 	}
@@ -1620,7 +1621,8 @@ asyattach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 	mutex_enter(&asy->asy_excl_hi);
 
 	if (asy_identify_chip(devi, asy) != DDI_SUCCESS) {
-		asyerror(asy, CE_WARN, "Cannot identify UART chip at %p",
+		ASY_DPRINTF(asy, ASY_DEBUG_INIT,
+		    "Cannot identify UART chip at %p",
 		    (void *)asy->asy_ioaddr);
 		goto fail;
 	}
@@ -1854,7 +1856,7 @@ asy_identify_chip(dev_info_t *devi, struct asycom *asy)
 			 * 8250 and 8250B don't have scratch registers,
 			 * but only worked in ancient PC XT's anyway.
 			 */
-			asyerror(asy, CE_WARN, "UART @ %p "
+			ASY_DPRINTF(asy, ASY_DEBUG_INIT, "UART @ %p "
 			    "scratch register: expected 0x5a, got 0x%02x",
 			    (void *)asy->asy_ioaddr, spr);
 			return (DDI_FAILURE);
