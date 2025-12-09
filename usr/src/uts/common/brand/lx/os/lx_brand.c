@@ -154,6 +154,7 @@
 #include <sys/lx_brand.h>
 #include <sys/lx_types.h>
 #include <sys/lx_userhz.h>
+#include <procfs/lx_proc.h>
 #include <sys/param.h>
 #include <sys/termios.h>
 #include <sys/sunddi.h>
@@ -382,6 +383,7 @@ lx_setbrand(proc_t *p)
 {
 	/* Send SIGCHLD to parent by default when child exits */
 	ptolxproc(p)->l_signal = stol_signo[SIGCHLD];
+	ptolxproc(p)->l_coredump_filter = LXPR_COREDUMP_FILTER_DEFAULT;
 }
 
 /* ARGSUSED */
