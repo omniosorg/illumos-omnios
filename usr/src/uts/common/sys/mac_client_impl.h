@@ -84,6 +84,8 @@ typedef struct mac_promisc_impl_s {			/* Protected by */
 	boolean_t			mpi_no_phys;	/* WO */
 	boolean_t			mpi_strip_vlan_tag;	/* WO */
 	boolean_t			mpi_no_copy;	/* WO */
+	boolean_t			mpi_rx_only;	/* WO */
+	boolean_t			mpi_tx_only;	/* WO */
 	boolean_t			mpi_do_fixups;	/* WO */
 } mac_promisc_impl_t;
 
