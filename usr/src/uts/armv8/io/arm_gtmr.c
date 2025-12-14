@@ -58,7 +58,8 @@
 #include <sys/irq.h>
 #include <sys/xc_levels.h>
 
-#define	EXPECTED_NINTRS		4
+#define	MIN_NINTRS		4
+#define	MAX_NINTRS		5
 #define	ARM_GTMR_INUM_HYP	3
 #define	ARM_GTMR_INUM_VIRTUAL	2
 
@@ -327,13 +328,14 @@ arm_gtmr_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	uint_t intr_pri;
 	uint_t inum;
 	ddi_intr_handle_t *itable;
-	int def_prios[EXPECTED_NINTRS] = {
+	int def_prios[MAX_NINTRS] = {
+		CBE_HIGH_PIL,
 		CBE_HIGH_PIL,
 		CBE_HIGH_PIL,
 		CBE_HIGH_PIL,
 		CBE_HIGH_PIL
 	};
-	uint_t def_nprios = EXPECTED_NINTRS;
+	uint_t def_nprios = MIN_NINTRS;
 
 	cyc_backend_t cbe = {
 		.cyb_configure		= cbe_configure,
@@ -373,10 +375,15 @@ arm_gtmr_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	/*
 	 * Per the bindings document there are four interrupts defined for
 	 * the armv8 architected timer, these are (with their indices):
-	 * - 0: secure physical
-	 * - 1: non-secure physical
-	 * - 2: virtual
-	 * - 3: hypervisor
+	 * - 0: secure physical (Secure EL1 timer)
+	 * - 1: non-secure physical (Non-Secure EL1 timer)
+	 * - 2: virtual (Virtual EL1 timer)
+	 * - 3: hypervisor (Non-Secure EL2 timer)
+	 *
+	 * When FEAT_VHE is present, an additional interrupt appears, which
+	 * is not documented in the bindings. Qemu source reveals that this
+	 * interrupt is:
+	 * - 4: virtual_el2 (Virtual EL2 timer)
 	 *
 	 * If booted at EL2 we use the hypervisor timer (index 3), otherwise
 	 * we use the virtual timer (index 2). We only ever use one of the
@@ -390,6 +397,34 @@ arm_gtmr_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	 * will not behave correctly.
 	 */
 
+	/*
+	 * Figure out which interrupt we will use.
+	 */
+	inum = ARM_GTMR_INUM_HYP;
+	if (CPU->cpu_m.mcpu_boot_el == 1)
+		inum = ARM_GTMR_INUM_VIRTUAL;
+
+	/*
+	 * We expect four or five fixed interrupts, but accept any number that
+	 * allows us to use our expected interrupt number.
+	 */
+	ret = ddi_intr_get_nintrs(dip, DDI_INTR_TYPE_FIXED, &icount);
+	if (ret != DDI_SUCCESS)
+		dev_err(dip, CE_PANIC, "Failed to get fixed interrupt count");
+	if (icount < (inum + 1))
+		dev_err(dip, CE_PANIC, "Need %d fixed interrupts, found %d",
+		    inum + 1, icount);
+	if (icount < MIN_NINTRS || icount > MAX_NINTRS)
+		dev_err(dip, CE_NOTE, "Expected %d-%d interrupts, found %d",
+		    MIN_NINTRS, MAX_NINTRS, icount);
+
+	if (icount < MIN_NINTRS)
+		def_nprios = icount;
+	if (icount >= MIN_NINTRS)
+		def_nprios = MIN_NINTRS;
+	if (icount >= MAX_NINTRS)
+		def_nprios = MAX_NINTRS;
+
 	if (!ddi_prop_exists(DDI_DEV_T_ANY, dip,
 	    DDI_PROP_DONTPASS, OBP_INTERRUPT_PRIORITIES)) {
 		if ((ret = ndi_prop_update_int_array(DDI_DEV_T_NONE, dip,
@@ -401,30 +436,12 @@ arm_gtmr_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 
 	iwanted = 1;
 
-	inum = ARM_GTMR_INUM_HYP;
-	if (CPU->cpu_m.mcpu_boot_el == 1)
-		inum = ARM_GTMR_INUM_VIRTUAL;
-
 	/*
 	 * We can only use fixed interrupts
 	 */
 	ret = ddi_intr_get_supported_types(dip, &itypes);
 	if ((ret != DDI_SUCCESS) || (!(itypes & DDI_INTR_TYPE_FIXED)))
 		dev_err(dip, CE_PANIC, "Fixed type interrupt is not supported");
-
-	/*
-	 * We expect four fixed interrupts, but accept any number that allows
-	 * us to use our expected interrupt number
-	 */
-	ret = ddi_intr_get_nintrs(dip, DDI_INTR_TYPE_FIXED, &icount);
-	if (ret != DDI_SUCCESS)
-		dev_err(dip, CE_PANIC, "Failed to get fixed interrupt count");
-	if (icount < (inum + 1))
-		dev_err(dip, CE_PANIC, "Need %d fixed interrupts, found %d",
-		    inum + 1, icount);
-	if (icount != EXPECTED_NINTRS)
-		dev_err(dip, CE_NOTE, "Expected %d interrupts, found %d",
-		    EXPECTED_NINTRS, icount);
 
 	/*
 	 * Allocate our interrupt
