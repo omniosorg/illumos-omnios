@@ -56,6 +56,7 @@ typedef uint64_t pte_t;
 
 #define	PTE_SFW_SHIFT		(55)
 #define	PTE_SFW_MASK		(0xFull << PTE_SFW_SHIFT)
+
 #define	PTE_UXN			(1ull << 54)
 #define	PTE_PXN			(1ull << 53)
 #define	PTE_CONTIG_HINT		(1ull << 52)
@@ -89,6 +90,7 @@ typedef uint64_t pte_t;
 #define	PTE_TABLE_APT_NOUSER	(1ull << 61)
 #define	PTE_TABLE_UXNT		(1ull << 60)
 #define	PTE_TABLE_PXNT		(1ull << 59)
+#define	PTE_TABLE_PROTECTED	(1ull << 52)
 
 #define	PTE_PFN_MASK		0x0000fffffffff000ull
 
