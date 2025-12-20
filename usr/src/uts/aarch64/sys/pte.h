@@ -60,6 +60,10 @@ typedef uint64_t pte_t;
 #define	PTE_UXN			(1ull << 54)
 #define	PTE_PXN			(1ull << 53)
 #define	PTE_CONTIG_HINT		(1ull << 52)
+#define	PTE_DBM			(1ull << 51)
+#define	PTE_GP			(1ull << 50) /* Guarded Page (BTI) */
+
+#define	PTE_nT			(1ull << 16)
 #define	PTE_NG			(1ull << 11)
 #define	PTE_AF			(1ull << 10)
 #define	PTE_SH_MASK		(3ull << 8)
@@ -68,6 +72,7 @@ typedef uint64_t pte_t;
 #define	PTE_SH_NONSHARE		(0ull << 8)
 #define	PTE_AP_MASK		(3ull << 6)
 #define	PTE_AP_RO		(1ull << 7)
+
 #define	PTE_AP_USER		(1ull << 6)
 #define	PTE_AP_KRWUNA		0
 #define	PTE_AP_KRWURW		PTE_AP_USER
