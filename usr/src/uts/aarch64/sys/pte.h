@@ -36,10 +36,16 @@ extern "C" {
 #ifndef _ASM
 typedef uint64_t pte_t;
 
-#define	NPTESHIFT	(MMU_PAGESHIFT - PTE_BITS)
+/*
+ * The shift required to multiply by NPTEPERPT.
+ *
+ * There are N items in a table, where N is pagesize / 8 (the pte size).
+ * Bit position wise (log₂) that's pageshift - 3.
+ */
+#define	NPTESHIFT	(MMU_PAGESHIFT - 3)
 
+/* One full basic page of PTEs per-level, regardless how big that page */
 #define	NPTEPERPT	(MMU_PAGESIZE / sizeof (pte_t))
-
 
 #define	MAIR_STRONG_ORDER	0
 #define	MAIR_DEVICE		1
