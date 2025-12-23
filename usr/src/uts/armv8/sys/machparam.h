@@ -51,10 +51,6 @@ extern "C" {
 #define	MMU_PAGE_SIZES	3
 #define	MMU_PAGE_LEVELS	4
 
-/*
- * XXX make sure the MMU_PAGESHIFT definition here is
- * consistent with the one in param.h
- */
 #define	MMU_PAGESHIFT		12
 #define	MMU_PAGESIZE		(ADDRESS_C(1) << MMU_PAGESHIFT)
 #define	MMU_PAGEOFFSET		(MMU_PAGESIZE - 1)
