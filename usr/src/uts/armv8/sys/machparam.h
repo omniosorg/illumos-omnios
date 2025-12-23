@@ -39,6 +39,8 @@ extern "C" {
 #else
 #include <sys/types.h>
 #include <sys/int_const.h>
+#include <sys/pte.h>
+
 #define	ADDRESS_C(c)	UINT64_C(c)
 #endif
 
@@ -92,10 +94,9 @@ extern "C" {
  * Virtual Address Spaces
  */
 #define	PTE_BITS	3
-#define	VA_BITS		(MMU_PAGESHIFT + (MMU_PAGESHIFT - PTE_BITS) * \
-	MMU_PAGE_LEVELS + 1)
+#define	VA_BITS		(MMU_PAGESHIFT + NPTESHIFT * MMU_PAGE_LEVELS)
 
-#define	HOLE_START	(ADDRESS_C(1) << (VA_BITS - 1))
+#define	HOLE_START	(ADDRESS_C(1) << VA_BITS)
 #define	HOLE_END	(~(HOLE_START - 1))
 
 /*
@@ -105,7 +106,7 @@ extern "C" {
 #define	CONSOLE_SIZE	(8L * 1024L * 1024L)
 #define	SEGDEBUGSIZE	(8L * 1024L * 1024L)
 #define	MISC_VA_SIZE	(1L * 1024L * 1024L * 1024L)
-#define	SEGKPM_SIZE	(1ull << (VA_BITS - 2))
+#define	SEGKPM_SIZE	(1ull << (VA_BITS - 1))
 
 #define	CONSOLE_BASE	(- CONSOLE_SIZE)		// 0xffffffff_ff800000
 #define	BOOT_VEC_BASE	(CONSOLE_BASE)
