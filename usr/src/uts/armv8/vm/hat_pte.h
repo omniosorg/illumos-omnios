@@ -121,7 +121,8 @@ struct hat_mmu_info {
 };
 extern struct hat_mmu_info mmu;
 
-#define	PT_INDEX_PTR(p, x)	((pte_t *)((uintptr_t)(p) + ((x) << PTE_BITS)))
+#define	PT_INDEX_PTR(pagetable, index)	((pte_t *)((uintptr_t)(pagetable) + \
+	((index) * sizeof (pte_t))))
 
 #define	pfn_to_pa(pfn)		mmu_ptob((paddr_t)(pfn))
 #define	pa_to_kseg(pa)		((void *)((paddr_t)SEGKPM_BASE|(paddr_t)(pa)))
