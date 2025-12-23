@@ -93,7 +93,6 @@ extern "C" {
 /*
  * Virtual Address Spaces
  */
-#define	PTE_BITS	3
 #define	VA_BITS		(MMU_PAGESHIFT + NPTESHIFT * MMU_PAGE_LEVELS)
 
 #define	HOLE_START	(ADDRESS_C(1) << VA_BITS)
