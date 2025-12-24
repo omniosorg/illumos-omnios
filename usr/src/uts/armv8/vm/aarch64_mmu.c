@@ -137,23 +137,23 @@ hat_kern_alloc(
 	uint_t		table_cnt = 1;
 	uint_t		mapping_cnt;
 
-	pte_t *l1_ptbl = (pte_t *)pa_to_kseg(TTBR_BADDR48(read_ttbr1()));
+	pte_t *l3_ptbl = (pte_t *)pa_to_kseg(TTBR_BADDR48(read_ttbr1()));
 
 	for (int i = 0; i < NPTEPERPT; i++) {
-		if ((l1_ptbl[i] & PTE_TYPE_MASK) != PTE_TABLE)
+		if ((l3_ptbl[i] & PTE_TYPE_MASK) != PTE_TABLE)
 			continue;
 		++table_cnt;
 
-		pte_t *l2_ptbl = (pte_t *)pa_to_kseg(l1_ptbl[i] & PTE_PFN_MASK);
+		pte_t *l2_ptbl = (pte_t *)pa_to_kseg(l3_ptbl[i] & PTE_PFN_MASK);
 		for (int j = 0; j < NPTEPERPT; j++) {
 			if ((l2_ptbl[j] & PTE_TYPE_MASK) != PTE_TABLE)
 				continue;
 			++table_cnt;
 
-			pte_t *l3_ptbl = (pte_t *)pa_to_kseg(l2_ptbl[j] &
+			pte_t *l1_ptbl = (pte_t *)pa_to_kseg(l2_ptbl[j] &
 			    PTE_PFN_MASK);
 			for (int k = 0; k < NPTEPERPT; k++) {
-				if ((l3_ptbl[k] & PTE_TYPE_MASK) != PTE_TABLE)
+				if ((l1_ptbl[k] & PTE_TYPE_MASK) != PTE_TABLE)
 					continue;
 				++table_cnt;
 

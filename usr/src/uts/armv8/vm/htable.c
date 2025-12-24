@@ -1583,11 +1583,10 @@ htable_init()
 uint_t
 htable_va2entry(uintptr_t va, htable_t *ht)
 {
-	level_t	l = ht->ht_level;
+	ASSERT3U(va, >=, ht->ht_vaddr);
+	ASSERT3U(va, <=, HTABLE_LAST_PAGE(ht));
 
-	ASSERT(va >= ht->ht_vaddr);
-	ASSERT(va <= HTABLE_LAST_PAGE(ht));
-	return ((va >> LEVEL_SHIFT(l)) & (HTABLE_NUM_PTES(ht) - 1));
+	return (LEVEL_INDEX(va, ht->ht_level));
 }
 
 /*

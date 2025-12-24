@@ -41,16 +41,16 @@
 #include <sys/framebuffer.h>
 #include <sys/efifb.h>
 
+#include <vm/hat_pte.h>
+
 #include "saio.h"
 #include "dboot.h"
 #include "dboot_printf.h"
 
 extern void kmem_init(void);
-extern void map_phys(pte_t pte_attr, caddr_t vaddr,
+extern void map_phys(pte_t pte_attr, uintptr_t vaddr,
     uint64_t paddr, size_t bytes);
 extern uint64_t memlist_get(uint64_t size, int align, struct memlist **listp);
-
-#define	IS_KERNEL_MAPPING(__va)	(((uint64_t)(__va)) & (1UL << 55))
 
 extern struct efi_map_header *efi_map_header;
 extern struct memlist *pfreelistp;
@@ -61,42 +61,15 @@ extern caddr_t _BootScratchEnd;
 extern void init_physmem(void);
 
 static caddr_t scratch_used_top;
-static pte_t *l1_ptbl0;
-static pte_t *l1_ptbl1;
+
+static pte_t *l3_ptbl0;
+static pte_t *l3_ptbl1;
 
 static void init_pt(void);
 
 #if 0
 static void dump_tables(uint64_t tab, uint64_t va_offset);
 #endif
-
-static inline int
-l1_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >> (PAGESHIFT + 3 * NPTESHIFT)) &
-	    ((1 << NPTESHIFT) - 1));
-}
-
-static inline int
-l2_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >> (PAGESHIFT + 2 * NPTESHIFT)) &
-	    ((1 << NPTESHIFT) - 1));
-}
-
-static inline int
-l3_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >> (PAGESHIFT + 1 * NPTESHIFT)) &
-	    ((1 << NPTESHIFT) - 1));
-}
-
-static inline int
-l4_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >> (PAGESHIFT)) & ((1 << NPTESHIFT) - 1));
-}
-
 
 void
 init_memory(void)
@@ -135,14 +108,14 @@ init_pt(void)
 	}
 
 	if ((paddr = memlist_get(MMU_PAGESIZE, MMU_PAGESIZE, &pfreelistp)) == 0)
-		panic("phy alloc error for L1 PT\n");
+		panic("phy alloc error for L3 PT\n");
 	memset((void *)paddr, 0, MMU_PAGESIZE);
-	l1_ptbl0 = (pte_t *)paddr;
+	l3_ptbl0 = (pte_t *)paddr;
 
 	if ((paddr = memlist_get(MMU_PAGESIZE, MMU_PAGESIZE, &pfreelistp)) == 0)
-		panic("phy alloc error for L1 PT\n");
+		panic("phy alloc error for L3 PT\n");
 	memset((void *)paddr, 0, MMU_PAGESIZE);
-	l1_ptbl1 = (pte_t *)paddr;
+	l3_ptbl1 = (pte_t *)paddr;
 
 	/*
 	 * Memory that can be normally mapped. This is a subset of physical
@@ -157,11 +130,11 @@ init_pt(void)
 	for (ml = pmappablep; ml != NULL; ml = ml->ml_next) {
 		map_phys(PTE_UXN|PTE_AF|PTE_NG|PTE_SH_INNER|
 		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)ml->ml_address,
+		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_NG|PTE_SH_INNER|
 		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)(ml->ml_address + SEGKPM_BASE),
+		    (ml->ml_address + SEGKPM_BASE),
 		    ml->ml_address, ml->ml_size);
 	}
 
@@ -177,11 +150,11 @@ init_pt(void)
 	for (ml = prsvdlistp; ml != NULL; ml = ml->ml_next) {
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KROUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)ml->ml_address,
+		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KROUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)(ml->ml_address + SEGKPM_BASE),
+		    (ml->ml_address + SEGKPM_BASE),
 		    ml->ml_address, ml->ml_size);
 	}
 
@@ -195,11 +168,11 @@ init_pt(void)
 	for (ml = pfwcodelistp; ml != NULL; ml = ml->ml_next) {
 		map_phys(PTE_UXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)ml->ml_address,
+		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KROUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)(ml->ml_address + SEGKPM_BASE),
+		    (ml->ml_address + SEGKPM_BASE),
 		    ml->ml_address, ml->ml_size);
 	}
 
@@ -213,11 +186,11 @@ init_pt(void)
 	for (ml = pfwdatalistp; ml != NULL; ml = ml->ml_next) {
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)ml->ml_address,
+		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KROUNA|PTE_ATTR_NORMEM,
-		    (caddr_t)(ml->ml_address + SEGKPM_BASE),
+		    (ml->ml_address + SEGKPM_BASE),
 		    ml->ml_address, ml->ml_size);
 	}
 
@@ -230,14 +203,14 @@ init_pt(void)
 			/* XXXARM: we need a proper write-combining mapping */
 			map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_NG|PTE_SH_INNER|
 			    PTE_AP_KRWUNA|PTE_ATTR_UNORDERED,
-			    (caddr_t)ml->ml_address,
+			    ml->ml_address,
 			    ml->ml_address, ml->ml_size);
 			continue;
 		}
 
 		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_NG|PTE_SH_INNER|
 		    PTE_AP_KRWUNA|PTE_ATTR_DEVICE,
-		    (caddr_t)ml->ml_address,
+		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
 	}
 
@@ -259,16 +232,16 @@ init_pt(void)
 
 	write_mair(mair);
 	write_tcr(tcr);
-	write_ttbr0((uint64_t)l1_ptbl0);
-	write_ttbr1((uint64_t)l1_ptbl1);
+	write_ttbr0((uint64_t)l3_ptbl0);
+	write_ttbr1((uint64_t)l3_ptbl1);
 	isb();
 
 #if 0
 	if (debug) {
 		dboot_printf("Lower Memory Tables\n");
-		dump_tables((uint64_t)l1_ptbl0, 0);
+		dump_tables((uint64_t)l3_ptbl0, 0);
 		dboot_printf("Upper Memory Tables\n");
-		dump_tables((uint64_t)l1_ptbl1, SEGKPM_BASE);
+		dump_tables((uint64_t)l3_ptbl1, SEGKPM_BASE);
 	}
 #endif
 
@@ -292,28 +265,28 @@ alloc_pagetable_page(const char *lvl)
 }
 
 static void
-map_pages(pte_t pte_attr, caddr_t vaddr, uint64_t paddr, size_t bytes)
+map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, size_t bytes)
 {
-	int l1_idx = l1_pteidx(vaddr);
-	int l2_idx = l2_pteidx(vaddr);
-	int l3_idx = l3_pteidx(vaddr);
-	int l4_idx = l4_pteidx(vaddr);
+	int l3_idx = LEVEL_INDEX(vaddr, 3);
+	int l2_idx = LEVEL_INDEX(vaddr, 2);
+	int l1_idx = LEVEL_INDEX(vaddr, 1);
+	int l0_idx = LEVEL_INDEX(vaddr, 0);
 
-	pte_t *l1_ptbl = IS_KERNEL_MAPPING(vaddr) ? l1_ptbl1 : l1_ptbl0;
+	pte_t *l3_ptbl = IS_KERNEL_MAPPING(vaddr) ? l3_ptbl1 : l3_ptbl0;
 
-	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) == 0)
-		l1_ptbl[l1_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
-		    PTE_TABLE|alloc_pagetable_page("L1");
-	if ((l1_ptbl[l1_idx] & PTE_VALID) == 0)
-		panic("invalid L1 PT\n");
+	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) == 0)
+		l3_ptbl[l3_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
+		    PTE_TABLE|alloc_pagetable_page("L3");
+	if ((l3_ptbl[l3_idx] & PTE_VALID) == 0)
+		panic("invalid L3 PT\n");
 
-	pte_t *l2_ptbl = (pte_t *)(uintptr_t)(l1_ptbl[l1_idx] & PTE_PFN_MASK);
+	pte_t *l2_ptbl = (pte_t *)(uintptr_t)(l3_ptbl[l3_idx] & PTE_PFN_MASK);
 
 	if (bytes == MMU_PAGESIZE1G) {
-		if ((uintptr_t)vaddr & (MMU_PAGESIZE1G - 1))
-			panic("invalid vaddr slignment (1G)\n");
+		if (vaddr & (MMU_PAGESIZE1G - 1))
+			panic("invalid vaddr alignment (1G)\n");
 		if (paddr & (MMU_PAGESIZE1G - 1))
-			panic("invalid paddr slignment (1G)\n");
+			panic("invalid paddr alignment (1G)\n");
 		if (l2_ptbl[l2_idx] & PTE_VALID)
 			panic("invalid L2 PT\n");
 		l2_ptbl[l2_idx] = paddr|pte_attr|PTE_BLOCK;
@@ -327,35 +300,35 @@ map_pages(pte_t pte_attr, caddr_t vaddr, uint64_t paddr, size_t bytes)
 	if ((l2_ptbl[l2_idx] & PTE_TYPE_MASK) != PTE_TABLE)
 		panic("invalid L2 PT\n");
 
-	pte_t *l3_ptbl = (pte_t *)(uintptr_t)(l2_ptbl[l2_idx] & PTE_PFN_MASK);
+	pte_t *l1_ptbl = (pte_t *)(uintptr_t)(l2_ptbl[l2_idx] & PTE_PFN_MASK);
 
 	if (bytes == MMU_PAGESIZE2M) {
-		if ((uintptr_t)vaddr & (MMU_PAGESIZE2M - 1))
+		if (vaddr & (MMU_PAGESIZE2M - 1))
 			panic("invalid vaddr alignment (2M)\n");
 		if (paddr & (MMU_PAGESIZE2M - 1))
 			panic("invalid paddr alignment (2M)\n");
-		if (l3_ptbl[l3_idx] & PTE_VALID)
-			panic("invalid L3 PT\n");
-		l3_ptbl[l3_idx] = paddr|pte_attr|PTE_BLOCK;
+		if (l1_ptbl[l1_idx] & PTE_VALID)
+			panic("invalid L1 PT\n");
+		l1_ptbl[l1_idx] = paddr|pte_attr|PTE_BLOCK;
 		dsb(ish);
 		return;
 	}
 
-	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) == 0)
-		l3_ptbl[l3_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
-		    PTE_TABLE|alloc_pagetable_page("L3");
-	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) != PTE_TABLE)
-		panic("invalid L3 PT\n");
+	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) == 0)
+		l1_ptbl[l1_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
+		    PTE_TABLE|alloc_pagetable_page("L1");
+	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) != PTE_TABLE)
+		panic("invalid L1 PT\n");
 
-	pte_t *l4_ptbl = (pte_t *)(uintptr_t)(l3_ptbl[l3_idx] & PTE_PFN_MASK);
+	pte_t *l0_ptbl = (pte_t *)(uintptr_t)(l1_ptbl[l1_idx] & PTE_PFN_MASK);
 	if (bytes == MMU_PAGESIZE) {
-		if ((uintptr_t)vaddr & (MMU_PAGESIZE - 1))
+		if (vaddr & (MMU_PAGESIZE - 1))
 			panic("invalid vaddr alignment (4K)\n");
 		if (paddr & (MMU_PAGESIZE - 1))
 			panic("invalid paddr alignment (4K)\n");
-		if (l4_ptbl[l4_idx] & PTE_VALID)
-			panic("invalid L4 PT\n");
-		l4_ptbl[l4_idx] = paddr|pte_attr|PTE_PAGE;
+		if (l0_ptbl[l0_idx] & PTE_VALID)
+			panic("invalid L0 PT\n");
+		l0_ptbl[l0_idx] = paddr|pte_attr|PTE_PAGE;
 		dsb(ish);
 		return;
 	}
@@ -364,9 +337,9 @@ map_pages(pte_t pte_attr, caddr_t vaddr, uint64_t paddr, size_t bytes)
 }
 
 void
-map_phys(pte_t pte_attr, caddr_t vaddr, uint64_t paddr, size_t bytes)
+map_phys(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, size_t bytes)
 {
-	if (((uintptr_t)vaddr % MMU_PAGESIZE) != 0) {
+	if ((vaddr % MMU_PAGESIZE) != 0) {
 		panic("map_phys invalid vaddr\n");
 	}
 	if ((paddr % MMU_PAGESIZE) != 0) {
@@ -377,8 +350,7 @@ map_phys(pte_t pte_attr, caddr_t vaddr, uint64_t paddr, size_t bytes)
 	}
 
 	while (bytes) {
-		uintptr_t va = (uintptr_t)vaddr;
-		size_t maxalign = va & (-va);
+		size_t maxalign = vaddr & (-vaddr);
 		size_t mapsz;
 
 		/*
@@ -449,7 +421,7 @@ resalloc(enum RESOURCES type, size_t bytes, caddr_t virthint, int align)
 					panic("phys mem allocate error\n");
 				}
 				map_phys(PTE_AF | PTE_SH_INNER | PTE_AP_KRWUNA |
-				    PTE_ATTR_NORMEM, virthint, paddr, mapsz);
+				    PTE_ATTR_NORMEM, va, paddr, mapsz);
 				bytes -= mapsz;
 				virthint += mapsz;
 			}

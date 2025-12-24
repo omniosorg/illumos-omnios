@@ -175,33 +175,6 @@ boot_compinfo(int fd, struct compinfo *cbp)
 	return (0);
 }
 
-static inline int
-l1_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >>
-	    (PAGESHIFT+3*NPTESHIFT)) & ((1<<NPTESHIFT)-1));
-}
-
-static inline int
-l2_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >>
-	    (PAGESHIFT+2*NPTESHIFT)) & ((1<<NPTESHIFT)-1));
-}
-
-static inline int
-l3_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >>
-	    (PAGESHIFT+1*NPTESHIFT)) & ((1<<NPTESHIFT)-1));
-}
-
-static inline int
-l4_pteidx(caddr_t vaddr)
-{
-	return ((((uintptr_t)vaddr) >> (PAGESHIFT)) & ((1<<NPTESHIFT)-1));
-}
-
 static paddr_t
 pt_alloc(bootops_t *bop)
 {
@@ -223,28 +196,28 @@ pt_alloc(bootops_t *bop)
 }
 
 static void
-map_phys(bootops_t *bop, pte_t pte_attr, caddr_t vaddr, uint64_t paddr)
+map_phys(bootops_t *bop, pte_t pte_attr, uintptr_t vaddr, uint64_t paddr)
 {
-	int l1_idx = l1_pteidx(vaddr);
-	int l2_idx = l2_pteidx(vaddr);
-	int l3_idx = l3_pteidx(vaddr);
-	int l4_idx = l4_pteidx(vaddr);
+	int l3_idx = LEVEL_INDEX(vaddr, 3);
+	int l2_idx = LEVEL_INDEX(vaddr, 2);
+	int l1_idx = LEVEL_INDEX(vaddr, 1);
+	int l0_idx = LEVEL_INDEX(vaddr, 0);
 
-	pte_t *l1_ptbl =
-	    (pte_t *)((((uint64_t)vaddr) >> 63)? read_ttbr1(): read_ttbr0());
+	pte_t *l3_ptbl = (pte_t *)(IS_KERNEL_MAPPING(vaddr) ?
+	    read_ttbr1() : read_ttbr0());
 
-	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) == 0) {
+	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) == 0) {
 		paddr_t pa = pt_alloc(bop);
 		dsb(ish);
-		l1_ptbl[l1_idx] =
+		l3_ptbl[l3_idx] =
 		    PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER | pa | PTE_TABLE;
 	}
 
-	if ((l1_ptbl[l1_idx] & PTE_VALID) == 0) {
-		bop_panic("invalid L1 PT\n");
+	if ((l3_ptbl[l3_idx] & PTE_VALID) == 0) {
+		bop_panic("invalid L3 PT\n");
 	}
 
-	pte_t *l2_ptbl = (pte_t *)(uintptr_t)(l1_ptbl[l1_idx] & PTE_PFN_MASK);
+	pte_t *l2_ptbl = (pte_t *)(uintptr_t)(l3_ptbl[l3_idx] & PTE_PFN_MASK);
 
 	if ((l2_ptbl[l2_idx] & PTE_TYPE_MASK) == 0) {
 		paddr_t pa = pt_alloc(bop);
@@ -257,25 +230,25 @@ map_phys(bootops_t *bop, pte_t pte_attr, caddr_t vaddr, uint64_t paddr)
 		bop_panic("invalid L2 PT\n");
 	}
 
-	pte_t *l3_ptbl = (pte_t *)(uintptr_t)(l2_ptbl[l2_idx] & PTE_PFN_MASK);
+	pte_t *l1_ptbl = (pte_t *)(uintptr_t)(l2_ptbl[l2_idx] & PTE_PFN_MASK);
 
-	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) == 0) {
+	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) == 0) {
 		paddr_t pa = pt_alloc(bop);
 		bzero((void *)(uintptr_t)pa, MMU_PAGESIZE);
 		dsb(ish);
-		l3_ptbl[l3_idx] =
+		l1_ptbl[l1_idx] =
 		    PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER | pa | PTE_TABLE;
 	}
 
-	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) != PTE_TABLE) {
-		bop_panic("invalid L3 PT\n");
+	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) != PTE_TABLE) {
+		bop_panic("invalid L1 PT\n");
 	}
 
-	pte_t *l4_ptbl = (pte_t *)(uintptr_t)(l3_ptbl[l3_idx] & PTE_PFN_MASK);
-	if (l4_ptbl[l4_idx] & PTE_VALID) {
-		bop_panic("invalid L4 PT\n");
+	pte_t *l0_ptbl = (pte_t *)(uintptr_t)(l1_ptbl[l1_idx] & PTE_PFN_MASK);
+	if (l0_ptbl[l0_idx] & PTE_VALID) {
+		bop_panic("invalid L0 PT\n");
 	}
-	l4_ptbl[l4_idx] = paddr | pte_attr | PTE_PAGE;
+	l0_ptbl[l0_idx] = paddr | pte_attr | PTE_PAGE;
 	dsb(ish);
 	isb();
 }
@@ -415,7 +388,7 @@ do_bsys_alloc(bootops_t *bop, caddr_t virthint, size_t size, int align)
 {
 	paddr_t a = align;	/* same type as pa for masking */
 	paddr_t pa;
-	caddr_t va;
+	uintptr_t va;
 	ssize_t s;		/* the aligned size */
 
 	if (a < MMU_PAGESIZE)
@@ -439,7 +412,7 @@ do_bsys_alloc(bootops_t *bop, caddr_t virthint, size_t size, int align)
 	/*
 	 * Add the mappings to the page tables, try large pages first.
 	 */
-	va = virthint;
+	va = (uintptr_t)virthint;
 	s = size;
 	while (s > 0) {
 		/*
