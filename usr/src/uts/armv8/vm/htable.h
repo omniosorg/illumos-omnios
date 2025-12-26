@@ -92,20 +92,19 @@ typedef struct htable htable_t;
 	((((va) >> LEVEL_SHIFT(1)) + ((va) >> 28) + (lvl) +		\
 	((uintptr_t)(hat) >> 4)) & (mmu.hash_cnt - 1))
 
-/*
- * Compute the last page aligned VA mapped by an htable.
- *
- * Given a va and a level, compute the virtual address of the start of the
- * next page at that level.
- *
- * XX64 - The check for the VA hole needs to be better generalized.
- */
 #define	HTABLE_NUM_PTES(ht)	NPTEPERPT
 
+/*
+ * Compute the last page aligned VA mapped by an htable.
+ */
 #define	HTABLE_LAST_PAGE(ht)			\
 	((ht)->ht_vaddr - MMU_PAGESIZE +	\
 	((uintptr_t)HTABLE_NUM_PTES(ht) * LEVEL_SIZE((ht)->ht_level)))
 
+/*
+ * Given a va and a level, compute the virtual address of the start of the
+ * next page at that level.
+ */
 #define	NEXT_ENTRY_VA(va, l)	((va & LEVEL_MASK(l)) + LEVEL_SIZE(l))
 
 #if defined(_KERNEL)
