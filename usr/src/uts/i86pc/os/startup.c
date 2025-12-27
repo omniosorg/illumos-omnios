@@ -1333,16 +1333,12 @@ startup_kmem(void)
 	 * Now that we know the real value of kernelbase,
 	 * update variables that were initialized with a value of
 	 * KERNELBASE (in common/conf/param.c).
-	 *
-	 * XXX	The problem with this sort of hackery is that the
-	 *	compiler just may feel like putting the const declarations
-	 *	(in param.c) into the .text section.  Perhaps they should
-	 *	just be declared as variables there?
 	 */
 
-	*(uintptr_t *)&_kernelbase = kernelbase;
-	*(uintptr_t *)&_userlimit = kernelbase;
-	*(uintptr_t *)&_userlimit -= KERNELBASE - USERLIMIT;
+	_kernelbase = kernelbase;
+	_userlimit = kernelbase;
+	_userlimit -= KERNELBASE - USERLIMIT;
+
 #if !defined(__xpv)
 	kpti_kbase = kernelbase;
 #endif
