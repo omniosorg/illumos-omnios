@@ -236,7 +236,7 @@ efirt_map_page(pte_t *root, uint64_t pa, pte_t pte_attr)
 			    kas.a_hat, (caddr_t)next), level, 1);
 			table = next;
 		} else {
-			table = (pte_t *)pfn_to_kseg(
+			table = (pte_t *)hat_kpm_pfn2va(
 			    PTE2PFN(table[idx], level));
 		}
 	}

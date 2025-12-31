@@ -440,18 +440,26 @@ startup_init(void)
 	PRM_POINT("startup_init() done");
 }
 
-
 static void
 kpm_init(void)
 {
 	struct segkpm_crargs b;
 
+	/*
+	 * These variables were all designed for the SPARC "spitfire" MMU,
+	 * sfmmu, in which segkpm is mapped using a single pagesize - either
+	 * 8KB or 4MB.  On ARM, we might use 2+ page sizes, so none of these
+	 * variables have a single correct value.  They are set up as if we
+	 * always use the base pagesize, which should do no harm.  In the long
+	 * run, we should get rid of KPM's assumption that only a single
+	 * pagesize is used.
+	 */
 	kpm_pgshft = MMU_PAGESHIFT;
 	kpm_pgsz =  MMU_PAGESIZE;
 	kpm_pgoff = MMU_PAGEOFFSET;
 	kpmp2pshft = 0;
 	kpmpnpgs = 1;
-	ASSERT(((uintptr_t)kpm_vbase & (kpm_pgsz - 1)) == 0);
+	ASSERT(IS_P2ALIGNED(kpm_vbase, kpm_pgsz));
 
 	PRM_POINT("about to create segkpm");
 	rw_enter(&kas.a_lock, RW_WRITER);

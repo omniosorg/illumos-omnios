@@ -22,11 +22,14 @@
  * Copyright 2017 Hayashi Naoyuki
  */
 
+#include <sys/cmn_err.h>
 #include <sys/machparam.h>
+#include <sys/machsystm.h>
+
 #include <vm/hat.h>
 #include <vm/hat_aarch64.h>
 #include <vm/seg_kpm.h>
-#include <sys/cmn_err.h>
+
 
 /*
  * Kernel Physical Mapping (segkpm) hat interface routines.
@@ -37,7 +40,7 @@
 caddr_t
 hat_kpm_pfn2va(pfn_t pfn)
 {
-	return (caddr_t)(SEGKPM_BASE + (pfn<<MMU_PAGESHIFT));
+	return (kpm_vbase + ptob(pfn));
 }
 
 
@@ -45,7 +48,7 @@ pfn_t
 hat_kpm_va2pfn(caddr_t vaddr)
 {
 	ASSERT(IS_KPM_ADDR(vaddr));
-	return (mmu_btop((uintptr_t)vaddr - SEGKPM_BASE));
+	return ((pfn_t)btop(vaddr - kpm_vbase));
 }
 
 caddr_t

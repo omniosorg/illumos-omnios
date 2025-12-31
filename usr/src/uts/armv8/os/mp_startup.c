@@ -303,8 +303,8 @@ wakeup_cpu_spin_table_simple(cpu_t *cp)
 	 * XXXARM: This is sketchy.  We're far enough along that we should use
 	 * the VM subsystem properly.
 	 */
-	*(uint64_t *)(SEGKPM_BASE + addr) = pa;
-	flush_data_cache(SEGKPM_BASE + addr);
+	*(uint64_t *)(kpm_vbase + addr) = pa;
+	flush_data_cache((uintptr_t)kpm_vbase + addr);
 	dsb(ish);
 
 	__asm__ volatile("sev":::"memory");

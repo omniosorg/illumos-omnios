@@ -125,8 +125,6 @@ extern struct hat_mmu_info mmu;
 	((index) * sizeof (pte_t))))
 
 #define	pfn_to_pa(pfn)		mmu_ptob((paddr_t)(pfn))
-#define	pa_to_kseg(pa)		((void *)((paddr_t)SEGKPM_BASE|(paddr_t)(pa)))
-#define	pfn_to_kseg(pfn)	pa_to_kseg(pfn_to_pa(pfn))
 
 #define	IN_VA_HOLE(va)		(HOLE_START <= (va) && (va) < HOLE_END)
 #define	FMT_PTE			"0x%lx"

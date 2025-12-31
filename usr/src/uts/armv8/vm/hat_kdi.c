@@ -67,8 +67,7 @@ kdi_vtop(uintptr_t vaddr, uint64_t *pap)
 int
 kdi_pread(caddr_t buf, size_t nbytes, uint64_t addr, size_t *ncopiedp)
 {
-	caddr_t va = (caddr_t)(addr + SEGKPM_BASE);
-	bcopy(va, buf, nbytes);
+	bcopy(kpm_vbase + addr, buf, nbytes);
 	*ncopiedp = nbytes;
 	return (0);
 }
@@ -76,8 +75,7 @@ kdi_pread(caddr_t buf, size_t nbytes, uint64_t addr, size_t *ncopiedp)
 int
 kdi_pwrite(caddr_t buf, size_t nbytes, uint64_t addr, size_t *ncopiedp)
 {
-	caddr_t va = (caddr_t)(addr + SEGKPM_BASE);
-	bcopy(buf, va, nbytes);
+	bcopy(buf, kpm_vbase + addr, nbytes);
 	*ncopiedp = nbytes;
 	return (0);
 }
