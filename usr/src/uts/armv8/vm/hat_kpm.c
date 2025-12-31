@@ -44,6 +44,7 @@ hat_kpm_pfn2va(pfn_t pfn)
 pfn_t
 hat_kpm_va2pfn(caddr_t vaddr)
 {
+	ASSERT(IS_KPM_ADDR(vaddr));
 	return (mmu_btop((uintptr_t)vaddr - SEGKPM_BASE));
 }
 
