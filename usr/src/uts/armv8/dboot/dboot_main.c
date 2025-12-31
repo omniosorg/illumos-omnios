@@ -68,12 +68,6 @@ typedef int (*func_t)(struct xboot_info *);
 extern func_t load_elf_payload(caddr_t payload, size_t payload_size, int print);
 extern void exitto(func_t entrypoint, struct xboot_info *);
 
-uintptr_t
-pa_to_ttbr1(uintptr_t pa)
-{
-	return (SEGKPM_BASE + pa);
-}
-
 int
 main(caddr_t modulesp, uint64_t hyp_stubs_present)
 {

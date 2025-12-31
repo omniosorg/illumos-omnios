@@ -30,8 +30,6 @@ extern struct efi_map_header *efi_map_header;
 
 int pagesize = MMU_PAGESIZE;
 
-extern uintptr_t pa_to_ttbr1(uintptr_t pa);
-
 /*
  * UEFI Memory Types
  * =================
