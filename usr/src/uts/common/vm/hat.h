@@ -232,7 +232,6 @@ void	hat_unshare(struct hat *, caddr_t, size_t, uint_t);
 void	hat_chgprot(struct hat *, caddr_t, size_t, uint_t);
 void	hat_reserve(struct as *, caddr_t, size_t);
 pfn_t	va_to_pfn(void *);
-uint64_t va_to_pa(void *);
 
 /*
  * Kernel Physical Mapping (segkpm) hat interface routines.
@@ -328,8 +327,8 @@ void	hat_setstat(struct as *, caddr_t, size_t, uint_t);
  *
  * Certain flags only apply to some interfaces:
  *
- * 	HAT_LOAD	Default flags to load a translation to the page.
- * 	HAT_LOAD_LOCK	Lock down mapping resources; hat_map(), hat_memload(),
+ *	HAT_LOAD	Default flags to load a translation to the page.
+ *	HAT_LOAD_LOCK	Lock down mapping resources; hat_map(), hat_memload(),
  *			and hat_devload().
  *	HAT_LOAD_ADV	Advisory load - Load translation if and only if
  *			sufficient MMU resources exist (i.e., do not steal).
@@ -485,9 +484,6 @@ void	hat_setstat(struct as *, caddr_t, size_t, uint_t);
 
 #define	hat_page_is_mapped(pp)	(hat_page_getshare(pp))
 
-/*
- * hat_setup is being used in sparc/os/sundep.c
- */
 void	hat_setup(struct hat *, int);
 
 /*
@@ -591,7 +587,7 @@ extern struct hrmstat **hrm_hashtab;
 /*
  * Hat locking functions
  * XXX - these two functions are currently being used by hatstats
- * 	they can be removed by using a per-as mutex for hatstats.
+ *	they can be removed by using a per-as mutex for hatstats.
  */
 void	hat_enter(struct hat *);
 void	hat_exit(struct hat *);

@@ -130,7 +130,6 @@ mlsetup(struct regs *rp, struct xboot_info *xbp)
 	 * initialize t0
 	 */
 	t0.t_stk = (caddr_t)rp - MINFRAME;
-	/* Can't use va_to_pa here - wait until prom_ initialized */
 	t0.t_stkbase = t0stack;
 	t0.t_pri = maxclsyspri - 3;
 	t0.t_schedflag = TS_LOAD | TS_DONT_SWAP;
