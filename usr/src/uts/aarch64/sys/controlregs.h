@@ -351,11 +351,17 @@
 
 
 #define	TTBR_ASID_SHIFT		48
-#define	TTBR_ASID_MASK		(0xFFull<<TTBR_ASID_SHIFT)
-#define	TTBR_BADDR48_SHIFT	12
-#define	TTBR_BADDR48_MASK	(0xfffffffffull << TTBR_BADDR48_SHIFT)
+#define	TTBR_ASID_MASK		(0xffull << TTBR_ASID_SHIFT)
+#define	TTBR_ASID(x)		(((x) & TTBR_ASID_MASK) >> TTBR_ASID_SHIFT)
+/*
+ * NB: This is read as if it included an implicit 0 1-bit, it does not need
+ * any shifting
+ */
+#define	TTBR_BADDR48_MASK	0xfffffffffffe
+#define	TTBR_BADDR48(x)		((x) & TTBR_BADDR48_MASK)
 #define	TTBR_CNP_SHIFT		0
 #define	TTBR_CNP_MASK		(0x1ull << TTBR_CNP_SHIFT)
+#define	TTBR_CNP(x)		(((x) & TTBR_CNP_MASK) >> TTBR_CNP_SHIFT)
 
 
 #define	PSR_N		(1u<<31)
