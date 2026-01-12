@@ -137,7 +137,8 @@ hat_kern_alloc(
 	uint_t		table_cnt = 1;
 	uint_t		mapping_cnt;
 
-	pte_t *l1_ptbl = (pte_t *)pa_to_kseg(read_ttbr1() & PTE_PFN_MASK);
+	pte_t *l1_ptbl = (pte_t *)pa_to_kseg(TTBR_BADDR48(read_ttbr1()));
+
 	for (int i = 0; i < NPTEPERPT; i++) {
 		if ((l1_ptbl[i] & PTE_TYPE_MASK) != PTE_TABLE)
 			continue;
@@ -205,8 +206,8 @@ hat_kern_setup(void)
 	/*
 	 * Attach htables to the existing pagetables
 	 */
-	htable_attach(kas.a_hat, KERNELBASE, MAX_PAGE_LEVEL, NULL,
-	    mmu_btop(read_ttbr1() & PTE_PFN_MASK));
+	htable_attach(kas.a_hat, _kernelbase, mmu.max_level, NULL,
+	    mmu_btop(TTBR_BADDR48(read_ttbr1())));
 
 	/*
 	 * The kernel HAT is now officially open for business.
@@ -337,14 +338,15 @@ boot_reserve(void)
 
 	uintptr_t va = KERNELBASE;
 	pte_t *ptbl[MMU_PAGE_LEVELS] = {0};
-	ptbl[MMU_PAGE_LEVELS - 1] = (pte_t *)pa_to_kseg(read_ttbr1() &
-	    PTE_PFN_MASK);
+
+	ptbl[MMU_PAGE_LEVELS - 1] =
+	    (pte_t *)pa_to_kseg(TTBR_BADDR48(read_ttbr1()));
 
 	ASSERT(MMFR0_PARANGE(read_id_aa64mmfr0()) < ARRAY_SIZE(pa_size_array));
 
 	size_t pa_size = pa_size_array[MMFR0_PARANGE(read_id_aa64mmfr0())];
 
-	ASSERT(is_reserved_memory(read_ttbr1() & PTE_PFN_MASK));
+	ASSERT(is_reserved_memory(TTBR_BADDR48(read_ttbr1())));
 
 	int l = 0;
 	while (va != 0) {
