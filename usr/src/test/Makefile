@@ -21,16 +21,17 @@ include $(SRC)/Makefile.master
 
 .PARALLEL: $(SUBDIRS)
 
-SUBDIRS =		\
-	crypto-tests	\
-	elf-tests	\
-	libc-tests	\
-	libmlrpc-tests	\
-	libproc-tests	\
-	libsec-tests	\
-	net-tests	\
-	nvme-tests	\
-	os-tests	\
+SUBDIRS = \
+	crypto-tests \
+	elf-tests \
+	i2c-tests \
+	libc-tests \
+	libmlrpc-tests \
+	libproc-tests \
+	libsec-tests \
+	net-tests \
+	nvme-tests \
+	os-tests \
 	smbclient-tests \
 	smbsrv-tests	\
 	test-runner	\

@@ -16,7 +16,7 @@
 # Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
 # Copyright 2018 Nexenta Systems, Inc.
 # Copyright 2023 Peter Tribble
-# Copyright 2024 Oxide Computer Company
+# Copyright 2025 Oxide Computer Company
 # Copyright 2023 RackTop Systems, Inc.
 #
 
@@ -26,6 +26,7 @@ MANSECT=	4d
 
 MANFILES=	aac.4d		\
 		afe.4d		\
+		at24c.4d	\
 		audio.4d	\
 		audio1575.4d	\
 		audioens.4d	\
@@ -47,6 +48,7 @@ MANFILES=	aac.4d		\
 		dmfe.4d		\
 		dtrace.4d	\
 		e1000g.4d	\
+		ee100x.4d	\
 		ehci.4d		\
 		fasttrap.4d	\
 		fbt.4d		\
@@ -77,6 +79,7 @@ MANFILES=	aac.4d		\
 		iscsi.4d	\
 		iser.4d		\
 		ixgbe.4d	\
+		kgpio.4d	\
 		kmdb.4d		\
 		kstat.4d	\
 		ksensor.4d	\
@@ -86,6 +89,7 @@ MANFILES=	aac.4d		\
 		lockstat.4d	\
 		lofi.4d		\
 		log.4d		\
+		lm7x.4d		\
 		mem.4d		\
 		mpt_sas.4d	\
 		mr_sas.4d	\
@@ -97,6 +101,7 @@ MANFILES=	aac.4d		\
 		nxge.4d		\
 		ohci.4d		\
 		openprom.4d	\
+		pca954x.4d	\
 		physmem.4d	\
 		pm.4d		\
 		poll.4d		\
@@ -118,11 +123,14 @@ MANFILES=	aac.4d		\
 		sfe.4d		\
 		sgen.4d		\
 		smartpqi.4d	\
+		spd511x.4d	\
 		srpt.4d		\
 		st.4d		\
 		sysmsg.4d	\
 		systrace.4d	\
 		ticlts.4d	\
+		tmp43x.4d	\
+		ts511x.4d	\
 		tty.4d		\
 		tzmon.4d	\
 		ufm.4d		\
@@ -184,6 +192,7 @@ i386_MANFILES=	ahci.4d		\
 		ipmi.4d		\
 		iprb.4d		\
 		ipw.4d		\
+		ismt.4d		\
 		iwh.4d		\
 		iwi.4d		\
 		iwn.4d		\
@@ -196,6 +205,7 @@ i386_MANFILES=	ahci.4d		\
 		nvme.4d		\
 		pcic.4d		\
 		pcmcia.4d	\
+		pchsmbus.4d	\
 		pchtemp.4d	\
 		pcn.4d		\
 		pvscsi.4d	\

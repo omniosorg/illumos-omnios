@@ -736,6 +736,12 @@ CRYPTOHDRS=			\
 DCAMHDRS=			\
 	dcam1394_io.h
 
+I2CHDRS=		\
+	controller.h	\
+	i2c.h		\
+	ioctl.h		\
+	mux.h
+
 IBHDRS=			\
 	ib_types.h	\
 	ib_pkt_hdrs.h
@@ -891,6 +897,16 @@ FSHDRS=				\
 	ufs_trans.h		\
 	zfs.h			\
 	zut.h
+
+GPIOHDRS=			\
+	dpio.h			\
+	gpio_sim.h		\
+	kgpio_attr.h		\
+	kgpio_provider.h	\
+	kgpio.h			\
+	ltc4306.h		\
+	pca953x.h		\
+	zen_gpio.h
 
 NVMEHDRS=		\
 	discovery.h		\
@@ -1167,6 +1183,7 @@ CHECKHDRS=						\
 	$(FCHDRS:%.h=fibre-channel/%.check)		\
 	$(FCIMPLHDRS:%.h=fibre-channel/impl/%.check)	\
 	$(FCULPHDRS:%.h=fibre-channel/ulp/%.check)	\
+	$(I2CHDRS:%.h=i2c/%.check)			\
 	$(IBHDRS:%.h=ib/%.check)			\
 	$(IBDHDRS:%.h=ib/clients/ibd/%.check)		\
 	$(IBTLHDRS:%.h=ib/ibtl/%.check)			\
@@ -1190,6 +1207,7 @@ CHECKHDRS=						\
 	$(FMFSHDRS:%.h=fm/fs/%.check)			\
 	$(FMIOHDRS:%.h=fm/io/%.check)			\
 	$(FSHDRS:%.h=fs/%.check)			\
+	$(GPIOHDRS:%.h=gpio/%.check)			\
 	$(NVMEHDRS:%.h=nvme/%.check)			\
 	$(SCSIHDRS:%.h=scsi/%.check)			\
 	$(SCSIADHDRS:%.h=scsi/adapters/%.check)		\
@@ -1243,6 +1261,8 @@ CHECKHDRS=						\
 	$(ROOTFMIOHDRS)		\
 	$(ROOTFMFSHDRS)		\
 	$(ROOTFSHDRS)		\
+	$(ROOTGPIOHDRS)		\
+	$(ROOTI2CHDRS)		\
 	$(ROOTIBDHDRS)		\
 	$(ROOTIBHDRS)		\
 	$(ROOTIBTLHDRS)		\
@@ -1314,6 +1334,8 @@ install_h:			\
 	$(ROOTFMFSHDRS)		\
 	$(ROOTFMIOHDRS)		\
 	$(ROOTFSHDRS)		\
+	$(ROOTGPIOHDRS)		\
+	$(ROOTI2CHDRS)		\
 	$(ROOTIBDHDRS)		\
 	$(ROOTIBHDRS)		\
 	$(ROOTIBTLHDRS)		\

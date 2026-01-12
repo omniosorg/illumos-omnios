@@ -32,6 +32,7 @@ SUBDIRS =       \
 		definit \
 		execvpe \
 		file-locking \
+		gpio \
 		hexdump \
 		idmap \
 		ilstr \
