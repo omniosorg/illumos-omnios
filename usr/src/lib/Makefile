@@ -140,6 +140,7 @@ SUBDIRS +=				\
 	libgrubmgmt	\
 	libgss		\
 	libhotplug	\
+	libi2c		\
 	libidmap	\
 	libidspace	\
 	libilb		\
@@ -238,6 +239,7 @@ SUBDIRS +=				\
 	libxcurses	\
 	libxcurses2	\
 	libxnet		\
+	libxpio		\
 	libzfs		\
 	libzfsbootenv	\
 	libzfs_core	\
@@ -401,6 +403,7 @@ HDRSUBDIRS=				\
 	libfstyp	\
 	libgen		\
 	libgrubmgmt	\
+	libi2c		\
 	libidmap	\
 	libidspace	\
 	libilb		\
@@ -474,6 +477,7 @@ HDRSUBDIRS=				\
 	libvscan	\
 	libwrap		\
 	libxcurses2	\
+	libxpio		\
 	libzfs		\
 	libzfs_core	\
 	libzfs_jni	\
@@ -624,6 +628,7 @@ libfru:		libfruutils
 libfsmgt:	libkstat
 libgrubmgmt:	libdevinfo libzfs libfstyp libefi
 $(INTEL_BLD)libgrubmgmt: libfdisk
+libi2c:		libdevinfo
 libidmap:	libavl libuutil
 libidspace:	libumem
 libinetsvc:	libscf
@@ -686,6 +691,7 @@ libvmm:		libvmmapi
 libvolmgt:	libadm
 libvrrpadm:	libdladm libscf
 libvscan:	libscf libsecdb
+libxpio:	libdevinfo libnvpair
 libzfs:		libdevid libgen libuutil libavl libefi libidmap \
 		libumem libtsol libzfs_core libcryptoutil pkcs11 libmd libzutil
 libzfsbootenv:	libzfs libnvpair

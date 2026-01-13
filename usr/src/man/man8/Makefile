@@ -19,7 +19,7 @@
 # Copyright 2020 Joyent, Inc.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2022 Garrett D'Amore
-# Copyright 2024 Oxide Computer Company
+# Copyright 2025 Oxide Computer Company
 # Copyright 2025 Peter Tribble
 #
 
@@ -157,6 +157,7 @@ _MANFILES=	6to4relay.8		\
 		getent.8		\
 		getty.8			\
 		getvol.8		\
+		gpioadm.8		\
 		groupadd.8		\
 		groupdel.8		\
 		groupmod.8		\
@@ -172,6 +173,7 @@ _MANFILES=	6to4relay.8		\
 		hextoalabel.8		\
 		hostconfig.8		\
 		hotplug.8		\
+		i2cadm.8		\
 		id.8			\
 		idmap.8			\
 		idmapd.8		\
