@@ -336,11 +336,6 @@ retry:
 	return (pp);
 }
 
-/*
- * This procedure is callable only while the boot loader is in charge of the
- * MMU. It assumes that PA == VA for page table pointers.  It doesn't live in
- * kboot_mmu.c since it's used from common code.
- */
 pfn_t
 va_to_pfn(void *vaddr)
 {
