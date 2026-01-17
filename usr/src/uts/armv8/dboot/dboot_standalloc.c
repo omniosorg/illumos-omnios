@@ -128,11 +128,16 @@ init_pt(void)
 	 * marked as read/write.
 	 */
 	for (ml = pmappablep; ml != NULL; ml = ml->ml_next) {
-		map_phys(PTE_UXN|PTE_AF|PTE_NG|PTE_SH_INNER|
-		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM,
+		uint_t ng = 0;
+
+		if (!IS_KERNEL_MAPPING(ml->ml_address))
+			ng = PTE_NG;
+
+		map_phys(PTE_UXN|PTE_AF|PTE_SH_INNER|
+		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM|ng,
 		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
-		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_NG|PTE_SH_INNER|
+		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
 		    PTE_AP_KRWUNA|PTE_ATTR_NORMEM,
 		    (ml->ml_address + SEGKPM_BASE),
 		    ml->ml_address, ml->ml_size);
@@ -199,17 +204,21 @@ init_pt(void)
 	 * memory only.
 	 */
 	for (ml = pldriolistp; ml != NULL; ml = ml->ml_next) {
+		uint_t ng = 0;
+		if (!IS_KERNEL_MAPPING(ml->ml_address))
+			ng = PTE_NG;
+
 		if (fbaddr != 0 && ml->ml_address == fbaddr) {
 			/* XXXARM: we need a proper write-combining mapping */
-			map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_NG|PTE_SH_INNER|
-			    PTE_AP_KRWUNA|PTE_ATTR_UNORDERED,
+			map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
+			    PTE_AP_KRWUNA|PTE_ATTR_UNORDERED|ng,
 			    ml->ml_address,
 			    ml->ml_address, ml->ml_size);
 			continue;
 		}
 
-		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_NG|PTE_SH_INNER|
-		    PTE_AP_KRWUNA|PTE_ATTR_DEVICE,
+		map_phys(PTE_UXN|PTE_PXN|PTE_AF|PTE_SH_INNER|
+		    PTE_AP_KRWUNA|PTE_ATTR_DEVICE|ng,
 		    ml->ml_address,
 		    ml->ml_address, ml->ml_size);
 	}
