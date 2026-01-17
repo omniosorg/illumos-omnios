@@ -447,8 +447,9 @@ resalloc(enum RESOURCES type, size_t bytes, caddr_t virthint, int align)
 				if (paddr == 0) {
 					panic("phys mem allocate error\n");
 				}
-				map_phys(PTE_AF | PTE_SH_INNER | PTE_AP_KRWUNA |
-				    PTE_ATTR_NORMEM, va, paddr, mapsz);
+				map_phys(PTE_AF | PTE_SH_INNER | PTE_UXN |
+				    PTE_AP_KRWUNA | PTE_ATTR_NORMEM, va, paddr,
+				    mapsz);
 				bytes -= mapsz;
 				virthint += mapsz;
 			}

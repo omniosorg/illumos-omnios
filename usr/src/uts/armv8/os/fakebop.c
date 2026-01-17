@@ -415,18 +415,7 @@ do_bsys_alloc(bootops_t *bop, caddr_t virthint, size_t size, int align)
 	va = (uintptr_t)virthint;
 	s = size;
 	while (s > 0) {
-		/*
-		 * XXXARM: These were marking the page non-executable with
-		 * PTE_UXN and PTE_PXN -- not executable by either user or
-		 * priv'd processes.
-		 *
-		 * We're disabling that, because we map genunix's text this
-		 * way (I think?) and obviously that's very bad.
-		 *
-		 * But we need to do something better than this, somehow?
-		 * If this even works
-		 */
-		map_phys(bop, PTE_NOCONSIST | PTE_AF | PTE_SH_INNER |
+		map_phys(bop, PTE_NOCONSIST | PTE_AF | PTE_SH_INNER | PTE_UXN |
 		    PTE_AP_KRWUNA | PTE_ATTR_NORMEM, va, pa);
 		va += MMU_PAGESIZE;
 		pa += MMU_PAGESIZE;
