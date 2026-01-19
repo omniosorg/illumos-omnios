@@ -131,6 +131,8 @@ elf-tests/tests/tls/static/local-exec
 
 i2c-tests/i2csimd/i2csimd
 
+i2c-tests/i2csimd/i2csimd
+
 libc-tests/tests/catopen/catopen
 libc-tests/tests/err/err
 libc-tests/tests/fexecve/fexecve_test

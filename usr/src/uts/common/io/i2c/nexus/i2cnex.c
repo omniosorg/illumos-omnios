@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -941,7 +941,7 @@ i2c_nex_bus_ctl(dev_info_t *dip, dev_info_t *rdip, ddi_ctl_enum_t ctlop,
 			return (DDI_FAILURE);
 		}
 
-		nex = ddi_get_parent_data(arg);
+		nex = ddi_get_parent_data(rdip);
 		VERIFY3P(nex, !=, NULL);
 
 		switch (nex->in_type) {
