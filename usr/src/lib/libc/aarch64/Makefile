@@ -1172,6 +1172,11 @@ pics/arc4random.o :=	CPPFLAGS += -I$(SRC)/common/crypto/chacha
 pics/__clock_gettime.o := CPPFLAGS += $(COMMPAGE_CPPFLAGS)
 pics/gettimeofday.o := CPPFLAGS += $(COMMPAGE_CPPFLAGS)
 
+# because of char_to_decimal.h
+pics/file_decim.o := SMOFF += indenting
+pics/func_decim.o := SMOFF += indenting
+pics/string_decim.o := SMOFF += indenting
+
 #
 # Disable the stack protector due to issues with bootstrapping rtld. See
 # cmd/sgs/rtld/Makefile.com for more information.

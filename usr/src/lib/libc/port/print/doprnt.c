@@ -19,17 +19,18 @@
  * CDDL HEADER END
  */
 
+/*	Copyright (c) 1988 AT&T	*/
+/*	  All Rights Reserved	*/
+
 /*
  * Copyright 2025 Hans Rosenfeld
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2025 MNX Cloud, Inc.
  */
 /*
  * Copyright 2017 Hayashi Naoyuki
  */
-
-/*	Copyright (c) 1988 AT&T	*/
-/*	  All Rights Reserved	*/
 
 /*
  *	_doprnt: common code for printf, fprintf, sprintf
@@ -257,9 +258,10 @@ _lowlldigit(long long *valptr)
 {
 	ssize_t lowbit = *valptr & 1;
 	long long value = (*valptr >> 1) & ~HIBITLL;
-		*valptr = value / 5;
-		value = value % 5 * 2 + lowbit + '0';
-		return ((int)value);
+
+	*valptr = value / 5;
+	value = value % 5 * 2 + lowbit + '0';
+	return ((int)value);
 }
 
 /* The function _dowrite carries out buffer pointer bookkeeping surrounding */
@@ -1991,7 +1993,9 @@ wide_S:
 			k = sec_display;
 		else
 #endif /* !_WIDE */
+		{
 			k = n;
+		}
 		/*
 		 * k is the (screen) width or # of bytes of the converted value
 		 */
