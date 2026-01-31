@@ -766,7 +766,7 @@ pci_vtscsi_init(struct pci_devinst *pi, nvlist_t *nvl)
 	vi_pci_init(pi, VIRTIO_MODE_LEGACY, VIRTIO_DEV_SCSI,
 	    VIRTIO_ID_SCSI, PCIC_STORAGE);
 
-	if (!vi_intr_init(&sc->vss_vs, true, fbsdrun_virtio_msix()))
+	if (!vi_intr_init(&sc->vss_vs, fbsdrun_virtio_msix()))
 		return (1);
 	if (!vi_pcibar_setup(&sc->vss_vs))
 		return (1);

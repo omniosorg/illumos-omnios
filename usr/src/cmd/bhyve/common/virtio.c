@@ -600,7 +600,7 @@ vi_pcibar_setup(struct virtio_softc *vs)
  * for the config vec.
  */
 bool
-vi_intr_init(struct virtio_softc *vs, bool use_msi, bool use_msix)
+vi_intr_init(struct virtio_softc *vs, bool use_msix)
 {
 	if (use_msix) {
 		struct virtio_consts *vc = vs->vs_vc;
@@ -616,10 +616,6 @@ vi_intr_init(struct virtio_softc *vs, bool use_msi, bool use_msix)
 	} else {
 		vs->vs_flags &= ~VIRTIO_USE_MSIX;
 	}
-
-	/* Only 1 MSI vector for bhyve */
-	if (use_msi)
-		pci_emul_add_msicap(vs->vs_pi, 1);
 
 	/* Legacy interrupts are mandatory for virtio devices */
 	pci_lintr_request(vs->vs_pi);

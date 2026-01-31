@@ -599,7 +599,7 @@ pci_vtblk_init(struct pci_devinst *pi, nvlist_t *nvl)
 	vi_pci_init(pi, VIRTIO_MODE_TRANSITIONAL, VIRTIO_DEV_BLOCK,
 	    VIRTIO_ID_BLOCK, PCIC_STORAGE);
 
-	if (!vi_intr_init(&sc->vbsc_vs, true, fbsdrun_virtio_msix()))
+	if (!vi_intr_init(&sc->vbsc_vs, fbsdrun_virtio_msix()))
 		goto fail;
 	if (!vi_pcibar_setup(&sc->vbsc_vs))
 		goto fail;
