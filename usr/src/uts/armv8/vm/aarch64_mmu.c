@@ -128,6 +128,24 @@ hat_kmap_init(uintptr_t base, size_t len)
 }
 
 /*
+ * Recursively count the total number of page tables currently in the system
+ */
+static uint_t
+count_tables(pte_t *ptbl, uint_t level)
+{
+	uint_t tbls = 1;
+
+	for (int i = 0; i < NPTEPERPT; i++) {
+		if (PTE_ISTABLE(ptbl[i], level)) {
+			tbls += count_tables((pte_t *)(ptbl[i] & PTE_PFN_MASK),
+			    level - 1);
+		}
+	}
+
+	return (tbls);
+}
+
+/*
  * Routine to pre-allocate data structures for hat_kern_setup(). It computes
  * how many pagetables it needs by walking the boot loader's page tables.
  *
@@ -184,30 +202,9 @@ hat_kern_alloc(
 	 * Walk the boot loader's page tables and figure out
 	 * how many tables and page mappings there will be.
 	 */
-	pte_t *l3_ptbl = (pte_t *)TTBR_BADDR48(read_ttbr1());
-	for (int i = 0; i < NPTEPERPT; i++) {
-		if (!PTE_ISTABLE(l3_ptbl[i], 3)) {
-			continue;
-		}
-		++table_cnt;
+	pte_t *ptbl = (pte_t *)TTBR_BADDR48(read_ttbr1());
 
-		pte_t *l2_ptbl = (pte_t *)(l3_ptbl[i] & PTE_PFN_MASK);
-		for (int j = 0; j < NPTEPERPT; j++) {
-			if (!PTE_ISTABLE(l2_ptbl[j], 2)) {
-				continue;
-			}
-			++table_cnt;
-
-			pte_t *l1_ptbl = (pte_t *)(l2_ptbl[j] & PTE_PFN_MASK);
-			for (int k = 0; k < NPTEPERPT; k++) {
-				if (!PTE_ISTABLE(l1_ptbl[k], 1)) {
-					continue;
-				}
-				++table_cnt;
-
-			}
-		}
-	}
+	table_cnt = count_tables(ptbl, mmu.max_level);
 
 	/*
 	 * Besides the boot loader mappings, we're going to fill in
