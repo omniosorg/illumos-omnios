@@ -176,6 +176,7 @@ UNREF_OBJ	/lib.*\ of\ .*libpython2\.[467]\.so\.1\.0
 UNREF_OBJ	/lib.*\ of\ .*libpython3\.\d+m?\.so\.1\.0
 UNREF_OBJ	/libgcc_s.*\ of\ .*libstdc\+\+\.so\.6
 UNREF_OBJ	/libgcc_s.*\ of\ .*libgmodule-2\.0\.so\.0
+UNREF_OBJ	/libpthread.*\ of\ .*libpcre2-8\.so\.0
 
 # Unreferenced object of objects we can't change for other reasons
 UNREF_OBJ	/libmapmalloc\.so\.1;\ unused\ dependency\ of	# interposer
