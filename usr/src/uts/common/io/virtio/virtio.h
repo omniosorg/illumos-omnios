@@ -12,6 +12,8 @@
 /*
  * Copyright 2019 Joyent, Inc.
  * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Hans Rosenfeld
  */
 
 #ifndef _VIRTIO_H
@@ -47,7 +49,7 @@
  * supports.  The framework will negotiate the common set of features supported
  * by both the driver and the device.  The presence of any individual feature
  * can be tested after the initialisation phase has begun using
- * virtio_feature_present().
+ * virtio_features_present().
  *
  * The framework will additionally negotiate some set of features that are not
  * specific to a device type on behalf of the client driver; e.g., support for
@@ -310,7 +312,8 @@ void virtio_dev_put8(virtio_t *, uintptr_t, uint8_t);
 void virtio_dev_put16(virtio_t *, uintptr_t, uint16_t);
 void virtio_dev_put32(virtio_t *, uintptr_t, uint32_t);
 
-boolean_t virtio_feature_present(virtio_t *, uint64_t);
+boolean_t virtio_features_present(virtio_t *, uint64_t);
+uint32_t virtio_features(virtio_t *);
 
 virtio_queue_t *virtio_queue_alloc(virtio_t *, uint16_t, const char *,
     ddi_intr_handler_t *, void *, boolean_t, uint_t);

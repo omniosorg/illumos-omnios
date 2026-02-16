@@ -242,7 +242,7 @@ virtio_pci_queue_alloc(virtio_t *vio, uint16_t qidx, const char *name,
 	 */
 	mutex_init(&viq->viq_mutex, NULL, MUTEX_DRIVER, NULL);
 
-	if (virtio_feature_present(vio, VIRTIO_F_RING_INDIRECT_DESC) &&
+	if (virtio_features_present(vio, VIRTIO_F_RING_INDIRECT_DESC) &&
 	    !force_direct) {
 		/*
 		 * If we were able to negotiate the indirect descriptor

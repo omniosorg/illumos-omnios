@@ -13,6 +13,8 @@
  * Copyright 2019 Joyent, Inc.
  * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
  * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Hans Rosenfeld
  */
 
 /*
@@ -36,6 +38,7 @@
 #include <sys/bootconf.h>
 #include <sys/bootsvcs.h>
 #include <sys/sysmacros.h>
+#include <sys/stdbit.h>
 
 #include "virtio.h"
 #include "virtio_impl.h"
@@ -304,9 +307,15 @@ virtio_init_complete(virtio_t *vio, int allowed_interrupt_types)
 }
 
 boolean_t
-virtio_feature_present(virtio_t *vio, uint64_t feature_mask)
+virtio_features_present(virtio_t *vio, uint64_t feature_mask)
 {
-	return ((vio->vio_features & feature_mask) != 0);
+	return ((vio->vio_features & feature_mask) == feature_mask);
+}
+
+uint32_t
+virtio_features(virtio_t *vio)
+{
+	return (vio->vio_features);
 }
 
 void *
