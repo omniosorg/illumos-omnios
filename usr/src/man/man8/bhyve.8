@@ -1,4 +1,5 @@
 .\" Copyright (c) 2013 Peter Grehan
+.\" Copyright (c) 2026 Hans Rosenfeld
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -25,7 +26,7 @@
 .\" Portions Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 .\" Copyright 2026 Oxide Computer Company
 .\"
-.Dd January 28, 2026
+.Dd February 9, 2026
 .Dt BHYVE 8
 .Os
 .Sh NAME
@@ -360,6 +361,8 @@ Accelerated Virtio network interface.
 Legacy Virtio network interface.
 .It Cm virtio-blk
 Virtio block storage interface.
+.It Cm virtio-scsi
+Virtio SCSI interface.
 .It Cm virtio-9p
 Virtio 9p (VirtFS) interface.
 .It Cm virtio-rnd
@@ -544,6 +547,86 @@ A fwcfg file is used to specify the bootorder.
 The guest firmware may ignore or not have support for this fwcfg file.
 In that case, this feature will not work as expected.
 .El
+.Pp
+.Sy SCSI device backends
+.Bl -bullet
+.Sm off
+.It
+.Oo Cm target Ns = Ns Oo ID : Oc Ar path Ns Oc
+.Oo Cm \&, Ar scsi-device-options Oc
+.Oo Cm \&, Ar backend-specific-options Oc
+.Sm on
+.El
+.Pp
+Multiple
+.Pa target
+parameters may be specified, each configuring a different
+.Ar path
+as a distinct SCSI target.
+If the
+.Pa target
+.Ar ID
+is not explicitly configured for a
+.Pa target ,
+the
+.Pa target
+will be assigned the next sequential
+.Ar ID
+following the highest
+.Pa target
+.Ar ID
+used at that point, or 0 if it is the first target configured.
+All
+.Pa target
+.Ar ID Ns s
+must be unique per instance.
+The meaning of the
+.Ar path
+argument is specific to each backend:
+.Bl -column "Backend" "/dev/cam/ctl[pp.vp]"
+.It Sy Backend Ta Sy Path Ta Sy Description
+.It uscsi Ta Pa /dev/rdsk/cXtXdX Ns Oo p0 Oc Ta
+The path to a raw whole disk node or any other SCSI target that supports the
+.Xr USCSI 4
+interface, to be configured as a target.
+There is no default path, all targets must be explicitly configured.
+.El
+.Pp
+The
+.Ar scsi-device-options
+are:
+.Bl -tag -width 10n
+.It Cm backend= Ns Ar backend
+The virtio-scsi backend to use.
+The backend name is case-insensitive.
+There is currently only one backend
+.Qq uscsi ,
+which is also the default backend.
+.It Li bootindex= Ns Ar index
+Add the device to the bootorder at
+.Ar index .
+A fwcfg file is used to specify the bootorder.
+The guest firmware may ignore or doesn't support this fwcfg file.
+In that case, this feature doesn't work as expected.
+.It Li ctl_ringsz= Ns Ar ringsz
+The ring size to use for the control queue.
+.It Li evt_ringsz= Ns Ar ringsz
+The ring size to use for the event queue.
+.It Li req_ringsz= Ns Ar ringsz
+The ring size to use for each I/O request queues.
+.It Li num_queues= Ns Ar num
+The number of I/O request queues to use.
+.It Li seg_max= Ns Ar num
+The maximum number of segments allowed in a single command.
+.It Li thr_per_q= Ns Ar num
+The number of parallel request processing threads per I/O request queue.
+.El
+.Pp
+There are currently no
+.Ar backend-specific-options
+for the
+.Sy USCSI
+backend.
 .Pp
 .Sy 9P device backends :
 .Sm off
