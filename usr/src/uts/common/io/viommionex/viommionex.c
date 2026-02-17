@@ -201,14 +201,24 @@ viommionex_probe_driver(dev_info_t *dip, char **driver, char **compat)
 	uint32_t	devid;
 	char		propname[32];
 
-	if ((vio = virtio_init(dip, 0, B_FALSE)) == NULL)
+	if ((vio = virtio_init(dip)) == NULL)
 		return (DDI_FAILURE);
+	/*
+	 * We don't need any features; just complete negotiation so we can
+	 * read the transport registers.
+	 */
+	if (!virtio_init_features(vio, 0, B_FALSE)) {
+		virtio_fini(vio, B_TRUE);
+		return (DDI_FAILURE);
+	}
 
 	/*
-	 * virtio_init asserts that the VMM has presented a v1 device to us and
-	 * that the magic value is correct, so no need to check that here.
+	 * virtio_init verifies that the VMM has presented a v1 device to us
+	 * and that the magic value is correct, so no need to check that here.
+	 * Read the device ID from the MMIO transport registers directly.
 	 */
-	devid = virtio_get32(vio, VIRTIO_MMIO_DEVICE_ID);
+	devid = ddi_get32(vio->vio_barh,
+	    (uint32_t *)(vio->vio_bar + VIRTIO_MMIO_DEVICE_ID));
 	virtio_fini(vio, B_FALSE);
 
 	if (devid == 0)

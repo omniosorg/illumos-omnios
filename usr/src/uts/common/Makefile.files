@@ -2132,7 +2132,8 @@ NXGE_HCALL_OBJS =	\
 #
 
 # Virtio core
-VIRTIO_OBJS = virtio_main.o virtio_dma.o virtio_pci.o virtio_mmio.o
+VIRTIO_OBJS =	virtio_main.o virtio_dma.o \
+		virtio_legacy.o virtio_modern.o virtio_mmio.o
 
 # Virtio MMIO nexus
 VIOMMIONEX_OBJS = viommionex.o
