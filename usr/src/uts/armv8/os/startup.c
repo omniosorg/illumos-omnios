@@ -185,7 +185,6 @@ struct bootops		*bootops = 0;
 int physMemInit = 0;
 struct memlist *boot_scratch;
 
-uintptr_t	eprom_kernelbase;
 pgcnt_t		orig_npages;
 struct memseg *memseg_base;
 
