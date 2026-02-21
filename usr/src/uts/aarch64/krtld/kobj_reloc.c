@@ -184,8 +184,8 @@ do_relocate(struct module *mp, char *reltbl, int nreloc,
 			    (mp->symtbl+(stndx * mp->symhdr->sh_entsize));
 			_kobj_printf(ops, "krtld:\t%s",
 			    conv_reloc_aarch64_type(rtype));
-			_kobj_printf(ops, "\t0x%8lx", off);
-			_kobj_printf(ops, " 0x%8lx", addend);
+			_kobj_printf(ops, "\t0x%.8lx", off);
+			_kobj_printf(ops, " 0x%.8lx", addend);
 			_kobj_printf(ops, "  %s\n",
 			    (const char *)mp->strings + symp->st_name);
 		}
@@ -256,8 +256,8 @@ do_relocate(struct module *mp, char *reltbl, int nreloc,
 
 #ifdef	KOBJ_DEBUG
 		if (kobj_debug & D_RELOCATIONS) {
-			_kobj_printf(ops, "krtld:\t\t\t\t0x%8lx", off);
-			_kobj_printf(ops, " 0x%8lx\n", value);
+			_kobj_printf(ops, "krtld:\t\t\t\t0x%.8lx", off);
+			_kobj_printf(ops, " 0x%.8lx\n", value);
 		}
 #endif
 		if (do_reloc_krtld(rtype, (unsigned char *)off, (Xword *)&value,
