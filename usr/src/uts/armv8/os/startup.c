@@ -813,6 +813,8 @@ startup_memlist(void)
 	ADD_TO_ALLOCATIONS(memseg_base, memseg_sz);
 	PRM_DEBUG(memseg_sz);
 
+	CTASSERT(P2SAMEHIGHBIT((1 << PP_SHIFT), sizeof (struct page)));
+
 	/*
 	 * The page structure hash table size is a power of 2
 	 * such that the average hash chain length is PAGE_HASHAVELEN.

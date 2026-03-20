@@ -1107,8 +1107,8 @@ startup_memlist(void)
 	ADD_TO_ALLOCATIONS(bios_rsvd, rsvdmemlist_sz);
 	PRM_DEBUG(rsvdmemlist_sz);
 
-	/* LINTED */
-	ASSERT(P2SAMEHIGHBIT((1 << PP_SHIFT), sizeof (struct page)));
+	CTASSERT(P2SAMEHIGHBIT((1 << PP_SHIFT), sizeof (struct page)));
+
 	/*
 	 * The page structure hash table size is a power of 2
 	 * such that the average hash chain length is PAGE_HASHAVELEN.
