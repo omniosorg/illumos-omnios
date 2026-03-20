@@ -180,7 +180,6 @@ caddr_t e_data;		/* end of kernel data segment */
 
 struct memlist *phys_install;	/* Total installed physical memory */
 struct memlist *phys_avail;	/* Total available physical memory */
-struct memlist *bios_rsvd;	/* Bios reserved memory */
 
 struct bootops		*bootops = 0;
 int physMemInit = 0;
