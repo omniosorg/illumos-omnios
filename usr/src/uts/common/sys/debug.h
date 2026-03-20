@@ -134,7 +134,7 @@ _NOTE(CONSTCOND) } while (0)
 /*
  * Compile-time assertion. The condition 'x' must be constant.
  */
-#define	CTASSERT(x)	_Static_assert(x, "compile-time assertion failed")
+#define	CTASSERT(x)	_Static_assert(x, "compile-time assertion failed: " #x)
 
 #if defined(_KERNEL) || defined(_FAKE_KERNEL)
 
