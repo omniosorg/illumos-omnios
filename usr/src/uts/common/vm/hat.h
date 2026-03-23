@@ -380,7 +380,15 @@ void	hat_setstat(struct as *, caddr_t, size_t, uint_t);
 #define	HAT_PLAT_ATTR_MASK	0xF00000
 #define	HAT_PROT_MASK		0x0F
 
+/*
+ * Accesses in this HAT should never fault, previously used by the SPARC-only
+ * seg_nf to implement non-faulting address spaces.
+ */
 #define	HAT_NOFAULT		0x10
+
+/*
+ * Page table entries are created with `PT_NOSYNC` and always assumed ref/mod.
+ */
 #define	HAT_NOSYNC		0x20
 
 /*
