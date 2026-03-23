@@ -64,9 +64,9 @@
  * They must never be paged out since segkmem_fault() is a no-op to
  * prevent recursive faults.
  *
- * Currently, seg_kmem pages are sharelocked (p_sharelock == 1) on
- * __x86 and are unlocked (p_sharelock == 0) on __sparc.  Once __x86
- * supports relocation the #ifdef kludges can be removed.
+ * Currently, seg_kmem pages are sharelocked (p_selock == 1) on x86 and
+ * aarch64 and are unlocked (p_selock == 0) on SPARC.  Once the other
+ * platforms support relocation the #ifdef kludges can be removed.
  *
  * seg_kmem pages may be subject to relocation by page_relocate(),
  * provided that the HAT supports it; if this is so, segkmem_reloc
@@ -404,7 +404,7 @@ boot_mapin(caddr_t addr, size_t size)
 
 		(void) page_hashin(pp, &kvp, (u_offset_t)(uintptr_t)addr, NULL);
 		pp->p_lckcnt = 1;
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 		page_downgrade(pp);
 #else
 		page_unlock(pp);
@@ -903,10 +903,13 @@ segkmem_xalloc(vmem_t *vmp, void *inaddr, size_t size, int vmflag, uint_t attr,
 	 * In addition, the x86 hat cannot safely do memory
 	 * allocations while in vmem_populate(), because there
 	 * is no simple bound on its usage.
+	 *
+	 * The aarch64 HAT is derived from the x86 hat and is assumed to have
+	 * the same limitation.
 	 */
 	if (vmflag & VM_MEMLOAD)
 		allocflag = HAT_NO_KALLOC;
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 	else if (vmem_is_populator())
 		allocflag = HAT_NO_KALLOC;
 #endif
@@ -923,7 +926,7 @@ segkmem_xalloc(vmem_t *vmp, void *inaddr, size_t size, int vmflag, uint_t attr,
 		    (PROT_ALL & ~PROT_USER) | HAT_NOSYNC | attr,
 		    HAT_LOAD_LOCK | allocflag);
 		pp->p_lckcnt = 1;
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 		page_downgrade(pp);
 #else
 		if (vmflag & SEGKMEM_SHARELOCKED)
@@ -1014,7 +1017,7 @@ segkmem_xfree(vmem_t *vmp, void *inaddr, size_t size, struct vnode *vp,
 	hat_unload(kas.a_hat, addr, size, HAT_UNLOAD_UNLOCK);
 
 	for (eaddr = addr + size; addr < eaddr; addr += PAGESIZE) {
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 		pp = page_find(vp, (u_offset_t)(uintptr_t)addr);
 		if (pp == NULL)
 			panic("segkmem_free: page not found");

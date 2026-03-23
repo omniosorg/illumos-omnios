@@ -736,7 +736,7 @@ page_t	*page_get_freelist(struct vnode *, u_offset_t, struct seg *,
 
 page_t	*page_get_cachelist(struct vnode *, u_offset_t, struct seg *,
 		caddr_t, uint_t, struct lgrp *);
-#if defined(__i386) || defined(__amd64)
+#if defined(__x86) || defined(__aarch64__)
 int	page_chk_freelist(uint_t);
 #endif
 void	page_list_add(page_t *, int);

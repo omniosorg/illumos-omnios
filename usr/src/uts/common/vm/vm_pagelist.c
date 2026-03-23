@@ -3645,7 +3645,7 @@ page_get_contig_pages(int mnode, uint_t bin, int mtype, uchar_t szc,
 	return (NULL);
 }
 
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 /*
  * Determine the likelihood of finding/coalescing a szc page.
  * Return 0 if the likelihood is small otherwise return 1.
