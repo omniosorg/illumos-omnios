@@ -135,9 +135,7 @@ init_physmem(void)
 			memlist_add_span(addr, size, &piolistp);
 			memlist_add_span(addr, size, &pldriolistp);
 			break;
-#if defined(NOT_YET)
 		case EfiUnacceptedMemoryType:	/* fallthrough */
-#endif
 		case EfiPalCode:		/* fallthrough */
 		case EfiACPIMemoryNVS:		/* fallthrough */
 		case EfiACPIReclaimMemory:	/* fallthrough */
