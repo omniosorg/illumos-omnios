@@ -26,6 +26,7 @@
 #include <sys/types.h>
 
 #include <vm/hat_aarch64.h>
+#include <vm/seg_kmem.h>
 
 #define	KBM_ASSERT(EX) \
 	((void)((EX) || (bop_panic("%s:%d: %s: assertion failed: %s\n", \
@@ -62,20 +63,9 @@ pt_alloc(bootops_t *bop)
 	if (pa == 0)
 		bop_panic("failed to allocate physical page table\n");
 
-	if (physMemInit) {
-		/*
-		 * XXX: This is basically is_reserved_memory() isn't it?  And
-		 * why do we use this _sometimes_ after kernel physmem is
-		 * live?
-		 */
-		page_t *pp = page_numtopp(mmu_btop(pa), SE_EXCL);
-		KBM_ASSERT(pp != NULL);
-		page_pp_lock(pp, 0, 1);
-		KBM_ASSERT(pp != NULL);
-		KBM_ASSERT(!PP_ISFREE(pp));
-		KBM_ASSERT(pp->p_lckcnt == 1);
-		KBM_ASSERT(PAGE_EXCL(pp));
-	}
+	if (physMemInit != 0)
+		boot_mapin((caddr_t)(uintptr_t)pa, MMU_PAGESIZE);
+
 	bzero((void *)(uintptr_t)pa, MMU_PAGESIZE);
 	return (pa);
 }

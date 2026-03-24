@@ -81,7 +81,6 @@ extern void get_system_configuration(void);
 extern page_t *page_get_physical(uintptr_t);
 extern void *mach_cpucontext_alloc(struct cpu *);
 extern void mmu_init(void);
-extern void boot_reserve(void);
 extern void kcpc_hw_init(cpu_t *cp);
 extern int mach_cpu_dip_to_mpidr(dev_info_t *, uint64_t *);
 extern int mach_cpu_create_device_node(cpu_t *, dev_info_t **);

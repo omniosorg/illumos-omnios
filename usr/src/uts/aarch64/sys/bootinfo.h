@@ -106,6 +106,8 @@ struct xboot_info {
 	uint64_t		bi_modules;	/* multiboot modules */
 	uint64_t		bi_phys_installed; /* installed memory */
 	uint64_t		bi_phys_avail;	   /* usable memory */
+	uint64_t		bi_phys_alloc;	   /* dboot allocated physmem */
+	uint64_t		bi_phys_freelist;  /* freelist from dboot */
 	uint64_t		bi_boot_scratch;   /* EFI scratch */
 	uint64_t		bi_fw_code;	   /* runtime services code */
 	uint64_t		bi_fw_data;	   /* runtime services data */

@@ -39,6 +39,7 @@ extern struct memlist *pfreelistp;
 extern struct memlist *pscratchlistp;
 extern struct memlist *pinstalledp;
 extern struct memlist *pmappablep;
+extern struct memlist *pallocp;
 extern struct memlist *piolistp;
 extern struct memlist *pldriolistp;
 extern struct memlist *ptmplistp;

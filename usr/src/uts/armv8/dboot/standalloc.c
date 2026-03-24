@@ -48,22 +48,6 @@ extern	void		resfree(enum RESOURCES type,
 caddr_t		memlistpage;
 extern int	pagesize;
 
-/*
- *  This routine should be called get_a_page().
- *  It allocates from the appropriate entity one or
- *  more pages and maps them in.
- */
-
-caddr_t
-kern_resalloc(caddr_t virthint, size_t size, int align)
-{
-	if (virthint != 0)
-		return (resalloc(RES_CHILDVIRT, size, virthint, align));
-	else {
-		return (resalloc(RES_BOOTSCRATCH, size, NULL, 0));
-	}
-}
-
 int
 get_progmemory(caddr_t vaddr, size_t size, int align)
 {

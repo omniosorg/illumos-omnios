@@ -68,7 +68,9 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 
 	bi->bi_uefi_memmap = (uint64_t)efi_map_header;
 	bi->bi_phys_installed = (uint64_t)pinstalledp;
-	bi->bi_phys_avail = (uint64_t)pfreelistp;
+	bi->bi_phys_avail = (uint64_t)pmappablep;
+	bi->bi_phys_alloc = (uint64_t)pallocp;
+	bi->bi_phys_freelist = (uint64_t)pfreelistp;
 	bi->bi_boot_scratch = (uint64_t)pscratchlistp;
 	bi->bi_fw_code = (uint64_t)pfwcodelistp;
 	bi->bi_fw_data = (uint64_t)pfwdatalistp;
@@ -82,6 +84,12 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 	if (verbosemode && debug) {
 		dprintf("Installed Memory List:\n");
 		memlist_dump(pinstalledp);
+
+		dprintf("Mappable Memory List:\n");
+		memlist_dump(pmappablep);
+
+		dprintf("Allocated Memory List:\n");
+		memlist_dump(pallocp);
 
 		dprintf("Free Memory List:\n");
 		memlist_dump(pfreelistp);

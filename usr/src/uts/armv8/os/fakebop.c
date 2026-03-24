@@ -288,24 +288,12 @@ do_bsys_free(bootops_t *bop __unused, caddr_t virt, size_t size)
 static paddr_t
 do_bop_phys_alloc(bootops_t *bop, size_t size, int align)
 {
-	extern struct memlist *phys_avail;
-	extern int physMemInit;
-	paddr_t pa = bmemlist_find(&phys_avail, size, align);
+	extern struct memlist *boot_freelist;
+	paddr_t pa = bmemlist_find(&boot_freelist, size, align);
+
 	if (pa == 0) {
 		bop_panic("do_bop_phys_alloc(0x%lx, 0x%x) Out of memory\n",
 		    size, align);
-	}
-	if (physMemInit) {
-		page_t *pp;
-#ifdef DEBUG
-		pp = page_numtopp_nolock(mmu_btop(pa));
-		ASSERT(pp != NULL);
-		ASSERT(PP_ISFREE(pp));
-#endif
-		pp = page_numtopp(mmu_btop(pa), SE_EXCL);
-		ASSERT(pp != NULL);
-		ASSERT(!PP_ISFREE(pp));
-		page_unlock(pp);
 	}
 
 	return (pa);
@@ -1709,24 +1697,21 @@ static void
 bmemlist_init(struct xboot_info *xbp)
 {
 	static memlist_t boot_list[MMU_PAGESIZE * 8 / sizeof (memlist_t)];
-	int i;
 	extern struct memlist *phys_install;
 	extern struct memlist *phys_avail;
+	extern struct memlist *boot_allocated;
 	extern struct memlist *boot_scratch;
+	extern struct memlist *boot_freelist;
 
-	for (i = 0; i < sizeof (boot_list) / sizeof (boot_list[0]); i++) {
+	for (int i = 0; i < ARRAY_SIZE(boot_list); i++) {
 		bmemlist_free(&boot_list[i]);
 	}
-	memlist_t *ml;
 
-	ml = (memlist_t *)xbp->bi_phys_avail;
-	phys_avail = bmemlist_dup(ml);
-
-	ml = (memlist_t *)xbp->bi_phys_installed;
-	phys_install = bmemlist_dup(ml);
-
-	ml = (memlist_t *)xbp->bi_boot_scratch;
-	boot_scratch = bmemlist_dup(ml);
+	phys_avail = bmemlist_dup((memlist_t *)xbp->bi_phys_avail);
+	boot_allocated = bmemlist_dup((memlist_t *)xbp->bi_phys_alloc);
+	boot_freelist = bmemlist_dup((memlist_t *)xbp->bi_phys_freelist);
+	phys_install = bmemlist_dup((memlist_t *)xbp->bi_phys_installed);
+	boot_scratch = bmemlist_dup((memlist_t *)xbp->bi_boot_scratch);
 
 	bmemlist_insert(&bootmem_avail, MISC_VA_BASE, MISC_VA_SIZE);
 }

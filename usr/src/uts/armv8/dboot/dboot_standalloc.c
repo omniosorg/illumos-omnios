@@ -52,6 +52,8 @@ extern void kmem_init(void);
 extern void map_phys(pte_t pte_attr, uintptr_t vaddr,
     uint64_t paddr, size_t bytes);
 extern uint64_t memlist_get(uint64_t size, int align, struct memlist **listp);
+extern uint64_t memlist_add_span(uint64_t addr, uint64_t bytes,
+    struct memlist **listp);
 
 extern struct efi_map_header *efi_map_header;
 extern struct memlist *pfreelistp;
@@ -71,6 +73,28 @@ static void init_pt(void);
 #if 0
 static void dump_tables(uint64_t tab, uint64_t va_offset);
 #endif
+
+static uintptr_t
+alloc_phys(uint64_t size, uint64_t align)
+{
+	uint64_t pa = memlist_get(size, align, &pfreelistp);
+
+	if (pa == 0)
+		return (0);
+
+	memlist_add_span(pa, size, &pallocp);
+	bzero((void *)pa, size);
+	return (pa);
+}
+
+static paddr_t
+alloc_pagetable_page(uint_t lvl)
+{
+	paddr_t pa;
+	if ((pa = alloc_phys(MMU_PAGESIZE, MMU_PAGESIZE)) == 0)
+		panic("page table alloc error for level %d\n", lvl);
+	return (pa);
+}
 
 void
 init_memory(void)
@@ -108,14 +132,12 @@ init_pt(void)
 		}
 	}
 
-	if ((paddr = memlist_get(MMU_PAGESIZE, MMU_PAGESIZE, &pfreelistp)) == 0)
+	if ((paddr = alloc_pagetable_page(MMU_PAGE_LEVELS - 1)) == 0)
 		panic("phy alloc error for lower top-level PT\n");
-	memset((void *)paddr, 0, MMU_PAGESIZE);
 	ptbl_low = (pte_t *)paddr;
 
-	if ((paddr = memlist_get(MMU_PAGESIZE, MMU_PAGESIZE, &pfreelistp)) == 0)
+	if ((paddr = alloc_pagetable_page(MMU_PAGE_LEVELS - 1)) == 0)
 		panic("phy alloc error for upper top-level PT\n");
-	memset((void *)paddr, 0, MMU_PAGESIZE);
 	ptbl_high = (pte_t *)paddr;
 
 	/*
@@ -247,16 +269,6 @@ init_pt(void)
 	isb();
 }
 
-static paddr_t
-alloc_pagetable_page(uint_t lvl)
-{
-	paddr_t pa;
-	if ((pa = memlist_get(MMU_PAGESIZE, MMU_PAGESIZE, &pfreelistp)) == 0)
-		panic("page table alloc error for level %d\n", lvl);
-	memset((void *)(uintptr_t)pa, 0, MMU_PAGESIZE);
-	return (pa);
-}
-
 #define	DBOOT_ASSERT(EX) \
 	((void)((EX) || (panic("%s:%d: %s: assertion failed: %s\n", \
 	    __FILE__, __LINE__, __func__, #EX), 0)))
@@ -278,7 +290,7 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, int level)
 			/* XXX: MAKEPTE(...) */
 			ptbl[LEVEL_INDEX(vaddr, l)] = pa |
 			    PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER |
-			    PTE_TABLE;
+			    PTE_NOCONSIST | PTE_TABLE;
 			dsb(ish);
 			isb();
 		} else if (!PTE_ISTABLE(ptbl[LEVEL_INDEX(vaddr, l)], l)) {
@@ -291,7 +303,7 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, int level)
 
 	/* XXX: MAKEPTE */
 	uint_t type = (level == 0) ? PTE_PAGE : PTE_BLOCK;
-	pte_t newpte = paddr | pte_attr | type;
+	pte_t newpte = paddr | pte_attr | PTE_NOCONSIST | type;
 
 	if (PTE_ISVALID(ptbl[LEVEL_INDEX(vaddr, level)]) &&
 	    !PTE_EQUIV(ptbl[LEVEL_INDEX(vaddr, level)], newpte)) {
@@ -388,8 +400,8 @@ resalloc(enum RESOURCES type, size_t bytes, caddr_t virthint, int align)
 						break;
 				}
 
-				paddr = memlist_get(LEVEL_SIZE(l),
-				    LEVEL_SIZE(l), &pfreelistp);
+				paddr = alloc_phys(LEVEL_SIZE(l),
+				    LEVEL_SIZE(l));
 				if (paddr == 0) {
 					panic("couldn't allocate %ld bytes "
 					    "of physmem\n", LEVEL_SIZE(l));

@@ -1254,7 +1254,6 @@ htable_attach(
 	pte_t	pte;
 	pte_t	*ptep;
 	page_t		*pp;
-	extern page_t	*boot_claim_page(pfn_t);
 
 	ht = htable_get_reserve();
 	if (level == mmu.max_level)
@@ -1288,27 +1287,19 @@ htable_attach(
 	if (page_resv(1, KM_NOSLEEP) == 0)
 		panic("page_resv() failed in ptable alloc");
 
-	pp = page_numtopp_nolock(pfn);
-	ASSERT(pp != NULL);
-	ASSERT(!PP_ISFREE(pp));
-	ASSERT(pp->p_lckcnt == 1);
-	ASSERT(PAGE_EXCL(pp));
-
 	/*
-	 * Page table pages that were allocated by dboot or
-	 * in very early startup didn't go through boot_mapin()
-	 * and so won't have vnode/offsets. Fix that here.
+	 * We're inheriting page tables from boot and are still single
+	 * threaded, the hat isn't yet live so we don't need the lock, but we
+	 * do want to ensure the state is as we expect for seg_kmem
 	 */
-	if (pp->p_vnode == NULL) {
-		/* match offset calculation in page_get_physical() */
-		u_offset_t offset = (uintptr_t)ht;
-		offset &= (HOLE_START - 1);
-		offset <<= MMU_PAGESHIFT;
-		offset += HOLE_START;	/* something in VA hole */
-		ASSERT(page_exists(&kvp, offset) == NULL);
-		(void) page_hashin(pp, &kvp, offset, NULL);
-	}
-	page_downgrade(pp);
+	pp = page_numtopp_nolock(pfn);
+	ASSERT3P(pp, !=, NULL);
+	ASSERT(!PP_ISFREE(pp));
+	ASSERT3U(pp->p_lckcnt, ==, 1);
+	ASSERT3P(pp->p_vnode, !=, NULL);
+	ASSERT(PAGE_SHARED(pp));
+	pp->p_lckcnt--;
+	page_unresv(1);
 
 	/*
 	 * Count valid mappings and recursively attach lower level pagetables.

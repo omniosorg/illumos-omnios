@@ -169,8 +169,6 @@ pgcnt_t segziosize = 0;		/* size of zio segment in pages */
 const caddr_t kdi_segdebugbase = (const caddr_t)SEGDEBUGBASE;
 const size_t kdi_segdebugsize = SEGDEBUGSIZE;
 
-static page_t *bootpages;
-
 struct memlist *memlist;
 
 caddr_t s_text;		/* start of kernel text segment */
@@ -184,6 +182,8 @@ struct memlist *phys_avail;	/* Total available physical memory */
 struct bootops		*bootops = 0;
 int physMemInit = 0;
 struct memlist *boot_scratch;
+struct memlist *boot_allocated;
+struct memlist *boot_freelist;
 
 pgcnt_t		orig_npages;
 struct memseg *memseg_base;
@@ -341,36 +341,6 @@ kobj_texthole_free(caddr_t addr, size_t size)
 {
 	panic("unexpected call to kobj_texthole_free()");
 }
-
-/*
- * claim a "setaside" boot page for use in the kernel
- */
-page_t *
-boot_claim_page(pfn_t pfn)
-{
-	page_t *pp;
-
-	pp = page_numtopp_nolock(pfn);
-	ASSERT(pp != NULL);
-
-	if (PP_ISBOOTPAGES(pp)) {
-		if (pp->p_next != NULL)
-			pp->p_next->p_prev = pp->p_prev;
-		if (pp->p_prev == NULL)
-			bootpages = pp->p_next;
-		else
-			pp->p_prev->p_next = pp->p_next;
-	} else {
-		/*
-		 * htable_attach() expects a base pagesize page
-		 */
-		if (pp->p_szc != 0)
-			page_boot_demote(pp);
-		pp = page_numtopp(pfn, SE_EXCL);
-	}
-	return (pp);
-}
-
 
 void
 startup(void)
@@ -614,32 +584,19 @@ memseg_find(pfn_t base, pfn_t *next)
 }
 
 static void
-kphysm_erase(uint64_t addr, uint64_t len)
+kphysm_mapin(uint64_t addr, uint64_t len)
 {
-	pfn_t pfn = btop(addr);
-	pgcnt_t num = btop(len);
-	page_t *pp;
-	while (num--) {
-#ifdef DEBUG
-		pp = page_numtopp_nolock(pfn);
-		ASSERT(pp != NULL);
-		ASSERT(PP_ISFREE(pp));
-#endif
-		pp = page_numtopp(pfn, SE_EXCL);
-		ASSERT(pp != NULL);
-		page_pp_lock(pp, 0, 1);
-		ASSERT(pp != NULL);
-		ASSERT(!PP_ISFREE(pp));
-		ASSERT(pp->p_lckcnt == 1);
-		ASSERT(PAGE_EXCL(pp));
-		pfn++;
-		availrmem_initial--;
-		availrmem--;
+	/* Verify that we are still identity mapped */
+	for (uint64_t off = 0; off < len; off += MMU_PAGESIZE) {
+		VERIFY3U(va_to_pfn((void *)(addr + off)), ==,
+		    mmu_btop(addr + off));
 	}
+
+	boot_mapin((caddr_t)addr, len);
 }
 
 static void
-kphysm_add(uint64_t addr, uint64_t len, int reclaim)
+kphysm_add(uint64_t addr, uint64_t len)
 {
 	struct page *pp;
 	struct memseg *seg;
@@ -649,24 +606,6 @@ kphysm_add(uint64_t addr, uint64_t len, int reclaim)
 	seg = memseg_find(base, NULL);
 	ASSERT(seg != NULL);
 	pp = seg->pages + (base - seg->pages_base);
-
-	if (reclaim) {
-		struct page *rpp = pp;
-		struct page *lpp = pp + num;
-
-		/*
-		 * page should be locked on prom_ppages
-		 * unhash and unlock it
-		 */
-		while (rpp < lpp) {
-			ASSERT(PP_ISNORELOC(rpp));
-			PP_CLRNORELOC(rpp);
-			page_pp_unlock(rpp, 0, 1);
-			page_hashout(rpp, NULL);
-			page_unlock(rpp);
-			rpp++;
-		}
-	}
 
 	add_physmem(pp, num, base);
 	availrmem_initial += num;
@@ -688,7 +627,7 @@ kphysm_init(page_t *pp)
 	 * Build the memsegs entry
 	 */
 	cur_memseg = memseg_base;
-	for (pmem = phys_install; pmem; pmem = pmem->ml_next) {
+	for (pmem = phys_avail; pmem != NULL; pmem = pmem->ml_next) {
 		addr = pmem->ml_address;
 		size = pmem->ml_size;
 
@@ -718,18 +657,17 @@ kphysm_init(page_t *pp)
 		pp += num;
 	}
 
-	/*
-	 * Free the avail list
-	 */
-	for (pmem = phys_install; pmem != NULL; pmem = pmem->ml_next)
-		kphysm_add(pmem->ml_address, pmem->ml_size, 0);
+	/* Add all usable memory */
+	for (pmem = phys_avail; pmem != NULL; pmem = pmem->ml_next)
+		kphysm_add(pmem->ml_address, pmem->ml_size);
 
 	build_pfn_hash();
 
 	/*
-	 * Erase pages from free list
+	 * Memory in the avail list but not the freelist needs to be adopted
+	 * by segkmem
 	 */
-	diff_memlists(phys_install, phys_avail, kphysm_erase);
+	diff_memlists(phys_avail, boot_freelist, kphysm_mapin);
 
 	physMemInit = 1;
 }
@@ -862,6 +800,8 @@ startup_memlist(void)
 	valloc_sz = ROUND_UP_LPAGE(valloc_sz);
 	valloc_base = VALLOC_BASE;
 
+	PRM_DEBUG(segkpm_base);
+
 	/*
 	 * do all the initial allocations
 	 */
@@ -896,20 +836,13 @@ startup_memlist(void)
 	PRM_DEBUG(availrmem);
 	PRM_DEBUG(freemem);
 
-	/*
-	 * Now that page_t's have been initialized, remove all the
-	 * initial allocation pages from the kernel free page lists.
-	 */
-	boot_reserve();
-	PRM_POINT("startup_memlist() done");
-
-	PRM_DEBUG(valloc_sz);
-
 	if ((availrmem >> (30 - MMU_PAGESHIFT)) >=
 	    textrepl_min_gb && l2cache_sz <= 2 << 20) {
 		extern size_t textrepl_size_thresh;
 		textrepl_size_thresh = (16 << 20) - 1;
 	}
+
+	PRM_POINT("startup_memlist() done");
 }
 
 static void
@@ -1370,15 +1303,6 @@ startup_vm(void)
 	PRM_POINT("hat_kern_alloc() done");
 
 	/*
-	 * The next two loops are done in distinct steps in order
-	 * to be sure that any page that is doubly mapped (both above
-	 * KERNEL_TEXT and below kernelbase) is dealt with correctly.
-	 * Note this may never happen, but it might someday.
-	 */
-	bootpages = NULL;
-	PRM_POINT("Protecting boot pages");
-
-	/*
 	 * Switch to running on regular HAT (not boot_mmu)
 	 */
 	PRM_POINT("Calling hat_kern_setup()...");
@@ -1594,36 +1518,54 @@ release_bootstrap(void)
 		(void) ddi_remove_child(dip, 0);
 	}
 
+	/*
+	 * After this point, the EFI memory map -- the primary content of the
+	 * boot scratch space -- is gone.
+	 */
 	PRM_POINT("Releasing boot pages");
-
 	for (struct memlist *scratch = boot_scratch; scratch != NULL;
 	    scratch = scratch->ml_next) {
 		uintptr_t pa = scratch->ml_address;
 		uintptr_t sz = scratch->ml_size;
 		uintptr_t pfn = mmu_btop(pa);
+		pgcnt_t npgs = 0;
 
 		for (uintptr_t i = 0; i < mmu_btop(sz); i++) {
 			extern uint64_t ramdisk_start, ramdisk_end;
 			page_t *pp = page_numtopp_nolock(pfn + i);
-			ASSERT(pp);
-			ASSERT(PAGE_LOCKED(pp));
+
+			ASSERT3P(pp, !=, NULL);
+
+			if (page_tryupgrade(pp) != 1) {
+				panic("%s: boot page can't be locked excl, %p",
+				    __func__, pp);
+			}
+
 			ASSERT(!PP_ISFREE(pp));
+			ASSERT3P(pp->p_vnode, ==, &kvp);
+
 			if ((root_is_ramdisk && pp_in_range(pp, ramdisk_start,
 			    ramdisk_end)) || pp_in_module(pp, modranges)) {
 				pp->p_next = rd_pages;
 				rd_pages = pp;
 				continue;
 			}
-			pp->p_next = (struct page *)0;
-			pp->p_prev = (struct page *)0;
-			PP_CLRBOOTPAGES(pp);
-			page_pp_unlock(pp, 0, 1);
-			page_free(pp, 1);
-			mutex_enter(&freemem_lock);
-			availrmem_initial++;
-			availrmem++;
-			mutex_exit(&freemem_lock);
+
+			pp->p_next = NULL;
+			pp->p_prev = NULL;
+
+			/*
+			 * boot_mapin() does not do a full page_pp_lock() and
+			 * just sets the lock count.  We do the reverse, this
+			 * is necessary to stop page_destroy() over
+			 * accounting.
+			 */
+			pp->p_lckcnt = 0;
+			npgs += 1;
+			page_destroy(pp, 0);
 		}
+
+		page_unresv(npgs);
 	}
 
 	PRM_POINT("Boot pages released");
