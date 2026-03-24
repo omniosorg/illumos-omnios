@@ -769,10 +769,6 @@ startup_memlist(void)
 
 	/*
 	 * Initialize hat's mmu parameters.
-	 * Check for enforce-prot-exec in boot environment. It's used to
-	 * enable/disable support for the page table entry NX bit.
-	 * The default is to enforce PROT_EXEC on processors that support NX.
-	 * Boot seems to round up the "len", but 8 seems to be big enough.
 	 */
 	mmu_init();
 
