@@ -584,10 +584,7 @@ add_physmem(
 	TRACE_2(TR_FAC_VM, TR_PAGE_INIT,
 	    "add_physmem:pp %p num %lu", pp, num);
 
-	/*
-	 * Arbitrarily limit the max page_get request
-	 * to 1/2 of the page structs we have.
-	 */
+	/* Calculate the max page_get request limit */
 	total_pages += num;
 	set_max_page_get(total_pages);
 
