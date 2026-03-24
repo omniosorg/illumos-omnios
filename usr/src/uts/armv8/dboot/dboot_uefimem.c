@@ -24,16 +24,16 @@ struct efi_map_header *efi_map_header = NULL;
 caddr_t _BootScratch;
 caddr_t _BootScratchEnd;
 
-struct memlist *pfreelistp = NULL;
-struct memlist *pscratchlistp = NULL;
-struct memlist *pinstalledp = NULL;
-struct memlist *pmappablep = NULL;
-struct memlist *piolistp = NULL;
-struct memlist *pldriolistp = NULL;
+struct memlist *pfreelistp = NULL; /* memory available to the dboot allocator */
+struct memlist *pscratchlistp = NULL; /* loader scratch code/mem */
+struct memlist *pinstalledp = NULL; /* all memory installed */
+struct memlist *pmappablep = NULL;  /* usable memory */
+struct memlist *piolistp = NULL;    /* I/O space */
+struct memlist *pldriolistp = NULL; /* Loader? I/O space */
 struct memlist *ptmplistp = NULL;
-struct memlist *pfwcodelistp = NULL;
-struct memlist *pfwdatalistp = NULL;
-struct memlist *prsvdlistp = NULL;
+struct memlist *pfwcodelistp = NULL; /* Runtime Services code */
+struct memlist *pfwdatalistp = NULL; /* Runtime Services data */
+struct memlist *prsvdlistp = NULL;   /* Reserved memory */
 
 extern void init_memlists(void);
 extern void init_memory(void);
