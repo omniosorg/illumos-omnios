@@ -96,34 +96,34 @@ struct xboot_cpu_info {
 };
 
 /*
- *
+ * Information passed from the direct boot stub to unix
  */
 struct xboot_info {
-	uint64_t		bi_fdt;
-	uint64_t		bi_uefi_systab;
-	uint64_t		bi_smbios;
-	uint64_t		bi_cmdline;
-	uint64_t		bi_modules;
-	uint64_t		bi_phys_installed;
-	uint64_t		bi_phys_avail;
-	uint64_t		bi_boot_scratch;
-	uint64_t		bi_fw_code;
-	uint64_t		bi_fw_data;
-	uint64_t		bi_fw_mmio;
-	uint64_t		bi_fw_rsvd;
-	uint64_t		bi_uefi_memmap;
-	uint64_t		bi_bsvc_uart_mmio_base;
-	uint64_t		bi_arch_timer_freq;
-	uint64_t		bi_framebuffer;
-	uint64_t		bi_hyp_stubs;
-	uint64_t		bi_cpuinfo;
-	xbi_bsvc_uart_type_t	bi_bsvc_uart_type;
-	uint32_t		bi_cpuinfo_cnt;
-	uint32_t		bi_pcierc_cnt;
-	uint32_t		bi_module_cnt;
-	uint32_t		bi_psci_version;
-	uint32_t		bi_smccc_conduit;
-	uint32_t		bi_smccc_version;
+	uint64_t		bi_fdt; /* flat device tree, if present */
+	uint64_t		bi_uefi_systab; /* uefi systab */
+	uint64_t		bi_smbios;	/* system management bios */
+	uint64_t		bi_cmdline;	/* boot command line */
+	uint64_t		bi_modules;	/* multiboot modules */
+	uint64_t		bi_phys_installed; /* installed memory */
+	uint64_t		bi_phys_avail;	   /* usable memory */
+	uint64_t		bi_boot_scratch;   /* EFI scratch */
+	uint64_t		bi_fw_code;	   /* runtime services code */
+	uint64_t		bi_fw_data;	   /* runtime services data */
+	uint64_t		bi_fw_mmio;	   /* runtime services I/O */
+	uint64_t		bi_fw_rsvd;	   /* reserved memory */
+	uint64_t		bi_bsvc_uart_mmio_base; /* uart mmio address */
+	uint64_t		bi_uefi_memmap;	/* runtime services memory */
+	uint64_t		bi_arch_timer_freq; /* arch. timer freq */
+	uint64_t		bi_framebuffer;	/* frame buffer address */
+	uint64_t		bi_hyp_stubs;	/* hypervisor stubs */
+	uint64_t		bi_cpuinfo;	/* CPU information */
+	xbi_bsvc_uart_type_t	bi_bsvc_uart_type; /* uart type */
+	uint32_t		bi_cpuinfo_cnt;	   /* number of CPUs */
+	uint32_t		bi_pcierc_cnt;	   /* number of PCIe roots */
+	uint32_t		bi_module_cnt;	   /* number of boot modules */
+	uint32_t		bi_psci_version;   /* psci version */
+	uint32_t		bi_smccc_conduit;   /* smccc conduit */
+	uint32_t		bi_smccc_version;   /* smccc version */
 	uint32_t		bi_psci_cpu_suspend_id;
 	uint32_t		bi_psci_cpu_off_id;
 	uint32_t		bi_psci_cpu_on_id;
