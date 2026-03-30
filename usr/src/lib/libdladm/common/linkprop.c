@@ -235,8 +235,6 @@ struct prop_desc {
 	datalink_media_t	pd_dmedia;
 };
 
-#define	MAC_PROP_BUFSIZE(v)	sizeof (dld_ioc_macprop_t) + (v) - 1
-
 /*
  * Supported link properties enumerated in the prop_table[] array are
  * computed using the callback functions in that array. To compute the
@@ -3930,7 +3928,7 @@ i_dladm_buf_alloc_impl(size_t valsize, datalink_id_t linkid,
 	dld_ioc_macprop_t *dip;
 
 	*status = DLADM_STATUS_OK;
-	dsize = MAC_PROP_BUFSIZE(valsize);
+	dsize = DLD_MACPROP_BUFSIZE(valsize);
 	dip = malloc(dsize);
 	if (dip == NULL) {
 		*status = DLADM_STATUS_NOMEM;
