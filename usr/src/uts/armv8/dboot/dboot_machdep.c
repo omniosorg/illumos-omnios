@@ -20,7 +20,7 @@
  */
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -62,9 +62,11 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 	boot_framebuffer_t *fb;
 	struct efi_fb *efifb;
 	extern fb_info_t fb_info;
+	extern struct efi_map_header *efi_map_header;
 
 	efifb = NULL;
 
+	bi->bi_uefi_memmap = (uint64_t)efi_map_header;
 	bi->bi_phys_installed = (uint64_t)pinstalledp;
 	bi->bi_phys_avail = (uint64_t)pfreelistp;
 	bi->bi_boot_scratch = (uint64_t)pscratchlistp;
@@ -116,6 +118,7 @@ exitto(int (*entrypoint)(struct xboot_info *), struct xboot_info *bi)
 		dprintf("  %s: 0x%lx\n", "bi_fw_data", bi->bi_fw_data);
 		dprintf("  %s: 0x%lx\n", "bi_fw_mmio", bi->bi_fw_mmio);
 		dprintf("  %s: 0x%lx\n", "bi_fw_rsvd", bi->bi_fw_rsvd);
+		dprintf("  %s: 0x%lx\n", "bi_uefi_memmap", bi->bi_uefi_memmap);
 		dprintf("  %s: 0x%lx\n", "bi_bsvc_uart_mmio_base",
 		    bi->bi_bsvc_uart_mmio_base);
 		dprintf("  %s: 0x%lx\n", "bi_arch_timer_freq",

@@ -26,7 +26,7 @@
 
 /*
  * Copyright 2020 Joyent, Inc.
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef	_SYS_BOOTINFO_H
@@ -111,6 +111,7 @@ struct xboot_info {
 	uint64_t		bi_fw_data;
 	uint64_t		bi_fw_mmio;
 	uint64_t		bi_fw_rsvd;
+	uint64_t		bi_uefi_memmap;
 	uint64_t		bi_bsvc_uart_mmio_base;
 	uint64_t		bi_arch_timer_freq;
 	uint64_t		bi_framebuffer;
