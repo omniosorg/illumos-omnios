@@ -10,13 +10,14 @@
  */
 
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef _DBOOT_DBOOT_H
 #define	_DBOOT_DBOOT_H
 
 #include <sys/types.h>
+#include <sys/efi.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,15 +29,6 @@ extern int debug;
 #define	dprintf	if (debug) dboot_printf
 
 struct xboot_info;
-
-struct efi_map_header {
-	size_t		memory_size;
-	size_t		descriptor_size;
-	uint32_t	descriptor_version;
-};
-
-#define	efi_mmap_next(ptr, size) \
-	((EFI_MEMORY_DESCRIPTOR *)(((uint8_t *)(ptr)) + (size)))
 
 #define	RNDUP(x, y)	(((x) + ((y) - 1ul)) & ~((y) - 1ul))
 #define	RNDDN(x, y)	((x) & ~((y) - 1ul))

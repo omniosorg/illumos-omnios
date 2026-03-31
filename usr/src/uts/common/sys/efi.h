@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2016 Toomas Soome <tsoome@me.com>
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef _SYS_EFI_H
@@ -217,6 +218,32 @@ typedef struct _EFI_SYSTEM_TABLE64 {
 	uint64_t		NumberOfTableEntries;
 	efiptr64_t		ConfigurationTable;
 } __packed EFI_SYSTEM_TABLE64;
+
+/*
+ * EFI memory map header, as passed by loader via dboot.  This header
+ * structure is a FreeBSD/illumos loader(7) convention, not defined in
+ * the UEFI specification; it describes the data returned by
+ * EFI_BOOT_SERVICES.GetMemoryMap.
+ *
+ * Immediately followed in memory by an array of EFI_MEMORY_DESCRIPTOR
+ * entries (UEFI spec §7.2), each descriptor_size bytes long.  Use
+ * efi_mmap_next to iterate, as descriptor_size may exceed
+ * sizeof (EFI_MEMORY_DESCRIPTOR) in future UEFI revisions.
+ */
+struct efi_map_header {
+	size_t		memory_size;
+	size_t		descriptor_size;
+	uint32_t	descriptor_version;
+};
+
+#define	EFI_MAP_HEADER_SIZE		\
+	(((sizeof (struct efi_map_header)) + 0xf) & ~0xf)
+#define	efi_mmap_next(ptr, size)	\
+	((EFI_MEMORY_DESCRIPTOR *)(((uint8_t *)(ptr)) + (size)))
+#define	efi_mmap_start(hdr)		\
+	((EFI_MEMORY_DESCRIPTOR *)((uint8_t *)(hdr) + EFI_MAP_HEADER_SIZE))
+#define	efi_mmap_ndesc(hdr)		\
+	((hdr)->memory_size / (hdr)->descriptor_size)
 
 #ifdef __cplusplus
 }

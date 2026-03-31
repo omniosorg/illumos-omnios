@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -96,7 +96,6 @@ void
 init_physmem(void)
 {
 	struct efi_map_header	*mhdr;
-	size_t			efisz;
 	EFI_MEMORY_DESCRIPTOR	*map;
 	int			ndesc;
 	EFI_MEMORY_DESCRIPTOR	*p;
@@ -115,12 +114,11 @@ init_physmem(void)
 
 	ptot = stot = rtot = rttot = 0;
 	mhdr = efi_map_header;
-	efisz = (sizeof (struct efi_map_header) + 0xf) & ~0xf;
-	map = (EFI_MEMORY_DESCRIPTOR *)((uint8_t *)mhdr + efisz);
+	map = efi_mmap_start(mhdr);
 	if (mhdr->descriptor_size == 0)
 		panic("init_physmem: invalid memory descriptor size\n");
 
-	ndesc = mhdr->memory_size / mhdr->descriptor_size;
+	ndesc = efi_mmap_ndesc(mhdr);
 
 	for (i = 0, p = map; i < ndesc;
 	    i++, p = efi_mmap_next(p, mhdr->descriptor_size)) {
