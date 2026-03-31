@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  * Copyright 2017 Hayashi Naoyuki
  * Copyright (c) 2015 by Delphix. All rights reserved.
  * Copyright 2012 DEY Storage Systems, Inc.  All rights reserved.
@@ -263,6 +263,7 @@ perform_allocations(void)
 static void startup_init(void);
 static void startup_memlist(void);
 static void startup_kmem(void);
+static void startup_efi(void);
 static void startup_modules(void);
 static void startup_vm(void);
 static void startup_end(void);
@@ -385,6 +386,7 @@ startup(void)
 	startup_memlist();
 	startup_kmem();
 	startup_vm();
+	startup_efi();
 	startup_modules();
 	startup_end();
 }
@@ -1469,6 +1471,22 @@ startup_vm(void)
 	segdev_init();
 
 	PRM_POINT("startup_vm() done");
+}
+
+/*
+ * Initialize EFI Runtime Services.
+ *
+ * This must happen after startup_vm (kmem, hat, and the ASID
+ * allocator are all available) and before release_bootstrap
+ * (called from main.c) reclaims boot scratch memory, which holds
+ * the raw EFI memory map passed from the boot loader.
+ */
+static void
+startup_efi(void)
+{
+	PRM_POINT("startup_efi() starting...");
+	efirt_init();
+	PRM_POINT("startup_efi() done");
 }
 
 void

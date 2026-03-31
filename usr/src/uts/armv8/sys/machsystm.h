@@ -26,6 +26,9 @@
  * Copyright (c) 2010, Intel Corporation.
  * All rights reserved.
  */
+/*
+ * Copyright 2026 Michael van der Westhuizen
+ */
 
 #ifndef _SYS_MACHSYSTM_H
 #define	_SYS_MACHSYSTM_H
@@ -88,6 +91,15 @@ extern void *mach_cpucontext_xalloc(struct cpu *, int);
 extern void mach_cpucontext_xfree(struct cpu *, void *, int, int);
 extern void kcpc_hw_fini(cpu_t *cp);
 extern void siron(void);
+
+/*
+ * UEFI Runtime Services (efirt_machdep.c/efirt_call.S)
+ */
+extern void efirt_init(void);
+extern boolean_t efirt_is_active(void);
+extern uint64_t efirt_call_rt(uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t);
+
 #endif /* _KERNEL */
 
 #ifdef __cplusplus
