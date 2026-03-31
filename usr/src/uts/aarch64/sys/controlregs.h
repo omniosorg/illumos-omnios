@@ -21,7 +21,7 @@
 
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef _SYS_CONTROLREGS_H
@@ -351,7 +351,7 @@
 
 
 #define	TTBR_ASID_SHIFT		48
-#define	TTBR_ASID_MASK		(0xffull << TTBR_ASID_SHIFT)
+#define	TTBR_ASID_MASK		(0xffffull << TTBR_ASID_SHIFT)
 #define	TTBR_ASID(x)		(((x) & TTBR_ASID_MASK) >> TTBR_ASID_SHIFT)
 /*
  * NB: This is read as if it included an implicit 0 1-bit, it does not need

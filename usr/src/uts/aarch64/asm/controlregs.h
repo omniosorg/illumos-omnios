@@ -21,13 +21,26 @@
 
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef	_ASM_CONTROLREGS_H
 #define	_ASM_CONTROLREGS_H
 
 #include <sys/types.h>
+
+/*
+ * TLBI operand construction macros.
+ *
+ * The TLBI instructions that take a VA operand expect:
+ *   Bits [63:48]  ASID
+ *   Bits [43:0]   VA[55:12] (page-aligned address, shifted right by 12)
+ *
+ * See ARM DDI 0487 (ARM ARM), TLBI SYS instruction encoding.
+ */
+#define	TLBI_VA(addr)			(((addr) >> 12) & ((1ul << 44) - 1))
+#define TLBI_ASID(asid)			((uint64_t)(asid) << 48)
+#define	TLBI_VA_ASID(addr, asid)	(TLBI_VA(addr) | TLBI_ASID(asid))
 
 #ifdef	__cplusplus
 extern "C" {
@@ -146,7 +159,37 @@ tlbi_mva(uint64_t addr)
 	 *	VAA (global/non-global, any level)
 	 */
 	__asm__ __volatile__("tlbi vaae1is, %0"
-	    ::"r"((addr >> 12) & ((1ul << 44) - 1)):"memory");
+	    ::"r"(TLBI_VA(addr)):"memory");
+}
+
+static __inline__ void
+tlbi_va_asid(uint64_t addr, uint64_t asid)
+{
+	/*
+	 * TLB Invalidate by VA, ASID, EL1, Inner Shareable, last-level
+	 */
+	uint64_t r = TLBI_VA_ASID(addr, asid);
+	__asm__ __volatile__("tlbi vale1is, %0" ::"r"(r):"memory");
+}
+
+static __inline__ void
+tlbi_va_asid_any(uint64_t addr, uint64_t asid)
+{
+	/*
+	 * TLB Invalidate by VA, ASID, EL1, Inner Shareable, any level
+	 */
+	uint64_t r = TLBI_VA_ASID(addr, asid);
+	__asm__ __volatile__("tlbi vae1is, %0" ::"r"(r):"memory");
+}
+
+static __inline__ void
+tlbi_asid(uint64_t asid)
+{
+	/*
+	 * TLB Invalidate by ASID, EL1, Inner Shareable
+	 */
+	uint64_t r = TLBI_ASID(asid);
+	__asm__ __volatile__("tlbi aside1is, %0" ::"r"(r):"memory");
 }
 
 static __inline__ uint64_t
