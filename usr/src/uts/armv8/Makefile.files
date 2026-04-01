@@ -166,6 +166,8 @@ GICV3_ITS_OBJS += gicv3_its.o
 
 PL03ONE_OBJS += pl03one.o
 
+EFITOD_OBJS += efitod.o
+
 GFX_PRIVATE_OBJS	+=		\
 			gfx_private.o	\
 			gfxp_bitmap.o	\

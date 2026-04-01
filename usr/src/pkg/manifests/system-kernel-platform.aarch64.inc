@@ -26,7 +26,7 @@
 # Copyright 2019 Joyent, Inc.
 # Copyright 2020 Peter Tribble.
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2025 Michael van der Westhuizen
+# Copyright 2026 Michael van der Westhuizen
 #
 
 file path=kernel/drv/$(ARCH)/devfdt
@@ -61,6 +61,7 @@ file path=platform/armv8/kernel/misc/$(ARCH)/pcie mode=0755
 file path=platform/armv8/kernel/misc/$(ARCH)/platmod mode=0755
 dir  path=platform/armv8/kernel/tod
 dir  path=platform/armv8/kernel/tod/$(ARCH)
+file path=platform/armv8/kernel/tod/$(ARCH)/efitod mode=0755
 file path=platform/armv8/kernel/tod/$(ARCH)/pl03one mode=0755
 file path=usr/lib/devfsadm/linkmod/SUNW_misc_link_aarch64.so
 file path=usr/share/man/man4d/devfdt.4d
