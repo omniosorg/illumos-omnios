@@ -10,10 +10,13 @@
  */
 
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/systm.h>
+#include <sys/machclock.h>
+#include <sys/efi.h>
+#include <sys/efirt.h>
 
 /*
  * All platmod functions are weak and are only present when required.
@@ -32,4 +35,15 @@ char *platform_module_list[] = {
 void
 plat_tod_fault(enum tod_fault_type tod_bad __unused)
 {
+}
+
+void
+set_platform_defaults(void)
+{
+	EFI_TIME t;
+	EFI_TIME_CAPABILITIES tc;
+
+	if (efi_get_time(&t, &tc) == EFI_SUCCESS) {
+		tod_module_name = "efitod";
+	}
 }
