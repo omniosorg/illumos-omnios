@@ -58,7 +58,6 @@ static const char *psci_names[] = {
 	"arm,psci-1.5",
 	NULL,
 };
-static size_t num_psci_names = sizeof (psci_names) / sizeof (psci_names[0]);
 
 static const void *
 get_fdtp(void)

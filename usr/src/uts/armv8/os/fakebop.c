@@ -1307,8 +1307,6 @@ build_boot_properties(struct xboot_info *xbp)
 	uint_t i, midx;
 	char modid[32];
 	static int stdout_val = 0;
-	uchar_t boot_device;
-	char str[3];
 
 	/*
 	 * These have to be done first, so that kobj_mount_root() works

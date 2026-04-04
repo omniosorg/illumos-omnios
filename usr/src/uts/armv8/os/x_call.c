@@ -175,7 +175,6 @@ xc_common(
 {
 	int cix;
 	int lcx = (int)(CPU->cpu_id);
-	struct cpu *cpup;
 	cpuset_t cpuset;
 
 	/*

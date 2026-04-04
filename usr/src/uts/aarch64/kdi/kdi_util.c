@@ -64,7 +64,6 @@ kdi_advance_crumb_pointer(kdi_cpusave_t *save)
 int
 kdi_trap_pass(kdi_cpusave_t *cpusave)
 {
-	greg_t pc = cpusave->krs_gregs[KDIREG_PC];
 	greg_t spsr = cpusave->krs_gregs[KDIREG_SPSR];
 	greg_t trapno = cpusave->krs_gregs[KDIREG_TRAPNO];
 

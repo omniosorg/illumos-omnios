@@ -81,12 +81,8 @@ extern void bsvc_init(struct xboot_info *);
 void
 kobj_start(struct xboot_info *xbp)
 {
-	Ehdr *ehdr;
-	Phdr *phdr;
-	uint32_t eadr, padr;
 	val_t bootaux[BA_NUM];
 	int i;
-	extern int moddebug;
 
 	bop_init(xbp);
 	for (i = 0; i < BA_NUM; i++)

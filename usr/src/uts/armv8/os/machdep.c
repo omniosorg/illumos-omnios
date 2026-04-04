@@ -76,7 +76,7 @@ int64_t hrestime_adj;
 volatile timestruc_t hrestime = { .tv_sec = 1447167600 };
 int gethrtime_hires = 0;
 char panicbuf[PANICBUFSIZE];
-static cpuset_t	panic_idle_enter;
+
 #define	PANIC_IDLE_MAXWAIT	0x100
 
 int vac;
@@ -371,10 +371,8 @@ thread_stk_init(caddr_t stk)
 caddr_t
 lwp_stk_init(klwp_t *lwp, caddr_t stk)
 {
-	caddr_t oldstk;
-	struct pcb *pcb = &lwp->lwp_pcb;
+	caddr_t oldstk = stk;
 
-	oldstk = stk;
 	stk -= SA(sizeof (struct regs) + SA(MINFRAME));
 	stk = (caddr_t)((uintptr_t)stk & ~(STACK_ALIGN - 1ul));
 	bzero(stk, oldstk - stk);

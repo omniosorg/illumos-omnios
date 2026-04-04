@@ -360,7 +360,6 @@ setregs(uarg_t *args)
 	struct regs *rp;
 	kthread_t *t = curthread;
 	klwp_t *lwp = ttolwp(t);
-	pcb_t *pcb = &lwp->lwp_pcb;
 	greg_t sp;
 
 	/*

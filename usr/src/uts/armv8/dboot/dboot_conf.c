@@ -131,7 +131,6 @@ struct module_data_t {
 const char *
 dboot_getenv(const char *name)
 {
-	const char *val;
 	extern const char *find_boot_prop(const char *name);
 
 	if (name == NULL)

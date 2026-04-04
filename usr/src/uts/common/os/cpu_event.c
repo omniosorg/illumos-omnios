@@ -736,10 +736,11 @@ cpu_idle_enter(int state, int flag,
 void
 cpu_idle_exit(int flag)
 {
-	int i;
-	cpu_idle_cb_item_t *cip;
-	cpu_idle_cb_state_t *sp __unused; /* XXXARM */
-	cpu_idle_callback_context_t ctx;
+	/* XXXARM */
+	int i __unused;
+	cpu_idle_cb_item_t *cip __unused;
+	cpu_idle_cb_state_t *sp __unused;
+	cpu_idle_callback_context_t ctx __unused;
 #if defined(__x86)
 	ulong_t iflags;
 #endif

@@ -206,15 +206,6 @@ size_t		toxic_size = 1024 * 1024 * 1024;
  */
 #define	MAX_KNOWN_PCIERC	64
 
-
-/*
- * Simple boot time debug facilities
- */
-static char *prm_dbg_str[] = {
-	"%s:%d: '%s' is 0x%x\n",
-	"%s:%d: '%s' is 0x%llx\n"
-};
-
 int prom_debug = 0;
 
 #define	ROUND_UP_PAGE(x)	\
@@ -403,7 +394,7 @@ void
 get_system_configuration(void)
 {
 	char	prop[32];
-	u_longlong_t nodes_ll, cpus_pernode_ll, lvalue;
+	u_longlong_t lvalue;
 
 	if (BOP_GETPROPLEN(bootops, "segmapsize") > sizeof (prop) ||
 	    BOP_GETPROP(bootops, "segmapsize", prop) < 0 ||
@@ -622,8 +613,6 @@ kphysm_erase(uint64_t addr, uint64_t len)
 	pgcnt_t num = btop(len);
 	page_t *pp;
 	while (num--) {
-		int locked;
-
 #ifdef DEBUG
 		pp = page_numtopp_nolock(pfn);
 		ASSERT(pp != NULL);
@@ -683,7 +672,6 @@ kphysm_init(page_t *pp)
 	struct memlist	*pmem;
 	struct memseg	*cur_memseg;
 	pfn_t		base_pfn;
-	pfn_t		end_pfn;
 	pgcnt_t		num;
 	uint64_t	addr;
 	uint64_t	size;
@@ -742,25 +730,17 @@ kphysm_init(page_t *pp)
 static void
 startup_memlist(void)
 {
-	size_t memlist_sz;
 	size_t memseg_sz;
 	size_t pagehash_sz;
 	size_t pp_sz;
 	uintptr_t va __unused;	/* XXXARM */
 	size_t len;
-	uint_t prot;
-	pfn_t pfn;
 	int memblocks;
-	pfn_t rsvd_high_pfn;
-	pgcnt_t rsvd_pgcnt;
-	size_t rsvdmemlist_sz;
-	int rsvdmemblocks;
 	caddr_t pagecolor_mem;
 	size_t pagecolor_memsz;
 	caddr_t page_ctrs_mem;
 	size_t page_ctrs_size;
 	size_t pse_table_alloc_size;
-	struct memlist *current;
 	extern void startup_build_mem_nodes(struct memlist *);
 
 	PRM_POINT("startup_memlist() starting...");
@@ -1541,7 +1521,6 @@ void
 release_bootstrap(void)
 {
 	int root_is_ramdisk;
-	page_t *pp;
 	extern void kobj_boot_unmountroot(void);
 	extern dev_t rootdev;
 	rd_existing_t *modranges;

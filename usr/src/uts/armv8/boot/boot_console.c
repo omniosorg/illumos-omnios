@@ -99,7 +99,6 @@ extern void boot_uart_putchar(int c);
 static void defcons_putchar(int);
 static char *defcons_buf;
 static char *defcons_cur;
-static boolean_t bootprop_set_tty_mode;
 #endif
 
 /*

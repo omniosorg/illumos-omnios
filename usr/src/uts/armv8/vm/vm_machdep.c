@@ -392,9 +392,7 @@ pagefault(
 	faultcode_t res;
 	caddr_t base;
 	size_t len;
-	int err;
 	int mapped_red;
-	uintptr_t ea;
 
 	ASSERT_STACK_ALIGNED();
 

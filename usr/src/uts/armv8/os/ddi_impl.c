@@ -1112,7 +1112,6 @@ i_ddi_remove_softint(ddi_softint_hdl_impl_t *hdlp)
 static dev_info_t *
 i_ddi_interrupt_domain(dev_info_t *pdip)
 {
-	dev_info_t *ret = NULL;
 	dev_info_t *p = pdip;
 
 	ndi_hold_devi(pdip);
@@ -1157,10 +1156,8 @@ i_ddi_interrupt_domain(dev_info_t *pdip)
 static size_t
 i_ddi_get_interrupt(dev_info_t *dip, uint_t inumber, int **ret)
 {
-	int32_t			max_intrs;
 	int			*ip;
 	uint_t			ip_sz;
-	uint32_t		intr = 0;
 
 	if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    OBP_INTERRUPTS, &ip, &ip_sz) == DDI_SUCCESS) {
@@ -2058,11 +2055,9 @@ make_ddi_ppd(dev_info_t *child, struct ddi_parent_private_data **ppd)
 {
 	struct ddi_parent_private_data *pdptr;
 	int n;
-	int *reg_prop, *rng_prop, *irupts_prop;
-	uint_t reg_len, rng_len, irupts_len;
+	int *reg_prop, *rng_prop;
+	uint_t reg_len, rng_len;
 	dev_info_t *parent;
-	int parent_addr_cells, parent_size_cells;
-	int child_addr_cells, child_size_cells;
 
 	*ppd = pdptr = kmem_zalloc(sizeof (*pdptr), KM_SLEEP);
 

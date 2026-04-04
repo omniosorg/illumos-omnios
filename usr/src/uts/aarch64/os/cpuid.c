@@ -187,7 +187,6 @@ void
 cpuid_implementer(const cpu_t *cpu, char *s, size_t n)
 {
 	uint8_t impl = MIDR_IMPL(cpu->cpu_m.mcpu_midr);
-	char *vendor = NULL;
 
 	for (const struct cpu_impl *ci = cpu_impls;
 	    ci->impl_name != NULL; ci++) {
@@ -207,7 +206,6 @@ cpuid_partname(const cpu_t *cpu, char *s, size_t n)
 	uint16_t partid = MIDR_PART(cpu->cpu_m.mcpu_midr);
 	const struct cpu_impl *ci;
 	const struct cpu_partno *cp;
-	char *part = NULL;
 
 	for (ci = cpu_impls; ci->impl_name != NULL; ci++) {
 		if ((ci->impl_id != impl) || (ci->impl_part == NULL))
@@ -231,7 +229,6 @@ cpuid_brandstr(const cpu_t *cpu, char *s, size_t n)
 	uint16_t partid = MIDR_PART(cpu->cpu_m.mcpu_midr);
 	const struct cpu_impl *ci;
 	const struct cpu_partno *cp;
-	char *part = NULL;
 
 	for (ci = cpu_impls; ci->impl_name != NULL; ci++) {
 		if (ci->impl_id != impl)
@@ -939,7 +936,7 @@ static const struct feature_spec feature_specs[] = {
 };
 
 /* XXXARM: I don't understand the manual with SME v. Streaming SVE. */
-static const struct feature_spec sve_feature_specs[] = {
+static const struct feature_spec sve_feature_specs[] __unused = {
 	FEATURE_UNSIGNED(ARM_FEAT_F32MM, ZFR0, F32MM, 1),
 	FEATURE_UNSIGNED(ARM_FEAT_F64MM, ZFR0, F64MM, 1),
 	FEATURE_UNSIGNED(ARM_FEAT_SVE2, ZFR0, SVEVER, ZFR0_FEAT_SVEVER_SVE2),
@@ -955,7 +952,7 @@ static const struct feature_spec sve_feature_specs[] = {
 };
 
 /* XXXARM: I don't understand the manual with SME v. Streaming SVE. */
-static const struct feature_spec sme_feature_specs[] = {
+static const struct feature_spec sme_feature_specs[] __unused = {
 	FEATURE_UNSIGNED(ARM_FEAT_SME_FA64, SMFR0, FA64, 1),
 	FEATURE_UNSIGNED(ARM_FEAT_SME_F64F64, SMFR0, F64F64, 1),
 	FEATURE_UNSIGNED(ARM_FEAT_SME_I16I64, SMFR0, I16I64, 1),

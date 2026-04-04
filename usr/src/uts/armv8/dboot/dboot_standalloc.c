@@ -118,8 +118,6 @@ init_pt(void)
 {
 	uint64_t fbaddr;
 	uintptr_t paddr;
-	uintptr_t pa;
-	uintptr_t sz;
 	struct memlist *ml;
 	extern struct xboot_info *bi;
 

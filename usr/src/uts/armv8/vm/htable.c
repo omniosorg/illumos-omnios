@@ -1817,8 +1817,6 @@ pte_copy(htable_t *src, htable_t *dest, uint_t entry, uint_t count)
 	caddr_t	src_va;
 	caddr_t dst_va;
 	size_t size;
-	pte_t *pteptr;
-	pte_t pte;
 
 	ASSERT(khat_running);
 	ASSERT(!(src->ht_flags & HTABLE_SHARED_PFN));

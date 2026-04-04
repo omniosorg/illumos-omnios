@@ -350,7 +350,6 @@ static void
 showregs(uint32_t type, const struct regs *rp, const caddr_t addr,
     uint64_t esr)
 {
-	static volatile int exclusion;
 	const char *trap_name = NULL, *trap_mnemonic = NULL;
 	ushort_t old;
 
@@ -466,18 +465,11 @@ trap(uint16_t ec, uint64_t esr, caddr_t addr, struct regs *rp)
 	klwp_t *lwp = ttolwp(ct);
 	uintptr_t lofault;
 	label_t *onfault;
-	faultcode_t res, errcode;
+	faultcode_t res;
 	enum fault_type fault_type;
 	k_siginfo_t siginfo;
 	uint_t fault = 0;
 	int mstate;
-	int sicode = 0;
-	int watchcode;
-	int watchpage;
-	caddr_t vaddr;
-	int singlestep_twiddle;
-	size_t sz;
-	int ta;
 	uint32_t iss = ESR_ISS(esr);
 
 	ASSERT((ec == T_AST) || (ec == ESR_EC(esr)));

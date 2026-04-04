@@ -611,7 +611,6 @@ mach_cpucontext_init(void)
 static int
 mp_start_cpu_common(cpu_t *cp)
 {
-	void *ctx;
 	int delays;
 	int error = 0;
 	cpuset_t tempset;

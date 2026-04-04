@@ -96,7 +96,6 @@ static int
 sdt_reloc_resolve(struct module *mp, char *symname, uint8_t *instr)
 {
 	sdt_probedesc_t *sdp;
-	int i;
 
 	/*
 	 * The "statically defined tracing" (SDT) provider for DTrace uses
