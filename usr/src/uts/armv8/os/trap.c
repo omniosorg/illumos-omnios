@@ -380,6 +380,9 @@ showregs(uint32_t type, const struct regs *rp, const caddr_t addr,
 
 	if ((type == T_DATA_ABORT) || (type == T_NV2_DATA_ABORT)) {
 		print_dabort_esr(esr, addr);
+	} else if ((type == T_INSTRUCTION_ABORT) ||
+	    (type == T_INSTRUCTION_ABORT_EL)) {
+		print_iabort_esr(esr, addr);
 	} else if (addr != 0) {
 		printf("addr=0x%p\n", addr);
 	}

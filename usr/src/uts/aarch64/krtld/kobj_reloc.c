@@ -56,13 +56,8 @@
 static uint64_t
 sign_extend(uint64_t v, int num)
 {
-	return ((v + (1ul << (num - 1))) & ((1ul << num) - 1)) - (1ul << (num - 1));
-}
-
-static uint64_t
-extract_literal_offset(sdt_instr_t instr, int lo, int width)
-{
-	return sign_extend((instr >> lo) & ((1ul << width) - 1), width) << 2;
+	return ((v + (1ul << (num - 1))) &
+	    ((1ul << num) - 1)) - (1ul << (num - 1));
 }
 
 static int
@@ -76,20 +71,6 @@ sdt_write_instruction(sdt_instr_t *inst, sdt_instr_t val)
 	isb();
 
 	return 0;
-}
-
-static int
-sdt_check_probepoint(struct module *mp, uintptr_t probe_start, uintptr_t probe_end, uintptr_t addr)
-{
-	uintptr_t* _probe_start = (uintptr_t *)probe_start;
-	uintptr_t* _probe_end = (uintptr_t *)probe_end;
-	while (_probe_start < _probe_end) {
-		//_kobj_printf(ops, "%s: %lx %lx\n", mp->filename, *_probe_start, addr);
-		if (*_probe_start == addr)
-			return 0;
-		_probe_start++;
-	}
-	return -1;
 }
 
 static int

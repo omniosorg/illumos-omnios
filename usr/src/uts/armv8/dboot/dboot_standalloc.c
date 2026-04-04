@@ -65,7 +65,10 @@ static pte_t *l1_ptbl0;
 static pte_t *l1_ptbl1;
 
 static void init_pt(void);
+
+#if 0
 static void dump_tables(uint64_t tab, uint64_t va_offset);
+#endif
 
 static inline int
 l1_pteidx(caddr_t vaddr)
@@ -470,6 +473,7 @@ resfree(enum RESOURCES type, caddr_t virtaddr, size_t size)
 {
 }
 
+#if 0
 static void
 dump_tables(uint64_t tab, uint64_t va_offset)
 {
@@ -548,3 +552,4 @@ recursion:
 		goto recursion;
 	}
 }
+#endif

@@ -83,7 +83,6 @@ static char *do_bsys_nextprop(bootops_t *, char *);
 static void bsetprops(char *, char *);
 static void bsetprop32(char *, uint32_t);
 static void bsetprop64(char *, uint64_t);
-static void bsetpropsi(char *, int);
 static void bsetprop(int, char *, int, void *, int);
 static int parse_value(char *, uint64_t *);
 static void build_boot_properties(struct xboot_info *);
@@ -541,15 +540,6 @@ bsetprop64(char *name, uint64_t value)
 {
 	bsetprop(DDI_PROP_TYPE_INT64, name, strlen(name),
 	    (void *)&value, sizeof (value));
-}
-
-static void
-bsetpropsi(char *name, int value)
-{
-	char prop_val[32];
-
-	(void) snprintf(prop_val, sizeof (prop_val), "%d", value);
-	bsetprops(name, prop_val);
 }
 
 /*
