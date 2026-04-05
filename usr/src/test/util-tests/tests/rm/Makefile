@@ -13,20 +13,13 @@
 # Copyright 2026 Oxide Computer Company
 #
 
-PROGS = mkobj checker equiv
-SCRIPTS = overwrite no-targ ln-LP
+SCRIPTS = rm-test
 
 ROOTOPTDIR = $(ROOT)/opt/util-tests/tests
-ROOTOPTCML = $(ROOTOPTDIR)/cpmvln
-ROOTOPTPROGS = $(PROGS:%=$(ROOTOPTCML)/%) $(SCRIPTS:%=$(ROOTOPTCML)/%)
+ROOTOPTRM = $(ROOTOPTDIR)/rm
+ROOTOPTPROGS = $(SCRIPTS:%=$(ROOTOPTRM)/%)
 
 include $(SRC)/cmd/Makefile.cmd
-include $(SRC)/cmd/Makefile.cmd.64
-include $(SRC)/cmd/Makefile.ctf
-
-CSTD = $(CSTD_GNU17)
-CTF_MODE = link
-mkobj := LDLIBS += -lsocket
 
 .KEEP_STATE:
 
@@ -37,18 +30,18 @@ install: $(ROOTOPTPROGS)
 clean:
 	$(RM) *.o
 
-$(ROOTOPTPROGS): $(PROGS) $(ROOTOPTCML)
+$(ROOTOPTPROGS): $(PROGS) $(ROOTOPTRM)
 
 $(ROOTOPTDIR):
 	$(INS.dir)
 
-$(ROOTOPTCML): $(ROOTOPTDIR)
+$(ROOTOPTRM): $(ROOTOPTDIR)
 	$(INS.dir)
 
-$(ROOTOPTCML)/%: %
+$(ROOTOPTRM)/%: %
 	$(INS.file)
 
-$(ROOTOPTCML)/%: %.ksh
+$(ROOTOPTRM)/%: %.ksh
 	$(INS.rename)
 
 clobber: clean
