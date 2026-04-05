@@ -133,7 +133,6 @@ $(OBJS_DIR)/prom_emul_fdt.o := CPPFLAGS += -I$(SRC)/contrib/libfdt
 # to investigate and remove these for maximum lint coverage.
 # Please do not carry these forward to new Makefiles.
 #
-CERRWARN	+= -_gcc=-Wno-parentheses
 CERRWARN	+= -_gcc=-Wno-uninitialized
 CERRWARN	+= -_gcc=-Wno-char-subscripts
 CERRWARN	+= -_gcc=-Wno-unused-function

@@ -38,7 +38,7 @@ struct efi_map_header {
 #define	efi_mmap_next(ptr, size) \
 	((EFI_MEMORY_DESCRIPTOR *)(((uint8_t *)(ptr)) + (size)))
 
-#define	RNDUP(x, y)	((x) + ((y) - 1ul) & ~((y) - 1ul))
+#define	RNDUP(x, y)	(((x) + ((y) - 1ul)) & ~((y) - 1ul))
 #define	RNDDN(x, y)	((x) & ~((y) - 1ul))
 
 struct memlist;

@@ -2917,7 +2917,7 @@ kalloca(size_t size, size_t align, int cansleep, int physcontig,
 	rsize = P2ROUNDUP_TYPED(size + align, KA_ALIGN, size_t);
 
 	if (physcontig && rsize > PAGESIZE) {
-		if (addr = contig_alloc(size, attr, align, cansleep)) {
+		if ((addr = contig_alloc(size, attr, align, cansleep)) != 0) {
 			if (!putctgas(addr, size))
 				contig_free(addr, size);
 			else
