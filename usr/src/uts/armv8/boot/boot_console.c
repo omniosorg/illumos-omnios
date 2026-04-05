@@ -440,7 +440,7 @@ lookup_console_device(struct xboot_info *xbi, const char *cons_str)
 		if (cons == CONS_TTY) {
 			if (xbi->bi_bsvc_uart_mmio_base == 0 ||
 			    xbi->bi_bsvc_uart_type == XBI_BSVC_UART_NONE) {
-				cons == CONS_SCREEN_TEXT;
+				cons = CONS_SCREEN_TEXT;
 			}
 		}
 
