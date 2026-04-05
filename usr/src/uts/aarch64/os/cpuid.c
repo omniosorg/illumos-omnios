@@ -1122,8 +1122,7 @@ cpuid_gather_arm_features(void *features)
 	 * A2.17 The Memory Partitioning and Monitoring (MPAM) Extension
 	 * See D17.2.67 pp. D16-6005
 	 */
-	if ((PFR0_MPAM(cpuid_regs.pfr0) >= PFR0_FEAT_MPAM_0dotX) &&
-	    (PFR1_MPAM_FRAC(cpuid_regs.pfr1) != PFR1_FEAT_MPAM_MINOR_0)) {
+	if (PFR1_MPAM_FRAC(cpuid_regs.pfr1) != PFR1_FEAT_MPAM_MINOR_0) {
 		add_arm_feature(features, ARM_FEAT_MPAM);
 	}
 
