@@ -150,7 +150,7 @@ typedef struct _kthread {
 	uint8_t	t_lockstat;	/* set while thread is in lockstat code */
 	uint8_t	t_pil;		/* interrupt thread PIL */
 	disp_lock_t	t_pi_lock;	/* lock protecting t_prioinv list */
-	char	t_nomigrate;	/* do not migrate if set */
+	int8_t		t_nomigrate;	/* do not migrate if set */
 	struct cpu	*t_cpu;	/* CPU that thread last ran on */
 	struct cpu	*t_weakbound_cpu;	/* cpu weakly bound to */
 	struct lgrp_ld	*t_lpl;	/* load average for home lgroup */
