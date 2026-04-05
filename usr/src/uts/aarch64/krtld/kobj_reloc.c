@@ -53,13 +53,6 @@
  */
 #define AARCH64_PAGE(x)	((x) & ~0xfff)
 
-static uint64_t
-sign_extend(uint64_t v, int num)
-{
-	return ((v + (1ul << (num - 1))) &
-	    ((1ul << num) - 1)) - (1ul << (num - 1));
-}
-
 static int
 sdt_write_instruction(sdt_instr_t *inst, sdt_instr_t val)
 {
