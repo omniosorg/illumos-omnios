@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 /*
@@ -1283,7 +1283,7 @@ gicv3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	gc->gc_syspic.spo_addspl = gicv3_addspl;
 	gc->gc_syspic.spo_delspl = gicv3_delspl;
 
-	if (!syspic_register_syspic(gc, &gc->gc_syspic)) {
+	if (!syspic_register_syspic(gc, &gc->gc_syspic, dip)) {
 		dev_err(dip, CE_PANIC, "Failed to register GIC as the "
 		    "system programmable interrupt controller.");
 	}

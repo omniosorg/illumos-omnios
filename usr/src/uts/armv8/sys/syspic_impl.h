@@ -11,7 +11,7 @@
 
 /*
  * Copyright 2024 Richard Lowe
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef _SYSPIC_IMPL_H
@@ -154,7 +154,13 @@ extern int syspic_init(void);
  * Called by one (and only one) interrupt driver to register the driver
  * instance for the root of the interrupt hierarchy.
  */
-extern int syspic_register_syspic(spo_ctx_t ctx, syspic_ops_t *ops);
+extern int syspic_register_syspic(spo_ctx_t ctx, syspic_ops_t *ops,
+    dev_info_t *dip);
+
+/*
+ * Return the dev_info_t of the registered system PIC.
+ */
+extern dev_info_t *syspic_get_dip(void);
 
 #endif	/* _KERNEL */
 

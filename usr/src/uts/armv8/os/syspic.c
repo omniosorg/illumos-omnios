@@ -11,7 +11,7 @@
 
 /*
  * Copyright 2024 Richard Lowe
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -53,6 +53,7 @@ static syspic_ops_t spo_default_ops = {
 
 static spo_ctx_t spo_ctx = &spo_default_ops;
 static syspic_ops_t *spo_ops = &spo_default_ops;
+static dev_info_t *syspic_dip;
 
 static void
 stub_not_config(void)
@@ -141,7 +142,7 @@ syspic_init(void)
 }
 
 int
-syspic_register_syspic(spo_ctx_t ctx, syspic_ops_t *ops)
+syspic_register_syspic(spo_ctx_t ctx, syspic_ops_t *ops, dev_info_t *dip)
 {
 	VERIFY3U(spo_ctx, ==, &spo_default_ops);
 	VERIFY3U(spo_ops, ==, &spo_default_ops);
@@ -151,7 +152,16 @@ syspic_register_syspic(spo_ctx_t ctx, syspic_ops_t *ops)
 
 	spo_ctx = ctx;
 	spo_ops = ops;
+	VERIFY3P(dip, !=, NULL);
+	VERIFY3P(syspic_dip, ==, NULL);
+	syspic_dip = dip;
 	return (1);
+}
+
+dev_info_t *
+syspic_get_dip(void)
+{
+	return (syspic_dip);
 }
 
 void

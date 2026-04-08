@@ -21,7 +21,7 @@
 
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 /*
@@ -892,7 +892,7 @@ gicv2_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	xconf->gc_syspic.spo_addspl = gicv2_addspl;
 	xconf->gc_syspic.spo_delspl = gicv2_delspl;
 
-	if (!syspic_register_syspic(xconf, &xconf->gc_syspic)) {
+	if (!syspic_register_syspic(xconf, &xconf->gc_syspic, dip)) {
 		dev_err(dip, CE_PANIC, "Failed to register GIC as the "
 		    "system programmable interrupt controller.");
 	}
