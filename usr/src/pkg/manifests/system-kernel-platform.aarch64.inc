@@ -48,6 +48,7 @@ file path=platform/armv8/kernel/drv/$(ARCH)/efifb
 file path=platform/armv8/kernel/drv/$(ARCH)/gicthree
 file path=platform/armv8/kernel/drv/$(ARCH)/gictwo
 file path=platform/armv8/kernel/drv/$(ARCH)/gicv2m
+file path=platform/armv8/kernel/drv/$(ARCH)/gicv3_its
 file path=platform/armv8/kernel/drv/$(ARCH)/ns16550a
 file path=platform/armv8/kernel/drv/$(ARCH)/rootnex
 file path=platform/armv8/kernel/drv/$(ARCH)/simple-bus
@@ -74,6 +75,7 @@ driver name=gictwo \
     alias=arm,cortex-a15-gic \
     alias=arm,gic-400
 driver name=gicv2m alias=arm,gic-v2m-frame
+driver name=gicv3_its alias=arm,gic-v3-its
 driver name=ns16550a perms="* 0666 root sys" perms="*,cu 0600 uucp uucp" \
     alias=arm,pl011
 driver name=rootnex

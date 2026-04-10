@@ -160,6 +160,7 @@ ARM_GTMR_OBJS += arm_gtmr.o
 GICTWO_OBJS += gictwo.o
 GICV2M_OBJS += gicv2m.o
 GICTHREE_OBJS += gicthree.o
+GICV3_ITS_OBJS += gicv3_its.o
 
 PL03ONE_OBJS += pl03one.o
 
