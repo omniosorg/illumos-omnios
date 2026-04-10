@@ -157,6 +157,8 @@ extern "C" {
 
 #define	GICD_TYPER_CPUNUMBER(n)			(((n)&(GICD_TYPER_CPUNumber)) \
 						>> (GICD_TYPER_CPUNumber_SHIFT))
+#define	GICD_TYPER_IDBITS(n)			((((n) & GICD_TYPER_IDbits) \
+						>> 19) + 1)
 
 #define	GICD_IIDR				0x0008
 #define	GICD_IIDR_ProductID			0xFF000000
@@ -392,6 +394,8 @@ extern "C" {
 #define	GICR_TYPER_Dirty			0x00000004
 #define	GICR_TYPER_VLPIS			0x00000002
 #define	GICR_TYPER_PLPIS			0x00000001
+#define	GICR_TYPER_PROCNUM(n)			\
+	(((n) & GICR_TYPER_Processor_Number) >> 8)
 
 /*
  * Transform a redistributor typer affinity value to a normalized affinity
@@ -442,6 +446,39 @@ extern "C" {
 #define	GICR_PENDBASER_Physical_Address		0x000FFFFFFFFF0000
 #define	GICR_PENDBASER_Shareability		0x0000000000000C00
 #define	GICR_PENDBASER_InnerCache		0x0000000000000380
+
+/*
+ * Shareability field encodings for GICR_PROPBASER, GICR_PENDBASER,
+ * GITS_BASERn, and GITS_CBASER.  The field position varies by register;
+ * these are the raw 2-bit values to be shifted into the appropriate position.
+ */
+#define	GIC_SHARE_NS			0x0	/* Non-shareable */
+#define	GIC_SHARE_IS			0x1	/* Inner Shareable */
+#define	GIC_SHARE_OS			0x2	/* Outer Shareable */
+
+/*
+ * Cacheability field encodings (inner and outer) for the same registers.
+ * Again, raw 3-bit values before shifting.
+ */
+#define	GIC_CACHE_nC			0x1	/* Non-cacheable */
+#define	GIC_CACHE_RaWt			0x2	/* Read-alloc, Write-through */
+#define	GIC_CACHE_RaWb			0x3	/* Read-alloc, Write-back */
+#define	GIC_CACHE_WaWt			0x4	/* Write-alloc, Write-through */
+#define	GIC_CACHE_WaWb			0x5	/* Write-alloc, Write-back */
+#define	GIC_CACHE_RaWaWt		0x6	/* R/W-alloc, Write-through */
+#define	GIC_CACHE_RaWaWb		0x7	/* R/W-alloc, Write-back */
+
+/*
+ * Helper macros to construct PROPBASER/PENDBASER register values.
+ * These shift the raw encoding values into the correct field positions.
+ */
+#define	GICR_PROPBASER_SHARE(v)		((uint64_t)(v) << 10)
+#define	GICR_PROPBASER_IC(v)		((uint64_t)(v) << 7)
+#define	GICR_PROPBASER_OC(v)		((uint64_t)(v) << 56)
+
+#define	GICR_PENDBASER_SHARE(v)		((uint64_t)(v) << 10)
+#define	GICR_PENDBASER_IC(v)		((uint64_t)(v) << 7)
+#define	GICR_PENDBASER_OC(v)		((uint64_t)(v) << 56)
 
 #define	GICR_INVLPIR				0x00a0
 #define	GICR_INVLPIR_V				0x8000000000000000
@@ -860,6 +897,14 @@ extern "C" {
 #define	GITS_TYPER_Virtual			0x0000000000000002
 #define	GITS_TYPER_Physical			0x0000000000000001
 
+/* GITS_TYPER extraction macros */
+#define	GITS_TYPER_PTA_BIT(v)		(((v) & GITS_TYPER_PTA) != 0)
+#define	GITS_TYPER_DEVBITS(v)		((((v) & GITS_TYPER_Devbits) >> 13) + 1)
+#define	GITS_TYPER_IDBITS(v)		((((v) & GITS_TYPER_ID_bits) >> 8) + 1)
+#define	GITS_TYPER_ITT_ENTRY_SZ(v)	((((v) & GITS_TYPER_ITT_entry_size) \
+					>> 4) + 1)
+#define	GITS_TYPER_HCC_VAL(v)		(((v) & GITS_TYPER_HCC) >> 24)
+
 #define	GITS_MPAMIDR				0x0010
 #define	GITS_MPAMIDR_PMGmax			0x00FF0000
 #define	GITS_MPAMIDR_PARTIDmax			0x0000FFFF
@@ -895,6 +940,11 @@ extern "C" {
 #define	GITS_CBASER_Shareability		0x0000000000000C00
 #define	GITS_CBASER_Size			0x00000000000000FF
 
+#define	GITS_CBASER_IC(v)		((uint64_t)(v) << 59)
+#define	GITS_CBASER_OC(v)		((uint64_t)(v) << 53)
+#define	GITS_CBASER_SHARE(v)		((uint64_t)(v) << 10)
+#define	GITS_CBASER_SHARE_VAL(v)	(((v) & GITS_CBASER_Shareability) >> 10)
+
 #define	GITS_CWRITER				0x0088
 #define	GITS_CWRITER_Offset			0x00000000000FFFE0
 #define	GITS_CWRITER_Retry			0x0000000000000001
@@ -903,7 +953,7 @@ extern "C" {
 #define	GITS_CREADR_Offset			0x00000000000FFFE0
 #define	GITS_CREADR_Stalled			0x0000000000000001
 
-#define	GITS_BASERn(n)				(0x0100+(4*(n)))
+#define	GITS_BASERn(n)				(0x0100+(8*(n)))
 #define	GITS_BASERn_Valid			0x8000000000000000
 #define	GITS_BASERn_Indirect			0x4000000000000000
 #define	GITS_BASERn_InnerCache			0x3800000000000000
@@ -915,8 +965,38 @@ extern "C" {
 #define	GITS_BASERn_Page_Size			0x0000000000000300
 #define	GITS_BASERn_Size			0x00000000000000FF
 
+/* MAPD command DW2: ITT address field, bits [51:8] */
+#define	GITS_MAPD_ITT_ADDR			0x000FFFFFFFFFFF00ULL
+
+/* BASERn field extraction */
+#define	GITS_BASERn_TYPE_VAL(v)		(((v) & GITS_BASERn_Type) >> 56)
+#define	GITS_BASERn_ENTRY_SZ_VAL(v)	((((v) & GITS_BASERn_Entry_Size) \
+					>> 48) + 1)
+#define	GITS_BASERn_PGSZ_VAL(v)		(((v) & GITS_BASERn_Page_Size) >> 8)
+#define	GITS_BASERn_SIZE_VAL(v)		((v) & GITS_BASERn_Size)
+#define	GITS_BASERn_SHARE_VAL(v)	(((v) & GITS_BASERn_Shareability) >> 10)
+
+/* BASERn type values */
+#define	GITS_BASER_TYPE_NONE		0
+#define	GITS_BASER_TYPE_DEVICES		1
+#define	GITS_BASER_TYPE_VPES		2
+#define	GITS_BASER_TYPE_COLLECTION	4
+
+/* BASERn page size values */
+#define	GITS_BASER_PGSZ_4K		0
+#define	GITS_BASER_PGSZ_16K		1
+#define	GITS_BASER_PGSZ_64K		2
+
+/* BASERn/CBASER field construction helpers */
+#define	GITS_BASERn_IC(v)		((uint64_t)(v) << 59)
+#define	GITS_BASERn_OC(v)		((uint64_t)(v) << 53)
+#define	GITS_BASERn_SHARE(v)		((uint64_t)(v) << 10)
+#define	GITS_BASERn_PGSZ(v)		((uint64_t)(v) << 8)
+
 #define	GITS_PIDR2				0xffe8
 #define	GITS_PIDR2_ArchRev			0x000000F0
+
+#define	GITS_TRANSLATER				0x10040
 
 /*
  * GICv2m MSI frame registers
