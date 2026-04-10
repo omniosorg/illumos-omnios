@@ -105,6 +105,7 @@
 #include <sys/pcie_impl.h>
 
 #include <sys/mach_intr.h>
+#include <sys/obpdefs.h>
 
 #include <pcierc.h>
 
@@ -1463,9 +1464,12 @@ bcm2711_pcie_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	 * Defensively remove any reference to an MSI capability until we're
 	 * ready for that.
 	 */
-	(void) ddi_prop_undefine(DDI_DEV_T_NONE, dip, DDI_PROP_CANSLEEP, "msi-controller");
-	(void) ddi_prop_undefine(DDI_DEV_T_NONE, dip, DDI_PROP_CANSLEEP, "msi-parent");
-	(void) ddi_prop_undefine(DDI_DEV_T_NONE, dip, DDI_PROP_CANSLEEP, "msi-map");
+	(void) ddi_prop_undefine(DDI_DEV_T_NONE, dip,
+	    DDI_PROP_CANSLEEP, OBP_MSI_CONTROLLER);
+	(void) ddi_prop_undefine(DDI_DEV_T_NONE, dip,
+	    DDI_PROP_CANSLEEP, OBP_MSI_PARENT);
+	(void) ddi_prop_undefine(DDI_DEV_T_NONE, dip,
+	    DDI_PROP_CANSLEEP, OBP_MSI_MAP);
 
 	if ((ret = pcierc_attach(dip, cmd)) != DDI_SUCCESS) {
 		dev_err(dip, CE_WARN, "pcierc_attach failed: %d", ret);

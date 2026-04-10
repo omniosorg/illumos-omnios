@@ -93,6 +93,9 @@ typedef	phandle_t pnode_t;
 
 #define	OBP_MSI_CONTROLLER		"msi-controller"
 #define	OBP_MSI_CELLS			"#msi-cells"
+#define	OBP_MSI_PARENT			"msi-parent"
+#define	OBP_MSI_MAP			"msi-map"
+#define	OBP_MSI_MAP_MASK		"msi-map-mask"
 
 /*
  * From Bindings/interrupt-controller/msi.txt as found in the devicetree-source
