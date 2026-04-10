@@ -65,6 +65,22 @@ typedef struct ihdl_plat {
 
 	/* XXXARM: `void *ihdl_ctlr_private`? */
 	unit_intr_t	*ip_unitintr;	/* devicetree unit interrupt spec. */
+
+	/*
+	 * MSI controller fields.  Set by the MSI controller driver
+	 * during ENABLE; consumed by the nexus driver (pcierc) to
+	 * program the PCI MSI/MSI-X capability registers.
+	 *
+	 *	ip_msi_devid  - Device ID for the MSI controller (e.g. ITS
+	 *			DeviceID, derived from PCI RID via msi-map).
+	 *	ip_msi_addr   - Doorbell physical address (e.g. GITS_TRANSLATER
+	 *			or V2M_MSI_SETSPI_NS register PA).
+	 *	ip_msi_data   - Data value written by the device (e.g. EventID
+	 *			for ITS, SPI number for GICv2m).
+	 */
+	uint32_t	ip_msi_devid;	/* MSI: device ID for controller */
+	uint64_t	ip_msi_addr;	/* MSI: doorbell physical address */
+	uint32_t	ip_msi_data;	/* MSI: data value */
 } ihdl_plat_t;
 
 #endif /* _KERNEL */
