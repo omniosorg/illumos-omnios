@@ -60,6 +60,8 @@ INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 #
 LDFLAGS	+= -Nmisc/pcie
 
+CPPFLAGS += -I$(UTSBASE)/armv8
+
 #
 # For now, disable these checks; maintainers should endeavor
 # to investigate and remove these for maximum coverage.
