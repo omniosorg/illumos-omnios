@@ -260,6 +260,40 @@ add_avintr(void *intr_id, int lvl, avfunc xxintr, char *name, int vect,
 	 */
 	hi_pri = vecp->avh_hi_pri;
 	if (vecp->avh_link && (hi_pri != 0)) {
+#if defined(__aarch64__)
+		/*
+		 * On aarch64, MAX_VECT < the INTID space (LPIs can be
+		 * >=8192), so multiple vectors hash to the same bucket.
+		 * We must only check for IPL conflicts among entries
+		 * with the same vector, not all entries in the bucket.
+		 */
+		struct autovec *p;
+		ushort_t vec_hi = 0, vec_lo = MAXIPL;
+		boolean_t found = B_FALSE;
+
+		for (p = vecp->avh_link; p != NULL; p = p->av_link) {
+			if (p->av_vector == NULL || p->av_prilevel == 0)
+				continue;
+			if (!av_vector_match(p, vect))
+				continue;
+			found = B_TRUE;
+			if (p->av_prilevel > vec_hi)
+				vec_hi = p->av_prilevel;
+			if (p->av_prilevel < vec_lo)
+				vec_lo = p->av_prilevel;
+		}
+
+		if (found) {
+			if (((vec_hi > LOCK_LEVEL) && (lvl < LOCK_LEVEL)) ||
+			    ((vec_hi < LOCK_LEVEL) && (lvl > LOCK_LEVEL))) {
+				cmn_err(CE_WARN, multilevel2, name, lvl, vect,
+				    vec_hi);
+				return (0);
+			}
+			if ((vec_lo != lvl) || (vec_hi != lvl))
+				cmn_err(CE_NOTE, multilevel, vect);
+		}
+#else
 		if (((hi_pri > LOCK_LEVEL) && (lvl < LOCK_LEVEL)) ||
 		    ((hi_pri < LOCK_LEVEL) && (lvl > LOCK_LEVEL))) {
 			cmn_err(CE_WARN, multilevel2, name, lvl, vect,
@@ -268,6 +302,7 @@ add_avintr(void *intr_id, int lvl, avfunc xxintr, char *name, int vect,
 		}
 		if ((vecp->avh_lo_pri != lvl) || (hi_pri != lvl))
 			cmn_err(CE_NOTE, multilevel, vect);
+#endif
 	}
 
 	insert_av(intr_id, vecp, vect, f, arg1, arg2, ticksp, lvl, dip);
