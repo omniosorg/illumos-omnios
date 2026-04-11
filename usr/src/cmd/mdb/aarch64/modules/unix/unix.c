@@ -113,7 +113,8 @@ gic_print_vec(uintptr_t state_addr, const void *aw_buff, void *arg)
 		return (WALK_ERR);
 	}
 
-	uintptr_t av_addr = (uintptr_t)avec_tbl[state.si_vector].avh_link;
+	uintptr_t av_addr =
+	    (uintptr_t)avec_tbl[state.si_vector % MAX_VECT].avh_link;
 
 	while (av_addr != 0x0) {
 		if (mdb_vread(&av, sizeof (struct autovec), av_addr) == -1) {
@@ -123,6 +124,16 @@ gic_print_vec(uintptr_t state_addr, const void *aw_buff, void *arg)
 		}
 
 		if (av.av_vector == NULL) {
+			av_addr = (uintptr_t)av.av_link;
+			continue;
+		}
+
+		/*
+		 * On aarch64, multiple vectors can hash to the same
+		 * autovect bucket.  Only print entries that match
+		 * the vector we're looking for.
+		 */
+		if (av.av_vecnum != state.si_vector) {
 			av_addr = (uintptr_t)av.av_link;
 			continue;
 		}
