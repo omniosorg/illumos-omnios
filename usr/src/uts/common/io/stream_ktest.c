@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2024 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  * Copyright 2024 Ryan Zezeski
  */
 #include <sys/modctl.h>
@@ -187,6 +187,124 @@ cleanup:
 		freemsg(pullmp);
 }
 
+void
+msgpullup_pad_test(ktest_ctx_hdl_t *ctx)
+{
+	const size_t test_1[] = {8, 8};
+	mblk_t *mp = NULL;
+	mblk_t *pullmp = NULL;
+
+	/*
+	 * Test 1 -> Pullup 4 bytes with zero pad.
+	 * This is equivalent to `msgpullup(mp, 4)`.
+	 *
+	 * Assert the same conditions we would for msgpullup.
+	 */
+	mp = init_chain(test_1, 2);
+	KT_EASSERT3P(mp, !=, NULL, ctx);
+	KT_ASSERT3UG(msgsegs(mp), ==, 2, ctx, cleanup);
+	pullmp = msgpullup_pad(mp, 4, 0);
+	KT_EASSERT3PG(pullmp, !=, NULL, ctx, cleanup);
+
+	KT_ASSERT3UG(MBLKL(pullmp), ==, 4, ctx, cleanup);
+	KT_ASSERT3UG(msgsize(pullmp), ==, 16, ctx, cleanup);
+	KT_ASSERT3UG(msgsegs(pullmp), ==, 3, ctx, cleanup);
+	KT_ASSERT3PG(pullmp->b_cont, !=, NULL, ctx, cleanup);
+	KT_ASSERT3PG(pullmp->b_cont->b_datap, ==, mp->b_datap, ctx, cleanup);
+
+	KT_ASSERT3PG(MBLKHEAD(pullmp), ==, 0, ctx, cleanup);
+	/*
+	 * We cannot assert that we do not have tailroom (e.g.,
+	 * db_lim == b_wptr): mblks are drawn from caches of fixed capacity, so
+	 * an allocation is likely to have excess space at the end.
+	 */
+
+	freemsg(mp);
+	freemsg(pullmp);
+
+	/*
+	 * Test 2 -> pullup same length, with a padding of a large (odd) number
+	 * of bytes.
+	 */
+	const size_t test_2_pad = 91;
+	mp = init_chain(test_1, 2);
+	KT_EASSERT3P(mp, !=, NULL, ctx);
+	KT_ASSERT3UG(msgsegs(mp), ==, 2, ctx, cleanup);
+	pullmp = msgpullup_pad(mp, 4, test_2_pad);
+	KT_EASSERT3PG(pullmp, !=, NULL, ctx, cleanup);
+
+	KT_ASSERT3UG(MBLKL(pullmp), ==, 4, ctx, cleanup);
+	KT_ASSERT3UG(msgsize(pullmp), ==, 16, ctx, cleanup);
+	KT_ASSERT3UG(msgsegs(pullmp), ==, 3, ctx, cleanup);
+	KT_ASSERT3PG(pullmp->b_cont, !=, NULL, ctx, cleanup);
+	KT_ASSERT3PG(pullmp->b_cont->b_datap, ==, mp->b_datap, ctx, cleanup);
+
+	KT_ASSERT3PG(MBLKHEAD(pullmp), ==, test_2_pad, ctx, cleanup);
+
+	freemsg(mp);
+	freemsg(pullmp);
+
+	/*
+	 * Test 3 -> 64 (pad 8), pullup 64 (pad 4).
+	 * Should be 64(copy, pad 4).
+	 *
+	 * We expect a brand new mblk here meeting these criteria, even though
+	 * the input mblk is sufficient.
+	 */
+	const size_t test_3_pad = 4;
+	mp = allocb_zeroed(72, BPRI_LO);
+	KT_EASSERT3P(mp, !=, NULL, ctx);
+	KT_ASSERT3UG(msgsegs(mp), ==, 1, ctx, cleanup);
+	mp->b_rptr += 8;
+	pullmp = msgpullup_pad(mp, msgsize(mp), test_3_pad);
+	KT_EASSERT3PG(pullmp, !=, NULL, ctx, cleanup);
+	KT_EASSERT3PG(pullmp, !=, mp, ctx, cleanup);
+
+	KT_ASSERT3UG(MBLKL(pullmp), ==, 64, ctx, cleanup);
+	KT_ASSERT3UG(msgsize(pullmp), ==, 64, ctx, cleanup);
+	KT_ASSERT3UG(msgsegs(pullmp), ==, 1, ctx, cleanup);
+	KT_ASSERT3PG(pullmp->b_cont, ==, NULL, ctx, cleanup);
+
+	KT_ASSERT3PG(MBLKHEAD(pullmp), ==, test_3_pad, ctx, cleanup);
+
+	freemsg(mp);
+	freemsg(pullmp);
+
+	/*
+	 * Test 4 -> 14 + 20 + 8, pullup 42 (pad 2).
+	 * Should be 42 (copy, pad 2).
+	 *
+	 * We expect a single output mblk, not part of a chain.
+	 */
+	const size_t test_4[] = {14, 20, 8};
+	const size_t test_4_pad = 2;
+	mp = init_chain(test_4, 3);
+	KT_EASSERT3P(mp, !=, NULL, ctx);
+	KT_ASSERT3UG(msgsegs(mp), ==, 3, ctx, cleanup);
+	pullmp = msgpullup_pad(mp, 42, test_4_pad);
+	KT_EASSERT3PG(pullmp, !=, NULL, ctx, cleanup);
+	KT_EASSERT3PG(pullmp, !=, mp, ctx, cleanup);
+
+	KT_ASSERT3UG(MBLKL(pullmp), ==, 42, ctx, cleanup);
+	KT_ASSERT3UG(msgsize(pullmp), ==, 42, ctx, cleanup);
+	KT_ASSERT3UG(msgsegs(pullmp), ==, 1, ctx, cleanup);
+	KT_ASSERT3PG(pullmp->b_cont, ==, NULL, ctx, cleanup);
+
+	/* Reference count on the initial chain remains unchanged. */
+	for (mblk_t *curr = mp; curr != NULL; curr = curr->b_cont) {
+		KT_ASSERT3UG(DB_REF(curr), ==, 1, ctx, cleanup);
+	}
+
+	KT_ASSERT3PG(MBLKHEAD(pullmp), ==, test_4_pad, ctx, cleanup);
+
+	KT_PASS(ctx);
+cleanup:
+	if (mp != NULL)
+		freemsg(mp);
+	if (pullmp != NULL)
+		freemsg(pullmp);
+}
+
 static struct modlmisc stream_ktest_modlmisc = {
 	.misc_modops = &mod_miscops,
 	.misc_linkinfo = "stream ktest module"
@@ -210,6 +328,8 @@ _init()
 	VERIFY0(ktest_add_test(ks, "msgsize_test", msgsize_test,
 	    KTEST_FLAG_NONE));
 	VERIFY0(ktest_add_test(ks, "msgpullup_test", msgpullup_test,
+	    KTEST_FLAG_NONE));
+	VERIFY0(ktest_add_test(ks, "msgpullup_pad_test", msgpullup_pad_test,
 	    KTEST_FLAG_NONE));
 
 	if ((ret = ktest_register_module(km)) != 0) {

@@ -16,7 +16,7 @@
 # Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
 # Copyright 2019 Joyent, Inc.
 # Copyright 2022 RackTop Systems, Inc.
-# Copyright 2024 Oxide Computer Company
+# Copyright 2026 Oxide Computer Company
 # Copyright 2025 Peter Tribble
 #
 
@@ -874,6 +874,7 @@ link path=usr/share/man/man9f/mod_modname.9f target=mod_install.9f
 link path=usr/share/man/man9f/mod_remove.9f target=mod_install.9f
 file path=usr/share/man/man9f/msgdsize.9f
 file path=usr/share/man/man9f/msgpullup.9f
+link path=usr/share/man/man9f/msgpullup_pad.9f target=msgpullup.9f
 file path=usr/share/man/man9f/msgsize.9f
 file path=usr/share/man/man9f/mt-streams.9f
 file path=usr/share/man/man9f/mutex.9f

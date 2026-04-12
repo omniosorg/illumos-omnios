@@ -24,6 +24,7 @@
  * Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
  * Copyright 2015 Joyent, Inc.  All rights reserved.
  * Copyright 2022 Garrett D'Amore
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -798,6 +799,7 @@ extern mblk_t *reallocb(mblk_t *, size_t, uint_t);	/* private */
 extern mblk_t *rmvb(mblk_t *, mblk_t *);
 extern int pullupmsg(struct msgb *, ssize_t);
 extern mblk_t *msgpullup(struct msgb *, ssize_t);
+extern mblk_t *msgpullup_pad(struct msgb *, ssize_t, size_t);
 extern int adjmsg(struct msgb *, ssize_t);
 extern size_t msgdsize(struct msgb *);
 extern mblk_t *getq(queue_t *);

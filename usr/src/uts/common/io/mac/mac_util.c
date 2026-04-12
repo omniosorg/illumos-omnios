@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2019 Joyent, Inc.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -247,11 +247,15 @@ mac_sw_cksum(mblk_t *mp, mac_emul_t emul)
 	 * 1. Collected in the first mblk
 	 * 2. Held in a data-block which is safe for us to modify
 	 *    (It must have a refcount of 1)
+	 * 3. IP headers are 4-byte aligned. IP header size is always a multiple
+	 *    of 4 bytes, thus L4 headers will also be safe to access.
 	 */
 	const size_t hdr_len_reqd = (meoi.meoi_l2hlen + meoi.meoi_l3hlen) +
 	    (do_ulp_cksum ? meoi.meoi_l4hlen : 0);
-	if (MBLKL(mp) < hdr_len_reqd || DB_REF(mp) > 1) {
-		mblk_t *hdrmp = msgpullup(mp, hdr_len_reqd);
+	if (MBLKL(mp) < hdr_len_reqd || DB_REF(mp) > 1 ||
+	    !OK_32PTR(mp->b_rptr + meoi.meoi_l2hlen)) {
+		const size_t pad_by = (4 - (meoi.meoi_l2hlen % 4)) % 4;
+		mblk_t *hdrmp = msgpullup_pad(mp, hdr_len_reqd, pad_by);
 
 		if (hdrmp == NULL) {
 			err = "could not pullup msg headers";
@@ -766,14 +770,15 @@ mac_sw_lso(mblk_t *omp, mac_emul_t emul, mblk_t **head, mblk_t **tail,
 	ASSERT3U(opktlen, <=, IP_MAXPACKET + oehlen);
 
 	/*
-	 * Ensure the headers are contiguous. The IP header is used only for the
-	 * benefit of DTrace SDTs, whereas the TCP header is actively read.
-	 * This small pullup should only practically happen when
-	 * mac_add_vlan_tag is in play, which prepends a new mblk in front
-	 * containing the amended Ethernet header.
+	 * Ensure the headers are contiguous and that L3 and L4 headers are 4B
+	 * aligned. The IP header is used only for the benefit of DTrace SDTs,
+	 * whereas the TCP header is actively read. This small pullup should
+	 * only practically happen when mac_add_vlan_tag is in play, which
+	 * prepends a new mblk in front containing the amended Ethernet header.
 	 */
-	if (MBLKL(omp) < ohdrslen) {
-		mblk_t *tmp = msgpullup(omp, ohdrslen);
+	const size_t pad_by = (4 - (meoi.meoi_l2hlen % 4)) % 4;
+	if (MBLKL(omp) < ohdrslen || !OK_32PTR(omp->b_rptr + oehlen)) {
+		mblk_t *tmp = msgpullup_pad(omp, ohdrslen, pad_by);
 
 		if (tmp == NULL) {
 			mac_drop_pkt(omp, "failed to pull up");
@@ -888,11 +893,12 @@ mac_sw_lso(mblk_t *omp, mac_emul_t emul, mblk_t **head, mblk_t **tail,
 		uint32_t seg_len;
 
 		/*
+		 * Ensure that we have 4B L3/L4 alignment for any output frames.
 		 * If we fail to allocate, then drop the partially
 		 * allocated chain as well as the LSO packet. Let the
 		 * sender deal with the fallout.
 		 */
-		if ((nhdrmp = allocb(ohdrslen, 0)) == NULL) {
+		if ((nhdrmp = allocb(pad_by + ohdrslen, 0)) == NULL) {
 			freemsgchain(seg_chain);
 			mac_drop_pkt(omp, "failed to alloc segment header");
 			goto fail;
@@ -900,8 +906,9 @@ mac_sw_lso(mblk_t *omp, mac_emul_t emul, mblk_t **head, mblk_t **tail,
 		ASSERT3P(nhdrmp->b_cont, ==, NULL);
 
 		/* Copy over the header stack. */
+		nhdrmp->b_rptr += pad_by;
+		nhdrmp->b_wptr = nhdrmp->b_rptr + ohdrslen;
 		bcopy(omp->b_rptr, nhdrmp->b_rptr, ohdrslen);
-		nhdrmp->b_wptr += ohdrslen;
 
 		if (seg_chain == NULL) {
 			seg_chain = nhdrmp;

@@ -245,6 +245,7 @@ SYMBOL_SCOPE {
 	mod_install			{ FLAGS = EXTERN };
 	mod_remove			{ FLAGS = EXTERN };
 	msgpullup			{ FLAGS = EXTERN };
+	msgpullup_pad			{ FLAGS = EXTERN };
 	msgsize				{ FLAGS = EXTERN };
 	mutex_destroy			{ FLAGS = EXTERN };
 	mutex_enter			{ FLAGS = EXTERN };

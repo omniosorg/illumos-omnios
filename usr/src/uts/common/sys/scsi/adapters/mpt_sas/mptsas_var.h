@@ -133,13 +133,9 @@ typedef uint32_t		mptsas_phymask_t;
  * DMA-support routines can use it to break up the I/O request, so we
  * define it here.
  */
-#if defined(__sparc)
-#define	MPTSAS_MAX_DMA_SEGS	1
-#define	MPTSAS_MAX_CMD_SEGS	1
-#else
 #define	MPTSAS_MAX_DMA_SEGS	256
 #define	MPTSAS_MAX_CMD_SEGS	257
-#endif
+
 #define	MPTSAS_MAX_FRAME_SGES(mpt) \
 	(((mpt->m_req_frame_size - (sizeof (MPI2_SCSI_IO_REQUEST))) / 8) + 1)
 
