@@ -70,8 +70,6 @@ static ddi_softint_hdl_impl_t cbe_clock_hdl =
 
 static hrtime_t cbe_timer_resolution;
 
-static int cbe_ticks = 0;	/* XXXARM: why do we need this? */
-
 /*
  * cbe_xcall_lock is used to protect the xcall globals since the cyclic
  * reprogramming API does not use cpu_lock.
@@ -248,34 +246,35 @@ cbe_hres_tick(void)
 	s = splr(ipltospl(XC_HI_PIL));
 	hres_tick();
 	splx(s);
-
-	cbe_ticks++;
 }
 
 /*
  * Cyclic backend interrupt handlers.
  *
- * `cbe_fire' is hooked up to the generic timer virtual or non-secure
- * interrupt as appropriate for the boot exception level. `cbe_fire_ipi' is
- * an IPI handler and `cbe_softclock' and `cbe_low_level' are soft interrupts.
+ * The Arm Generic Timer is a per-CPU PPI (Private Peripheral Interrupt):
+ * every CPU has its own independent timer hardware, programmed via CVAL
+ * and reprogrammed by the cyclic subsystem through cbe_reprogram().
+ * This is analogous to x86 APIC one-shot mode where each CPU owns its
+ * own local timer.
+ *
+ * `cbe_fire' is the per-CPU timer PPI handler -- it processes the local
+ * CPU's cyclic heap only.  Unlike the i86pc periodic-mode CBE, there is
+ * no IPI broadcast to other CPUs; each CPU's PPI fires independently.
+ *
+ * `cbe_fire_ipi' handles cross-calls sent by cbe_xcall() when the cyclic
+ * subsystem needs to manipulate a remote CPU's cyclic heap (e.g. adding
+ * or removing a cyclic).  It calls cyclic_fire() to process the updated
+ * heap after the cross-call function runs.
+ *
+ * `cbe_softclock' and `cbe_low_level' are soft interrupt handlers driven
+ * by the cyclic subsystem for CY_LOCK_LEVEL and CY_LOW_LEVEL cyclics.
  */
 
 static uint_t
 cbe_fire(caddr_t arg1 __unused, caddr_t arg2 __unused)
 {
-	cpu_t *cpu = CPU;
-	processorid_t me = cpu->cpu_id, i;
-
 	arch_timer_set_cval(CNT_CVAL_MAX);
-
-	cyclic_fire(cpu);
-
-	for (i = 0; i < NCPU; i++) {
-		if (CPU_IN_SET(cbe_enabled, i) && me != i) {
-			send_dirint(i, IRQ_IPI_CBE);
-		}
-	}
-
+	cyclic_fire(CPU);
 	return (DDI_INTR_CLAIMED);
 }
 

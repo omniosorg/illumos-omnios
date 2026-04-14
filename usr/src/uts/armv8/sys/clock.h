@@ -48,7 +48,6 @@ extern void rtcsync(void);
 
 extern void unlock_hres_lock(void);
 extern void hres_tick(void);
-extern void (*hrtime_tick)(void);
 
 #define	ADJ_SHIFT 4		/* used in get_hrestime */
 
