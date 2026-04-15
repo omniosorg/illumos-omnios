@@ -32,7 +32,6 @@
 #define	PSMI_1_7
 #include <sys/smp_impldefs.h>
 #include <sys/cmn_err.h>
-#include <sys/strlog.h>
 #include <sys/clock.h>
 #include <sys/debug.h>
 #include <sys/cpupart.h>
@@ -40,16 +39,14 @@
 #include <sys/cpu_event.h>
 #include <sys/cmt.h>
 #include <sys/cpu.h>
-#include <sys/disp.h>
 #include <sys/archsystm.h>
 #include <sys/machsystm.h>
 #include <sys/sysmacros.h>
 #include <sys/memlist.h>
 #include <sys/param.h>
 #include <sys/promif.h>
-#include <sys/cpu_pm.h>
-#include <sys/controlregs.h>
-#include <sys/irq.h>
+#include <sys/sunddi.h>
+#include <sys/sunndi.h>
 #include <sys/cpuinfo.h>
 
 extern void return_instr(void);
@@ -71,101 +68,6 @@ mach_softlvl_to_vect(int ipl)
 	kdisetsoftint = kdi_av_set_softint_pending;
 
 	return (-1);
-}
-
-int
-pg_plat_hw_shared(cpu_t *cp, pghw_type_t hw)
-{
-	switch (hw) {
-	case PGHW_CHIP:
-		return (1);
-	case PGHW_CACHE:
-		return (1);
-	default:
-		return (0);
-	}
-}
-
-/*
- * Compare two CPUs and see if they have a pghw_type_t sharing relationship
- * If pghw_type_t is an unsupported hardware type, then return -1
- */
-int
-pg_plat_cpus_share(cpu_t *cpu_a, cpu_t *cpu_b, pghw_type_t hw)
-{
-	id_t pgp_a, pgp_b;
-
-	pgp_a = pg_plat_hw_instance_id(cpu_a, hw);
-	pgp_b = pg_plat_hw_instance_id(cpu_b, hw);
-
-	if (pgp_a == -1 || pgp_b == -1)
-		return (-1);
-
-	return (pgp_a == pgp_b);
-}
-
-
-/*
- * Return a physical instance identifier for known hardware sharing
- * relationships
- */
-id_t
-pg_plat_hw_instance_id(cpu_t *cpu, pghw_type_t hw)
-{
-	switch (hw) {
-	case PGHW_CACHE:
-		return (read_mpidr() & 0xFF);
-	case PGHW_CHIP:
-		return (((read_mpidr() >> 16) |
-		    (read_mpidr() >> 8)) & 0xFFFFFF);
-	default:
-		return (-1);
-	}
-}
-
-/*
- * Override the default CMT dispatcher policy for the specified
- * hardware sharing relationship
- */
-pg_cmt_policy_t
-pg_plat_cmt_policy(pghw_type_t hw)
-{
-	switch (hw) {
-	case PGHW_CACHE:
-		return (CMT_BALANCE|CMT_AFFINITY);
-	default:
-		return (CMT_NO_POLICY);
-	}
-}
-
-id_t
-pg_plat_get_core_id(cpu_t *cpu)
-{
-	return (read_mpidr() & 0xFF);
-}
-
-pghw_type_t
-pg_plat_hw_rank(pghw_type_t hw1, pghw_type_t hw2)
-{
-	int i, rank1, rank2;
-
-	static pghw_type_t hw_hier[] = {
-		PGHW_CACHE,
-		PGHW_CHIP,
-		PGHW_NUM_COMPONENTS
-	};
-
-	for (i = 0; hw_hier[i] != PGHW_NUM_COMPONENTS; i++) {
-		if (hw_hier[i] == hw1)
-			rank1 = i;
-		if (hw_hier[i] == hw2)
-			rank2 = i;
-	}
-
-	if (rank1 > rank2)
-		return (hw1);
-	else
-		return (hw2);
 }
 
 void
