@@ -291,6 +291,10 @@ va_to_pfn(void *vaddr)
 {
 	uintptr_t va = ALIGN2PAGE(vaddr);
 
+	/*
+	 * On x86 this is only usable during early boot, and to avoid booby
+	 * trapping common code we pretend to be the same.
+	 */
 	if (khat_running)
 		panic("va_to_pfn(): called too late\n");
 

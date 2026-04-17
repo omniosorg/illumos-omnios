@@ -24,7 +24,7 @@
 #
 #
 #	This makefile drives the production of the Marvell Yukon
-#	Gigabit Ethernet (YGE) driver module in x86 systems
+#	Gigabit Ethernet (YGE) driver module in aarch64 systems
 #
 
 #

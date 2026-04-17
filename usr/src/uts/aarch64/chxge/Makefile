@@ -27,7 +27,7 @@
 
 #
 #	This makefile drives the production of the Chelsio N110
-#	10G Ethernet (CH) driver module in x86 systems
+#	10G Ethernet (CH) driver module in aarch64 systems
 #
 
 #

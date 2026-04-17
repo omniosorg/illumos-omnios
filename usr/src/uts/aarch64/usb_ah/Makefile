@@ -25,7 +25,7 @@
 # uts/aarch64/usb_ah/Makefile
 #
 #	This makefile drives the production of the usb_ah driver
-#	kernel module. Intel architecture dependent
+#	kernel module. aarch64 architecture dependent
 #
 
 

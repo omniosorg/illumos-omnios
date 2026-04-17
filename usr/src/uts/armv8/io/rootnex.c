@@ -3893,12 +3893,6 @@ rootnex_dma_win(dev_info_t *dip, dev_info_t *rdip, ddi_dma_handle_t handle,
  * ************************
  */
 
-/*
- * rootnex_dma_mctl()
- *
- * We don't support this legacy interface any more on x86.
- */
-/* ARGSUSED */
 static int
 rootnex_dma_mctl(dev_info_t *dip, dev_info_t *rdip, ddi_dma_handle_t handle,
     enum ddi_dma_ctlops request, off_t *offp, size_t *lenp, caddr_t *objpp,

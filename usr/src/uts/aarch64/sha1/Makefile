@@ -84,9 +84,3 @@ $(ROOTLINK):	$(ROOT_MISC_DIR) $(ROOTMODULE)
 #	Include common targets.
 #
 include $(UTSBASE)/aarch64/Makefile.targ
-
-$(OBJS_DIR)/sha1-x86_64.o: sha1-x86_64.s
-	$(COMPILE.s) -o $@ ${@F:.o=.s}
-
-sha1-x86_64.s: $(COMDIR)/sha1/amd64/sha1-x86_64.pl
-	$(PERL) $? $@

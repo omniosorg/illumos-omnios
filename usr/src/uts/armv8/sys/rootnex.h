@@ -304,8 +304,9 @@ typedef struct rootnex_dma_s {
 	 * pre allocated space for the bind state, allocated during alloc
 	 * handle. For a lot of devices, this will save us from having to do
 	 * kmem_alloc's during the bind most of the time. kmem_alloc's can be
-	 * expensive on x86 when the cpu count goes up since xcalls are
-	 * expensive on x86.
+	 * expensive when the cpu count goes up because of the xcalls.
+	 *
+	 * XXXARM: this was noted as true on x86, is it on ARM?
 	 */
 	uchar_t			*dp_prealloc_buffer;
 

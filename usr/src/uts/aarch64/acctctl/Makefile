@@ -26,7 +26,7 @@
 
 #
 # This makefile drives the production of the acctctl system call module.
-# Intel architecture dependent
+# aarch64 architecture dependent
 #
 
 #

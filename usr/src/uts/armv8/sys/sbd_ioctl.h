@@ -337,8 +337,8 @@ typedef struct {
 #define	ESTC_BNUM		1002	/* Invalid board number */
 #define	ESTC_CONFIGBUSY		1003
 	/* Cannot proceed; Board is configured or busy */
-#define	ESTC_PROBE		1004	/* Solaris failed to probe */
-#define	ESTC_DEPROBE		1005	/* Solaris failed to deprobe */
+#define	ESTC_PROBE		1004	/* OS failed to probe */
+#define	ESTC_DEPROBE		1005	/* OS failed to deprobe */
 #define	ESTC_MOVESIGB		1006	/* Firmware move-cpu0 failed */
 #define	ESTC_SUPPORT		1007	/* Operation not supported */
 #define	ESTC_DRVFAIL		1008	/* Device driver failure */

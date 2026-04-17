@@ -54,7 +54,7 @@ ALL_TARGET	= $(BINARY)
 INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 
 #
-#	GENERAL PURPOUSE GEM FLAGS: Tuning GEM for Solaris specific modes
+#	GENERAL PURPOUSE GEM FLAGS: Tuning GEM for illumos specific modes
 #
 VFLAGS		= -DVERSION='"2.6.1"'
 AFLAGS		= -Darmv8

@@ -387,7 +387,7 @@ boot_fb_shadow_init(bootops_t *bops)
 void
 boot_get_color(uint32_t *fg, uint32_t *bg)
 {
-	/* ansi to solaris colors, see also boot_console.c */
+	/* ansi to illumos colors, see also boot_console.c */
 	if (fb_info.inverse == B_TRUE ||
 	    fb_info.inverse_screen == B_TRUE) {
 		if (fb_info.fg_color < XLATE_NCOLORS) {

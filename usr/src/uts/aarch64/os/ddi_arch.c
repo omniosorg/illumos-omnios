@@ -26,7 +26,7 @@
 
 
 /*
- * This file contains ddi functions common to intel architectures
+ * This file contains ddi functions common to aarch64 architectures
  */
 
 #include <sys/archsystm.h>

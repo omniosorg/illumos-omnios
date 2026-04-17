@@ -3026,7 +3026,7 @@ i_ddi_check_cache_attr(uint_t flags)
 	if ((cache_attr != 0) && !ISP2(cache_attr))
 		return (B_FALSE);
 
-	/* All cache attributes are supported on X86/X64 */
+	/* All cache attributes are supported on aarch64 */
 	if (cache_attr & (IOMEM_DATA_UNCACHED | IOMEM_DATA_CACHED |
 	    IOMEM_DATA_UC_WR_COMBINE))
 		return (B_TRUE);

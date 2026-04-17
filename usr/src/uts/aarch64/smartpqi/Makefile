@@ -24,7 +24,7 @@
 #	This makefile drives the production of the smartpqi driver kernel
 #	 module.
 #
-#	intel architecture dependent
+#	aarch64 architecture dependent
 #
 
 #

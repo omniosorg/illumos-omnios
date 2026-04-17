@@ -1683,7 +1683,7 @@ nodrain:
 		    nsasync->nsasync_ttycommon.t_cflag & NSASYNC_WOPEN);
 		nsasync->nsasync_flags |= NSASYNC_DTR_DELAY;
 
-		/* turn off DTR, RTS but NOT interrupt to 386 */
+		/* turn off DTR, RTS but NOT interrupt to processor */
 		if (ns16550->ns16550_flags & (NS16550_IGNORE_CD|NS16550_RTS_DTR_OFF)) {
 			DEBUGCONT3(NS16550_DEBUG_MODEM,
 			    "ns16550%dclose: NS16550_IGNORE_CD flag = %x, "

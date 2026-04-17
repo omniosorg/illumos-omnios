@@ -24,7 +24,7 @@
 #
 #
 #	This makefile drives the production of the EtherLink XL
-#	Ethernet driver module in x86 systems
+#	Ethernet driver module in aarch64 systems
 #
 
 #

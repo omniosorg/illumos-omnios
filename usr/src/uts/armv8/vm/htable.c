@@ -1364,8 +1364,9 @@ htable_scan(htable_t *ht, uintptr_t *vap, uintptr_t eaddr)
 	e = htable_va2entry(va, ht);
 
 	/*
-	 * The following page table scan code knows that the valid
-	 * bit of a PTE is in the lowest byte AND that x86 is little endian!!
+	 * The following page table scan code knows that the valid bit of a
+	 * PTE is in the lowest byte AND that aarch64 is little endian, due to
+	 * the use of caddr_t.
 	 */
 	pte_ptr = (caddr_t)PT_INDEX_PTR(hat_kpm_pfn2va(ht->ht_pfn), 0);
 	end_pte_ptr = (caddr_t)PT_INDEX_PTR(pte_ptr, HTABLE_NUM_PTES(ht));

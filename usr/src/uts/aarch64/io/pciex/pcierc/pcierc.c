@@ -91,10 +91,12 @@
 		== DDI_ACCATTR_CONFIG_SPACE)
 
 /*
- * Disable URs and Received MA for all PCIe devices.  Until x86 SW is changed so
- * that random drivers do not do PIO accesses on devices that it does not own,
- * these error bits must be disabled.  SERR must also be disabled if URs have
- * been masked.
+ * Disable URs and Received MA for all PCIe devices.  Until platform SW is
+ * changed so that random drivers do not do PIO accesses on devices that it
+ * does not own, these error bits must be disabled.  SERR must also be
+ * disabled if URs have been masked.
+ *
+ * XXXARM: I doubt this is actually true of aarch64, as it was of x86
  */
 uint32_t	pcierc_aer_uce_mask = PCIE_AER_UCE_UR;
 uint32_t	pcierc_aer_ce_mask = 0;
@@ -418,7 +420,7 @@ pcierc_bus_map(dev_info_t *dip, dev_info_t *rdip, ddi_map_req_t *mp,
 		rnumber = mp->map_obj.rnumber;
 		/*
 		 * get ALL "reg" properties for dip, select the one of
-		 * of interest. In x86, "assigned-addresses" property
+		 * of interest. In aarch64, "assigned-addresses" property
 		 * is identical to the "reg" property, so there is no
 		 * need to cross check the two to determine the physical
 		 * address of the registers.
@@ -731,7 +733,7 @@ pcierc_ctlops(dev_info_t *dip, dev_info_t *rdip,
 	case DDI_CTLOPS_POKE:
 		return (pci_common_peekpoke(dip, rdip, ctlop, arg, result));
 
-	/* X86 systems support PME wakeup from suspended state */
+	/* aarch64 systems support PME wakeup from suspended state (XXXARM) */
 	case DDI_CTLOPS_ATTACH:
 		if (!pcie_is_child(dip, rdip))
 			return (DDI_SUCCESS);
@@ -892,7 +894,13 @@ pcierc_initchild(dev_info_t *child)
 	else
 		ddi_set_parent_data(child, NULL);
 
-	/* Disable certain errors on PCIe drivers for x86 platforms */
+	/*
+	 * Disable certain errors on PCIe drivers for aarch64 platforms
+	 *
+	 * XXXARM: This is probably related to the similar disablement with
+	 * the complaint of platform software doing PIO to devices it doesn't
+	 * own
+	 */
 	regs = pcie_get_aer_uce_mask() | pcierc_aer_uce_mask;
 	pcie_set_aer_uce_mask(regs);
 	regs = pcie_get_aer_ce_mask() | pcierc_aer_ce_mask;

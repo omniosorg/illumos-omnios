@@ -148,7 +148,10 @@ extern kmutex_t	*cpc_mutex[NPC_MUTEX];
 extern page_t *page_get_mnode_freelist(int, uint_t, int, uchar_t, uint_t);
 extern page_t *page_get_mnode_cachelist(uint_t, uint_t, int, int);
 
-/* mem node iterator is not used on x86 */
+/*
+ * The mem node iterator interfaces are currently SPARC-specific, but dummy
+ * versions are used to keep the code allegedly tidier.
+ */
 #define	MEM_NODE_ITERATOR_DECL(it)
 #define	MEM_NODE_ITERATOR_INIT(pfn, mnode, szc, it)
 
@@ -359,7 +362,13 @@ extern void mnodetype_2_pfn(int, int, pfn_t *, pfn_t *);
 #define	mmu_exported_page_sizes		MMU_PAGE_SIZES
 #define	mmu_legacy_page_sizes		mmu_exported_page_sizes
 
-/* For Alpha, userszc is the same as the kernel's szc */
+/*
+ * On non-SPARC platforms userland and kernel share size codes, and all size
+ * codes are supported.
+ *
+ * For some reason SPARC would punch items out of a global list by setting
+ * their value to -1, based on CPU specific support.
+ */
 #define	USERSZC_2_SZC(userszc)	(userszc)
 #define	SZC_2_USERSZC(szc)	(szc)
 

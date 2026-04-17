@@ -26,7 +26,7 @@
 #
 #	This makefile drives the production of the neti driver kernel module.
 #
-#	INTEL implementation architecture dependent
+#	aarch64 implementation architecture dependent
 #
 
 #

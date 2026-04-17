@@ -112,7 +112,7 @@ extern "C" {
 #define	DTR		0x01	/* Data Terminal Ready */
 #define	RTS		0x02	/* Request To Send */
 #define	OUT1		0x04	/* Aux output - not used */
-#define	OUT2		0x08	/* turns intr to 386 on/off */
+#define	OUT2		0x08	/* turns intr to processor on/off */
 #define	NS16550_LOOP	0x10	/* loopback for diagnostics */
 
 /* Modem Status Register */

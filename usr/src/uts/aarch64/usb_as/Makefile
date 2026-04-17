@@ -26,7 +26,7 @@
 #
 #
 #	This makefile drives the production of the usb_as driver
-#	kernel module. Intel architecture dependent
+#	kernel module. aarch64 architecture dependent
 #
 
 

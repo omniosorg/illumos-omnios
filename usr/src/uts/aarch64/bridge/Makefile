@@ -23,7 +23,7 @@
 # Use is subject to license terms.
 #
 #	This makefile drives the production of the layer-two (Ethernet)
-#	bridging driver module in x86/x64 systems
+#	bridging driver module in aarch64 systems
 #
 
 #

@@ -576,9 +576,9 @@ pcicfg_configure(dev_info_t *devi, uint_t device, uint_t function,
 		 *
 		 * In order to make the process simpler, lets load the device
 		 * driver for the non transparent bridge as this is a
-		 * Solaris bundled driver, and use its configuration map
+		 * illumos bundled driver, and use its configuration map
 		 * services rather than programming it here.
-		 * If the driver is not bundled into Solaris, it must be
+		 * If the driver is not bundled into illumos, it must be
 		 * first loaded and configured before performing any
 		 * hotplug operations.
 		 *

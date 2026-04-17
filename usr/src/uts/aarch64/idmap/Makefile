@@ -24,9 +24,9 @@
 #
 #
 #	This makefile drives the production of the idmap (Identity mapping between
-#	Solaris and Windows) kernel module.
+#	illumos and Windows) kernel module.
 #
-#	Intel implementation architecture dependent
+#	aarch64 implementation architecture dependent
 #
 
 #

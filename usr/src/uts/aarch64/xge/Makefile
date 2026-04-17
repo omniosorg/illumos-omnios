@@ -50,7 +50,7 @@ ALL_TARGET	= $(BINARY)
 INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 
 #
-#	GENERAL PURPOUSE HAL FLAGS: Tuning HAL for Solaris specific modes
+#	GENERAL PURPOUSE HAL FLAGS: Tuning HAL for illumos specific modes
 #
 HAL_CFLAGS	 = -DXGE_HAL_USE_MGMT_AUX
 

@@ -493,7 +493,7 @@ size_t aslr_max_map_skew = 256 * 1024 * 1024; /* 256MB */
  *	processes address space or else an address that is currently
  *	not mapped for len bytes with a page of red zone on either side.
  *
- *	vacalign is not needed on x86 (it's for viturally addressed caches)
+ *	vacalign is not needed here (it's for viturally addressed caches)
  */
 /*ARGSUSED*/
 void
@@ -1214,7 +1214,7 @@ pagescrub(page_t *pp, uint_t off, uint_t len)
 
 /*
  * Function for flushing D-cache when performing module relocations
- * to an alternate mapping.  Unnecessary on Intel / AMD platforms.
+ * to an alternate mapping.  Unnecessary on this platform.
  */
 void
 dcache_flushall()
@@ -1909,9 +1909,9 @@ page_get_anylist(struct vnode *vp, u_offset_t off, struct as *as, caddr_t vaddr,
  * allocator so it is only to create new pages (i.e PG_EXCL is
  * set).
  *
- * Note: This interface is currently used by x86 PSM only and is
+ * Note: This interface is currently used by x86 PSM and on aarch64 only and is
  *	 not fully specified so the commitment level is only for
- *	 private interface specific to x86. This interface uses PSM
+ *	 private interface specific to x86/aarch64. This interface uses PSM
  *	 specific page_get_anylist() interface.
  */
 

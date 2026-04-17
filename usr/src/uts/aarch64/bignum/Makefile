@@ -86,11 +86,6 @@ include $(UTSBASE)/aarch64/Makefile.targ
 #	appropriate one must be chosen at run time, based on testing
 #	hardware capabilites.
 #
-# -DPSR_MUL:
-# For AMD64, there is a processor-specific implementation of
-# the bignum multiply functions, which takes advantage of the
-# 64x64->128 bit multiply instruction.
-#
 # -UHWCAP:
 # There is only one implementation, because the 128 bit multiply using
 # general-purpose registers is faster than any MMX or SSE2 implementation.
@@ -98,12 +93,4 @@ include $(UTSBASE)/aarch64/Makefile.targ
 BIGNUM_CFG = -DPSR_MUL
 CFLAGS	+= -xO4
 $(OBJS_DIR)/bignumimpl.o := CPPFLAGS += $(BIGNUM_CFG)
-$(OBJS_DIR)/bignum_amd64.o := CPPFLAGS += $(BIGNUM_CFG)
 
-$(OBJS_DIR)/bignum_amd64.o: $(BIGNUMDIR)/amd64/bignum_amd64.c
-	$(COMPILE.c) -o $@ $(BIGNUM_CFG) $(BIGNUMDIR)/amd64/bignum_amd64.c
-	$(CTFCONVERT_O)
-
-$(OBJS_DIR)/bignum_amd64_asm.o: $(BIGNUMDIR)/amd64/bignum_amd64_asm.s
-	$(COMPILE.s) -P -o $@ $(BIGNUM_CFG) \
-		$(BIGNUMDIR)/amd64/bignum_amd64_asm.s

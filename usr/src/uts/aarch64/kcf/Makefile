@@ -83,6 +83,3 @@ install:	$(INSTALL_DEPS)
 #	Include common targets.
 #
 include $(UTSBASE)/aarch64/Makefile.targ
-
-$(OBJS_DIR)/%.o: $(COM_DIR)/modes/amd64/%.s
-	$(COMPILE.s) -o $@ $(COM_DIR)/modes/amd64/${@F:.o=.s}

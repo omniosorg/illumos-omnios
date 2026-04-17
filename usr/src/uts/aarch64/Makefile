@@ -24,7 +24,7 @@
 # Copyright 2015 Igor Kozhukhov <ikozhukhov@gmail.com>
 #
 #	This makefile drives the production of all implementation architecture
-#	independent modules for Intel processors.
+#	independent modules for aarch64 processors.
 
 UTSBASE = ..
 
@@ -90,7 +90,7 @@ CLOBBERFILES += $(PRIVS_C)
 # priv_const.c is required to build genunix.
 #
 # genunix is used by everyone to ctf-merge with. Genunix is CTF-merged with
-#   intel/ip so as a side effect this dependency builds intel/ip as part of the
+#   aarch64/ip so as a side effect this dependency builds intel/ip as part of the
 #   prerequisites.
 #
 all.prereq install.prereq def.prereq: genunix FRC

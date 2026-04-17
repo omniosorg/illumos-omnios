@@ -29,7 +29,7 @@
 #
 #	This Makefile defines all file modules and build rules for the
 # directory uts/aarch64 and its children. These are the source files which
-# are specific to x86 processor architectures.
+# are specific to aarch64 processor architectures.
 #
 
 #

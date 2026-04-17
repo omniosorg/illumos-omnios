@@ -79,9 +79,3 @@ $(ROOTLINK):	$(ROOT_MISC_DIR) $(ROOTMODULE)
 #	Include common targets.
 #
 include $(UTSBASE)/aarch64/Makefile.targ
-
-md5_amd64.s: $(COMDIR)/amd64/md5_amd64.pl
-	$(PERL) $? $@
-
-$(OBJS_DIR)/md5_amd64.o: md5_amd64.s
-	$(COMPILE.s) -o $@ md5_amd64.s

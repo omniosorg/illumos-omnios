@@ -47,8 +47,8 @@
  *	  being called by OBP and the update of the polled_input_t
  *	  structure.  We need to be careful how the structure is updated.
  *
- * Solaris/Intel note:  While OBP is not in the picture, there are probably
- * similar issues with kmdb.
+ * Note: While OBP is not in the picture, there are probably similar issues
+ * with kmdb.
  */
 
 #if	defined(MAYBE_SOMETIME)
@@ -337,7 +337,7 @@ int				flags
 /*
  * This routine gives control of console input/output back to ???.
  *
- * Solaris/Intel has nobody to give it back to.  Hope we don't get here!
+ * We have nobody to give it back to.  Hope we don't get here!
  */
 /* ARGSUSED */
 static int
