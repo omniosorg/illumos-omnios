@@ -1218,7 +1218,9 @@ pagescrub(page_t *pp, uint_t off, uint_t len)
  */
 void
 dcache_flushall()
-{}
+{
+	panic("%s: should not be reachable on this platform", __func__);
+}
 
 /*
  * Allocate a memory page.  The argument 'seed' can be any pseudo-random
