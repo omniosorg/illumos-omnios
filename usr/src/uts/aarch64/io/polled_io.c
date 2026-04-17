@@ -346,10 +346,7 @@ polled_io_console_type_t	type,
 int				flags
 )
 {
-	cmn_err(CE_WARN,
-	    "polled_io_release_console:  nobody to hand console back to");
-
-	return (DDI_SUCCESS);
+	panic("%s: nobody to hand console back to", __func__);
 }
 
 /*
