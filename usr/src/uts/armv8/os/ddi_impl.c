@@ -1513,12 +1513,29 @@ map_interrupt_parent(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 	if (ip != -1) {
 		ipdip = e_ddi_nodeid_to_dip(ip);
 	} else {
+		/*
+		 * If dip were somehow the root node AND had no
+		 * interrupt-parent, that VERIFY would fire since
+		 * ddi_get_parent(root) is NULL. This shouldn't normally
+		 * be hit (root should have interrupt-parent on FDT). If
+		 * reality kicks in and proves this wrong we'll have to
+		 * do something more intelligent.
+		 */
 		ipdip = ddi_get_parent(dip);
 		VERIFY3P(ipdip, !=, NULL);
 		ndi_hold_devi(ipdip);
 	}
 
-	priv->ip_unitintr = i_ddi_update_unitintr_unit(priv->ip_unitintr, dip);
+	/*
+	 * Update the unit interrupt descriptor to reflect the addressing
+	 * context at this node.  Skip for the root node - it has no parent
+	 * address space, and the unit address is not used for interrupt-map
+	 * matching beyond this point.
+	 */
+	if (dip != ddi_root_node()) {
+		priv->ip_unitintr =
+		    i_ddi_update_unitintr_unit(priv->ip_unitintr, dip);
+	}
 
 	return (ipdip);
 }
@@ -1673,17 +1690,30 @@ map_interrupt(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 	 * This outlives mapping and is used to communicate vector and sense
 	 * information to the interrupt controller.  It is cleaned up in
 	 * i_ddi_intr_ops().
+	 *
+	 * On first entry, dip is the device whose interrupt we are mapping.
+	 * Any interrupt-map on dip is for routing its children's interrupts,
+	 * not its own (DTSpec §2.4.3), so we must follow interrupt-parent
+	 * (or the device tree) rather than our own interrupt-map.  On
+	 * recursive calls (ip_unitintr already set), dip is a nexus we've
+	 * arrived at and its interrupt-map should be used.
 	 */
-	if (priv->ip_unitintr == NULL)
-		priv->ip_unitintr = i_ddi_unitintr(dip, hdlp->ih_inum);
-
 	dev_info_t *par = NULL;
 
-	if (ddi_prop_exists(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
+	if (priv->ip_unitintr == NULL) {
+		priv->ip_unitintr = i_ddi_unitintr(dip, hdlp->ih_inum);
+		par = map_interrupt_parent(dip, hdlp);
+	} else if (ddi_prop_exists(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    OBP_INTERRUPT_MAP)) {
 		par = map_interrupt_map(dip, hdlp);
 	} else {
 		par = map_interrupt_parent(dip, hdlp);
+	}
+
+	if (par == NULL) {
+		dev_err(dip, CE_PANIC, "could not resolve interrupt "
+		    "controller");
+		return (NULL);	/* Unreachable */
 	}
 
 	if (i_ddi_attach_node_hierarchy(par) != DDI_SUCCESS) {
