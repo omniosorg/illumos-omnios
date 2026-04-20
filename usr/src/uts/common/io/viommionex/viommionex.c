@@ -348,10 +348,36 @@ viommionex_bus_unconfig(dev_info_t *parent, uint_t flags,
 static int
 viommionex_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 {
+	int addr_cells;
+	int size_cells;
+	dev_info_t *pdip;
+
 	if (ddi_prop_update_int(DDI_DEV_T_NONE, dip,
 	    VIRTIO_MMIO_PROPERTY_NAME, 1) != DDI_PROP_SUCCESS) {
 		dev_err(dip, CE_WARN, "?failed to set the '%s' property",
 		    VIRTIO_MMIO_PROPERTY_NAME);
+		return (DDI_FAILURE);
+	}
+
+	pdip = ddi_get_parent(dip);
+	VERIFY3P(pdip, !=, NULL);
+
+	addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, pdip,
+	    DDI_PROP_DONTPASS, OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+	ASSERT(addr_cells >= 1);
+	size_cells = ddi_prop_get_int(DDI_DEV_T_ANY, pdip,
+	    DDI_PROP_DONTPASS, OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
+	ASSERT(size_cells >= 1);
+
+	if (ndi_prop_update_int(DDI_DEV_T_NONE, dip,
+	    OBP_ADDRESS_CELLS, addr_cells) != NDI_SUCCESS) {
+		dev_err(dip, CE_WARN, "failed to set %s", OBP_ADDRESS_CELLS);
+		return (DDI_FAILURE);
+	}
+
+	if (ndi_prop_update_int(DDI_DEV_T_NONE, dip,
+	    OBP_SIZE_CELLS, size_cells) != NDI_SUCCESS) {
+		dev_err(dip, CE_WARN, "failed to set %s", OBP_SIZE_CELLS);
 		return (DDI_FAILURE);
 	}
 
