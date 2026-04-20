@@ -1553,13 +1553,13 @@ map_interrupt_map(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
 
 	/*
-	 * By definition, if we have an interrupt-map we're the interrupt
-	 * domain
+	 * By definition, if we have an interrupt-map we should also have
+	 * #interrupt-cells (describing our children's interrupt specifier
+	 * format).
 	 */
 #ifdef DEBUG
-	dev_info_t *idom = i_ddi_interrupt_domain(dip);
-	ASSERT3P(idom, ==, dip);
-	ndi_rele_devi(idom);
+	ASSERT(ddi_prop_exists(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
+	    OBP_INTERRUPT_CELLS));
 #endif
 
 	ihdl_plat_t *priv = (ihdl_plat_t *)hdlp->ih_private;
@@ -1616,9 +1616,12 @@ map_interrupt_map(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 		VERIFY3P(parent, !=, NULL);
 
 #ifdef DEBUG
-		dev_info_t *idom = i_ddi_interrupt_domain(parent);
-		ASSERT3P(idom, ==, parent);
-		ndi_rele_devi(idom);
+		/*
+		 * The target of an interrupt-map entry should have
+		 * #interrupt-cells (it is an interrupt domain).
+		 */
+		ASSERT(ddi_prop_exists(DDI_DEV_T_ANY, parent,
+		    DDI_PROP_DONTPASS, OBP_INTERRUPT_CELLS));
 #endif
 
 		int par_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
