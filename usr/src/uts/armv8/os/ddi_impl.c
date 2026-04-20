@@ -1297,8 +1297,22 @@ i_ddi_unitaddr(dev_info_t *dip, uint_t *out, size_t out_cells)
 	int *reg;
 	uint_t reg_cells;
 
-	int addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
-	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+	/*
+	 * A device's reg property is encoded using the parent's
+	 * #address-cells (DTSpec §2.3.5: the property describes how
+	 * children are addressed).  Read from the parent with
+	 * DDI_PROP_DONTPASS since these properties are not inherited.
+	 */
+	dev_info_t *pdip = ddi_get_parent(dip);
+	int addr_cells;
+
+	if (pdip == NULL) {
+		addr_cells = OBP_DEFAULT_ADDRESS_CELLS;
+	} else {
+		addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, pdip,
+		    DDI_PROP_DONTPASS, OBP_ADDRESS_CELLS,
+		    OBP_DEFAULT_ADDRESS_CELLS);
+	}
 
 	if (addr_cells == 0)
 		return (0);
@@ -1403,8 +1417,21 @@ static unit_intr_t *
 i_ddi_unitintr(dev_info_t *dip, uint_t inum)
 {
 	unit_intr_t *ui;
-	int addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
-	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+
+	/*
+	 * A device's unit address uses the parent's #address-cells
+	 * (DTSpec §2.3.5).
+	 */
+	dev_info_t *pdip = ddi_get_parent(dip);
+	int addr_cells;
+
+	if (pdip == NULL) {
+		addr_cells = OBP_DEFAULT_ADDRESS_CELLS;
+	} else {
+		addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, pdip,
+		    DDI_PROP_DONTPASS, OBP_ADDRESS_CELLS,
+		    OBP_DEFAULT_ADDRESS_CELLS);
+	}
 
 	int *intrs = NULL;
 	int intr_cells = i_ddi_get_interrupt(dip, inum, &intrs);
