@@ -3369,18 +3369,49 @@ i_ddi_convert_dma_attr(
 	if (dma_range_num > 0) {
 		int i;
 		for (i = 0; i < dma_range_num; i++) {
-			if (dma_ranges[i].bus_addr <= dst->dma_attr_addr_lo &&
-			    dst->dma_attr_addr_hi <=
-			    dma_ranges[i].bus_addr + dma_ranges[i].size - 1) {
-				dst->dma_attr_addr_lo +=
-				    (dma_ranges[i].cpu_addr -
-				    dma_ranges[i].bus_addr);
-				dst->dma_attr_addr_hi +=
-				    (dma_ranges[i].cpu_addr -
-				    dma_ranges[i].bus_addr);
+			uint64_t win_lo, win_hi;
+			int64_t offset;
+
+			/* Skip degenerate zero-size windows */
+			if (dma_ranges[i].size == 0)
+				continue;
+
+			win_lo = dma_ranges[i].bus_addr;
+			win_hi = dma_ranges[i].bus_addr +
+			    dma_ranges[i].size - 1;
+
+			/*
+			 * Intersect the device's DMA capabilities with the
+			 * bus translation window.  The device's addr_lo/hi
+			 * describe what it can reach; dma-ranges describes
+			 * what the bus can translate.  We clamp to the
+			 * overlap rather than requiring full containment,
+			 * since a device that can DMA to 0..UINT64_MAX is
+			 * fine with a 3GB window - it just needs to know
+			 * the constraint.
+			 */
+			if (dst->dma_attr_addr_lo <= win_hi &&
+			    dst->dma_attr_addr_hi >= win_lo) {
+				offset = dma_ranges[i].cpu_addr -
+				    dma_ranges[i].bus_addr;
+
+				dst->dma_attr_addr_lo =
+				    MAX(dst->dma_attr_addr_lo, win_lo);
+				dst->dma_attr_addr_hi =
+				    MIN(dst->dma_attr_addr_hi, win_hi);
+
+				/*
+				 * When cpu_addr < bus_addr, offset is
+				 * negative.  The clamped lo >= win_lo
+				 * (== bus_addr) guarantees lo + offset
+				 * >= cpu_addr, so no underflow.
+				 */
+				dst->dma_attr_addr_lo += offset;
+				dst->dma_attr_addr_hi += offset;
 				break;
 			}
 		}
+
 		if (i == dma_range_num) {
 			cmn_err(CE_WARN,
 			    "%s: ddi_dma_attr_t is invalid range", __func__);
