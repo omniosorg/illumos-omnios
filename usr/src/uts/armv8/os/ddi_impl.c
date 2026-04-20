@@ -1099,15 +1099,20 @@ i_ddi_remove_softint(ddi_softint_hdl_impl_t *hdlp)
 
 
 /*
- * Return the device node that claims ownership of this interrupt domain
- * following "interrupt-parent" as necessary.  It is returned held.
+ * Find the interrupt domain that governs pdip's children, starting the
+ * walk from pdip.  Returns the first node with #interrupt-cells, held.
  *
- * In practical terms, this is the node with the "#interrupt-cells" which
- * applies to `pdip`.  This may be `pdip` itself.
+ * #interrupt-cells on a node describes the interrupt specifier format
+ * for that node's children/interrupt domain members (DTSpec §2.4).
+ * If pdip itself has #interrupt-cells, it is returned immediately.
  *
- * As I read the 1275 PCI bindings, I believe we don't need to handle
- * "interrupt-map" here, because we should always have an "#interrupt-cells"
- * on that same node.
+ * Callers interpreting a device's own interrupts property must pass
+ * ddi_get_parent(dip), not dip itself, because a device's interrupts
+ * are encoded per the parent's interrupt domain, not the device's own
+ * child-facing #interrupt-cells.
+ *
+ * Follows interrupt-parent when present, otherwise walks up the device
+ * tree.  Returns NULL only if no node with #interrupt-cells is found.
  */
 static dev_info_t *
 i_ddi_interrupt_domain(dev_info_t *pdip)
