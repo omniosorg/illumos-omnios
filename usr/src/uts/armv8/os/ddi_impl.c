@@ -1924,9 +1924,9 @@ impl_xlate_regs(dev_info_t *child, uint32_t *in, size_t in_len,
 	}
 
 	int parent_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, parent,
-	    0, OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+	    DDI_PROP_DONTPASS, OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
 	int parent_size_cells = ddi_prop_get_int(DDI_DEV_T_ANY, parent,
-	    0, OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
+	    DDI_PROP_DONTPASS, OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
 
 	if (parent_size_cells < 1 || parent_size_cells > 2) {
 		dev_err(child, CE_WARN, "regspec: unsupported size cells %d",
@@ -2053,11 +2053,11 @@ impl_xlate_ranges(dev_info_t *child, uint32_t *in, size_t in_len,
 		ddi_prop_free(devtype);
 	}
 
-	pac = ddi_prop_get_int(DDI_DEV_T_ANY, pdip, 0,
+	pac = ddi_prop_get_int(DDI_DEV_T_ANY, pdip, DDI_PROP_DONTPASS,
 	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
-	cac = ddi_prop_get_int(DDI_DEV_T_ANY, child, 0,
+	cac = ddi_prop_get_int(DDI_DEV_T_ANY, child, DDI_PROP_DONTPASS,
 	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
-	csc = ddi_prop_get_int(DDI_DEV_T_ANY, child, 0,
+	csc = ddi_prop_get_int(DDI_DEV_T_ANY, child, DDI_PROP_DONTPASS,
 	    OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
 
 	if (csc < 1 || csc > 2) {
@@ -3225,14 +3225,22 @@ get_dma_ranges(dev_info_t *dip, struct dma_range **range, int *nrange)
 		int bus_address_cells;
 		int bus_size_cells;
 		int parent_address_cells;
+		dev_info_t *pdip = ddi_get_parent(dip);
 
-		bus_address_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
+		bus_address_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip,
+		    DDI_PROP_DONTPASS,
 		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
-		bus_size_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
+		bus_size_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip,
+		    DDI_PROP_DONTPASS,
 		    OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
-		parent_address_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
-		    ddi_get_parent(dip), 0,
-		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+
+		if (pdip == NULL) {
+			parent_address_cells = OBP_DEFAULT_ADDRESS_CELLS;
+		} else {
+			parent_address_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
+			    pdip, DDI_PROP_DONTPASS,
+			    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+		}
 
 		if ((rng_len % (bus_address_cells + bus_size_cells +
 		    parent_address_cells)) != 0) {
