@@ -479,17 +479,36 @@ get_prop_int(pnode_t node, const char *name, int def)
 	return (value);
 }
 
+/*
+ * Look up a single-int property on exactly this node, with no ancestor walk.
+ *
+ * Per DTSpec §2.3.5, #address-cells and #size-cells are NOT inherited from
+ * ancestors in the devicetree and shall be explicitly defined.  Use this
+ * function (not get_prop_int) when looking up cell-count properties.
+ */
+static int
+get_prop_int_local(pnode_t node, const char *name, int def)
+{
+	int len = promif_getproplen(node, name);
+	if (len == sizeof (int)) {
+		int prop;
+		promif_getprop(node, name, (caddr_t)&prop);
+		return (ntohl(prop));
+	}
+	return (def);
+}
+
 static int
 get_address_cells(pnode_t node)
 {
-	return (get_prop_int(get_parent(node), OBP_ADDRESS_CELLS,
+	return (get_prop_int_local(get_parent(node), OBP_ADDRESS_CELLS,
 	    OBP_DEFAULT_ADDRESS_CELLS));
 }
 
 static int
 get_size_cells(pnode_t node)
 {
-	return (get_prop_int(get_parent(node), OBP_SIZE_CELLS,
+	return (get_prop_int_local(get_parent(node), OBP_SIZE_CELLS,
 	    OBP_DEFAULT_SIZE_CELLS));
 }
 
@@ -657,11 +676,11 @@ prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 			continue;
 		}
 
-		int address_cells = get_prop_int(parent, OBP_ADDRESS_CELLS,
-		    OBP_DEFAULT_ADDRESS_CELLS);
-		int size_cells = get_prop_int(parent, OBP_SIZE_CELLS,
-		    OBP_DEFAULT_SIZE_CELLS);
-		int parent_address_cells = get_prop_int(
+		int address_cells = get_prop_int_local(parent,
+		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+		int size_cells = get_prop_int_local(parent,
+		    OBP_SIZE_CELLS, OBP_DEFAULT_SIZE_CELLS);
+		int parent_address_cells = get_prop_int_local(
 		    get_parent(parent), OBP_ADDRESS_CELLS,
 		    OBP_DEFAULT_ADDRESS_CELLS);
 
