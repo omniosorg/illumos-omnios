@@ -482,13 +482,15 @@ get_prop_int(pnode_t node, const char *name, int def)
 static int
 get_address_cells(pnode_t node)
 {
-	return (get_prop_int(get_parent(node), OBP_ADDRESS_CELLS, 2));
+	return (get_prop_int(get_parent(node), OBP_ADDRESS_CELLS,
+	    OBP_DEFAULT_ADDRESS_CELLS));
 }
 
 static int
 get_size_cells(pnode_t node)
 {
-	return (get_prop_int(get_parent(node), OBP_SIZE_CELLS, 2));
+	return (get_prop_int(get_parent(node), OBP_SIZE_CELLS,
+	    OBP_DEFAULT_SIZE_CELLS));
 }
 
 static int
@@ -655,10 +657,13 @@ prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg)
 			continue;
 		}
 
-		int address_cells = get_prop_int(parent, OBP_ADDRESS_CELLS, 2);
-		int size_cells = get_prop_int(parent, OBP_SIZE_CELLS, 2);
+		int address_cells = get_prop_int(parent, OBP_ADDRESS_CELLS,
+		    OBP_DEFAULT_ADDRESS_CELLS);
+		int size_cells = get_prop_int(parent, OBP_SIZE_CELLS,
+		    OBP_DEFAULT_SIZE_CELLS);
 		int parent_address_cells = get_prop_int(
-		    get_parent(parent), OBP_ADDRESS_CELLS, 2);
+		    get_parent(parent), OBP_ADDRESS_CELLS,
+		    OBP_DEFAULT_ADDRESS_CELLS);
 
 		if ((len % CELLS_1275_TO_BYTES(address_cells +
 		    parent_address_cells + size_cells)) != 0) {
