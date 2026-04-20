@@ -1161,7 +1161,21 @@ i_ddi_get_interrupt(dev_info_t *dip, uint_t inumber, int **ret)
 
 	if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    OBP_INTERRUPTS, &ip, &ip_sz) == DDI_SUCCESS) {
-		dev_info_t *id = i_ddi_interrupt_domain(dip);
+		/*
+		 * A device's interrupts property is encoded per the parent's
+		 * interrupt domain's #interrupt-cells, not the device's own.
+		 * The device's own #interrupt-cells (if any) describes its
+		 * children's interrupt specifier format.
+		 */
+		dev_info_t *pdip = ddi_get_parent(dip);
+		dev_info_t *id;
+
+		if (pdip == NULL) {
+			ddi_prop_free(ip);
+			return (0);
+		}
+
+		id = i_ddi_interrupt_domain(pdip);
 
 		VERIFY3P(id, !=, NULL);
 
@@ -1365,17 +1379,33 @@ i_ddi_free_unitintr(unit_intr_t *ui)
 }
 
 /*
- * Update ui to have the address of dip, the interrupt portion is unchanged
+ * Update ui to have the address of dip, the interrupt portion is unchanged.
+ *
+ * Both the interrupt domain and #address-cells are found via the parent,
+ * not dip itself: dip's own #interrupt-cells and #address-cells (if any)
+ * describe its children's format, not its own (DTSpec §2.3.5, §2.4).
  */
 static unit_intr_t *
 i_ddi_update_unitintr_unit(unit_intr_t *ui, dev_info_t *dip)
 {
-	dev_info_t *idom = i_ddi_interrupt_domain(dip);
+	dev_info_t *pdip = ddi_get_parent(dip);
+	dev_info_t *idom;
+
+	if (pdip == NULL) {
+		dev_err(dip, CE_PANIC, "no parent for interrupt domain "
+		    "lookup");
+		return (NULL);	/* Unreachable */
+	}
+
+	idom = i_ddi_interrupt_domain(pdip);
+
+	VERIFY3P(idom, !=, NULL);
 
 	int new_intr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, idom,
 	    DDI_PROP_DONTPASS, OBP_INTERRUPT_CELLS, 1);
-	int new_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, dip, 0,
-	    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+	int new_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY, pdip,
+	    DDI_PROP_DONTPASS, OBP_ADDRESS_CELLS,
+	    OBP_DEFAULT_ADDRESS_CELLS);
 
 	ndi_rele_devi(idom);
 
@@ -1769,7 +1799,19 @@ i_ddi_get_intx_nintrs(dev_info_t *dip)
 
 	if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    OBP_INTERRUPTS, &ip, &intrlen) == DDI_SUCCESS) {
-		dev_info_t *intrd = i_ddi_interrupt_domain(dip);
+		/*
+		 * The interrupts property is encoded per the parent's
+		 * interrupt domain's #interrupt-cells.
+		 */
+		dev_info_t *pdip = ddi_get_parent(dip);
+		dev_info_t *intrd;
+
+		if (pdip == NULL) {
+			ddi_prop_free(ip);
+			return (0);
+		}
+
+		intrd = i_ddi_interrupt_domain(pdip);
 
 		VERIFY3P(intrd, !=, NULL);
 
