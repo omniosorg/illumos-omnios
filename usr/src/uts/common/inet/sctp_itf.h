@@ -100,6 +100,8 @@ extern void sctp_recvd(struct sctp_s *conn, int len);
 extern int sctp_sendmsg(struct sctp_s *conn, mblk_t *mp, int flags);
 extern int sctp_set_opt(struct sctp_s *conn, int level, int opt,
     const void *opts, socklen_t optlen);
+extern int sctp_set_opt_common(struct sctp_s *conn, int level, int opt,
+    const void *opts, socklen_t optlen, boolean_t);
 
 /* Flags for sctp_create(), sctp_alloc_hdr() */
 #define	SCTP_CAN_BLOCK			0x01
