@@ -3356,9 +3356,13 @@ err_exit:
 
 int
 i_ddi_convert_dma_attr(
-    ddi_dma_attr_t *dst, dev_info_t *dip, const ddi_dma_attr_t *src)
+    ddi_dma_attr_t *dst, dev_info_t *dip, const ddi_dma_attr_t *src,
+    int64_t *bus_offsetp)
 {
 	*dst = *src;
+
+	if (bus_offsetp != NULL)
+		*bus_offsetp = 0;
 
 	int dma_range_num = 0;
 	struct dma_range *dma_ranges = NULL;
@@ -3408,6 +3412,8 @@ i_ddi_convert_dma_attr(
 				 */
 				dst->dma_attr_addr_lo += offset;
 				dst->dma_attr_addr_hi += offset;
+				if (bus_offsetp != NULL)
+					*bus_offsetp = offset;
 				break;
 			}
 		}
@@ -3493,7 +3499,7 @@ i_ddi_mem_alloc(dev_info_t *dip, ddi_dma_attr_t *oattr,
 
 	ddi_dma_attr_t data;
 	ddi_dma_attr_t *attr = &data;
-	if (i_ddi_convert_dma_attr(attr, dip, oattr) != DDI_SUCCESS) {
+	if (i_ddi_convert_dma_attr(attr, dip, oattr, NULL) != DDI_SUCCESS) {
 		return (DDI_FAILURE);
 	}
 

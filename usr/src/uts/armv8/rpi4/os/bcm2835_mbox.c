@@ -126,7 +126,7 @@ bcm2835_mbox_init(void)
 	dma_attr.dma_attr_count_max = dma_attr.dma_attr_addr_hi -
 	    dma_attr.dma_attr_addr_lo;
 
-	rv = i_ddi_convert_dma_attr(&dma_mem_attr, dip, &dma_attr);
+	rv = i_ddi_convert_dma_attr(&dma_mem_attr, dip, &dma_attr, NULL);
 	if (rv != DDI_SUCCESS) {
 		cmn_err(CE_PANIC, "i_ddi_convert_dma_attr failed (%d)!", rv);
 	}

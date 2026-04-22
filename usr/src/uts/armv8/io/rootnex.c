@@ -1441,12 +1441,29 @@ rootnex_coredma_bindhdl(dev_info_t *dip, dev_info_t *rdip,
 	attr = &hp->dmai_attr;
 
 	ddi_dma_attr_t cpu_attr;
-	e = i_ddi_convert_dma_attr(&cpu_attr, rdip, attr);
+	int64_t bus_offset = 0;
+	e = i_ddi_convert_dma_attr(&cpu_attr, rdip, attr, &bus_offset);
 	if (e != DDI_SUCCESS)
 		return (e);
+#if defined(DDI_MAP_DEBUG)
+	ddi_map_debug("rootnex_coredma_bindhdl: for %s%d, bus_offset=0x%"
+	    PRIx64 "\n", ddi_driver_name(rdip), ddi_get_instance(rdip),
+	    bus_offset);
+#endif
 
-	sinfo->si_cpu_addr_offset = cpu_attr.dma_attr_addr_lo -
-	    attr->dma_attr_addr_lo;
+	/*
+	 * The bus-to-CPU offset from dma-ranges captures the translation
+	 * between CPU physical addresses and bus addresses.  DMA cookies
+	 * must contain bus addresses (what the device sees), not CPU
+	 * physical addresses.  ROOTNEX_PADDR_TO_RBASE uses this offset
+	 * to perform that conversion.  The offset is signed (negative
+	 * when cpu_addr < bus_addr, e.g. BCM2711 where CPU 0x0 maps to
+	 * PCI 0x4_00000000 gives offset = -0x4_00000000).  Stored as
+	 * uint64_t, the two's complement representation ensures that
+	 * unsigned subtraction in ROOTNEX_PADDR_TO_RBASE produces the
+	 * correct bus address.
+	 */
+	sinfo->si_cpu_addr_offset = bus_offset;
 
 	/* convert the sleep flags */
 	if (dmareq->dmar_fp == DDI_DMA_SLEEP) {

@@ -43,7 +43,7 @@ extern "C" {
 extern void impl_bus_add_probe(void (*)(int));
 extern void impl_bus_delete_probe(void (*)(int));
 extern int i_ddi_convert_dma_attr(ddi_dma_attr_t *, dev_info_t *,
-    const ddi_dma_attr_t *);
+    const ddi_dma_attr_t *, int64_t *);
 extern int i_ddi_update_dma_attr(dev_info_t *, ddi_dma_attr_t *);
 extern uint32_t i_ddi_get_intr_pri(dev_info_t *dip, uint_t inumber);
 
