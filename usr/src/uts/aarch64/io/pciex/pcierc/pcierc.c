@@ -918,7 +918,10 @@ pcierc_initchild(dev_info_t *child)
 	bus_p = PCIE_DIP2BUS(child);
 	if (bus_p != NULL) {
 		pcie_init_dom(child);
-		(void) pcie_initchild(child);
+		if (pcie_initchild(child) != DDI_SUCCESS) {
+			pcie_fini_dom(child);
+			return (DDI_FAILURE);
+		}
 	}
 
 	return (DDI_SUCCESS);
