@@ -1629,9 +1629,30 @@ map_interrupt_map(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 		    DDI_PROP_DONTPASS, OBP_INTERRUPT_CELLS));
 #endif
 
+		/*
+		 * The parent unit address component of each interrupt-map
+		 * entry uses the parent's #address-cells.  For interrupt
+		 * controllers that are not buses (the common case), the
+		 * DTSpec says #address-cells should be 0 or absent -- there
+		 * is no parent unit address in the table at all.
+		 *
+		 * The IEEE 1275 bus default of 2 is wrong here; it would
+		 * over-count the stride by 2 cells per entry, causing the
+		 * parent interrupt specifier to be misread.
+		 *
+		 * Default to 0 when the parent is an interrupt-controller
+		 * and has no explicit #address-cells.
+		 */
+		int par_addr_default;
+		if (ddi_prop_exists(DDI_DEV_T_ANY, parent,
+		    DDI_PROP_DONTPASS, OBP_INTERRUPT_CONTROLLER)) {
+			par_addr_default = 0;
+		} else {
+			par_addr_default = OBP_DEFAULT_ADDRESS_CELLS;
+		}
 		int par_addr_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
 		    parent, DDI_PROP_DONTPASS,
-		    OBP_ADDRESS_CELLS, OBP_DEFAULT_ADDRESS_CELLS);
+		    OBP_ADDRESS_CELLS, par_addr_default);
 		int par_intr_cells = ddi_prop_get_int(DDI_DEV_T_ANY,
 		    parent, DDI_PROP_DONTPASS, OBP_INTERRUPT_CELLS,
 		    1);
