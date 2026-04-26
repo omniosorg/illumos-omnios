@@ -1208,7 +1208,8 @@ find_resource(dev_info_t *rcdip, pci_prd_rsrc_t rsrc)
 		int busrng[2];
 
 		dip_bus_range(rcdip, busrng);
-		pci_memlist_insert(&mlp, busrng[0], busrng[1] - busrng[0]);
+		pci_memlist_insert(&mlp, busrng[0],
+		    (busrng[1] - busrng[0] + 1));
 		return (mlp);
 	}
 
