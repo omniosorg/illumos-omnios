@@ -70,6 +70,7 @@ PROGS = \
 	stdbit \
 	strerror \
 	strtonum \
+	swprintf-17781 \
 	timespec_get \
 	timespec_getres \
 	wcslcat \
