@@ -3554,10 +3554,10 @@ rootnex_codedma_cache_sync(ddi_dma_handle_t handle,
 			    MIN(cur + map_size, end));
 			if (cache_flags == DDI_DMA_SYNC_FORDEV)
 				rootnex_codedma_cache_clean(vaddr + (off - cur),
-				    vaddr + op_end);
+				    vaddr + (op_end - cur));
 			else
 				rootnex_codedma_cache_flush(vaddr + (off - cur),
-				    vaddr + op_end);
+				    vaddr + (op_end - cur));
 			off = op_end;
 		}
 		cur += map_size;
