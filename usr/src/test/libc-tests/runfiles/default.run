@@ -162,6 +162,8 @@ timeout = 600
 [/opt/libc-tests/tests/strtonum.64]
 [/opt/libc-tests/tests/strtox.32]
 [/opt/libc-tests/tests/strtox.64]
+[/opt/libc-tests/tests/swprintf-17781.32]
+[/opt/libc-tests/tests/swprintf-17781.64]
 [/opt/libc-tests/tests/thread_name]
 [/opt/libc-tests/tests/timespec_get.32]
 [/opt/libc-tests/tests/timespec_get.64]
