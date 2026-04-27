@@ -92,9 +92,12 @@
 #include <sys/taskq.h>
 #include <sys/elf_aarch64.h>
 
+/*
+ * ARMv8 requires data caches to be physically indexed or virtually indexed
+ * without aliasing. No VAC coloring is needed.
+ */
 uint_t vac_colors = 1;
 
-int largepagesupport = 0;
 extern uint_t page_create_new;
 extern uint_t page_create_exists;
 extern uint_t page_create_putbacks;
