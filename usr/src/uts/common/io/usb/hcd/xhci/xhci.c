@@ -913,6 +913,7 @@ uint64_t
 xhci_get64(xhci_t *xhcip, xhci_reg_type_t rtt, uintptr_t off)
 {
 	uintptr_t addr, roff;
+	uint32_t lo, hi;
 
 	switch (rtt) {
 	case XHCI_R_CAP:
@@ -932,8 +933,9 @@ xhci_get64(xhci_t *xhcip, xhci_reg_type_t rtt, uintptr_t off)
 	}
 	ASSERT(roff != PCI_EINVAL32);
 	addr = roff + off + (uintptr_t)xhcip->xhci_regs_base;
-
-	return (ddi_get64(xhcip->xhci_regs_handle, (void *)addr));
+	lo = ddi_get32(xhcip->xhci_regs_handle, (uint32_t *)addr);
+	hi = ddi_get32(xhcip->xhci_regs_handle, (uint32_t *)(addr + 4));
+	return ((uint64_t)lo | ((uint64_t)hi << 32));
 }
 
 void
@@ -1041,7 +1043,10 @@ xhci_put64(xhci_t *xhcip, xhci_reg_type_t rtt, uintptr_t off, uint64_t val)
 	ASSERT(roff != PCI_EINVAL32);
 	addr = roff + off + (uintptr_t)xhcip->xhci_regs_base;
 
-	ddi_put64(xhcip->xhci_regs_handle, (void *)addr, val);
+	ddi_put32(xhcip->xhci_regs_handle, (uint32_t *)addr,
+	    (uint32_t)(val & 0xFFFFFFFF));
+	ddi_put32(xhcip->xhci_regs_handle, (uint32_t *)(addr + 4),
+	    (uint32_t)(val >> 32));
 }
 
 int
