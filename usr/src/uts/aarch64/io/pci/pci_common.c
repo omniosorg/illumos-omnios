@@ -706,6 +706,101 @@ SUPPORTED_TYPES_OUT:
 }
 
 /*
+ * Configure a device for a certain type of interrupt.
+ *
+ * When hdlp->ih_type is DDI_INTR_TYPE_FIXED:
+ *  - ensures PCI_MSI_ENABLE_BIT is off in PCI_CAP_ID_MSI
+ *  - ensures PCI_MSIX_ENABLE_BIT is off in PCI_CAP_ID_MSI_X
+ *
+ * When hdlp->ih_type is DDI_INTR_TYPE_MSI
+ *  - ensures PCI_MSI_ENABLE_BIT is set in PCI_CAP_ID_MSI
+ *  - ensures PCI_MSIX_ENABLE_BIT is off in PCI_CAP_ID_MSI_X
+ *
+ * When hdlp->ih_type is DDI_INTR_TYPE_MSIX
+ *  - ensures PCI_MSI_ENABLE_BIT is off in PCI_CAP_ID_MSI
+ *  - ensures PCI_MSIX_ENABLE_BIT is set in PCI_CAP_ID_MSI_X
+ */
+static int
+pci_conf_intr_type(dev_info_t *pdip __unused, dev_info_t *rdip,
+    ddi_intr_handle_impl_t *hdlp)
+{
+	ddi_acc_handle_t	handle;
+	ushort_t		cap_ctrl;
+	uint16_t		cap_base;
+	int			ret;
+
+	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
+
+	if ((ret = pci_config_setup(rdip, &handle)) != DDI_SUCCESS)
+		return (ret);
+
+	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI, &cap_base) == DDI_SUCCESS) {
+		cap_ctrl = PCI_CAP_GET16(handle, 0, cap_base, PCI_MSI_CTRL);
+		if (cap_ctrl == PCI_CAP_EINVAL16) {
+			ret = DDI_FAILURE;
+			goto out;
+		}
+
+		if ((cap_ctrl & PCI_MSI_ENABLE_BIT) &&
+		    hdlp->ih_type != DDI_INTR_TYPE_MSI) {
+			DDI_INTR_NEXDBG((CE_CONT,
+			    "?pci_conf_intr_type: %s%d: "
+			    "clearing MSI enable\n",
+			    ddi_driver_name(rdip),
+			    ddi_get_instance(rdip)));
+			cap_ctrl &= ~PCI_MSI_ENABLE_BIT;
+			PCI_CAP_PUT16(handle, 0, cap_base,
+			    PCI_MSI_CTRL, cap_ctrl);
+		} else if (!(cap_ctrl & PCI_MSI_ENABLE_BIT) &&
+		    hdlp->ih_type == DDI_INTR_TYPE_MSI) {
+			DDI_INTR_NEXDBG((CE_CONT,
+			    "?pci_conf_intr_type: %s%d: "
+			    "setting MSI enable\n",
+			    ddi_driver_name(rdip),
+			    ddi_get_instance(rdip)));
+			cap_ctrl |= PCI_MSI_ENABLE_BIT;
+			PCI_CAP_PUT16(handle, 0, cap_base,
+			    PCI_MSI_CTRL, cap_ctrl);
+		}
+	}
+
+	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI_X, &cap_base)
+	    == DDI_SUCCESS) {
+		cap_ctrl = PCI_CAP_GET16(handle, 0, cap_base, PCI_MSIX_CTRL);
+		if (cap_ctrl == PCI_CAP_EINVAL16) {
+			ret = DDI_FAILURE;
+			goto out;
+		}
+
+		if ((cap_ctrl & PCI_MSIX_ENABLE_BIT) &&
+		    hdlp->ih_type != DDI_INTR_TYPE_MSIX) {
+			DDI_INTR_NEXDBG((CE_CONT,
+			    "?pci_conf_intr_type: %s%d: "
+			    "clearing MSIX enable\n",
+			    ddi_driver_name(rdip),
+			    ddi_get_instance(rdip)));
+			cap_ctrl &= ~PCI_MSIX_ENABLE_BIT;
+			PCI_CAP_PUT16(handle, 0, cap_base,
+			    PCI_MSIX_CTRL, cap_ctrl);
+		} else if (!(cap_ctrl & PCI_MSIX_ENABLE_BIT) &&
+		    hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
+			DDI_INTR_NEXDBG((CE_CONT,
+			    "?pci_conf_intr_type: %s%d: "
+			    "setting MSIX enable\n",
+			    ddi_driver_name(rdip),
+			    ddi_get_instance(rdip)));
+			cap_ctrl |= PCI_MSIX_ENABLE_BIT;
+			PCI_CAP_PUT16(handle, 0, cap_base,
+			    PCI_MSIX_CTRL, cap_ctrl);
+		}
+	}
+
+out:
+	pci_config_teardown(&handle);
+	return (ret);
+}
+
+/*
  * Allocate a vector for FIXED type interrupt.
  */
 void
@@ -721,6 +816,9 @@ pci_alloc_intr_fixed(dev_info_t *pdip, dev_info_t *rdip,
 	pci_rval = pci_intx_get_cap(rdip, &pci_status);
 	if ((pci_rval == DDI_SUCCESS) && (pci_status != 0))
 		hdlp->ih_cap |= pci_status;
+
+	if (pci_conf_intr_type(pdip, rdip, hdlp) != DDI_SUCCESS)
+		dev_err(rdip, CE_WARN, "failed to configure interrupt type");
 }
 
 #if XXXARM
