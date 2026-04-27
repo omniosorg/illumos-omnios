@@ -95,6 +95,15 @@ xhci_event_init(xhci_t *xhcip)
 	xev->xev_segs[0].xes_addr = LE_64(xhci_dma_pa(&xev->xev_ring.xr_dma));
 	xev->xev_segs[0].xes_size = LE_16(xev->xev_ring.xr_ntrb);
 
+	XHCI_DMA_SYNC(xev->xev_dma, DDI_DMA_SYNC_FORDEV);
+	if (xhci_check_dma_handle(xhcip, &xev->xev_dma) != DDI_FM_OK) {
+		xhci_error(xhcip, "encountered fatal FM error syncing "
+		    "event ring segment table: resetting device");
+		xhci_event_fini(xhcip);
+		ddi_fm_service_impact(xhcip->xhci_dip, DDI_SERVICE_LOST);
+		return (EIO);
+	}
+
 	reg = xhci_get32(xhcip, XHCI_R_RUN, XHCI_ERSTSZ(0));
 	reg &= ~XHCI_ERSTS_MASK;
 	reg |= XHCI_ERSTS_SET(XHCI_EVENT_NSEGS);
