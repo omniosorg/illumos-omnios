@@ -2500,3 +2500,23 @@ mac_flow_tab_info_get(flow_mask_t mask)
 	}
 	return (NULL);
 }
+
+/*
+ * Is the target bandwidth control enabled?
+ */
+boolean_t
+mac_bw_ctl_is_enabled(const mac_bw_ctl_t *bw)
+{
+	ASSERT(MUTEX_HELD(&bw->mac_bw_lock));
+	return ((bw->mac_bw_state & BW_ENABLED) != 0);
+}
+
+/*
+ * Has the target bandwidth control gone past its limit in the current tick?
+ */
+boolean_t
+mac_bw_ctl_is_enforced(const mac_bw_ctl_t *bw)
+{
+	ASSERT(MUTEX_HELD(&bw->mac_bw_lock));
+	return ((bw->mac_bw_state & BW_ENFORCED) != 0);
+}

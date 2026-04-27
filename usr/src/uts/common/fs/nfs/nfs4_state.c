@@ -3150,6 +3150,7 @@ rfs4_deleg_state_create(rfs4_entry_t u_entry, void *argp)
 	dsp->rds_time_granted = gethrestime_sec();	/* observability */
 	dsp->rds_time_revoked = 0;
 	dsp->rds_revoked = FALSE;
+	dsp->rds_closed = FALSE;
 
 	list_link_init(&dsp->rds_node);
 
@@ -3694,6 +3695,11 @@ rfs4_get_deleg_state(stateid4 *stateid, rfs4_deleg_state_t **dspp)
 	status = rfs4_get_deleg_any(stateid, &dsp);
 	if (status != NFS4_OK) {
 		return (status);
+	}
+
+	if (dsp->rds_closed) {
+		rfs4_deleg_state_rele(dsp);
+		return (NFS4ERR_BAD_STATEID);
 	}
 
 	if (dsp->rds_revoked) {

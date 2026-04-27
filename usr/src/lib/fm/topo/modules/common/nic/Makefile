@@ -10,17 +10,12 @@
 #
 
 #
-# Copyright (c) 2017, Joyent, Inc.
+# Copyright 2026 Oxide Computer Company
 #
 
-MODULE		= nic
-CLASS		= common
-SHAREDMODULE	= shared
+include $(SRC)/Makefile.master
 
-MODULESRCS	= topo_nic.c
-SHAREDSRCS	= topo_port.c topo_transceiver.c
+SUBDIRS = $(MACH64)
+$(BUILD32)SUBDIRS += $(MACH)
 
-include ../../Makefile.plugin
-
-CPPFLAGS	+= -I../shared
-LDLIBS		+= -ldevinfo -ldladm -lsff
+include ../../../../Makefile.subdirs

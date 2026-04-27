@@ -505,6 +505,8 @@ smbd_door_dispatch_op(void *thread_arg)
 
 	if ((hdr->dh_flags & SMB_DF_SYSSPACE) &&
 	    (hdr->dh_flags & SMB_DF_ASYNC)) {
+		uint32_t txid = hdr->dh_txid;
+
 		assert(hdr->dh_op != SMB_DR_ASYNC_RESPONSE);
 
 		(void) mutex_lock(&smbd_doorsvc.sd_mutex);
@@ -517,7 +519,7 @@ smbd_door_dispatch_op(void *thread_arg)
 		}
 		(void) mutex_unlock(&smbd_doorsvc.sd_mutex);
 
-		(void) smb_kmod_event_notify(hdr->dh_txid);
+		(void) smb_kmod_event_notify(txid);
 	}
 
 	return (NULL);

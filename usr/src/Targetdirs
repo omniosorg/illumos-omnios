@@ -291,6 +291,8 @@ DIRS=							\
 	/usr/lib/dtrace					\
 	/usr/lib/elfedit				\
 	/usr/lib/fm					\
+	/usr/lib/fm/topo				\
+	/usr/lib/fm/topo/plugins			\
 	/usr/lib/font					\
 	/usr/lib/fs					\
 	/usr/lib/fs/nfs					\
@@ -460,7 +462,13 @@ sparcv9_DIRS64=				\
 	$(LEGACY_DIRS64)
 
 amd64_DIRS64=			\
-	/platform/i86pc/amd64	\
+	/platform/i86pc/amd64 \
+	/usr/platform/i86pc \
+	/usr/platform/i86pc/lib \
+	/usr/platform/i86pc/lib/fm \
+	/usr/platform/i86pc/lib/fm/topo \
+	/usr/platform/i86pc/lib/fm/topo/plugins \
+	/usr/platform/i86pc/lib/fm/topo/plugins/$(MACH64) \
 	$(LEGACY_DIRS64)
 
 # These are only created on multilib platforms, those where BUILD32 and
@@ -477,6 +485,7 @@ DIRSMULTILIB= \
 	/usr/lib/dtrace/$(MACH64)		\
 	/usr/lib/elfedit/$(MACH64)		\
 	/usr/lib/fm/$(MACH64)			\
+	/usr/lib/fm/topo/plugins/$(MACH64) 	\
 	/usr/lib/fs/nfs/$(MACH64)		\
 	/usr/lib/fs/smb/$(MACH64)		\
 	/usr/lib/inet/$(MACH64)			\
@@ -546,10 +555,11 @@ LEGACY_SYM.DIRS64=	\
 	/usr/lib/brand/solaris10/64
 
 sparc_SYM.DIRS64=	$(LEGACY_SYM.DIRS64)
-i386_SYM.DIRS64=	$(LEGACY_SYM.DIRS64)
+amd64_SYM.DIRS64=	/usr/platform/i86pc/lib/fm/topo/plugins/64 \
+	$(LEGACY_SYM.DIRS64)
 
 SYM.DIRS64= \
-	$($(MACH)_SYM.DIRS64)		\
+	$($(MACH64)_SYM.DIRS64)		\
 	/lib/64				\
 	/lib/crypto/64			\
 	/lib/secure/64			\
@@ -558,8 +568,10 @@ SYM.DIRS64= \
 	/usr/lib/dtrace/64		\
 	/usr/lib/elfedit/64		\
 	/usr/lib/fm/64			\
+	/usr/lib/fm/topo/plugins/64	\
 	/usr/lib/link_audit/64		\
 	/usr/lib/lwp/64			\
+	/usr/lib/scsi/64		\
 	/usr/lib/secure/64		\
 	/usr/lib/security/64		\
 	/usr/lib/varpd/64		\
@@ -665,8 +677,10 @@ $(BUILD64) $(ROOT)/usr/lib/elfedit/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/brand/sn1/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/brand/solaris10/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/fm/64 := LINKDEST=$(MACH64)
+$(BUILD64) $(ROOT)/usr/lib/fm/topo/plugins/64 := LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/lwp/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/link_audit/64:=	LINKDEST=$(MACH64)
+$(BUILD64) $(ROOT)/usr/lib/scsi/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/secure/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/security/64:=	LINKDEST=$(MACH64)
 $(BUILD64) $(ROOT)/usr/lib/varpd/64:=	LINKDEST=$(MACH64)
@@ -678,12 +692,14 @@ $(BUILD64) $(ROOT)/usr/ucblib/64:=	LINKDEST=$(MACH64)
 $(AARCH64_BLD) $(ROOT)/lib/64:=		LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/lib/crypto/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/lib/secure/64:=	LINKDEST=.
+$(AARCH64_BLD) $(ROOT)/usr/lib/scsi/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/64:=		LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/dtrace/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/elfedit/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/brand/sn1/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/brand/solaris10/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/fm/64 :=	LINKDEST=.
+$(AARCH64_BLD) $(ROOT)/usr/lib/fm/topo/plugins/64 := LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/lwp/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/link_audit/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/lib/secure/64:=	LINKDEST=.
@@ -692,6 +708,11 @@ $(AARCH64_BLD) $(ROOT)/usr/lib/varpd/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/xpg4/lib/64:=	LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/var/ld/64:=		LINKDEST=.
 $(AARCH64_BLD) $(ROOT)/usr/ucblib/64:=	LINKDEST=.
+
+#
+# x86-specific
+#
+$(BUILD64) $(ROOT)/usr/platform/i86pc/lib/fm/topo/plugins/64 := LINKDEST=$(MACH64)
 
 #
 # Installing a directory symlink calls for overriding INS.dir to install

@@ -14,7 +14,7 @@
 # Copyright 2020 Joyent, Inc.
 # Copyright 2021 Tintri by DDN, Inc. All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2025 Oxide Computer Company
+# Copyright 2026 Oxide Computer Company
 #
 
 include $(SRC)/Makefile.master
@@ -39,6 +39,7 @@ SUBDIRS =       \
 		ksensor \
 		ksid \
 		ktest \
+		libsocket \
 		libtopo \
 		mac \
 		minttl \

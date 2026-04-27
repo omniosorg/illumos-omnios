@@ -669,6 +669,8 @@ typedef struct rfs4_lo_state {
  * time_granted - time this delegation was assigned to client
  * time_recalled - time when the server started recall process
  * time_revoked - if revoked, time that the revoke occurred
+ * revoked - v4.1 delegation returned, awaiting FREE_STATEID
+ * closed  - v4.0 delegation returned, reaper will destroy
  * finfo - reference to the file associated with this delegation
  * client - reference to client for which this delegation is associated
  * node - list of delegations for the file (WRITE == 1, READ == )
@@ -680,7 +682,8 @@ typedef struct rfs4_deleg_state {
 	time_t			rds_time_granted;
 	time_t			rds_time_recalled;
 	time_t			rds_time_revoked;
-	bool_t			rds_revoked;	/* awaiting FREE_STATEID */
+	bool_t			rds_revoked;
+	bool_t			rds_closed;
 	struct rfs4_file	*rds_finfo;
 	rfs4_client_t		*rds_client;
 	list_node_t		rds_node;

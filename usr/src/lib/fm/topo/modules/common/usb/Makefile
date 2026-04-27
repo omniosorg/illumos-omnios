@@ -10,19 +10,12 @@
 #
 
 #
-# Copyright (c) 2018, Joyent, Inc.
+# Copyright 2026 Oxide Computer Company
 #
 
-MODULE		= usb
-CLASS		= common
-SHAREDMODULE	= shared
+include $(SRC)/Makefile.master
 
+SUBDIRS = $(MACH64)
+$(BUILD32)SUBDIRS += $(MACH)
 
-MODULESRCS	= topo_usb.c topo_usb_acpi.o topo_usb_metadata.o
-SHAREDSRCS	= topo_port.c
-
-include ../../Makefile.plugin
-
-CPPFLAGS	+= -I../shared  -I$(SRC)/uts/common/sys/acpi -DACPI_APPLICATION
-CPPFLAGS	+= -D_POSIX_PTHREAD_SEMANTICS
-LDLIBS		+= -ldevinfo
+include ../../../../Makefile.subdirs

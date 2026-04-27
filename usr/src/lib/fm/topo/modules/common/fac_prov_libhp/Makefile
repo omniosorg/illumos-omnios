@@ -10,15 +10,12 @@
 #
 
 #
-# Copyright 2023 Oxide Computer Company
+# Copyright 2026 Oxide Computer Company
 #
 
-MODULE = fac_prov_libhp
-CLASS = common
+include $(SRC)/Makefile.master
 
-MODULESRCS = fac_prov_libhp.c
+SUBDIRS = $(MACH64)
+$(BUILD32)SUBDIRS += $(MACH)
 
-include ../../Makefile.plugin
-
-CPPFLAGS += -I$(SRC)/lib/libhotplug/common
-LDLIBS += -lhotplug
+include ../../../../Makefile.subdirs

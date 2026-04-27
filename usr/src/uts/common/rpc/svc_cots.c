@@ -265,7 +265,17 @@ svc_cots_kcreate(file_t *fp, uint_t max_msgsize, struct T_info_ack *tinfo,
 
 	err = strioctl(fp->f_vnode, I_STR, (intptr_t)&getaddr,
 	    0, K_TO_K, CRED(), &retval);
-	if (err || retval) {
+	if (err != 0 || retval != 0) {
+		if (err == 0) {
+			if ((retval & 0xff) == TSYSERR)
+				err = (retval >> 8) & 0xff;
+			else
+				err = t_tlitosyserr(retval & 0xff);
+		}
+		/* In case TLI error conversion gave us zero. */
+		if (err == 0)
+			err = EPROTO;
+
 		kmem_free(xprt, sizeof (SVCMASTERXPRT));
 		kmem_free(cmd, cmd_sz);
 		return (err);

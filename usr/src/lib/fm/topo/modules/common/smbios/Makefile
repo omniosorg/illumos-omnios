@@ -10,13 +10,12 @@
 #
 
 #
-# Copyright (c) 2018, Joyent, Inc.
+# Copyright 2026 Oxide Computer Company
 #
 
-MODULE = smbios
-CLASS = common
-MODULESRCS = smbios_enum.c
+include $(SRC)/Makefile.master
 
-include ../../Makefile.plugin
+SUBDIRS = $(MACH64)
+$(BUILD32)SUBDIRS += $(MACH)
 
-LDLIBS += -lsmbios
+include ../../../../Makefile.subdirs

@@ -2390,8 +2390,8 @@ use_new_conn:
 				}
 				mutex_exit(&cm_entry->x_lock);
 				cmp = next;
-				mutex_exit(&connmgr_data->cm_lock);
 				list_remove(&connmgr_data->cm_hd, cm_entry);
+				mutex_exit(&connmgr_data->cm_lock);
 				connmgr_close(cm_entry);
 				mutex_enter(&connmgr_data->cm_lock);
 				goto use_new_conn;

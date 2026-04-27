@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2024 MNX Cloud, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -162,12 +163,13 @@ di_init_impl(const char *phys_path, uint_t flag,
 
 	/*
 	 * Make sure there is no minor name in the path
-	 * and the path do not start with /devices....
+	 * and the path does not start with /devices.
+	 * The length check accounts for a '/' prefix and NUL terminator.
 	 */
 	if (phys_path == NULL ||
 	    strchr(phys_path, ':') ||
 	    (strncmp(phys_path, "/devices", 8) == 0) ||
-	    (strlen(phys_path) > MAXPATHLEN)) {
+	    (strlen(phys_path) > sizeof (dinfo_io.root_path) - 2)) {
 		errno = EINVAL;
 		return (DI_NODE_NIL);
 	}
@@ -674,10 +676,10 @@ prune_sib(struct node_list **headp)
 	prev = *headp;
 	curr = prev->next;
 	while (curr) {
-		if (((curr_par = di_parent_node(curr->node)) != DI_NODE_NIL) &&
-		    ((curr_par == parent) || ((curr_gpar =
-		    di_parent_node(curr_par)) != DI_NODE_NIL) &&
-		    (curr_gpar == parent))) {
+		if ((curr_par = di_parent_node(curr->node)) != DI_NODE_NIL &&
+		    (curr_par == parent ||
+		    ((curr_gpar = di_parent_node(curr_par)) != DI_NODE_NIL &&
+		    curr_gpar == parent))) {
 			/*
 			 * match parent/grandparent: delete curr
 			 */
@@ -3788,9 +3790,9 @@ di_lookup_node_impl(di_node_t root, char *devfspath)
 		pname = slash + 1;
 		node = di_child_node(node);
 
-		if (slash = strchr(pname, '/'))
+		if ((slash = strchr(pname, '/')) != NULL)
 			*slash = '\0';
-		if (paddr = strchr(pname, '@'))
+		if ((paddr = strchr(pname, '@')) != NULL)
 			*paddr++ = '\0';
 
 		for (; node != DI_NODE_NIL; node = di_sibling_node(node)) {

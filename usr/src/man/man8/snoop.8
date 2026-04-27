@@ -2,11 +2,11 @@
 .\" Copyright 2023 RackTop Systems, Inc.
 .\" Copyright 2021 Joyent, Inc.
 .\" Copyright (C) 2009, Sun Microsystems, Inc. All Rights Reserved
-.\" Copyright 2025 Oxide Computer Company
+.\" Copyright 2026 Oxide Computer Company
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License.
 .\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.  See the License for the specific language governing permissions and limitations under the License.
 .\" When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH SNOOP 8 "Nov 3, 2025"
+.TH SNOOP 8 "Apr 20, 2026"
 .SH NAME
 snoop \- capture and inspect network packets
 .SH SYNOPSIS
@@ -212,10 +212,11 @@ hostname).
 .sp .6
 .RS 4n
 Save captured packets in \fIfilename\fR as they are captured. (This
-\fIfilename\fR is referred to as the "capture file".) The format of the capture
-file is RFC 1761-compliant. During packet capture, a count of the number of
-packets saved in the file is displayed. If you wish just to count packets
-without saving to a file, name the file \fB/dev/null\fR.
+\fIfilename\fR is referred to as the "capture file".) The format of the
+capture file is RFC 1761-compliant. During packet capture, a count of the
+number of packets saved in the file is displayed along with the number of
+packets dropped. If you wish just to count packets without saving to a
+file, name the file \fB/dev/null\fR.
 .RE
 
 .sp

@@ -22,6 +22,7 @@
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include "libdevinfo.h"
@@ -204,7 +205,7 @@ get_db_path(
 	char *dir = NULL;
 
 #ifdef	DEBUG
-	if (dir = getenv(ALT_DB_DIR)) {
+	if ((dir = getenv(ALT_DB_DIR)) != NULL) {
 		(void) devlink_dprintf(DBG_INFO,
 		    "get_db_path: alternate db dir: %s\n", dir);
 	}
@@ -560,7 +561,7 @@ read_nodes(struct di_devlink_handle *hdp, cache_node_t *pcnp, uint32_t nidx)
 		return (-1);
 	}
 
-	for (; dnp = get_node(hdp, nidx); nidx = dnp->sib) {
+	for (; (dnp = get_node(hdp, nidx)) != NULL; nidx = dnp->sib) {
 
 		path = get_string(hdp, dnp->path);
 
@@ -605,7 +606,7 @@ read_minors(struct di_devlink_handle *hdp, cache_node_t *pcnp, uint32_t nidx)
 		return (-1);
 	}
 
-	for (; dmp = get_minor(hdp, nidx); nidx = dmp->sib) {
+	for (; (dmp = get_minor(hdp, nidx)) != NULL; nidx = dmp->sib) {
 
 		name = get_string(hdp, dmp->name);
 		nodetype = get_string(hdp, dmp->nodetype);
@@ -647,10 +648,17 @@ read_links(struct di_devlink_handle *hdp, cache_minor_t *pcmp, uint32_t nidx)
 		return (-1);
 	}
 
-	for (; dlp = get_link(hdp, nidx); nidx = dlp->sib) {
+	for (; (dlp = get_link(hdp, nidx)) != NULL; nidx = dlp->sib) {
 
 		path = get_string(hdp, dlp->path);
 		content = get_string(hdp, dlp->content);
+
+		if (link_hash(hdp, path, 0) != NULL) {
+			(void) devlink_dprintf(DBG_ERR,
+			    "read_links: skipping duplicate link[%u]: "
+			    "%s\n", nidx, path ? path : "<NULL>");
+			continue;
+		}
 
 		clp = link_insert(hdp, pcmp, path, content, dlp->attr);
 		if (clp == NULL) {
@@ -1443,7 +1451,7 @@ lookup_minor(
 		struct db_minor *dmp;
 
 		nidx = (((struct db_node *)vp)->minor);
-		for (; dmp = get_minor(hdp, nidx); nidx = dmp->sib) {
+		for (; (dmp = get_minor(hdp, nidx)) != NULL; nidx = dmp->sib) {
 			cp = get_string(hdp, dmp->name);
 			if (cp && strcmp(cp, colon + 1) == 0)
 				break;
@@ -1457,7 +1465,7 @@ lookup_node(struct di_devlink_handle *hdp, char *path, const int flags)
 {
 	struct tnode tnd = {NULL};
 
-	if (tnd.node = get_last_node(hdp, path, flags))
+	if ((tnd.node = get_last_node(hdp, path, flags)) != NULL)
 		return (tnd.node);
 
 	tnd.handle = hdp;
@@ -1594,7 +1602,7 @@ walk_tree(
 			(void) strlcat(buf, "/", sizeof (buf));
 		}
 
-		if (slash = strchr(cur, '/')) {
+		if ((slash = strchr(cur, '/')) != NULL) {
 			*slash = '\0';
 			(void) strlcat(buf, cur, sizeof (buf));
 			*slash = '/';
@@ -2298,7 +2306,7 @@ walk_matching_links(struct di_devlink_handle *hdp, link_desc_t *linkp)
 	 */
 	for (;;) {
 		nidx = dmp ? dmp->link : DB_HDR(hdp)->dngl_idx;
-		for (; dlp = get_link(hdp, nidx); nidx = dlp->sib) {
+		for (; (dlp = get_link(hdp, nidx)) != NULL; nidx = dlp->sib) {
 			struct di_devlink vlink = {NULL};
 
 			vlink.rel_path = get_string(hdp, dlp->path);
@@ -3390,7 +3398,7 @@ dca_init(const char *name, struct dca_off *dcp, int dca_flags)
 		return (-1);
 
 	dcp->dca_root = 0;
-	if (cp = strrchr(dcp->dca_name, ':')) {
+	if ((cp = strrchr(dcp->dca_name, ':')) != NULL) {
 		*cp++ = '\0';
 		dcp->dca_minor = cp - dcp->dca_name;
 	}
@@ -3406,7 +3414,7 @@ static int
 daemon_call(const char *root, struct dca_off *dcp)
 {
 	door_arg_t	arg;
-	int		fd, door_error;
+	int		fd, door_error = 0;
 	sigset_t	oset, nset;
 	char		synch_door[PATH_MAX];
 	struct stat	sb;

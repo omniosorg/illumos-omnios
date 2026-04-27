@@ -1517,62 +1517,113 @@ mac_update_srs_priority(mac_soft_ring_set_t *mac_srs, pri_t prival)
 }
 
 /*
- * Change the receive bandwidth limit.
+ * Update a bandwidth control to reflect its new state, clearing any existing
+ * usage if moving from disabled to active.
  */
 static void
-mac_rx_srs_update_bwlimit(mac_soft_ring_set_t *srs, mac_resource_props_t *mrp)
+mac_bw_ctl_set_state(mac_bw_ctl_t *bw, const boolean_t do_enable,
+    const mac_resource_props_t *mrp)
 {
-	mac_soft_ring_t		*softring;
+	VERIFY(MUTEX_HELD(&bw->mac_bw_lock));
+	if (do_enable) {
+		const boolean_t was_disabled = !mac_bw_ctl_is_enabled(bw);
 
-	mutex_enter(&srs->srs_lock);
-	mutex_enter(&srs->srs_bw->mac_bw_lock);
-
-	if (mrp->mrp_maxbw == MRP_MAXBW_RESETVAL) {
-		/* Reset bandwidth limit */
-		if (srs->srs_type & SRST_BW_CONTROL) {
-			srs->srs_type &= ~SRST_BW_CONTROL;
-			srs->srs_drain_func = mac_rx_srs_drain;
-		}
-	} else {
 		/* Set/Modify bandwidth limit */
-		srs->srs_bw->mac_bw_limit = FLOW_BYTES_PER_TICK(mrp->mrp_maxbw);
+		bw->mac_bw_state |= BW_ENABLED;
+		bw->mac_bw_limit = FLOW_BYTES_PER_TICK(mrp->mrp_maxbw);
 		/*
 		 * Give twice the queuing capability before
 		 * dropping packets. The unit is bytes/tick.
 		 */
-		srs->srs_bw->mac_bw_drop_threshold =
-		    srs->srs_bw->mac_bw_limit << 1;
-		if (!(srs->srs_type & SRST_BW_CONTROL)) {
-			srs->srs_type |= SRST_BW_CONTROL;
-			srs->srs_drain_func = mac_rx_srs_drain_bw;
-		}
-	}
+		bw->mac_bw_drop_threshold = bw->mac_bw_limit << 1;
 
-	mutex_exit(&srs->srs_bw->mac_bw_lock);
-	mutex_exit(&srs->srs_lock);
+		/*
+		 * Don't clear any expended bytes if we are moving between two
+		 * bandwidth limits, but attempt to clear enforcement status if
+		 * we've increased the limit.
+		 */
+		if (was_disabled) {
+			bw->mac_bw_state &= ~BW_ENFORCED;
+			bw->mac_bw_curr_time = gethrtime();
+			bw->mac_bw_used = 0;
+			bw->mac_bw_sz = 0;
+		} else if (bw->mac_bw_used < bw->mac_bw_limit) {
+			bw->mac_bw_state &= ~BW_ENFORCED;
+		}
+	} else {
+		/*
+		 * As there is no bandwidth limit, there is nothing to enforce.
+		 */
+		bw->mac_bw_state &= ~(BW_ENABLED | BW_ENFORCED);
+	}
 }
 
-/* Change the transmit bandwidth limit */
+/*
+ * Chooses the correct `mac_srs_drain_proc_t` for `srs` dependent on its type
+ * and whether it has a bandwidth limit configured. This allows for the SRS
+ * drain to perform logic for each case unconditionally.
+ *
+ * If this method is called on an active SRS, this must be done under either
+ * quiescence or srs_lock.
+ */
 static void
-mac_tx_srs_update_bwlimit(mac_soft_ring_set_t *srs, mac_resource_props_t *mrp)
+mac_srs_update_drain_proc(mac_soft_ring_set_t *srs)
 {
-	uint32_t		tx_mode, ring_info = 0;
+	mac_srs_drain_proc_t drain_fn = NULL;
+	if ((srs->srs_type & SRST_TX) != 0) {
+		drain_fn = mac_tx_srs_drain;
+	} else if (mac_srs_is_bw_controlled(srs)) {
+		drain_fn = mac_rx_srs_drain_bw;
+	} else {
+		drain_fn = mac_rx_srs_drain;
+	}
+
+	VERIFY3P(drain_fn, !=, NULL);
+
+	srs->srs_drain_func = drain_fn;
+}
+
+/*
+ * Change a Tx SRS's state to reflect whether it is bandwidth controlled.
+ */
+static void
+mac_tx_srs_update_bwlimit_state(mac_soft_ring_set_t *srs,
+    const boolean_t is_enabled)
+{
+	uint32_t		ring_info = 0;
 	mac_srs_tx_t		*srs_tx = &srs->srs_tx;
 	mac_client_impl_t	*mcip = srs->srs_mcip;
 
+	VERIFY3U(srs->srs_type & SRST_TX, !=, 0);
+
 	/*
 	 * We need to quiesce/restart the client here because mac_tx() and
-	 * srs->srs_tx->st_func do not hold srs->srs_lock while accessing
+	 * srs->srs_tx.st_func do not hold srs->srs_lock while accessing
 	 * st_mode and related fields, which are modified by the code below.
 	 */
 	mac_tx_client_quiesce((mac_client_handle_t)mcip);
 
 	mutex_enter(&srs->srs_lock);
-	mutex_enter(&srs->srs_bw->mac_bw_lock);
 
-	tx_mode = srs_tx->st_mode;
-	if (mrp->mrp_maxbw == MRP_MAXBW_RESETVAL) {
-		/* Reset bandwidth limit */
+	mac_tx_srs_mode_t tx_mode = srs_tx->st_mode;
+	if (is_enabled) {
+		if (tx_mode != SRS_TX_BW && tx_mode != SRS_TX_BW_FANOUT &&
+		    tx_mode != SRS_TX_BW_AGGR) {
+			if (tx_mode == SRS_TX_SERIALIZE ||
+			    tx_mode == SRS_TX_DEFAULT) {
+				srs_tx->st_mode = SRS_TX_BW;
+			} else if (tx_mode == SRS_TX_FANOUT) {
+				srs_tx->st_mode = SRS_TX_BW_FANOUT;
+			} else if (tx_mode == SRS_TX_AGGR) {
+				srs_tx->st_mode = SRS_TX_BW_AGGR;
+			} else {
+				panic("Unhandled BW->non-BW mode change: %d",
+				    tx_mode);
+			}
+		}
+
+		srs->srs_type |= SRST_BW_CONTROL;
+	} else {
 		if (tx_mode == SRS_TX_BW) {
 			if (srs_tx->st_arg2 != NULL) {
 				mac_ring_handle_t mrh =
@@ -1590,50 +1641,59 @@ mac_tx_srs_update_bwlimit(mac_soft_ring_set_t *srs, mac_resource_props_t *mrp)
 		} else if (tx_mode == SRS_TX_BW_AGGR) {
 			srs_tx->st_mode = SRS_TX_AGGR;
 		}
+
 		srs->srs_type &= ~SRST_BW_CONTROL;
-	} else {
-		/* Set/Modify bandwidth limit */
-		srs->srs_bw->mac_bw_limit = FLOW_BYTES_PER_TICK(mrp->mrp_maxbw);
-		/*
-		 * Give twice the queuing capability before
-		 * dropping packets. The unit is bytes/tick.
-		 */
-		srs->srs_bw->mac_bw_drop_threshold =
-		    srs->srs_bw->mac_bw_limit << 1;
-		srs->srs_type |= SRST_BW_CONTROL;
-		if (tx_mode != SRS_TX_BW && tx_mode != SRS_TX_BW_FANOUT &&
-		    tx_mode != SRS_TX_BW_AGGR) {
-			if (tx_mode == SRS_TX_SERIALIZE ||
-			    tx_mode == SRS_TX_DEFAULT) {
-				srs_tx->st_mode = SRS_TX_BW;
-			} else if (tx_mode == SRS_TX_FANOUT) {
-				srs_tx->st_mode = SRS_TX_BW_FANOUT;
-			} else if (tx_mode == SRS_TX_AGGR) {
-				srs_tx->st_mode = SRS_TX_BW_AGGR;
-			} else {
-				ASSERT(0);
-			}
-		}
 	}
 
 	srs_tx->st_func = mac_tx_get_func(srs_tx->st_mode);
-	mutex_exit(&srs->srs_bw->mac_bw_lock);
 	mutex_exit(&srs->srs_lock);
 
 	mac_tx_client_restart((mac_client_handle_t)mcip);
 }
 
 /*
- * The uber function that deals with any update to bandwidth limits.
+ * Change an Rx SRS's state to reflect whether it is bandwidth controlled.
+ */
+static void
+mac_srs_update_rx_bwlimit_state(mac_soft_ring_set_t *srs,
+    const boolean_t is_enabled)
+{
+	VERIFY3U(srs->srs_type & SRST_TX, ==, 0);
+
+	mutex_enter(&srs->srs_lock);
+
+	if (is_enabled) {
+		srs->srs_type |= SRST_BW_CONTROL;
+	} else {
+		srs->srs_type &= ~SRST_BW_CONTROL;
+	}
+
+	mac_srs_update_drain_proc(srs);
+
+	mutex_exit(&srs->srs_lock);
+}
+
+/*
+ * Update the Tx and Rx bandwidth control on a target flent, then reconfigure
+ * any downstream SRSes to use the correct drain/process methods to use or skip
+ * bandwidth checking as required.
  */
 void
 mac_srs_update_bwlimit(flow_entry_t *flent, mac_resource_props_t *mrp)
 {
-	int			count;
+	const boolean_t enable = mrp->mrp_maxbw != MRP_MAXBW_RESETVAL;
 
-	for (count = 0; count < flent->fe_rx_srs_cnt; count++)
-		mac_rx_srs_update_bwlimit(flent->fe_rx_srs[count], mrp);
-	mac_tx_srs_update_bwlimit(flent->fe_tx_srs, mrp);
+	mutex_enter(&flent->fe_rx_bw.mac_bw_lock);
+	mac_bw_ctl_set_state(&flent->fe_rx_bw, enable, mrp);
+	mutex_exit(&flent->fe_rx_bw.mac_bw_lock);
+	for (uint32_t i = 0; i < flent->fe_rx_srs_cnt; i++) {
+		mac_srs_update_rx_bwlimit_state(flent->fe_rx_srs[i], enable);
+	}
+
+	mutex_enter(&flent->fe_tx_bw.mac_bw_lock);
+	mac_bw_ctl_set_state(&flent->fe_tx_bw, enable, mrp);
+	mutex_exit(&flent->fe_tx_bw.mac_bw_lock);
+	mac_tx_srs_update_bwlimit_state(flent->fe_tx_srs, enable);
 }
 
 /*
@@ -2142,9 +2202,8 @@ mac_srs_create(mac_client_impl_t *mcip, flow_entry_t *flent,
 	mac_soft_ring_set_t	*mac_srs;
 	mac_srs_rx_t		*srs_rx;
 	mac_srs_tx_t		*srs_tx;
-	mac_bw_ctl_t		*mac_bw;
 	mac_resource_props_t	*mrp;
-	boolean_t		is_tx_srs = ((srs_type & SRST_TX) != 0);
+	const boolean_t		is_tx_srs = ((srs_type & SRST_TX) != 0);
 
 	mac_srs = kmem_cache_alloc(mac_srs_cache, KM_SLEEP);
 	bzero(mac_srs, sizeof (mac_soft_ring_set_t));
@@ -2160,19 +2219,16 @@ mac_srs_create(mac_client_impl_t *mcip, flow_entry_t *flent,
 	 * the 1st one being brought up (the rx bw ctl struct may
 	 * be shared by multiple SRSs)
 	 */
+	mac_bw_ctl_t *my_bw = is_tx_srs ? &flent->fe_tx_bw : &flent->fe_rx_bw;
+	mac_srs->srs_bw = my_bw;
+
 	if (is_tx_srs) {
-		mac_srs->srs_bw = &flent->fe_tx_bw;
-		bzero(mac_srs->srs_bw, sizeof (mac_bw_ctl_t));
+		bzero(my_bw, sizeof (*my_bw));
 		flent->fe_tx_srs = mac_srs;
 	} else {
-		/*
-		 * The bw counter (stored in the flent) is shared
-		 * by SRS's within an rx group.
-		 */
-		mac_srs->srs_bw = &flent->fe_rx_bw;
 		/* First rx SRS, clear the bw structure */
 		if (flent->fe_rx_srs_cnt == 0)
-			bzero(mac_srs->srs_bw, sizeof (mac_bw_ctl_t));
+			bzero(my_bw, sizeof (*my_bw));
 
 		/*
 		 * It is better to panic here rather than just assert because
@@ -2220,22 +2276,12 @@ mac_srs_create(mac_client_impl_t *mcip, flow_entry_t *flent,
 
 	/* Initialize bw limit */
 	if ((mrp->mrp_mask & MRP_MAXBW) != 0) {
-		mac_srs->srs_drain_func = mac_rx_srs_drain_bw;
-
-		mac_bw = mac_srs->srs_bw;
-		mutex_enter(&mac_bw->mac_bw_lock);
-		mac_bw->mac_bw_limit = FLOW_BYTES_PER_TICK(mrp->mrp_maxbw);
-
-		/*
-		 * Give twice the queuing capability before
-		 * dropping packets. The unit is bytes/tick.
-		 */
-		mac_bw->mac_bw_drop_threshold = mac_bw->mac_bw_limit << 1;
-		mutex_exit(&mac_bw->mac_bw_lock);
+		mutex_enter(&my_bw->mac_bw_lock);
+		mac_bw_ctl_set_state(my_bw, B_TRUE, mrp);
+		mutex_exit(&my_bw->mac_bw_lock);
 		mac_srs->srs_type |= SRST_BW_CONTROL;
-	} else {
-		mac_srs->srs_drain_func = mac_rx_srs_drain;
 	}
+	mac_srs_update_drain_proc(mac_srs);
 
 	/*
 	 * We use the following policy to control Receive
@@ -2284,7 +2330,6 @@ mac_srs_create(mac_client_impl_t *mcip, flow_entry_t *flent,
 
 	if (is_tx_srs) {
 		/* Handle everything about Tx SRS and return */
-		mac_srs->srs_drain_func = mac_tx_srs_drain;
 		srs_tx->st_max_q_cnt = mac_tx_srs_max_q_cnt;
 		srs_tx->st_hiwat =
 		    (mac_tx_srs_hiwat > mac_tx_srs_max_q_cnt) ?
@@ -4018,7 +4063,7 @@ no_group:
 				}
 				tx->st_arg2 = (void *)ring;
 				mac_tx_srs_stat_recreate(tx_srs, B_FALSE);
-				if (tx_srs->srs_type & SRST_BW_CONTROL) {
+				if (mac_srs_is_bw_controlled(tx_srs)) {
 					tx->st_mode = SRS_TX_BW;
 				} else if (mac_tx_serialize ||
 				    (ring_info & MAC_RING_TX_SERIALIZE)) {
@@ -4028,7 +4073,7 @@ no_group:
 				}
 				break;
 			}
-			if (tx_srs->srs_type & SRST_BW_CONTROL) {
+			if (mac_srs_is_bw_controlled(tx_srs)) {
 				tx->st_mode = is_aggr ?
 				    SRS_TX_BW_AGGR : SRS_TX_BW_FANOUT;
 			} else {

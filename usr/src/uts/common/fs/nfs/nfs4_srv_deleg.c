@@ -2564,6 +2564,7 @@ rfs4_return_deleg(rfs4_deleg_state_t *dsp, bool_t revoked)
 	rfs4_file_t *fp = dsp->rds_finfo;
 	open_delegation_type4 dtypewas;
 	rfs4_session_t *sp;
+	boolean_t inc_revoked_cnt = B_FALSE;
 
 	rfs4_dbe_lock(fp->rf_dbe);
 
@@ -2661,19 +2662,34 @@ rfs4_return_deleg(rfs4_deleg_state_t *dsp, bool_t revoked)
 
 	if (revoked == TRUE) {
 		dsp->rds_time_revoked = gethrestime_sec();
-		/*
-		 * Mark the delegation revoked but do NOT invalidate it yet.
-		 * It remains a live protocol object until the client sends
-		 * FREE_STATEID or the client record is cleaned up.
-		 */
-		dsp->rds_revoked = TRUE;
+		if (dsp->rds_client->rc_minorversion == 0) {
+			/*
+			 * NFSv4.0 has no FREE_STATEID.  Mark the delegation
+			 * closed so it can be reaped normally.  Lookup via
+			 * rfs4_get_deleg_state() returns NFS4ERR_BAD_STATEID
+			 * on next use per RFC 7530 section 8.8.2.
+			 */
+			dsp->rds_closed = TRUE;
+		} else {
+			/*
+			 * NFSv4.1: keep the delegation alive as a protocol
+			 * object until the client sends FREE_STATEID or the
+			 * client record is cleaned up.
+			 */
+			dsp->rds_revoked = TRUE;
+			inc_revoked_cnt = B_TRUE;
+		}
 	} else {
 		rfs4_dbe_invalidate(dsp->rds_dbe);
 	}
 
 	rfs4_dbe_unlock(dsp->rds_dbe);
 
-	if (revoked == TRUE) {
+	/*
+	 * Keep a count of revoked delegations in rc_deleg_revoked
+	 * for computing the cbstat flags in rfs4x_op_sequence().
+	 */
+	if (inc_revoked_cnt) {
 		rfs4_dbe_lock(dsp->rds_client->rc_dbe);
 		dsp->rds_client->rc_deleg_revoked++;	/* for SEQ4_STATUS */
 		rfs4_dbe_unlock(dsp->rds_client->rc_dbe);

@@ -23,6 +23,7 @@
 # Use is subject to license terms.
 #
 # Copyright (c) 2018, Joyent, Inc.
+# Copyright 2026 Oxide Computer Company
 
 LIBRARY=	libdevinfo.a
 VERS=		.1
@@ -40,15 +41,9 @@ LDLIBS +=	-lnvpair -lsec -lc -lgen
 
 CFLAGS +=	$(CCVERBOSE)
 CPPFLAGS +=	-I..
-CERRWARN +=	-_gcc=-Wno-parentheses
-CERRWARN +=	$(CNOWARN_UNINIT)
-
-# not linted
-SMATCH=off
 
 .KEEP_STATE:
 
 all: $(LIBS)
-
 
 include ../../Makefile.targ

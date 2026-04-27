@@ -21,6 +21,8 @@
 /*
  * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -38,6 +40,7 @@
 #include <strings.h>
 #include <synch.h>
 #include <ctype.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/dditypes.h>
 #include <sys/ddipropdefs.h>
@@ -888,6 +891,12 @@ di_prop_decode_common(void *data, int size, int prop_type, int prom)
 
 		case DI_PROP_TYPE_BYTE:
 			nelements = size;
+			break;
+
+		default:
+			errno = EINVAL;
+			nelements = -1;
+			break;
 		}
 
 		return (nelements);

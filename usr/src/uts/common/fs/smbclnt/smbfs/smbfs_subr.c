@@ -37,6 +37,7 @@
  * Use is subject to license terms.
  *
  * Copyright 2018 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2026 RackTop Systems, Inc.
  */
 
 #include <sys/param.h>
@@ -69,31 +70,47 @@
  */
 int
 smbfs_fullpath(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *dnp,
-	const char *name, int nmlen, u_int8_t sep)
+    const char *name, int nmlen, uint8_t sep)
 {
 	int caseopt = SMB_CS_NONE;
-	int unicode = (SMB_UNICODE_STRINGS(vcp)) ? 1 : 0;
+	boolean_t unicode = (SMB_UNICODE_STRINGS(vcp));
+	char *dir_rpath;
+	int dir_rplen;
+	boolean_t at_share_root;
 	int error;
 
 	/*
-	 * SMB1 may need an alignment pad before (not SMB2)
+	 * SMB2 wants full paths without the leading slash.
+	 * (In future, could keep n_rpath in that form and
+	 * add the leading slash for SMB1 in here.)
+	 *
+	 * SMB1 may need an alignment pad before path.
 	 */
-	if (((vcp)->vc_flags & SMBV_SMB2) == 0 &&
-	    ((vcp)->vc_hflags2 & SMB_FLAGS2_UNICODE) != 0) {
-		error = mb_put_padbyte(mbp);
-		if (error)
-			return (error);
+	dir_rpath = dnp->n_rpath;
+	dir_rplen = dnp->n_rplen;
+	at_share_root = (dir_rplen == 1 && dir_rpath[0] == '\\');
+	if (((vcp)->vc_flags & SMBV_SMB2) != 0) {
+		if (dir_rplen > 0) {
+			dir_rplen--;
+			dir_rpath++;
+		}
+	} else {
+		if (((vcp)->vc_hflags2 & SMB_FLAGS2_UNICODE) != 0) {
+			error = mb_put_padbyte(mbp);
+			if (error)
+				return (error);
+		}
 	}
 
 	error = smb_put_dmem(mbp, vcp,
-	    dnp->n_rpath, dnp->n_rplen,
+	    dir_rpath, dir_rplen,
 	    caseopt, NULL);
 	if (name) {
 		/*
 		 * Special case at share root:
 		 * Don't put another slash.
 		 */
-		if (dnp->n_rplen <= 1 && sep == '\\')
+		if (at_share_root && sep == '\\')
 			sep = 0;
 		/*
 		 * More special cases, now for XATTR:

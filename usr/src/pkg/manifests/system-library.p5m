@@ -1055,6 +1055,8 @@ $(MULTILIB_ONLY)link path=usr/lib/scsi/$(ARCH64)/libses.so target=./libses.so.1
 $(MULTILIB_ONLY)file path=usr/lib/scsi/$(ARCH64)/libses.so.1
 $(MULTILIB_ONLY)link path=usr/lib/scsi/$(ARCH64)/libsmp.so target=./libsmp.so.1
 $(MULTILIB_ONLY)file path=usr/lib/scsi/$(ARCH64)/libsmp.so.1
+$(MULTILIB_ONLY)link path=usr/lib/scsi/64 target=$(ARCH64)
+$(NOT_MULTILIB)link path=usr/lib/scsi/64 target=.
 link path=usr/lib/scsi/libscsi.so target=./libscsi.so.1
 file path=usr/lib/scsi/libscsi.so.1
 link path=usr/lib/scsi/libses.so target=./libses.so.1

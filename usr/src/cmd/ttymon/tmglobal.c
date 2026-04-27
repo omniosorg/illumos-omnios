@@ -23,11 +23,12 @@
  * Use is subject to license terms.
  */
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
-/*	  All Rights Reserved  	*/
+/*	  All Rights Reserved	*/
 
 #include <stdio.h>
 #include <poll.h>
 #include <signal.h>
+#include <sys/param.h>
 #include <sys/resource.h>
 #include <sac.h>
 #include "tmstruct.h"
@@ -38,7 +39,7 @@
  */
 FILE	*Logfp = NULL;		/* for log file			*/
 int	Lckfd;			/* for pid file			*/
-int	Sfd, Pfd;		/* for sacpipe and pmpipe 	*/
+int	Sfd, Pfd;		/* for sacpipe and pmpipe	*/
 int	PCpipe[2];		/* pipe between Parent & Children */
 #ifdef	DEBUG
 FILE	*Debugfp = NULL;	/* for debug file		*/
@@ -54,7 +55,7 @@ int	Reread_flag = FALSE;	/* reread pmtab flag			*/
 
 int	Retry;			/* retry open_device flag		*/
 
-struct  pmtab *PMtab = NULL;	/* head pointer to pmtab linked list 	*/
+struct  pmtab *PMtab = NULL;	/* head pointer to pmtab linked list	*/
 int	Nentries = 0;		/* # of entries in pmtab linked list	*/
 
 struct  Gdef Gdef[MAXDEFS];	/* array to hold entries in /etc/ttydefs */
@@ -77,10 +78,10 @@ struct Gdef DEFAULT = {		/* default terminal settings	*/
 };
 
 uid_t	Uucp_uid = 5;		/* owner's uid for bi-directional ports	*/
-gid_t	Tty_gid = 7;		/* group id for all tty devices		*/
+gid_t	Tty_gid = GID_TTY;	/* group id for all tty devices		*/
 
 /*
- * Nlocked - 	number of ports that are either locked or have active
+ * Nlocked -	number of ports that are either locked or have active
  *		sessions not under this ttymon.
  */
 int	Nlocked = 0;

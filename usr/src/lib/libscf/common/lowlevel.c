@@ -5015,14 +5015,14 @@ scf_value_set_from_string(scf_value_t *v, scf_type_t type, const char *str)
 			v->value_size = scf_opaque_decode(v->value_value,
 			    str, sizeof (v->value_value));
 			if (!scf_validate_encoded_value(ty, str)) {
-				(void) pthread_mutex_lock(&h->rh_lock);
+				(void) pthread_mutex_unlock(&h->rh_lock);
 				goto bad;
 			}
 		} else {
 			(void) strlcpy(v->value_value, str,
 			    sizeof (v->value_value));
 			if (!scf_validate_encoded_value(ty, v->value_value)) {
-				(void) pthread_mutex_lock(&h->rh_lock);
+				(void) pthread_mutex_unlock(&h->rh_lock);
 				goto bad;
 			}
 		}

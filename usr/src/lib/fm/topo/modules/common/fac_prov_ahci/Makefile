@@ -10,14 +10,12 @@
 #
 
 #
-# Copyright 2018, Joyent, Inc.
+# Copyright 2026 Oxide Computer Company
 #
 
-MODULE = fac_prov_ahci
-CLASS = common
+include $(SRC)/Makefile.master
 
-MODULESRCS = fac_prov_ahci.c
+SUBDIRS = $(MACH64)
+$(BUILD32)SUBDIRS += $(MACH)
 
-include ../../Makefile.plugin
-
-CPPFLAGS += -I$(SRC)/uts/common
+include ../../../../Makefile.subdirs

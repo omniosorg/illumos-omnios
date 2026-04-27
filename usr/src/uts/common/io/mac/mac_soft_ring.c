@@ -387,7 +387,6 @@ mac_rx_soft_ring_drain(mac_soft_ring_t *ringp)
 	mac_resource_handle_t arg2;
 	timeout_id_t	tid;
 	mac_direct_rx_t	proc;
-	size_t		sz;
 	int		cnt;
 	mac_soft_ring_set_t	*mac_srs = ringp->s_ring_set;
 
@@ -411,7 +410,6 @@ mac_rx_soft_ring_drain(mac_soft_ring_t *ringp)
 		ringp->s_ring_last = NULL;
 		cnt = ringp->s_ring_count;
 		ringp->s_ring_count = 0;
-		sz = ringp->s_ring_size;
 		ringp->s_ring_size = 0;
 		mutex_exit(&ringp->s_ring_lock);
 
@@ -432,7 +430,6 @@ mac_rx_soft_ring_drain(mac_soft_ring_t *ringp)
 		 */
 		mutex_enter(&mac_srs->srs_lock);
 		MAC_UPDATE_SRS_COUNT_LOCKED(mac_srs, cnt);
-		MAC_UPDATE_SRS_SIZE_LOCKED(mac_srs, sz);
 		mutex_exit(&mac_srs->srs_lock);
 
 		mutex_enter(&ringp->s_ring_lock);
@@ -616,7 +613,6 @@ mac_soft_ring_poll(mac_soft_ring_t *ringp, size_t bytes_to_pickup)
 	 */
 	mutex_enter(&mac_srs->srs_lock);
 	MAC_UPDATE_SRS_COUNT_LOCKED(mac_srs, cnt);
-	MAC_UPDATE_SRS_SIZE_LOCKED(mac_srs, sz);
 	mutex_exit(&mac_srs->srs_lock);
 	return (head);
 }
