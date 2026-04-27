@@ -549,7 +549,7 @@ _ndoprnt(const CHAR_T *format, va_list in_args, FILE *iop, int prflag)
 	sargs = args;
 
 #ifdef	_WIDE
-	if (iop->_flag == _IOREAD)
+	if ((iop->_flag & _IOREAD) != 0)
 		sflag = 1;
 
 	if (!sflag) {
