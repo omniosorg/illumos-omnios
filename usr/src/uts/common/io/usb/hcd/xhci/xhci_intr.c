@@ -144,6 +144,17 @@ xhci_intr(caddr_t arg1, caddr_t arg2)
 	}
 
 	/*
+	 * W1C: clear EINT (and PCD) to deassert INTx pin
+	 */
+	xhci_put32(xhcip, XHCI_R_OPER, XHCI_USBSTS, status);
+	if (xhci_check_regs_acc(xhcip) != DDI_FM_OK) {
+		xhci_error(xhcip, "failed to write USB status register: "
+		    "encountered fatal FM error, resetting device");
+		xhci_fm_runtime_reset(xhcip);
+		return (DDI_INTR_CLAIMED);
+	}
+
+	/*
 	 * Before we read the interrupt management register, check to see if we
 	 * have a fatal bit set. At which point, it's time to reset the world
 	 * anyway.
