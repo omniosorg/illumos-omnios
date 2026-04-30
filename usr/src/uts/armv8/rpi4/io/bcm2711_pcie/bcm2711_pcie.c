@@ -822,7 +822,7 @@ bcm2711_pcie_vl805_reset(bcm2711_pcie_softc_t *softc)
 		return;
 	}
 
-	dev_err(softc->bc_dip, CE_CONT, "?VL805 xHCI firmware loaded");
+	dev_err(softc->bc_dip, CE_CONT, "?VL805 xHCI firmware loaded\n");
 
 	/*
 	 * Allow the controller time to initialise after firmware load.
