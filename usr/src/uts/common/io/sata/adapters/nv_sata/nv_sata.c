@@ -746,7 +746,7 @@ nv_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 		/*
 		 * save off the controller number
 		 */
-		(void) ddi_prop_lookup_int_array(DDI_DEV_T_NONE, dip,
+		(void) ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip,
 		    DDI_PROP_DONTPASS, "reg", (int **)&regs, &rlen);
 		nvc->nvc_ctlr_num = PCI_REG_FUNC_G(regs->pci_phys_hi);
 		ddi_prop_free(regs);

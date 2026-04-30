@@ -312,7 +312,7 @@ usba_bus_ctl(
 
 		/* the dip should have an address and reg property */
 
-		if ((usb_addr = ddi_prop_get_int(DDI_DEV_T_NONE, child_dip,
+		if ((usb_addr = ddi_prop_get_int(DDI_DEV_T_ANY, child_dip,
 		    DDI_PROP_DONTPASS, "assigned-address", -1)) == -1) {
 			USB_DPRINTF_L2(DPRINT_MASK_USBA, hubdi_log_handle,
 			    "usba_bus_ctl:\n\t"

@@ -792,7 +792,7 @@ cpqary3_update_ctlrdetails(cpqary3_t *cpqary3p, uint32_t *cleanstatus)
 	 * Free the memory that regp points towards after the
 	 * ddi_prop_lookup_int_array() call
 	 */
-	if (ddi_prop_lookup_int_array(DDI_DEV_T_NONE, cpqary3p->dip,
+	if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, cpqary3p->dip,
 	    DDI_PROP_DONTPASS, "reg", &regp, &reglen) != DDI_PROP_SUCCESS)
 		return (CPQARY3_FAILURE);
 

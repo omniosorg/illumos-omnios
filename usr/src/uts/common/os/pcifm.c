@@ -1225,7 +1225,7 @@ pci_check_regs(dev_info_t *dip, void *arg)
 		 * is a valid config space address for this device - based
 		 * on pci_phys_hi of the config space entry in reg property.
 		 */
-		if (ddi_prop_lookup_int_array(DDI_DEV_T_NONE, dip,
+		if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip,
 		    DDI_PROP_DONTPASS, "reg", (int **)&drv_regp,
 		    &reglen) != DDI_SUCCESS) {
 			return (DDI_WALK_CONTINUE);
@@ -1252,7 +1252,7 @@ pci_check_regs(dev_info_t *dip, void *arg)
 		 * for any non-relocable mapping, otherwise check
 		 * assigned-addresses.
 		 */
-		if (ddi_prop_lookup_int_array(DDI_DEV_T_NONE, dip,
+		if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip,
 		    DDI_PROP_DONTPASS, "reg", (int **)&drv_regp,
 		    &reglen) != DDI_SUCCESS) {
 			return (DDI_WALK_CONTINUE);
@@ -1280,7 +1280,7 @@ pci_check_regs(dev_info_t *dip, void *arg)
 		}
 		ddi_prop_free(drv_regp);
 
-		if (ddi_prop_lookup_int_array(DDI_DEV_T_NONE, dip,
+		if (ddi_prop_lookup_int_array(DDI_DEV_T_ANY, dip,
 		    DDI_PROP_DONTPASS, "assigned-addresses",
 		    (int **)&drv_regp, &reglen) != DDI_SUCCESS) {
 			return (DDI_WALK_CONTINUE);
