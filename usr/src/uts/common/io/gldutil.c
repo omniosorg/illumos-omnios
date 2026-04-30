@@ -1242,7 +1242,7 @@ gld_init_tr(gld_mac_info_t *macinfo)
 
 	/* Default is RDE enabled for this medium */
 	((gld_mac_pvt_t *)macinfo->gldm_mac_pvt)->rde_enabled =
-	    ddi_prop_get_int(DDI_DEV_T_NONE, macinfo->gldm_devinfo, 0,
+	    ddi_prop_get_int(DDI_DEV_T_ANY, macinfo->gldm_devinfo, 0,
 	    "gld_rde_enable", 1);
 
 	/*
@@ -1255,13 +1255,13 @@ gld_init_tr(gld_mac_info_t *macinfo)
 	 * the RDE algorithms.
 	 */
 	((gld_mac_pvt_t *)macinfo->gldm_mac_pvt)->rde_str_indicator_ste =
-	    ddi_prop_get_int(DDI_DEV_T_NONE, macinfo->gldm_devinfo, 0,
+	    ddi_prop_get_int(DDI_DEV_T_ANY, macinfo->gldm_devinfo, 0,
 	    "gld_rde_str_indicator_ste",
 	    ((gld_mac_pvt_t *)macinfo->gldm_mac_pvt)->rde_enabled);
 
 	/* Default 10 second route timeout on lack of activity */
 	{
-	int t = ddi_prop_get_int(DDI_DEV_T_NONE, macinfo->gldm_devinfo, 0,
+	int t = ddi_prop_get_int(DDI_DEV_T_ANY, macinfo->gldm_devinfo, 0,
 	    "gld_rde_timeout", 10);
 	if (t < 1)
 		t = 1;		/* Let's be reasonable */

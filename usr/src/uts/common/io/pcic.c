@@ -1272,7 +1272,7 @@ pcic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 
 		smi = 0xff;	/* no more override */
 
-		if (ddi_prop_get_int(DDI_DEV_T_NONE, dip,
+		if (ddi_prop_get_int(DDI_DEV_T_ANY, dip,
 		    DDI_PROP_DONTPASS, "need-mult-irq",
 		    0xffff) != 0xffff)
 			pcic->pc_flags |= PCF_MULT_IRQ;
@@ -1335,7 +1335,7 @@ pcic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 
 	cv_init(&pcic->pm_cv, NULL, CV_DRIVER, NULL);
 
-	if (!ddi_prop_get_int(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+	if (!ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    "disable-audio", 0))
 		pcic->pc_flags |= PCF_AUDIO;
 

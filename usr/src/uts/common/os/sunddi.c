@@ -3540,6 +3540,10 @@ ddi_prop_lookup_common(dev_t match_dev, dev_info_t *dip,
 	uint_t		ourflags;
 	prop_handle_t	ph;
 
+#if defined(__aarch64__)
+	ASSERT(match_dev != DDI_DEV_T_NONE);
+#endif
+
 	if ((match_dev == DDI_DEV_T_NONE) ||
 	    (name == NULL) || (strlen(name) == 0))
 		return (DDI_PROP_INVAL_ARG);

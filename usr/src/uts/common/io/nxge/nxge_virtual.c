@@ -456,7 +456,7 @@ nxge_update_rxdma_grp_properties(p_nxge_t nxgep, config_token_t token,
 		num_grps = 0;
 		for (port = 0; port < num_ports; port++) {
 			custom_start_grp[port] =
-			    ddi_prop_get_int(DDI_DEV_T_NONE, s_dip[port],
+			    ddi_prop_get_int(DDI_DEV_T_ANY, s_dip[port],
 			    DDI_PROP_DONTPASS, start_prop, -1);
 			if ((custom_start_grp[port] == -1) ||
 			    (custom_start_grp[port] >=
@@ -465,7 +465,7 @@ nxge_update_rxdma_grp_properties(p_nxge_t nxgep, config_token_t token,
 				break;
 			}
 			custom_num_grp[port] = ddi_prop_get_int(
-			    DDI_DEV_T_NONE,
+			    DDI_DEV_T_ANY,
 			    s_dip[port],
 			    DDI_PROP_DONTPASS,
 			    num_prop, -1);

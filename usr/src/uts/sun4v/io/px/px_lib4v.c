@@ -2185,7 +2185,7 @@ px_lib_do_count_waiting_dev(dev_info_t *dip, void *arg)
 
 	while (cdip != NULL) {
 		/* check if this is an assigned device */
-		if (ddi_prop_exists(DDI_DEV_T_NONE, cdip, DDI_PROP_DONTPASS,
+		if (ddi_prop_exists(DDI_DEV_T_ANY, cdip, DDI_PROP_DONTPASS,
 		    "ddi-assigned")) {
 			DBG(DBG_ATTACH, dip, "px_lib_do_count_waiting_dev: "
 			    "Found an assigned dev %p, under bridge %p",

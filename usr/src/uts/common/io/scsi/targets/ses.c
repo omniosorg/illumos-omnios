@@ -1721,7 +1721,7 @@ ses_register_dev_id(ses_softc_t *ssc, dev_info_t *dip)
 	 * This is from page 0x80, which may or may not be present.
 	 */
 	if ((len80 > 4) &&
-	    (!ddi_prop_exists(DDI_DEV_T_NONE, dip,
+	    (!ddi_prop_exists(DDI_DEV_T_ANY, dip,
 	    DDI_PROP_NOTPROM | DDI_PROP_DONTPASS, INQUIRY_SERIAL_NO))) {
 		char *sn;
 

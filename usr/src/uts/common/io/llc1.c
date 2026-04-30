@@ -276,7 +276,7 @@ llc1_attach(dev_info_t *devinfo, ddi_attach_cmd_t cmd)
 		ddi_remove_minor_node(devinfo, NULL);
 		return (DDI_FAILURE);
 	}
-	llc1_device_list.llc1_multisize = ddi_prop_get_int(DDI_DEV_T_NONE,
+	llc1_device_list.llc1_multisize = ddi_prop_get_int(DDI_DEV_T_ANY,
 	    devinfo, 0, "multisize", 0);
 	if (llc1_device_list.llc1_multisize == 0)
 		llc1_device_list.llc1_multisize = LLC1_MAX_MULTICAST;

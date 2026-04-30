@@ -4498,7 +4498,7 @@ hxge_create_msi_property(p_hxge_t hxgep)
 
 	HXGE_DEBUG_MSG((hxgep, MOD_CTL,
 	    "==>hxge_create_msi_property(10G): exists 0x%x (nmsi %d)",
-	    ddi_prop_exists(DDI_DEV_T_NONE, hxgep->dip,
+	    ddi_prop_exists(DDI_DEV_T_ANY, hxgep->dip,
 	    DDI_PROP_CANSLEEP, "#msix-request"), nmsi));
 
 	HXGE_DEBUG_MSG((hxgep, MOD_CTL, "<==hxge_create_msi_property"));

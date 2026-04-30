@@ -45,7 +45,7 @@ cpqary3_read_conf_file(dev_info_t *dip, cpqary3_t *cpqary3p)
 	 *
 	 * eg. :
 	 *
-	 * retvalue = ddi_prop_get_int(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+	 * retvalue = ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	 *	"cpqary3_online_debug", -1);
 	 */
 

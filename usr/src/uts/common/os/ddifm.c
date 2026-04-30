@@ -751,7 +751,7 @@ ddi_fm_init(dev_info_t *dip, int *fmcap, ddi_iblock_cookie_t *ibcp)
 	 */
 	if (DDI_FM_EREPORT_CAP(*fmcap) && DDI_FM_EREPORT_CAP(pcap)) {
 		fmhdl->fh_errorq = ereport_errorq;
-		if (ddi_prop_get_int(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+		if (ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 		    "fm-ereport-capable", 0) == 0)
 			(void) ddi_prop_create(DDI_DEV_T_NONE, dip,
 			    DDI_PROP_CANSLEEP, "fm-ereport-capable", NULL, 0);
@@ -764,7 +764,7 @@ ddi_fm_init(dev_info_t *dip, int *fmcap, ddi_iblock_cookie_t *ibcp)
 	 */
 
 	if (DDI_FM_ERRCB_CAP(*fmcap) && DDI_FM_ERRCB_CAP(pcap)) {
-		if (ddi_prop_get_int(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+		if (ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 		    "fm-errcb-capable", 0) == 0)
 			(void) ddi_prop_create(DDI_DEV_T_NONE, dip,
 			    DDI_PROP_CANSLEEP, "fm-errcb-capable", NULL, 0);
@@ -780,7 +780,7 @@ ddi_fm_init(dev_info_t *dip, int *fmcap, ddi_iblock_cookie_t *ibcp)
 		i_ndi_fmc_create(&fmhdl->fh_dma_cache, 2, ibc);
 
 		/* Set-up dma chk capability prop */
-		if (ddi_prop_get_int(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+		if (ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 		    "fm-dmachk-capable", 0) == 0)
 			(void) ddi_prop_create(DDI_DEV_T_NONE, dip,
 			    DDI_PROP_CANSLEEP, "fm-dmachk-capable", NULL, 0);
@@ -791,7 +791,7 @@ ddi_fm_init(dev_info_t *dip, int *fmcap, ddi_iblock_cookie_t *ibcp)
 	if (DDI_FM_ACC_ERR_CAP(*fmcap) && DDI_FM_ACC_ERR_CAP(pcap)) {
 		i_ndi_fmc_create(&fmhdl->fh_acc_cache, 2, ibc);
 		/* Set-up dma chk capability prop */
-		if (ddi_prop_get_int(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+		if (ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 		    "fm-accchk-capable", 0) == 0)
 			(void) ddi_prop_create(DDI_DEV_T_NONE, dip,
 			    DDI_PROP_CANSLEEP, "fm-accchk-capable", NULL, 0);

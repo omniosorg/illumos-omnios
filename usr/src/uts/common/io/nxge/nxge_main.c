@@ -6969,7 +6969,7 @@ nxge_create_msi_property(p_nxge_t nxgep)
 		}
 		NXGE_DEBUG_MSG((nxgep, MOD_CTL,
 		    "==>nxge_create_msi_property(10G): exists 0x%x (nmsi %d)",
-		    ddi_prop_exists(DDI_DEV_T_NONE, nxgep->dip,
+		    ddi_prop_exists(DDI_DEV_T_ANY, nxgep->dip,
 		    DDI_PROP_CANSLEEP, "#msix-request"), nmsi));
 		break;
 
@@ -6989,7 +6989,7 @@ nxge_create_msi_property(p_nxge_t nxgep)
 		}
 		NXGE_DEBUG_MSG((nxgep, MOD_CTL,
 		    "==>nxge_create_msi_property(1G): exists 0x%x (nmsi %d)",
-		    ddi_prop_exists(DDI_DEV_T_NONE, nxgep->dip,
+		    ddi_prop_exists(DDI_DEV_T_ANY, nxgep->dip,
 		    DDI_PROP_CANSLEEP, "#msix-request"), nmsi));
 		break;
 	}

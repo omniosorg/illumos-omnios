@@ -704,7 +704,7 @@ ppb_initchild(dev_info_t *child)
 	}
 
 	/* transfer select properties from PROM to kernel */
-	if (ddi_prop_get_int(DDI_DEV_T_NONE, child, DDI_PROP_DONTPASS,
+	if (ddi_prop_get_int(DDI_DEV_T_ANY, child, DDI_PROP_DONTPASS,
 	    "interrupts", -1) != -1) {
 		pdptr = kmem_zalloc((sizeof (struct ddi_parent_private_data) +
 		    sizeof (struct intrspec)), KM_SLEEP);

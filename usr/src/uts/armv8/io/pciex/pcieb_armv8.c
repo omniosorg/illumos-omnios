@@ -112,7 +112,7 @@ void
 pcieb_plat_initchild(dev_info_t *child)
 {
 	struct ddi_parent_private_data *pdptr;
-	if (ddi_prop_exists(DDI_DEV_T_NONE, child, DDI_PROP_DONTPASS,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, child, DDI_PROP_DONTPASS,
 	    OBP_INTERRUPTS)) {
 		pdptr = kmem_zalloc((sizeof (struct ddi_parent_private_data) +
 		    sizeof (struct intrspec)), KM_SLEEP);

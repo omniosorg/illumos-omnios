@@ -1557,19 +1557,19 @@ create_inquiry_props(struct scsi_device *sd)
 	 * than the standard SCSI INQUIRY data.
 	 */
 	if (inq->inq_ansi != 1) {
-		if (ddi_prop_exists(DDI_DEV_T_NONE, sd->sd_dev,
+		if (ddi_prop_exists(DDI_DEV_T_ANY, sd->sd_dev,
 		    DDI_PROP_TYPE_STRING, INQUIRY_VENDOR_ID) == 0)
 			(void) scsi_device_prop_update_inqstring(sd,
 			    INQUIRY_VENDOR_ID,
 			    inq->inq_vid, sizeof (inq->inq_vid));
 
-		if (ddi_prop_exists(DDI_DEV_T_NONE, sd->sd_dev,
+		if (ddi_prop_exists(DDI_DEV_T_ANY, sd->sd_dev,
 		    DDI_PROP_TYPE_STRING, INQUIRY_PRODUCT_ID) == 0)
 			(void) scsi_device_prop_update_inqstring(sd,
 			    INQUIRY_PRODUCT_ID,
 			    inq->inq_pid, sizeof (inq->inq_pid));
 
-		if (ddi_prop_exists(DDI_DEV_T_NONE, sd->sd_dev,
+		if (ddi_prop_exists(DDI_DEV_T_ANY, sd->sd_dev,
 		    DDI_PROP_TYPE_STRING, INQUIRY_REVISION_ID) == 0)
 			(void) scsi_device_prop_update_inqstring(sd,
 			    INQUIRY_REVISION_ID,

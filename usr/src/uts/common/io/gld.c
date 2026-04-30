@@ -556,7 +556,7 @@ gld_register(dev_info_t *devinfo, char *devname, gld_mac_info_t *macinfo)
 	}
 
 	/* see gld_rsrv() */
-	if (ddi_prop_get_int(DDI_DEV_T_NONE, devinfo, 0, "fast_recv", 0))
+	if (ddi_prop_get_int(DDI_DEV_T_ANY, devinfo, 0, "fast_recv", 0))
 		macinfo->gldm_options |= GLDOPT_FAST_RECV;
 
 	mutex_enter(&gld_device_list.gld_devlock);
@@ -583,7 +583,7 @@ gld_register(dev_info_t *devinfo, char *devname, gld_mac_info_t *macinfo)
 		mutex_init(&glddev->gld_devlock, NULL, MUTEX_DRIVER, NULL);
 
 		/* allow increase of number of supported multicast addrs */
-		glddev->gld_multisize = ddi_prop_get_int(DDI_DEV_T_NONE,
+		glddev->gld_multisize = ddi_prop_get_int(DDI_DEV_T_ANY,
 		    devinfo, 0, "multisize", GLD_MAX_MULTICAST);
 
 		/*
@@ -592,7 +592,7 @@ gld_register(dev_info_t *devinfo, char *devname, gld_mac_info_t *macinfo)
 		 * -1 - don't create style 1 nodes
 		 * -2 - don't create style 2 nodes
 		 */
-		glddev->gld_styles = ddi_prop_get_int(DDI_DEV_T_NONE, devinfo,
+		glddev->gld_styles = ddi_prop_get_int(DDI_DEV_T_ANY, devinfo,
 		    0, "gld-provider-styles", 0);
 
 		/* Stuff that's needed before any PPA gets attached */

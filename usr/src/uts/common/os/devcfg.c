@@ -2882,7 +2882,7 @@ ddi_compatible_driver_major(dev_info_t *dip, char **formp)
 	 * virtualized environment.  Prevent its use.  This is only used by
 	 * Xen and (previously) by sun4v LDOMs.  See pcie_init_dom().
 	 */
-	if (ddi_prop_exists(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    "ddi-assigned")) {
 		major = ddi_name_to_major("nulldriver");
 		return (major);

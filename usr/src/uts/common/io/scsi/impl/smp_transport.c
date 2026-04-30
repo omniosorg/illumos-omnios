@@ -126,7 +126,7 @@ smp_probe(struct smp_device *smp_sd)
 			(void) snprintf(&component[ilen], clen - ilen,
 			    ".%05d.%03d", BE_16(srmir->srmir_component_id),
 			    srmir->srmir_component_revision_level);
-			if (ddi_prop_exists(DDI_DEV_T_NONE, smp_sd->smp_sd_dev,
+			if (ddi_prop_exists(DDI_DEV_T_ANY, smp_sd->smp_sd_dev,
 			    DDI_PROP_DONTPASS | DDI_PROP_NOTPROM,
 			    "component") == 0)
 				(void) ndi_prop_update_string(DDI_DEV_T_NONE,
@@ -135,26 +135,26 @@ smp_probe(struct smp_device *smp_sd)
 		}
 	}
 	/* First one to define the property wins */
-	if (ddi_prop_exists(DDI_DEV_T_NONE, smp_sd->smp_sd_dev,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, smp_sd->smp_sd_dev,
 	    DDI_PROP_DONTPASS | DDI_PROP_NOTPROM, INQUIRY_REVISION_ID) == 0)
 		(void) smp_device_prop_update_inqstring(smp_sd,
 		    INQUIRY_REVISION_ID, srmir->srmir_product_revision_level,
 		    sizeof (srmir->srmir_product_revision_level));
 
-	if (ddi_prop_exists(DDI_DEV_T_NONE, smp_sd->smp_sd_dev,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, smp_sd->smp_sd_dev,
 	    DDI_PROP_DONTPASS | DDI_PROP_NOTPROM, INQUIRY_PRODUCT_ID) == 0)
 		(void) smp_device_prop_update_inqstring(smp_sd,
 		    INQUIRY_PRODUCT_ID, srmir->srmir_product_identification,
 		    sizeof (srmir->srmir_product_identification));
 
-	if (ddi_prop_exists(DDI_DEV_T_NONE, smp_sd->smp_sd_dev,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, smp_sd->smp_sd_dev,
 	    DDI_PROP_DONTPASS | DDI_PROP_NOTPROM, INQUIRY_VENDOR_ID) == 0)
 		(void) smp_device_prop_update_inqstring(smp_sd,
 		    INQUIRY_VENDOR_ID, srmir->srmir_vendor_identification,
 		    sizeof (srmir->srmir_vendor_identification));
 
 	/* NOTE: SMP_PROP_REPORT_MANUFACTURER is deleted after devid created */
-	if (ddi_prop_exists(DDI_DEV_T_NONE, smp_sd->smp_sd_dev,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, smp_sd->smp_sd_dev,
 	    DDI_PROP_DONTPASS | DDI_PROP_NOTPROM,
 	    SMP_PROP_REPORT_MANUFACTURER) == 0)
 		(void) ndi_prop_update_byte_array(DDI_DEV_T_NONE,

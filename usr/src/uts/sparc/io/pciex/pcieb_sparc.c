@@ -172,7 +172,7 @@ pcieb_plat_initchild(dev_info_t *child)
 	 * XXX set ppd to 1 to disable iommu BDF protection on SPARC.
 	 * It relies on unused parent private data for PCI devices.
 	 */
-	if (ddi_prop_exists(DDI_DEV_T_NONE, child, DDI_PROP_DONTPASS,
+	if (ddi_prop_exists(DDI_DEV_T_ANY, child, DDI_PROP_DONTPASS,
 	    "dvma-share"))
 		ppd = 1;
 

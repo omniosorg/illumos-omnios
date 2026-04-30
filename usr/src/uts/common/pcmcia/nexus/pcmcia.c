@@ -548,7 +548,7 @@ pcmcia_ctlops(dev_info_t *dip, dev_info_t *rdip,
 			    ddi_driver_name(dip),
 			    ddi_get_name_addr(dip),
 			    CS_GET_SOCKET_NUMBER(
-			    ddi_prop_get_int(DDI_DEV_T_NONE, rdip,
+			    ddi_prop_get_int(DDI_DEV_T_ANY, rdip,
 			    DDI_PROP_DONTPASS,
 			    PCM_DEV_SOCKET, -1)));
 
@@ -3173,7 +3173,7 @@ pcmcia_init_devinfo(dev_info_t *pdip, struct pcm_device_info *info)
 	unit = CS_MAKE_SOCKET_NUMBER(info->pd_socket, info->pd_function);
 
 	dip = pcm_find_devinfo(pdip, info, unit);
-	if ((dip != NULL) && (ddi_prop_get_int(DDI_DEV_T_NONE, dip,
+	if ((dip != NULL) && (ddi_prop_get_int(DDI_DEV_T_ANY, dip,
 	    DDI_PROP_DONTPASS, PCM_DEV_SOCKET, -1) != -1)) {
 		/* it already exist but isn't a .conf file */
 

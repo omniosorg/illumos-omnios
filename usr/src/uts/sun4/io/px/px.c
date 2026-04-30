@@ -620,7 +620,7 @@ px_pwr_setup(dev_info_t *dip)
 	 * indicate support LDI (Layered Driver Interface)
 	 * Create the property, if it is not already there
 	 */
-	if (!ddi_prop_exists(DDI_DEV_T_NONE, dip, DDI_PROP_DONTPASS,
+	if (!ddi_prop_exists(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
 	    DDI_KERNEL_IOCTL)) {
 		if (ddi_prop_create(DDI_DEV_T_NONE, dip, DDI_PROP_CANSLEEP,
 		    DDI_KERNEL_IOCTL, NULL, 0) != DDI_PROP_SUCCESS) {

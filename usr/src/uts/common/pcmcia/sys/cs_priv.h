@@ -249,7 +249,7 @@ typedef struct cisregister_t {
  *	the passed dip.  If the property can't be found, then the default
  *	value of cs_globals.max_socket_num is returned.
  */
-#define	DIP2SOCKET_NUM(dip)		ddi_prop_get_int(DDI_DEV_T_NONE, dip,\
+#define	DIP2SOCKET_NUM(dip)		ddi_prop_get_int(DDI_DEV_T_ANY, dip,\
 						DDI_PROP_NOTPROM, \
 						PCM_DEV_SOCKET,		\
 						cs_globals.max_socket_num)
