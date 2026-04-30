@@ -521,6 +521,7 @@ $(aarch64_ONLY)file \
     path=usr/platform/armv8/lib/fm/topo/maps/armv8-legacy-hc-topology.xml \
     mode=0444
 $(aarch64_ONLY)dir path=usr/platform/armv8/lib/fm/topo/plugins
+$(aarch64_ONLY)link path=usr/platform/armv8/lib/fm/topo/plugins/64 target=.
 $(aarch64_ONLY)file path=usr/platform/armv8/lib/fm/topo/plugins/armv8pi.so \
     mode=0555
 $(i386_ONLY)dir path=usr/platform/i86pc group=sys

@@ -111,7 +111,7 @@
 #include <topo_subr.h>
 #include <topo_tree.h>
 
-#if !defined(_ILP32)
+#if defined(_LP64) && defined(_MULTI_DATAMODEL)
 #define	PLUGIN_PATH	"plugins/64"
 #else
 #define	PLUGIN_PATH	"plugins"

@@ -471,6 +471,13 @@ amd64_DIRS64=			\
 	/usr/platform/i86pc/lib/fm/topo/plugins/$(MACH64) \
 	$(LEGACY_DIRS64)
 
+aarch64_DIRS64= \
+	/usr/platform/armv8 \
+	/usr/platform/armv8/lib \
+	/usr/platform/armv8/lib/fm \
+	/usr/platform/armv8/lib/fm/topo \
+	/usr/platform/armv8/lib/fm/topo/plugins
+
 # These are only created on multilib platforms, those where BUILD32 and
 # BUILD64 are both true.  DIRS64 exists everywhere BUILD64 is true.
 DIRSMULTILIB= \
@@ -485,7 +492,7 @@ DIRSMULTILIB= \
 	/usr/lib/dtrace/$(MACH64)		\
 	/usr/lib/elfedit/$(MACH64)		\
 	/usr/lib/fm/$(MACH64)			\
-	/usr/lib/fm/topo/plugins/$(MACH64) 	\
+	/usr/lib/fm/topo/plugins/$(MACH64)	\
 	/usr/lib/fs/nfs/$(MACH64)		\
 	/usr/lib/fs/smb/$(MACH64)		\
 	/usr/lib/inet/$(MACH64)			\
@@ -557,6 +564,7 @@ LEGACY_SYM.DIRS64=	\
 sparc_SYM.DIRS64=	$(LEGACY_SYM.DIRS64)
 amd64_SYM.DIRS64=	/usr/platform/i86pc/lib/fm/topo/plugins/64 \
 	$(LEGACY_SYM.DIRS64)
+aarch64_SYM.DIRS64=	/usr/platform/armv8/lib/fm/topo/plugins/64
 
 SYM.DIRS64= \
 	$($(MACH64)_SYM.DIRS64)		\
@@ -713,6 +721,11 @@ $(AARCH64_BLD) $(ROOT)/usr/ucblib/64:=	LINKDEST=.
 # x86-specific
 #
 $(BUILD64) $(ROOT)/usr/platform/i86pc/lib/fm/topo/plugins/64 := LINKDEST=$(MACH64)
+
+#
+# aarch64-specific
+#
+$(BUILD64) $(ROOT)/usr/platform/armv8/lib/fm/topo/plugins/64 := LINKDEST=.
 
 #
 # Installing a directory symlink calls for overriding INS.dir to install
