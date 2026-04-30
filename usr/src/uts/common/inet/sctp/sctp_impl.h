@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2026 Edgecast Cloud LLC.
  */
 
 #ifndef	_INET_SCTP_SCTP_IMPL_H
@@ -985,7 +986,7 @@ extern mblk_t	*sctp_add_proto_hdr(sctp_t *, sctp_faddr_t *, mblk_t *, int,
 		    int *);
 extern void	sctp_addr_req(sctp_t *, mblk_t *);
 extern sctp_t	*sctp_addrlist2sctp(mblk_t *, sctp_hdr_t *, sctp_chunk_hdr_t *,
-		    zoneid_t, sctp_stack_t *);
+		    zoneid_t, iaflags_t, sctp_stack_t *);
 extern void	sctp_check_adv_ack_pt(sctp_t *, mblk_t *, mblk_t *);
 extern void	sctp_assoc_event(sctp_t *, uint16_t, uint16_t,
 		    sctp_chunk_hdr_t *);
@@ -998,6 +999,7 @@ extern int	sctp_bind_add(sctp_t *, const void *, uint32_t, boolean_t,
 extern int	sctp_bind_del(sctp_t *, const void *, uint32_t, boolean_t);
 extern int	sctp_build_hdrs(sctp_t *, int);
 
+extern boolean_t sctp_check_input(sctp_chunk_hdr_t *, ssize_t, boolean_t);
 extern int	sctp_check_abandoned_msg(sctp_t *, mblk_t *);
 extern void	sctp_clean_death(sctp_t *, int);
 extern void	sctp_close_eager(sctp_t *);
@@ -1028,6 +1030,7 @@ extern void	sctp_faddr_init(void);
 extern void	sctp_fast_rexmit(sctp_t *);
 extern void	sctp_fill_sack(sctp_t *, unsigned char *, int);
 extern uint32_t sctp_find_listener_conf(sctp_stack_t *, in_port_t);
+extern sctp_chunk_hdr_t	*sctp_first_chunk(uchar_t *, ssize_t);
 extern void	sctp_free_faddr_timers(sctp_t *);
 extern void	sctp_free_ftsn_set(sctp_ftsn_set_t *);
 extern void	sctp_free_msg(mblk_t *);
@@ -1128,6 +1131,7 @@ extern void	sctp_send_cookie_echo(sctp_t *, sctp_chunk_hdr_t *, mblk_t *,
 extern void	sctp_send_initack(sctp_t *, sctp_hdr_t *, sctp_chunk_hdr_t *,
 		    mblk_t *, ip_recv_attr_t *);
 extern void	sctp_send_shutdown(sctp_t *, int);
+extern void	sctp_send_shutdown_ack(sctp_t *, sctp_faddr_t *, boolean_t);
 extern void	sctp_send_heartbeat(sctp_t *, sctp_faddr_t *);
 extern void	sctp_sendfail_event(sctp_t *, mblk_t *, int, boolean_t);
 extern void	sctp_set_faddr_current(sctp_t *, sctp_faddr_t *);
@@ -1166,8 +1170,6 @@ extern int	sctp_xmit_list_clean(sctp_t *, ssize_t);
 
 extern void	sctp_zap_addrs(sctp_t *);
 extern void	sctp_zap_faddrs(sctp_t *, int);
-extern sctp_chunk_hdr_t	*sctp_first_chunk(uchar_t *, ssize_t);
-extern void	sctp_send_shutdown_ack(sctp_t *, sctp_faddr_t *, boolean_t);
 
 /* Contract private interface between SCTP and Clustering - PSARC/2005/602 */
 
