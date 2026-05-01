@@ -225,6 +225,7 @@ DRV_KMODS += rootnex
 DRV_KMODS += ns16550a
 DRV_KMODS += gictwo
 DRV_KMODS += gicthree
+DRV_KMODS += gicv2m
 DRV_KMODS += pl03one
 DRV_KMODS += efifb
 DRV_KMODS += pcieb
