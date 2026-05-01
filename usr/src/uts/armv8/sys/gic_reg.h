@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef _GIC_REG_H
@@ -917,6 +917,19 @@ extern "C" {
 
 #define	GITS_PIDR2				0xffe8
 #define	GITS_PIDR2_ArchRev			0x000000F0
+
+/*
+ * GICv2m MSI frame registers
+ *
+ * ARM Server Base System Architecture (SBSA), Section 4.3.2
+ * ARM GIC Architecture Specification, Section 9.9 (GICv2m)
+ */
+#define	V2M_MSI_TYPER		0x008
+#define	V2M_MSI_SETSPI_NS	0x040
+#define	V2M_MSI_IIDR		0xFCC
+
+#define	V2M_MSI_TYPER_BASE(v)	(((v) >> 16) & 0x3FF)
+#define	V2M_MSI_TYPER_COUNT(v)	((v) & 0x3FF)
 
 #ifdef __cplusplus
 }

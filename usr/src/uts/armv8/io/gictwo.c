@@ -58,6 +58,15 @@
  * This bodge is local to the GICv2 implementation, as GICv3+ must implement
  * a minimum of 32 priority levels when the implementation supports two
  * security states, which perfectly meets our requirements.
+ *
+ * Lock ordering
+ * =============
+ *   gc_lock (GICV2_GICD_LOCK, spinlock + interrupts-disabled)
+ *     Protects all GICD register access, including read-only registers,
+ *     to maintain the invariant that at most one CPU touches the
+ *     distributor at a time.
+ *
+ *   ih_rwlock --> syspic_intrs_lock --> gc_lock --> av_lock
  */
 
 #include <sys/types.h>
@@ -311,7 +320,7 @@ gicv2_config_irq(gicv2_conf_t *sc, uint32_t irq, boolean_t is_edge)
 		    GICD_ICFGR_REGVAL(irq, v)) {
 			cmn_err(CE_WARN, "gictwo: vector %d already "
 			    "configured differently", irq);
-			return;
+			goto unlock;
 		}
 	} else {
 		/*
@@ -325,7 +334,50 @@ gicv2_config_irq(gicv2_conf_t *sc, uint32_t irq, boolean_t is_edge)
 		    GICD_ICFGR_REGVAL(irq, v));
 	}
 
+unlock:
 	GICV2_GICD_UNLOCK(sc);
+}
+
+/*
+ * Configure an SPI as edge-triggered or level-sensitive.
+ *
+ * This is a private interface, for use by GICv2m in setting edge-triggered
+ * mode for MSI SPIs.
+ */
+void
+gicv2_configure_irq(dev_info_t *gic_dip, uint32_t irq, boolean_t is_edge)
+{
+	gicv2_conf_t *sc = ddi_get_soft_state(gicv2_soft_state,
+	    ddi_get_instance(gic_dip));
+	VERIFY3P(sc, !=, NULL);
+	ASSERT(GIC_INTID_IS_ANY_SPI(irq));
+	gicv2_config_irq(sc, irq, is_edge);
+}
+
+/*
+ * Return the pending state of an interrupt from the distributor's ISPENDR
+ * register.  For SGIs and PPIs (INTIDs 0-31) the register is banked per-CPU
+ * on GICv2, so the result reflects the calling CPU's view.  For SPIs
+ * (INTIDs 32+) the register is shared.
+ *
+ * This is inherently racy: the pending bit can change at any instant.
+ * The result is a best-effort snapshot for diagnostic use.
+ */
+boolean_t
+gicv2_irq_ispending(dev_info_t *gic_dip, uint32_t irq)
+{
+	uint32_t val;
+	gicv2_conf_t *sc = ddi_get_soft_state(gicv2_soft_state,
+	    ddi_get_instance(gic_dip));
+
+	VERIFY3P(sc, !=, NULL);
+	ASSERT(GIC_INTID_IS_SGI(irq) || GIC_INTID_IS_PPI(irq) ||
+	    GIC_INTID_IS_SPI(irq));
+
+	GICV2_GICD_LOCK(sc);
+	val = gicd_read(sc, GICD_ISPENDRn(GICD_IPENDR_REGNUM(irq)));
+	GICV2_GICD_UNLOCK(sc);
+	return ((val & GICD_IPENDR_REGBIT(irq)) != 0);
 }
 
 /*
@@ -1035,6 +1087,22 @@ gicv2_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		break;
 	}
 
+	case DDI_INTROP_GETPENDING: {
+		uint32_t irq = hdlp->ih_vector;
+
+		*(int *)result = gicv2_irq_ispending(dip, irq) ? 1 : 0;
+		break;
+	}
+
+	case DDI_INTROP_GETCAP:
+		*(int *)result |= DDI_INTR_FLAG_PENDING;
+		*(int *)result |= DDI_INTR_FLAG_EDGE;
+		*(int *)result |= DDI_INTR_FLAG_LEVEL;
+		break;
+
+	case DDI_INTROP_SETCAP:
+		return (DDI_ENOTSUP);
+
 	/* Operations that are valid for us, but unimplemented */
 	case DDI_INTROP_BLOCKDISABLE:
 	case DDI_INTROP_BLOCKENABLE:
@@ -1045,14 +1113,11 @@ gicv2_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 	case DDI_INTROP_CLRMASK:
 	case DDI_INTROP_DUPVEC:
 	case DDI_INTROP_FREE:
-	case DDI_INTROP_GETCAP:
-	case DDI_INTROP_GETPENDING:
 	case DDI_INTROP_GETPOOL:
 	case DDI_INTROP_GETPRI:
 	case DDI_INTROP_GETTARGET:
 	case DDI_INTROP_NAVAIL:
 	case DDI_INTROP_NINTRS:
-	case DDI_INTROP_SETCAP:
 	case DDI_INTROP_SETMASK:
 	case DDI_INTROP_SETPRI:
 	case DDI_INTROP_SETTARGET:
@@ -1069,9 +1134,8 @@ static struct bus_ops gicv2_bus_ops = {
 	.busops_rev = BUSO_REV,
 	.bus_map = i_ddi_bus_map,
 	.bus_map_fault = i_ddi_map_fault,
-	.bus_dma_map = ddi_no_dma_map,
-	.bus_dma_allochdl = ddi_no_dma_allochdl,
 	.bus_ctl = gicv2_bus_ctl,
+	.bus_prop_op = ddi_bus_prop_op,
 	.bus_intr_op = gicv2_intr_ops,
 };
 
