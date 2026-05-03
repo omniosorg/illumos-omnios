@@ -33,6 +33,7 @@
  */
 /*
  * Copyright 2018 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright 2026 RackTop Systems, Inc.
  */
 
 #include <fcntl.h>
@@ -674,6 +675,12 @@ dump_props(char *where)
 	struct rckey *rkp = NULL;
 
 	fprintf(stderr, "Settings %s\n", where);
+	if (smb_rc == NULL) {
+		fprintf(stderr, "(empty)\n");
+		fflush(stderr);
+		return;
+	}
+
 	SLIST_FOREACH(rsp, &smb_rc->rf_sect, rs_next) {
 		fprintf(stderr, "section=%s\n", rsp->rs_name);
 		fflush(stderr);

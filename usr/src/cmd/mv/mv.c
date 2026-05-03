@@ -33,7 +33,7 @@
 
 /*
  * Copyright (c) 2018, Joyent, Inc.
- * Copyright 2024 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -47,11 +47,108 @@
  */
 
 /*
- * Combined mv/cp/ln command:
- *	mv file1 file2
- *	mv dir1 dir2
- *	mv file1 ... filen dir1
+ * This command implements all three of mv(1), cp(1), and ln(1) which all have
+ * similar operating modes. In particular, some invocations of mv must fall back
+ * to acting like cp when crossing file systems for example.
+ *
+ * These commands have the following high level synopsis:
+ *
+ * <command> [options] source target
+ * <command> [options] source source... directory
+ * <command> [options] source [target]
+ *
+ * By default, whenever one has a target that is a directory, these commands
+ * will place the resulting object inside of directory. So say you had a file
+ * 'a' and a directory 'b' and ran 'mv a b' that would result in moving 'a' to
+ * 'b/a', that is putting it inside b. The same would happen if there were
+ * multiple files.
+ *
+ * To avoid this behavior the -T flag exists which causes the various commands
+ * to not check whether or not the target is a directory for the effect of
+ * trying to see if it should move something inside.
+ *
+ * The final form of an optional target is present only for ln.
+ *
+ * Overwriting Behavior
+ * --------------------
+ *
+ * These commands have different defaults that control what happens when they
+ * encounter things that already exist. See the discussion on the definition of
+ * the target_action_t enum and the logic in chkfiles() for an overview.
+ *
+ * Symlink Behavior
+ * ----------------
+ *
+ * These three tools all have to deal with what happens when you encounter a
+ * symbolic link. Let's take each of these in turn:
+ *
+ * mv does not do anything special when it encounters a symbolic link. It never
+ * follows links and there is no option to control this behavior. This is the
+ * simplest case and means that when we are looking at files we always use
+ * lstat(2).
+ *
+ * ln's behavior varies on whether or not one is creating a symlink with the -s
+ * option. If -s is specified, then symlinks are not followed. There are two
+ * options which control the behavior when creating hardlinks: -L and -P. These
+ * control what the hardlink is created to.
+ *
+ * Consider the case where we have a directory with a file a and a symlink b.
+ * When one runs ln b c what is supposed to happen?
+ *
+ * When -L is specified, c is going to be a symlink and b/c are hardlinks to one
+ * another and share the same inode. Meaning the directory now contains two
+ * symlinks and the single file a. When -P is specified, b is followed and a/c
+ * are hardlinks to one another. This implies that the directory now contains
+ * two files and the single symlink b. The default behavior of ln is to act like
+ * -P is specified. To summarize the default behavior and -P is to use lstat(2)
+ * when looking for information. When using -L we need to use stat and
+ * AT_SYMLINK_FOLLOW.
+ *
+ * There is one wrinkle, because nothing can ever be quite so simple. The
+ * behavior of link(2) changed with the SVR4 merge, but was left specific to an
+ * xpg4 environment. See the implementation of link(2) in libc for more
+ * information. This means the default for normal ln and xpg4 ln are different
+ * and xpg4 ln acts like -L is the default actually. This is addressed by
+ * pre-seeding the options when performing xpg4 ln.
+ *
+ * Finally we have cp. cp is the most complicated of these. There are two
+ * different general modes for cp:
+ *
+ *  1. cp is copying non-recursively. Symlinks are always followed in this case.
+ *  2. cp is copying recursively. Symlink behavior is controlled by three
+ *     options: -L, -P, and a new option -H.
+ *
+ * cp -L does not preserve symbolic links. It uses stat(2) and copies the
+ * resulting file into place. cp -P preserves symbolic links. It uses lstat(2)
+ * and will result in a new symbolic link, pointing to the same original target,
+ * being created. Finally, -H is the compromise position. It asks is this a
+ * symbolic link that was encountered on the command line directly as an
+ * operand. If so, it will be copied like -L is specified. Otherwise this
+ * implies it is a symlink encountered recursively and the equivalent of -P
+ * should be used.
+ *
+ * When cp is used recursively the default behavior is -L.
+ *
+ * The following table attempts to summarize the options available across all
+ * the different commands:
+ *
+ * COMMAND		DEFAULT		-L	-P	-H	FLAG
+ * mv			lstat (-P)	-	-	-	-
+ * ln			lstat (-P)	stat	lstat	-	Lflg
+ * xpg4 ln		stat (-L)	stat	lstat	-	Lflg
+ * ln -s		lstat (-P)	ign	ign	-	-
+ * cp			stat (-L)	-	-	-	-
+ * cp -r | -R		stat (-L)	stat	lstat	both	Pflg
+ *
+ * The default column indicates what the action the command takes and what the
+ * equivalent stat command and flag is. The option columns indicate the behavior
+ * and a '-' indicates that the flag is unsupported while 'ign' indicates that
+ * the flag is ignored. POSIX indicates ln -s ignores -L/-P. The FLAG column
+ * indicates which of the variables the program uses to drive behavior after
+ * option processing. In all cases it is legal for these options to occur
+ * multiple times.
  */
+
 #include <sys/time.h>
 #include <signal.h>
 #include <locale.h>
@@ -133,6 +230,7 @@ static int		Hflg = 0;	/* follow cmd line arg symlink to dir */
 static int		Lflg = 0;	/* follow symlinks */
 static int		Pflg = 0;	/* do not follow symlinks */
 static int		atflg = 0;
+static int		Tflg = 0;	/* Treat target as a normal file */
 static int		attrsilent = 0;
 static int		targetexists = 0;
 static int		cmdarg;		/* command line argument */
@@ -265,16 +363,20 @@ main(int argc, char *argv[])
 
 	/*
 	 * Check for options:
-	 *	cp [ -r|-R [-H|-L|-P]] [-afinp@/] file1 [file2 ...] target
-	 *	cp [-afinprR@/] file1 [file2 ...] target
-	 *	ln [-fi] [-n] [-s] file1 [file2 ...] target
-	 *	ln [-fi] [-n] [-s] file1 [file2 ...]
-	 *	mv [-f|i] [-n] file1 [file2 ...] target
-	 *	mv [-f|i] [-n] dir1 target
+	 *	cp [-afinpT@/] source_file target_file
+	 *	cp [-afinp@/] source_file... target
+	 *	cp [-afinp@/] -T source_file target
+	 *	cp [-r|-R [-H|-L|-P]] [-afinp@/] source_dir... target
+	 *	ln [-fins] [-L|-P] source_file [target]
+	 *	ln [-fins] [-L|-P] source_file... target
+	 *	ln [-fins] [-L|-P] -T source_file target
+	 *	mv [-fin] source target_file
+	 *	mv [-fin] source... target_dir
+	 *	mv [-fin] -T source target
 	 */
 
 	if (cpy) {
-		while ((c = getopt(argc, argv, "afHinLpPrR@/")) != EOF)
+		while ((c = getopt(argc, argv, "afHinLpPrRT@/")) != EOF)
 			switch (c) {
 			case 'f':
 				fflg++;
@@ -331,6 +433,9 @@ main(int argc, char *argv[])
 				Rflg++;
 				rflg++;
 				break;
+			case 'T':
+				Tflg = 1;
+				break;
 			case '@':
 				atflg++;
 				attrsilent = 0;
@@ -355,7 +460,7 @@ main(int argc, char *argv[])
 		}
 
 	} else if (mve) {
-		while ((c = getopt(argc, argv, "fins")) != EOF)
+		while ((c = getopt(argc, argv, "finsT")) != EOF)
 			switch (c) {
 			case 'f':
 				targact = TA_OVERWRITE;
@@ -372,11 +477,24 @@ main(int argc, char *argv[])
 			case 'n':
 				targact = TA_SKIP;
 				break;
+			case 'T':
+				Tflg = 1;
+				break;
 			default:
 				errflg++;
 			}
 	} else { /* ln */
-		while ((c = getopt(argc, argv, "fins")) != EOF)
+		/*
+		 * The XPG4 merge caused the default behavior of link(2) to
+		 * change unfortunately. See the comment in libc for more
+		 * information. This means that xpg4 ln and normal ln have
+		 * different default behaviors. If we're in xpg4 mode, pre-set
+		 * some options that may be overriden.
+		 */
+#ifdef	XPG4
+		Lflg = 1;
+#endif
+		while ((c = getopt(argc, argv, "fiLnPsT")) != EOF)
 			switch (c) {
 			case 'f':
 				targact = TA_OVERWRITE;
@@ -384,11 +502,22 @@ main(int argc, char *argv[])
 			case 'i':
 				targact = TA_PROMPT;
 				break;
+			case 'L':
+				Lflg = 1;
+				Pflg = 0;
+				break;
 			case 'n':
 				/* silently ignored; this is the default */
 				break;
+			case 'P':
+				Pflg = 1;
+				Lflg = 0;
+				break;
 			case 's':
 				sflg++;
+				break;
+			case 'T':
+				Tflg = 1;
 				break;
 			default:
 				errflg++;
@@ -427,6 +556,12 @@ main(int argc, char *argv[])
 	 */
 
 	if (argc > 2) {
+		if (Tflg) {
+			(void) fprintf(stderr, gettext("%s: only a single "
+			    "source and target can be used with -T\n"), cmd);
+			exit(2);
+		}
+
 		if (stat(argv[argc-1], &s2) < 0) {
 			(void) fprintf(stderr,
 			    gettext("%s: %s not found\n"),
@@ -452,6 +587,11 @@ main(int argc, char *argv[])
 	if (argc == 1) {
 		if (!lnk)
 			usage();
+		if (Tflg) {
+			(void) fprintf(stderr, gettext("%s: -T requires "
+			    "specifying a target argument\n"), cmd);
+			exit(2);
+		}
 		(void) strcpy(target, ".");
 	} else {
 		(void) strcpy(target, argv[--argc]);
@@ -483,16 +623,15 @@ static int
 lnkfil(const char *source, char *target)
 {
 	char	*buf = NULL;
+	int	flags;
 
 	if (sflg) {
-
 		/*
 		 * If target is a directory make complete
 		 * name of the new symbolic link within that
 		 * directory.
 		 */
-
-		if ((stat(target, &s2) >= 0) && ISDIR(s2)) {
+		if ((stat(target, &s2) >= 0) && ISDIR(s2) && !Tflg) {
 			size_t len;
 
 			len = strlen(target) + strlen(dname(source)) + 4;
@@ -513,7 +652,6 @@ lnkfil(const char *source, char *target)
 		 * unlink(2) and symlink(2) will operate on the file
 		 * itself, not its reference, if the file is a symlink.
 		 */
-
 		if ((lstat(target, &s2) == 0)) {
 			/*
 			 * Check what our current overwrite behavior is i.e. the
@@ -565,11 +703,9 @@ lnkfil(const char *source, char *target)
 			}
 		}
 
-
 		/*
 		 * Create a symbolic link to the source.
 		 */
-
 		if (symlink(source, target) < 0) {
 			(void) fprintf(stderr,
 			    gettext("%s: cannot create %s: "),
@@ -597,7 +733,6 @@ lnkfil(const char *source, char *target)
 	 * Make sure source file is not a directory,
 	 * we cannot link directories...
 	 */
-
 	if (ISDIR(s1)) {
 		(void) fprintf(stderr,
 		    gettext("%s: %s is a directory\n"), cmd, source);
@@ -605,10 +740,13 @@ lnkfil(const char *source, char *target)
 	}
 
 	/*
-	 * hard link, call link() and return.
+	 * Create a hard link with the appropriate flags in question. POSIX
+	 * calls out the explicit use of linkat() and the flags to use. The
+	 * defaults are up to us. See the 'Symlink Behavior' section of the
+	 * theory statement for more information.
 	 */
-
-	if (link(source, target) < 0) {
+	flags = Lflg ? AT_SYMLINK_FOLLOW : 0;
+	if (linkat(AT_FDCWD, source, AT_FDCWD, target, flags) < 0) {
 		if (errno == EXDEV)
 			(void) fprintf(stderr,
 			    gettext("%s: %s is on a different file system\n"),
@@ -1109,10 +1247,19 @@ static chkfiles_t
 chkfiles(const char *source, char **to)
 {
 	char	*buf = (char *)NULL;
-	int	(*statf)() = (cpy &&
-	    !(Pflg || (Hflg && !cmdarg))) ? stat : lstat;
+	int	(*statf)(const char *, struct stat *) = lstat;
 	char    *target = *to;
 	int	error;
+
+	/*
+	 * See the Symlink Behavior section of the theory statement for more
+	 * information.
+	 */
+	if (cpy && !(Pflg || (Hflg && !cmdarg))) {
+		statf = stat;
+	} else if (lnk && !sflg && Lflg) {
+		statf = stat;
+	}
 
 	/*
 	 * Make sure source file exists.
@@ -1159,12 +1306,12 @@ chkfiles(const char *source, char **to)
 	if ((*statf)(target, &s2) >= 0) {
 		if (ISLNK(s2))
 			(void) stat(target, &s2);
+
 		/*
-		 * If target is a directory,
-		 * make complete name of new file
-		 * within that directory.
+		 * If target is a directory, make complete name of new file
+		 * within that directory unless -T is set.
 		 */
-		if (ISDIR(s2)) {
+		if (ISDIR(s2) && !Tflg) {
 			size_t len;
 
 			len = strlen(target) + strlen(dname(source)) + 4;
@@ -1483,27 +1630,28 @@ usage(void)
 
 	if (mve) {
 		(void) fprintf(stderr, gettext(
-		    "Usage: mv [-fin] f1 f2\n"
-		    "       mv [-fin] f1 ... fn d1\n"
-		    "       mv [-fin] d1 d2\n"));
+		    "Usage: mv [-fin] source target_file\n"
+		    "       mv [-fin] source... target_dir\n"
+		    "       mv [-fin] -T source target\n"));
 	} else if (lnk) {
 #ifdef XPG4
 		(void) fprintf(stderr, gettext(
-		    "Usage: ln [-fi] [-s] f1 [f2]\n"
-		    "       ln [-fi] [-s] f1 ... fn d1\n"
-		    "       ln [-fi] -s d1 d2\n"));
+		    "Usage: ln [-fis] [-L|-P] source_file [target]\n"
+		    "       ln [-fis] [-L|-P] source_file... target\n"
+		    "       ln [-fis] [-L|-P] -T source_file target\n"));
 #else
 		(void) fprintf(stderr, gettext(
-		    "Usage: ln [-fi] [-n] [-s] f1 [f2]\n"
-		    "       ln [-fi] [-n] [-s] f1 ... fn d1\n"
-		    "       ln [-fi] [-n] -s d1 d2\n"));
+		    "Usage: ln [-fins] [-L|-P] source_file [target]\n"
+		    "       ln [-fins] [-L|-P] source_file... target\n"
+		    "       ln [-fins] [-L|-P] -T source_file target\n"));
 #endif
 	} else if (cpy) {
 		(void) fprintf(stderr, gettext(
-		    "Usage: cp [-afinp@/] f1 f2\n"
-		    "       cp [-afinp@/] f1 ... fn d1\n"
+		    "Usage: cp [-afinpT@/] source_file target_file\n"
+		    "       cp [-afinp@/] source_file... target\n"
+		    "       cp [-afinp@/] -T source_file target\n"
 		    "       cp [-r|-R [-H|-L|-P]] [-afinp@/] "
-		    "d1 ... dn-1 dn\n"));
+		    "source_dir... target\n"));
 	}
 	exit(2);
 }

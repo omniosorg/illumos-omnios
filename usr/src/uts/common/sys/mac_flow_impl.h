@@ -34,6 +34,7 @@ extern "C" {
 
 #include <sys/param.h>
 #include <sys/atomic.h>
+#include <sys/time.h>
 #include <sys/ksynch.h>
 #include <sys/mac_flow.h>
 #include <sys/stream.h>
@@ -221,6 +222,14 @@ typedef enum {
 #define	FLOW_VNIC		FLOW_VNIC_MAC
 
 /*
+ * Bitflags denoting the state of an individual bandwidth control.
+ */
+typedef enum {
+	BW_ENABLED	= 1 << 0,
+	BW_ENFORCED	= 1 << 1,
+} mac_bw_state_t;
+
+/*
  * Shared Bandwidth control counters between the soft ring set and its
  * associated soft rings. In case the flow associated with NIC/VNIC
  * has a group of Rx rings assigned to it, we have the same
@@ -231,21 +240,36 @@ typedef enum {
  * shared across all the SRS in the group and their associated
  * soft rings.
  *
- * There is a many to 1 mapping between the SRS and
- * mac_bw_ctl if the flow has a group of Rx rings associated with
- * it.
+ * Bandwidth controls cause all affected SRSes (packet queues) to obey a shared
+ * policing/shaping criteria:
+ *
+ *  - Total queue occupancy beyond `mac_bw_drop_threshold` will lead to packet
+ *    drops. (Policing)
+ *
+ *  - All queues can, amongst themselves, admit at most `mac_bw_limit` bytes
+ *    to their softrings per system tick. (Shaping)
+ *
+ * The policing threshold is set today at 2 * `mac_bw_limit`.
+ *
+ * There is generally a many-to-1 mapping between SRSes and mac_bw_ctl. The Rx
+ * path's software classifier and SRSes for hardware rings will necessarily
+ * share a control, as will any Rx SRSes for subflows. In the Tx path, a
+ * bandwidth limit is used by just one SRS but may be referenced by its worker
+ * or `mac_tx`.
  */
 typedef struct mac_bw_ctl_s {
 	kmutex_t	mac_bw_lock;
-	uint32_t	mac_bw_state;
-	size_t		mac_bw_sz;	/* ?? Is it needed */
+	mac_bw_state_t	mac_bw_state;
+	size_t		mac_bw_sz;	/* Bytes enqueued in controlled SRSes */
 	size_t		mac_bw_limit;	/* Max bytes to process per tick */
 	size_t		mac_bw_used;	/* Bytes processed in current tick */
 	size_t		mac_bw_drop_threshold; /* Max queue length */
-	size_t		mac_bw_drop_bytes;
-	size_t		mac_bw_polled;
-	size_t		mac_bw_intr;
-	clock_t		mac_bw_curr_time;
+	hrtime_t	mac_bw_curr_time;
+
+	/* stats */
+	uint64_t	mac_bw_drop_bytes;
+	uint64_t	mac_bw_polled;
+	uint64_t	mac_bw_intr;
 } mac_bw_ctl_t;
 
 struct flow_entry_s {					/* Protected by */
@@ -562,6 +586,9 @@ extern void	mac_flow_tab_create(flow_ops_t *, flow_mask_t, uint_t,
 extern void	mac_flow_l2tab_create(struct mac_impl_s *, flow_tab_t **);
 extern void	mac_flow_tab_destroy(flow_tab_t *);
 extern void	flow_stat_destroy(flow_entry_t *);
+
+extern boolean_t	mac_bw_ctl_is_enabled(const mac_bw_ctl_t *);
+extern boolean_t	mac_bw_ctl_is_enforced(const mac_bw_ctl_t *);
 
 #ifdef	__cplusplus
 }

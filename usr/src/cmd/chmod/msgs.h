@@ -10,25 +10,20 @@
  */
 
 /*
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Copyright 2026 Edgecast Cloud LLC.
  */
 
-#include <stdlib.h>
-#include <unistd.h>
+#ifndef _MSGS_H
+#define	_MSGS_H
 
-int
-main(void)
-{
-	pid_t pg = getpgid(0);
-	pid_t sid = getsid(0);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	if (write(STDOUT_FILENO, &sid, sizeof (sid)) != sizeof (sid)) {
-		return (EXIT_FAILURE);
-	}
+extern void errmsg(int, int, char *, ...) __PRINTFLIKE(3);
 
-	if (write(STDOUT_FILENO, &pg, sizeof (pg)) != sizeof (pg)) {
-		return (EXIT_FAILURE);
-	}
-
-	return (EXIT_SUCCESS);
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* _MSGS_H */

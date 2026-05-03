@@ -22,6 +22,8 @@
  * Copyright (c) 2011 Gary Mills
  *
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ *
+ * Copyright 2026 Oxide Computer Company
  */
 
 #define	_POSIX_PTHREAD_SEMANTICS	/* for getgrnam_r */
@@ -42,6 +44,7 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <sys/acl.h>
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ddi.h>
@@ -87,7 +90,7 @@ static int
 setdevaccess(char *dev, uid_t uid, gid_t gid, mode_t mode,
     void (*errmsg)(char *))
 {
-	int err = 0, local_errno;
+	int err = 0, local_errno = 0;
 	char errstring[MAX_LINELEN];
 	struct stat st;
 
@@ -587,14 +590,15 @@ di_devperm_login(const char *ttyn, uid_t uid, gid_t gid,
 		return (-1);
 	}
 
-	if (getgrnam_r("tty", &grp, grbuf, NSS_BUFLEN_GROUP, &grpp) != 0) {
+	if (getgrnam_r("tty", &grp, grbuf, NSS_BUFLEN_GROUP, &grpp) == 0 &&
+	    grpp != NULL) {
 		tty_gid = grpp->gr_gid;
 	} else {
 		/*
-		 * this should never happen, but if it does set
-		 * group to tty's traditional value.
+		 * This should never happen, but if it does fall back to
+		 * the traditional tty group id.
 		 */
-		tty_gid = 7;
+		tty_gid = GID_TTY;
 	}
 
 	/* set the login console device permission */

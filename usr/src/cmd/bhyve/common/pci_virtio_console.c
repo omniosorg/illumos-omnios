@@ -375,6 +375,7 @@ pci_vtcon_sock_add(struct pci_vtcon_softc *sc, const char *port_name,
 	pathcopy = (char *)path;
 	addr.sun_family = AF_UNIX;
 	(void) strlcpy(addr.sun_path, pathcopy, sizeof (addr.sun_path));
+	(void) unlink(addr.sun_path);
 	if (bind(s, (struct sockaddr *)&addr, sizeof (addr)) < 0) {
 		error = -1;
 		goto out;
@@ -579,6 +580,15 @@ pci_vtcon_control_tx(struct pci_vtcon_port *port, void *arg __unused,
 			return;
 		}
 
+		/* Guest port ready; send additional configuration */
+		if (ctrl->value == 1 && tmp->vsp_name != NULL) {
+			resp.id = ctrl->id;
+			resp.event = VTCON_PORT_NAME;
+			resp.value = 1;
+			pci_vtcon_control_send(sc, &resp, tmp->vsp_name,
+			    strlen(tmp->vsp_name));
+		}
+
 		if (tmp->vsp_console) {
 			resp.event = VTCON_CONSOLE_PORT;
 			resp.id = ctrl->id;
@@ -598,10 +608,6 @@ pci_vtcon_announce_port(struct pci_vtcon_port *port)
 	event.event = VTCON_DEVICE_ADD;
 	event.value = 1;
 	pci_vtcon_control_send(port->vsp_sc, &event, NULL, 0);
-
-	event.event = VTCON_PORT_NAME;
-	pci_vtcon_control_send(port->vsp_sc, &event, port->vsp_name,
-	    strlen(port->vsp_name));
 }
 
 static void

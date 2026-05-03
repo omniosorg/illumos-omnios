@@ -35,7 +35,7 @@
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2021 Tintri by DDN, Inc.  All rights reserved.
- * Copyright 2025 RackTop Systems, Inc.
+ * Copyright 2025-2026 RackTop Systems, Inc.
  */
 
 /*
@@ -3436,13 +3436,16 @@ smbfs_readvdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp,
 		 * so strlen of these is offset+1.
 		 */
 		reclen = DIRENT64_RECLEN(offset + 1);
-		if (uio->uio_resid < reclen)
+		if (uio->uio_resid < reclen) {
+			error = EINVAL;
 			goto out;
+		}
 		bzero(dp, reclen);
 		dp->d_reclen = reclen;
 		dp->d_name[0] = '.';
 		dp->d_name[1] = '.';
 		dp->d_name[offset + 1] = '\0';
+
 		/*
 		 * Want the real I-numbers for the "." and ".."
 		 * entries.  For these two names, we know that
@@ -3567,13 +3570,24 @@ out:
 	 * the "." and ".." entries leaving offset == 2.
 	 * In that case, restore the original offset/resid
 	 * so the caller gets no data with the error.
+	 *
+	 * If we encountered an error after reading some entries,
+	 * the server's notion of the directory offset may be
+	 * different from what we have, so invalidate n_dirofs
+	 * to make sure the caller will reopen the remote.
+	 * Most callers will just close the dir after an error
+	 * here but they could readdir again.
 	 */
-	if (error != 0 && offset == FIRST_DIROFS) {
-		uio->uio_loffset = save_offset;
-		uio->uio_resid = save_resid;
+	if (error != 0) {
+		if (offset <= FIRST_DIROFS) {
+			uio->uio_loffset = save_offset;
+			uio->uio_resid = save_resid;
+		} else {
+			np->n_dirofs = INT32_MAX;
+		}
 	}
-	SMBVDEBUG("out: offset=%d, resid=%d\n",
-	    (int)uio->uio_offset, (int)uio->uio_resid);
+	SMBVDEBUG("out: error=%d offset=%d, resid=%d\n",
+	    error, (int)uio->uio_offset, (int)uio->uio_resid);
 
 	kmem_free(dp, dbufsiz);
 	smb_credrele(&scred);

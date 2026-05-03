@@ -36,7 +36,7 @@
  *
  * Copyright (c) 2011 - 2013 Apple Inc. All rights reserved.
  * Copyright 2018 Nexenta Systems, Inc.  All rights reserved.
- * Copyright 2025 RackTop Systems, Inc.
+ * Copyright 2025-2026 RackTop Systems, Inc.
  */
 
 #include <sys/param.h>
@@ -605,6 +605,15 @@ smbfs_smb2_qdir(struct smbfs_fctx *ctx)
 		*name_lenp = 0;
 	}
 
+	/*
+	 * Allowing this request to be interrupted in receive can
+	 * leave the server-side offset wrong, so disallow that.
+	 */
+	rqp->sr_flags |= SMBR_NOINTR_RECV;
+
+	/*
+	 * Run the request
+	 */
 	error = smb2_rq_simple(rqp);
 	if (error != 0)
 		goto out;
@@ -834,7 +843,6 @@ out:
 		smb_fh_rele(fhp);
 	return (error);
 }
-
 
 /*
  * OTW function to Get a security descriptor (SD).

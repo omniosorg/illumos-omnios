@@ -121,10 +121,24 @@ user = root
 
 [/opt/util-tests/tests/ar/artest]
 [/opt/util-tests/tests/cpio/cpio_test]
+[/opt/util-tests/tests/pwd-test]
 
 #
 # This test ndeds to run as an explicitly unprivileged user to ensure that the
-# mv checks around permissions don't fire due to super-user privileges.
+# mv checks around permissions don't fire due to super-user privileges. We use
+# nobody here as well for ln-LP to ensure no hardlinks to directories are
+# created.
 #
 [/opt/util-tests/tests/cpmvln/overwrite]
+user = nobody
+[/opt/util-tests/tests/cpmvln/no-targ]
+user = nobody
+[/opt/util-tests/tests/cpmvln/ln-LP]
+user = nobody
+
+#
+# Ensure nothing in the rm tests can succeed because of privileges. The test
+# also enforces that it's not running with a uid of 0.
+#
+[/opt/util-tests/tests/rm/rm-test]
 user = nobody

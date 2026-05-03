@@ -458,5 +458,6 @@ void Free(void *, const char *, int);
  * va <-> pa routines. MD code must supply.
  */
 caddr_t ptov(uintptr_t);
+uintptr_t vtop(caddr_t);
 
 #endif	/* STAND_H */

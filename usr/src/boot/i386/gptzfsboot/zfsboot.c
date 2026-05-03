@@ -1,4 +1,5 @@
 /*
+ * Copyright 2026 Edgecast Cloud LLC.
  * Copyright (c) 1998 Robert Nordier
  * All rights reserved.
  *
@@ -349,10 +350,12 @@ main(void)
 		else if (!auto_boot || !OPT_CHECK(RBX_QUIET))
 			putchar('\n');
 		auto_boot = false;
-		if (parse_cmd())
+		if (parse_cmd()) {
 			putchar('\a');
-		else
+		} else {
+			putchar('\n');
 			load();
+		}
 	}
 }
 

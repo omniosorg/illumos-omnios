@@ -98,6 +98,7 @@ extern "C" {
 #define	UID_DLADM	15
 #define	UID_NETADM	16
 #define	GID_NETADM	65
+#define	GID_TTY		7	/* traditional tty group id */
 #define	UID_NOACCESS	60002	/* user ID no access */
 
 #ifdef _KERNEL

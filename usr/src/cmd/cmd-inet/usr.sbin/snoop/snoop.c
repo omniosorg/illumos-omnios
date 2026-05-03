@@ -25,7 +25,7 @@
  *
  * Copyright 2021 Joyent, Inc.
  * Copyright 2023 RackTop Systems, Inc.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <stdio.h>
@@ -77,6 +77,7 @@ static char *encap;
 static int audio;
 int maxcount;	/* maximum no of packets to capture */
 int count;	/* count of packets captured */
+uint_t total_drops; /* number of packets dropped */
 static int sumcount;
 int x_offset = -1;
 int x_length = 0x7fffffff;
@@ -616,7 +617,7 @@ show_count()
 		return;
 
 	prev = count;
-	(void) fprintf(stderr, "\r%d ", count);
+	(void) fprintf(stderr, "\rPackets: %d Drops: %u", count, total_drops);
 }
 
 #define	ENCAP_LEN	16	/* Hold "(NN encap)" */

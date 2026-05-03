@@ -24,7 +24,7 @@
  * Copyright 2012 Milan Jurik. All rights reserved.
  * Copyright 2021 Joyent, Inc.
  * Copyright 2023 RackTop Systems, Inc.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <stdio.h>
@@ -311,9 +311,11 @@ net_read(dlpi_handle_t dh, size_t chunksize, int filter, void (*proc)(),
 {
 	int	retval;
 	extern int count;
+	extern uint_t total_drops;
 	size_t	msglen;
 
 	count = 0;
+	total_drops = 0;
 
 	/* allocate a read buffer */
 	bufp = malloc(chunksize);
@@ -381,6 +383,7 @@ scan(char *buf, int len, int filter, int cap, int old, void (*proc)(),
 	volatile int header_okay;
 	extern int count, maxcount;
 	extern int snoop_nrecover;
+	extern uint_t total_drops;
 #ifdef	DEBUG
 	extern int zflg;
 #endif	/* DEBUG */
@@ -481,6 +484,10 @@ scan(char *buf, int len, int filter, int cap, int old, void (*proc)(),
 #endif /* DEBUG */
 
 		header_okay = 1;
+
+		/* sbh_drops is cumulative */
+		total_drops = nhdrp->sbh_drops;
+
 		if (!filter ||
 		    want_packet((uchar_t *)pktp,
 		    nhdrp->sbh_msglen,
@@ -814,8 +821,10 @@ void
 cap_read(int first, int last, int filter, void (*proc)(), int flags)
 {
 	extern int count;
+	extern uint_t total_drops;
 
 	count = 0;
+	total_drops = 0;
 
 	scan(cap_buffp, cap_len, filter, 1, !cap_new, proc, first, last, flags);
 

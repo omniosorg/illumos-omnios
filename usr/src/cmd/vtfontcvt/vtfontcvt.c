@@ -683,7 +683,7 @@ write_source_mappings(FILE *fp, unsigned int map_idx)
 }
 
 struct file_header {
-	uint8_t		magic[8];
+	uint8_t		magic[8] __nonstring;
 	uint8_t		width;
 	uint8_t		height;
 	uint16_t	pad;

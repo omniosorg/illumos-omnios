@@ -502,21 +502,23 @@ dt_action_printa(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	for (anp = dnp->dn_args; anp != NULL; anp = anp->dn_list)
 		argc++; /* count up arguments for error messages below */
 
-	switch (dnp->dn_args->dn_kind) {
-	case DT_NODE_STRING:
-		format = dnp->dn_args->dn_string;
-		anp = dnp->dn_args->dn_list;
-		argr = 2;
-		break;
-	case DT_NODE_AGG:
-		format = NULL;
-		anp = dnp->dn_args;
-		argr = 1;
-		break;
-	default:
-		format = NULL;
-		anp = dnp->dn_args;
-		argr = 1;
+	if (dnp->dn_args != NULL) {
+		switch (dnp->dn_args->dn_kind) {
+		case DT_NODE_STRING:
+			format = dnp->dn_args->dn_string;
+			anp = dnp->dn_args->dn_list;
+			argr = 2;
+			break;
+		case DT_NODE_AGG:
+			format = NULL;
+			anp = dnp->dn_args;
+			argr = 1;
+			break;
+		default:
+			format = NULL;
+			anp = dnp->dn_args;
+			argr = 1;
+		}
 	}
 
 	if (argc < argr) {

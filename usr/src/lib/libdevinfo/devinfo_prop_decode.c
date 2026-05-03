@@ -21,6 +21,8 @@
 /*
  * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -39,6 +41,7 @@
 #include <strings.h>
 #include <synch.h>
 #include <ctype.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/dditypes.h>
 #include <sys/ddipropdefs.h>
@@ -282,7 +285,7 @@ di_prop_fm_decode_bytes(prop_handle_t *ph, void *data, uint_t *nelements)
 	 * Get the size of the encoded array of bytes.
 	 */
 	nbytes = DDI_PROP_BYTES(ph, DDI_PROP_CMD_GET_DSIZE,
-		data, ph->ph_size);
+	    data, ph->ph_size);
 	if (nbytes < DDI_PROP_RESULT_OK) {
 		switch (nbytes) {
 		case DDI_PROP_RESULT_EOF:
@@ -883,6 +886,12 @@ di_prop_decode_common(void *data, int size, int prop_type, int prom)
 
 		case DI_PROP_TYPE_BYTE:
 			nelements = size;
+			break;
+
+		default:
+			errno = EINVAL;
+			nelements = -1;
+			break;
 		}
 
 		return (nelements);

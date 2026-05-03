@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright 2025 Oxide Computer Company
+# Copyright 2026 Oxide Computer Company
 #
 
 ASSERT.9f
@@ -634,6 +634,8 @@ mod_install.9f
 	mod_info.9f
 	mod_modname.9f
 	mod_remove.9f
+msgpullup.9f
+	msgpullup_pad.9f
 mutex.9f
 	mutex_destroy.9f
 	mutex_enter.9f

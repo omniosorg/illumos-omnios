@@ -21,6 +21,8 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright 2026 Oxide Computer Company
  */
 
 
@@ -41,6 +43,7 @@
 #include <ftw.h>
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
+#include <sys/debug.h>
 #include <limits.h>
 
 #include "device_info.h"
@@ -58,6 +61,7 @@
 #define	BUFSIZE		4096
 #define	MAXPROPSIZE	256
 #define	MAXVALSIZE	(BUFSIZE - MAXPROPSIZE - sizeof (uint_t))
+CTASSERT(MAXVALSIZE <= BUFSIZE - sizeof (struct openpromio));
 
 /* prom_obp_vers() return values */
 #define	OBP_OF			0x4	/* versions OBP 3.x */
@@ -339,8 +343,8 @@ devfs_get_all_prom_names(const char *solaris_path, uint_t flags,
 	*paths = NULL;
 	ptr = prom_path;
 	for (i = 0; i < count; i++) {
-		if ((new = (struct devfs_prom_path *)calloc(
-		    sizeof (struct devfs_prom_path), 1)) == NULL) {
+		new = calloc(1, sizeof (struct devfs_prom_path));
+		if (new == NULL) {
 			free(prom_path);
 			devfs_free_all_prom_names(*paths);
 			return (DEVFS_NOMEM);
@@ -565,7 +569,7 @@ set_boot_dev_var(struct openpromio *opp, char *bootdev)
 	}
 
 	/* get the diagnostic-mode? property */
-	(void) strcpy(opp->oprom_array, "diagnostic-mode?");
+	(void) strlcpy(opp->oprom_array, "diagnostic-mode?", MAXVALSIZE);
 	opp->oprom_size = MAXVALSIZE;
 	if (ioctl(prom_fd, OPROMGETOPT, opp) >= 0) {
 		if ((opp->oprom_size > 0) &&
@@ -575,7 +579,7 @@ set_boot_dev_var(struct openpromio *opp, char *bootdev)
 		}
 	}
 	/* get the diag-switch? property */
-	(void) strcpy(opp->oprom_array, "diag-switch?");
+	(void) strlcpy(opp->oprom_array, "diag-switch?", MAXVALSIZE);
 	opp->oprom_size = MAXVALSIZE;
 	if (ioctl(prom_fd, OPROMGETOPT, opp) >= 0) {
 		if ((opp->oprom_size > 0) &&
@@ -608,7 +612,8 @@ set_boot_dev_var(struct openpromio *opp, char *bootdev)
 		}
 	}
 	if (found) {
-		(void) strcpy(opp->oprom_array, bootdev_variables[i]);
+		(void) strlcpy(opp->oprom_array, bootdev_variables[i],
+		    MAXVALSIZE);
 		opp->oprom_size = MAXVALSIZE;
 		if (ioctl(prom_fd, OPROMGETOPT, opp) < 0) {
 			prom_close(prom_fd);
@@ -625,9 +630,10 @@ set_boot_dev_var(struct openpromio *opp, char *bootdev)
 		return (DEVFS_NOMEM);
 	}
 	/* set up the new value of boot-device */
-	(void) strcpy(opp->oprom_array, bootdev_variables[i]);
+	(void) strlcpy(opp->oprom_array, bootdev_variables[i], MAXVALSIZE);
 	valbuf = opp->oprom_array + strlen(opp->oprom_array) + 1;
-	(void) strcpy(valbuf, bootdev);
+	(void) strlcpy(valbuf, bootdev,
+	    MAXVALSIZE - strlen(opp->oprom_array) - 1);
 
 	opp->oprom_size = strlen(valbuf) + strlen(opp->oprom_array) + 2;
 
@@ -640,7 +646,7 @@ set_boot_dev_var(struct openpromio *opp, char *bootdev)
 	/*
 	 * now read it back to make sure it took
 	 */
-	(void) strcpy(opp->oprom_array, bootdev_variables[i]);
+	(void) strlcpy(opp->oprom_array, bootdev_variables[i], MAXVALSIZE);
 	opp->oprom_size = MAXVALSIZE;
 	if (ioctl(prom_fd, OPROMGETOPT, opp) >= 0) {
 		if (_prom_strcmp(opp->oprom_array, bootdev) == 0) {
@@ -673,9 +679,10 @@ set_boot_dev_var(struct openpromio *opp, char *bootdev)
 	 * return DEVFS_ERR instead.
 	 */
 	ret = DEVFS_LIMIT;
-	(void) strcpy(opp->oprom_array, bootdev_variables[i]);
+	(void) strlcpy(opp->oprom_array, bootdev_variables[i], MAXVALSIZE);
 	valbuf = opp->oprom_array + strlen(opp->oprom_array) + 1;
-	(void) strcpy(valbuf, save_bootdev);
+	(void) strlcpy(valbuf, save_bootdev,
+	    MAXVALSIZE - strlen(opp->oprom_array) - 1);
 
 	opp->oprom_size = strlen(valbuf) + strlen(opp->oprom_array) + 2;
 
@@ -710,7 +717,7 @@ get_boot_dev_var(struct openpromio *opp)
 	}
 
 	/* get the diagnostic-mode? property */
-	(void) strcpy(opp->oprom_array, "diagnostic-mode?");
+	(void) strlcpy(opp->oprom_array, "diagnostic-mode?", MAXVALSIZE);
 	opp->oprom_size = MAXVALSIZE;
 	if (ioctl(prom_fd, OPROMGETOPT, opp) >= 0) {
 		if ((opp->oprom_size > 0) &&
@@ -720,7 +727,7 @@ get_boot_dev_var(struct openpromio *opp)
 		}
 	}
 	/* get the diag-switch? property */
-	(void) strcpy(opp->oprom_array, "diag-switch?");
+	(void) strlcpy(opp->oprom_array, "diag-switch?", MAXVALSIZE);
 	opp->oprom_size = MAXVALSIZE;
 	if (ioctl(prom_fd, OPROMGETOPT, opp) >= 0) {
 		if ((opp->oprom_size > 0) &&
@@ -753,7 +760,8 @@ get_boot_dev_var(struct openpromio *opp)
 		}
 	}
 	if (found) {
-		(void) strcpy(opp->oprom_array, bootdev_variables[i]);
+		(void) strlcpy(opp->oprom_array, bootdev_variables[i],
+		    MAXVALSIZE);
 		opp->oprom_size = MAXVALSIZE;
 		if (ioctl(prom_fd, OPROMGETOPT, opp) < 0) {
 			prom_close(prom_fd);
@@ -1150,6 +1158,9 @@ devfs_phys_to_logical(struct boot_dev **bootdev_array, const int array_size,
 		list = dev_list[i];
 		count = 0;
 
+		if (bootdev_array[i] == NULL)
+			continue;
+
 		/* count the number of entries in the list */
 		while (list != NULL) {
 			count++;
@@ -1174,14 +1185,15 @@ devfs_phys_to_logical(struct boot_dev **bootdev_array, const int array_size,
 		 * null terminate the array
 		 */
 		dev_name_array[count] = NULL;
-		if ((bootdev_array[i] != NULL) && (bootdev_array[i]->
-		    bootdev_trans[0] != NULL)) {
-			free(bootdev_array[i]->bootdev_trans[0]);
-		}
-		if (bootdev_array[i] != NULL) {
-			free(bootdev_array[i]->bootdev_trans);
-			bootdev_array[i]->bootdev_trans = dev_name_array;
-		}
+
+		/*
+		 * At this point, only bootdev_trans[0] has been populated
+		 * (via process_bootdev). Replace the translation array with
+		 * the full set of logical device names.
+		 */
+		free(bootdev_array[i]->bootdev_trans[0]);
+		free(bootdev_array[i]->bootdev_trans);
+		bootdev_array[i]->bootdev_trans = dev_name_array;
 	}
 	bootdev_list = NULL;
 	free(full_path);
@@ -1442,7 +1454,7 @@ devfs_path_to_drv(char *devfs_path, char *drv_buf)
 
 	/* query the prom */
 	if ((prom_fd = prom_open(O_RDONLY)) >= 0) {
-		(void) strcpy(opp->oprom_array, driver_path);
+		(void) strlcpy(opp->oprom_array, driver_path, MAXVALSIZE);
 		opp->oprom_size = MAXVALSIZE;
 
 		if (ioctl(prom_fd, OPROMPATH2DRV, opp) == 0) {
@@ -1469,7 +1481,7 @@ devfs_path_to_drv(char *devfs_path, char *drv_buf)
 	slash++;
 
 	/* use opp->oprom_array as a buffer */
-	(void) strcpy(opp->oprom_array, slash);
+	(void) strlcpy(opp->oprom_array, slash, MAXVALSIZE);
 	if (devfs_resolve_aliases(opp->oprom_array) == NULL)
 		return (-1);
 	(void) strcpy(drv_buf, opp->oprom_array);
@@ -1595,7 +1607,7 @@ devfs_prom_to_dev_name(char *prom_path, char *dev_path)
 	if (prom_fd < 0) {
 		return (prom_fd);
 	}
-	(void) strcpy(opp->oprom_array, prom_path);
+	(void) strlcpy(opp->oprom_array, prom_path, MAXVALSIZE);
 	opp->oprom_size = MAXVALSIZE;
 
 	if (ioctl(prom_fd, OPROMPROM2DEVNAME, opp) == 0) {

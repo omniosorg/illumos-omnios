@@ -424,11 +424,16 @@
  *
  * If both nq_mutex and ncq_mutex need to be held, ncq_mutex must be
  * acquired first. More than one nq_mutex is never held by a single thread.
- * The ncq_mutex is only held by nvme_retrieve_cmd() and
- * nvme_process_iocq(). nvme_process_iocq() is only called from the
- * interrupt thread and nvme_retrieve_cmd() during polled I/O, so the
- * mutex is non-contentious but is required for implementation completeness
- * and safety.
+ * The ncq_mutex is held by nvme_retrieve_cmd() and nvme_process_iocq().
+ * nvme_process_iocq() is called from the interrupt thread and
+ * nvme_retrieve_cmd() during polled I/O, and also by nvme_wait_cmd as a
+ * fallback after a command timeout, so the mutex is required.
+ *
+ * Lastly, in the exceptional situation where ncq_mutex and an nc_mutex must be
+ * held, ncq_mutex must be acquired first (to match the order that they need to
+ * be taken during an interrupt). So the total lock ordering in this driver is:
+ *
+ *       ncq_mutex -> nc_mutex -> nq_mutex
  *
  * Each nvme_t has an n_admin_stat_mutex that protects the admin command
  * statistics structure. If this is taken in conjunction with any other locks,
@@ -2740,6 +2745,7 @@ nvme_wait_cmd(nvme_cmd_t *cmd, uint32_t sec)
 {
 	nvme_t *nvme = cmd->nc_nvme;
 	nvme_reg_csts_t csts;
+	uint_t ccnt;
 
 	ASSERT(mutex_owned(&cmd->nc_mutex));
 
@@ -2777,8 +2783,9 @@ nvme_wait_cmd(nvme_cmd_t *cmd, uint32_t sec)
 	DTRACE_PROBE1(nvme_admin_cmd_timeout, nvme_cmd_t *, cmd);
 	csts.r = nvme_get32(nvme, NVME_REG_CSTS);
 	dev_err(nvme->n_dip, CE_WARN, "!command %d/%d timeout, "
-	    "OPC = %x, CFS = %d", cmd->nc_sqe.sqe_cid, cmd->nc_sqid,
-	    cmd->nc_sqe.sqe_opc, csts.b.csts_cfs);
+	    "OPC = 0x%x, CFS = %u, STATUS = 0x%x",
+	    cmd->nc_sqe.sqe_cid, cmd->nc_sqid, cmd->nc_sqe.sqe_opc,
+	    csts.b.csts_cfs, csts.r);
 	NVME_BUMP_STAT(nvme, cmd_timeout);
 
 	/*
@@ -2795,7 +2802,59 @@ nvme_wait_cmd(nvme_cmd_t *cmd, uint32_t sec)
 		return;
 	}
 
-	/* Issue an abort for the command that has timed out */
+	/*
+	 * Poll admin completion queue to see if we missed an interrupt or the
+	 * controller never gave us one. Some buggy controller firmwares (e.g.
+	 * SK hynix PE1030 FW v1.0 and Solidigm D7-PS1010) do this, especially
+	 * on the first admin command.
+	 *
+	 * At this point we are holding the cmd's nc_mutex and we need to go
+	 * grab the adminq's ncq_mutex to check for completions. Grabbing it
+	 * would violate our lock ordering, but we can safely drop nc_mutex
+	 * here and pick it back up, as long as the following hold:
+	 *
+	 * - We don't assume the cmd's state remains the same after doing
+	 *   this (and also don't assume we are the only ones who could
+	 *   change it, since an interrupt may arrive)
+	 *   => we re-check it below, even if we don't find any polled CQ
+	 *	entries
+	 * - Only one thread can be waiting on this specific command at a time
+	 *   so that we can't race against someone else freeing this command
+	 *   after waiting on it
+	 *   => true for admin commands, since nvme_admin_cmd always calls
+	 *	this function to wait and we don't dispatch them any other
+	 *	way
+	 * - The nc_callback for this command will never free the command
+	 *   => true, since admin commands always use nvme_wakeup_cmd
+	 * - nvme_process_iocq is safe to call concurrently against the same
+	 *   adminq from here and also from an interrupt
+	 *   => true, since nvme_process_iocq holds ncq_mutex for its entire
+	 *	duration and handles being called on a queue with nothing
+	 *	to do
+	 */
+	mutex_exit(&cmd->nc_mutex);
+	ccnt = nvme_process_iocq(nvme, nvme->n_adminq->nq_cq);
+	mutex_enter(&cmd->nc_mutex);
+	if (ccnt > 0) {
+		dev_err(nvme->n_dip, CE_WARN, "!possible missed interrupt "
+		    "(%u completions found on admin CQ at timeout)", ccnt);
+	}
+
+	/*
+	 * Re-check the command's state now, it may have changed while we
+	 * dropped nc_mutex.
+	 */
+	if (cmd->nc_state == NVME_CMD_COMPLETED) {
+		DTRACE_PROBE1(nvme_admin_cmd_completed, nvme_cmd_t *,
+		    cmd);
+		nvme_admin_stat_cmd(nvme, cmd);
+		return;
+	}
+
+	/*
+	 * At this point, we're out of ideas: issue an abort for the command
+	 * that has timed out.
+	 */
 	if (nvme_abort_cmd(cmd, sec) == 0) {
 		/*
 		 * If the abort completed, whether or not it was
@@ -4547,7 +4606,8 @@ nvme_init(nvme_t *nvme)
 
 			if (csts.b.csts_cfs == 1) {
 				dev_err(nvme->n_dip, CE_WARN,
-				    "!controller fatal status at init");
+				    "!controller fatal status at init "
+				    "(STATUS = 0x%x)", csts.r);
 				ddi_fm_service_impact(nvme->n_dip,
 				    DDI_SERVICE_LOST);
 				nvme->n_dead = B_TRUE;
