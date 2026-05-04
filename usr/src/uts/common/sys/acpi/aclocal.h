@@ -221,6 +221,22 @@ typedef struct acpi_rw_lock
 #define ACPI_MAX_LOCK                   1
 #define ACPI_NUM_LOCK                   (ACPI_MAX_LOCK+1)
 
+/*
+ * XXXARM: This is in sys/ccompile.h, but boot doesn't use system headers at all
+ * and if it does, conflicts abound.  So we do this, which is bad.
+ */
+#if !defined(__nonstring)
+#if defined(__has_attribute)
+#if __has_attribute(__nonstring__)
+/* To silence warnings about null terminator not fitting into an array. */
+#define	__nonstring	__attribute__((__nonstring__))
+#endif
+#endif /* __has_attribute */
+#endif /* !defined(__nonstring) */
+
+#if !defined(__nonstring)
+#define	__nonstring
+#endif
 
 /* This Thread ID means that the mutex is not in use (unlocked) */
 
@@ -479,7 +495,7 @@ ACPI_STATUS (*ACPI_INTERNAL_METHOD) (
  */
 typedef struct acpi_name_info
 {
-    char                        Name[ACPI_NAME_SIZE];
+    char                        Name[ACPI_NAME_SIZE] __nonstring;
     UINT16                      ArgumentList;
     UINT8                       ExpectedBtypes;
 
@@ -567,7 +583,7 @@ typedef ACPI_STATUS (*ACPI_OBJECT_CONVERTER) (
 
 typedef struct acpi_simple_repair_info
 {
-    char                        Name[ACPI_NAME_SIZE];
+    char                        Name[ACPI_NAME_SIZE] __nonstring;
     UINT32                      UnexpectedBtypes;
     UINT32                      PackageIndex;
     ACPI_OBJECT_CONVERTER       ObjectConverter;
