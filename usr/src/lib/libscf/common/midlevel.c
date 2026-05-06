@@ -24,6 +24,7 @@
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  * Copyright 2018 RackTop Systems.
  * Copyright 2020 Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include "libscf_impl.h"
@@ -1104,32 +1105,14 @@ out:
 }
 
 static int
-set_inst_enabled_flags(const char *fmri, int flags, uint8_t desired,
+set_instance_enabled_inst(scf_instance_t *inst, int flags, uint8_t desired,
     const char *comment)
 {
 	int ret = -1;
-	scf_handle_t *h;
-	scf_instance_t *inst;
 
 	if (flags & ~(SMF_TEMPORARY | SMF_AT_NEXT_BOOT) ||
 	    flags & SMF_TEMPORARY && flags & SMF_AT_NEXT_BOOT) {
-		(void) scf_set_error(SCF_ERROR_INVALID_ARGUMENT);
-		return (ret);
-	}
-
-	if ((h = _scf_handle_create_and_bind(SCF_VERSION)) == NULL)
-		return (ret);
-
-	if ((inst = scf_instance_create(h)) == NULL) {
-		scf_handle_destroy(h);
-		return (ret);
-	}
-
-	if (scf_handle_decode_fmri(h, fmri, NULL, NULL, inst, NULL, NULL,
-	    SCF_DECODE_FMRI_EXACT) == -1) {
-		if (scf_error() == SCF_ERROR_CONSTRAINT_VIOLATED)
-			(void) scf_set_error(SCF_ERROR_INVALID_ARGUMENT);
-		goto out;
+		return (scf_set_error(SCF_ERROR_INVALID_ARGUMENT));
 	}
 
 	if (flags & SMF_AT_NEXT_BOOT) {
@@ -1151,10 +1134,39 @@ set_inst_enabled_flags(const char *fmri, int flags, uint8_t desired,
 	}
 
 out:
-	scf_instance_destroy(inst);
-	scf_handle_destroy(h);
 	if (ret == -1 && scf_error() == SCF_ERROR_DELETED)
 		(void) scf_set_error(SCF_ERROR_NOT_FOUND);
+	return (ret);
+}
+
+static int
+set_inst_enabled_flags(const char *fmri, int flags, uint8_t desired,
+    const char *comment)
+{
+	int ret = -1;
+	scf_handle_t *h;
+	scf_instance_t *inst;
+
+	if ((h = _scf_handle_create_and_bind(SCF_VERSION)) == NULL)
+		return (ret);
+
+	if ((inst = scf_instance_create(h)) == NULL) {
+		scf_handle_destroy(h);
+		return (ret);
+	}
+
+	if (scf_handle_decode_fmri(h, fmri, NULL, NULL, inst, NULL, NULL,
+	    SCF_DECODE_FMRI_EXACT) == -1) {
+		if (scf_error() == SCF_ERROR_CONSTRAINT_VIOLATED)
+			(void) scf_set_error(SCF_ERROR_INVALID_ARGUMENT);
+		goto out;
+	}
+
+	ret = set_instance_enabled_inst(inst, flags, desired, comment);
+
+out:
+	scf_instance_destroy(inst);
+	scf_handle_destroy(h);
 	return (ret);
 }
 
@@ -1207,6 +1219,15 @@ smf_enable_instance(const char *fmri, int flags)
 }
 
 int
+smf_enable_instance_by_instance(scf_instance_t *inst, int flags,
+    const char *comment)
+{
+	if (comment == NULL)
+		comment = "";
+	return (set_instance_enabled_inst(inst, flags, B_TRUE, comment));
+}
+
+int
 smf_disable_instance_with_comment(const char *fmri, int flags,
     const char *comment)
 {
@@ -1218,14 +1239,18 @@ smf_disable_instance(const char *fmri, int flags)
 {
 	return (set_inst_enabled_flags(fmri, flags, B_FALSE, ""));
 }
+
 int
-_smf_refresh_instance_i(scf_instance_t *inst)
+smf_disable_instance_by_instance(scf_instance_t *inst, int flags,
+    const char *comment)
 {
-	return (set_inst_action_inst(inst, SCF_PROPERTY_REFRESH));
+	if (comment == NULL)
+		comment = "";
+	return (set_instance_enabled_inst(inst, flags, B_FALSE, comment));
 }
 
 int
-_smf_refresh_all_instances(scf_service_t *s)
+smf_refresh_all_instances(scf_service_t *s)
 {
 	scf_handle_t	*h = scf_service_handle(s);
 	scf_instance_t	*i = scf_instance_create(h);
@@ -1239,7 +1264,7 @@ _smf_refresh_all_instances(scf_service_t *s)
 		goto error;
 
 	while ((err = scf_iter_next_instance(it, i)) == 1)
-		if (_smf_refresh_instance_i(i) != 0)
+		if (smf_refresh_instance_by_instance(i) != 0)
 			goto error;
 
 	if (err == -1)
@@ -1259,10 +1284,26 @@ smf_refresh_instance(const char *instance)
 	return (set_inst_action(instance, SCF_PROPERTY_REFRESH));
 }
 
+/*
+ * The tools svccfg needs the uncommited name for this.
+ */
+#pragma weak _smf_refresh_instance_i = smf_refresh_instance_by_instance
+int
+smf_refresh_instance_by_instance(scf_instance_t *inst)
+{
+	return (set_inst_action_inst(inst, SCF_PROPERTY_REFRESH));
+}
+
 int
 smf_restart_instance(const char *instance)
 {
 	return (set_inst_action(instance, SCF_PROPERTY_RESTART));
+}
+
+int
+smf_restart_instance_by_instance(scf_instance_t *inst)
+{
+	return (set_inst_action_inst(inst, SCF_PROPERTY_RESTART));
 }
 
 int
@@ -1275,6 +1316,21 @@ smf_maintain_instance(const char *instance, int flags)
 		    SCF_PROPERTY_MAINT_ON_TEMPORARY));
 	else
 		return (set_inst_action(instance,
+		    (flags & SMF_IMMEDIATE) ?
+		    SCF_PROPERTY_MAINT_ON_IMMEDIATE :
+		    SCF_PROPERTY_MAINT_ON));
+}
+
+int
+smf_maintain_instance_by_instance(scf_instance_t *inst, int flags)
+{
+	if (flags & SMF_TEMPORARY)
+		return (set_inst_action_inst(inst,
+		    (flags & SMF_IMMEDIATE) ?
+		    SCF_PROPERTY_MAINT_ON_IMMTEMP :
+		    SCF_PROPERTY_MAINT_ON_TEMPORARY));
+	else
+		return (set_inst_action_inst(inst,
 		    (flags & SMF_IMMEDIATE) ?
 		    SCF_PROPERTY_MAINT_ON_IMMEDIATE :
 		    SCF_PROPERTY_MAINT_ON));
@@ -1309,6 +1365,28 @@ smf_degrade_instance(const char *instance, int flags)
 }
 
 int
+smf_degrade_instance_by_instance(scf_instance_t *inst, int flags)
+{
+	char	*state;
+
+	if (flags & SMF_TEMPORARY)
+		return (scf_set_error(SCF_ERROR_INVALID_ARGUMENT));
+
+	if ((state = smf_get_state_by_instance(inst)) == NULL) {
+		return (SCF_FAILED);
+	}
+
+	if (strcmp(state, SCF_STATE_STRING_ONLINE) != 0) {
+		free(state);
+		return (scf_set_error(SCF_ERROR_CONSTRAINT_VIOLATED));
+	}
+	free(state);
+
+	return (set_inst_action_inst(inst, (flags & SMF_IMMEDIATE) ?
+	    SCF_PROPERTY_DEGRADE_IMMEDIATE : SCF_PROPERTY_DEGRADED));
+}
+
+int
 smf_restore_instance(const char *instance)
 {
 	scf_simple_prop_t		*prop;
@@ -1336,6 +1414,28 @@ smf_restore_instance(const char *instance)
 	return (ret);
 }
 
+int
+smf_restore_instance_by_instance(scf_instance_t *inst)
+{
+	char	*state;
+	int	ret;
+
+	if ((state = smf_get_state_by_instance(inst)) == NULL) {
+		return (SCF_FAILED);
+	}
+
+	if (strcmp(state, SCF_STATE_STRING_MAINT) == 0) {
+		ret = set_inst_action_inst(inst, SCF_PROPERTY_MAINT_OFF);
+	} else if (strcmp(state, SCF_STATE_STRING_DEGRADED) == 0) {
+		ret = set_inst_action_inst(inst, SCF_PROPERTY_RESTORE);
+	} else {
+		ret = scf_set_error(SCF_ERROR_CONSTRAINT_VIOLATED);
+	}
+
+	free(state);
+	return (ret);
+}
+
 char *
 smf_get_state(const char *instance)
 {
@@ -1356,6 +1456,66 @@ smf_get_state(const char *instance)
 		(void) scf_set_error(SCF_ERROR_NO_MEMORY);
 
 	scf_simple_prop_free(prop);
+	return (ret);
+}
+
+char *
+smf_get_state_by_instance(scf_instance_t *inst)
+{
+	scf_propertygroup_t	*pg = NULL;
+	scf_property_t		*prop = NULL;
+	scf_value_t		*value = NULL;
+	char			*ret = NULL;
+	ssize_t			slen, alen;
+	scf_handle_t		*h = NULL;
+
+	if ((h = scf_instance_handle(inst)) == NULL)
+		return (NULL);
+
+	if ((pg = scf_pg_create(h)) == NULL ||
+	    (prop = scf_property_create(h)) == NULL ||
+	    (value = scf_value_create(h)) == NULL) {
+		goto out;
+	}
+
+	if (scf_instance_get_pg(inst, SCF_PG_RESTARTER, pg) != 0 ||
+	    scf_pg_get_property(pg, SCF_PROPERTY_STATE, prop) != 0 ||
+	    scf_property_get_value(prop, value) != 0) {
+		goto out;
+	}
+
+	slen = scf_value_get_as_string(value, NULL, 0);
+	if (slen == -1) {
+		goto out;
+	}
+
+	ret = malloc((size_t)slen + 1);
+	if (ret == NULL) {
+		(void) scf_set_error(SCF_ERROR_NO_MEMORY);
+		goto out;
+	}
+
+	/*
+	 * Given that this worked previously we don't expect it to fail again;
+	 * however, if for some reason we get a different length string or
+	 * something else goes wrong, we want to make sure that we flag that. We
+	 * use SCF_ERROR_INTERNAL for a string mismatch as there's really no
+	 * other good descriptor for this kind of case where in reality we
+	 * should probably instead call upanic(2).
+	 */
+	alen = scf_value_get_as_string(value, ret, slen + 1);
+	if (alen == -1) {
+		free(ret);
+		ret = NULL;
+	} else if (alen != slen) {
+		(void) scf_set_error(SCF_ERROR_INTERNAL);
+		free(ret);
+		ret = NULL;
+	}
+out:
+	scf_value_destroy(value);
+	scf_property_destroy(prop);
+	scf_pg_destroy(pg);
 	return (ret);
 }
 

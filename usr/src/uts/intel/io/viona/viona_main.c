@@ -36,7 +36,7 @@
  * Copyright 2015 Pluribus Networks Inc.
  * Copyright 2019 Joyent, Inc.
  * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -317,6 +317,7 @@
 #define	VIONA_S_HOSTCAPS	(	\
 	VIRTIO_NET_F_GUEST_CSUM |	\
 	VIRTIO_NET_F_GUEST_TSO4 |	\
+	VIRTIO_NET_F_GUEST_TSO6 |	\
 	VIRTIO_NET_F_MRG_RXBUF |	\
 	VIRTIO_F_RING_NOTIFY_ON_EMPTY |	\
 	VIRTIO_F_RING_INDIRECT_DESC)
@@ -643,11 +644,15 @@ viona_ioctl(dev_t dev, int cmd, intptr_t data, int md, cred_t *cr, int *rv)
 		link->l_modern = ((val & VIRTIO_F_VERSION_1) != 0);
 		val &= (VIONA_S_HOSTCAPS | link->l_features_hw);
 
-		if ((val & VIRTIO_NET_F_CSUM) == 0)
-			val &= ~VIRTIO_NET_F_HOST_TSO4;
+		if ((val & VIRTIO_NET_F_CSUM) == 0) {
+			val &= ~(VIRTIO_NET_F_HOST_TSO4 |
+			    VIRTIO_NET_F_HOST_TSO6);
+		}
 
-		if ((val & VIRTIO_NET_F_GUEST_CSUM) == 0)
-			val &= ~VIRTIO_NET_F_GUEST_TSO4;
+		if ((val & VIRTIO_NET_F_GUEST_CSUM) == 0) {
+			val &= ~(VIRTIO_NET_F_GUEST_TSO4 |
+			    VIRTIO_NET_F_GUEST_TSO6);
+		}
 
 		link->l_features = val;
 		break;
@@ -803,8 +808,14 @@ viona_get_mac_capab(viona_link_t *link)
 		 * underlying MAC can handle an LSO of this size.
 		 */
 		if ((lso_cap.lso_flags & LSO_TX_BASIC_TCP_IPV4) &&
-		    lso_cap.lso_basic_tcp_ipv4.lso_max >= IP_MAXPACKET)
+		    lso_cap.lso_basic_tcp_ipv4.lso_max >= IP_MAXPACKET) {
 			link->l_features_hw |= VIRTIO_NET_F_HOST_TSO4;
+		}
+
+		if ((lso_cap.lso_flags & LSO_TX_BASIC_TCP_IPV6) &&
+		    lso_cap.lso_basic_tcp_ipv6.lso_max >= IP_MAXPACKET) {
+			link->l_features_hw |= VIRTIO_NET_F_HOST_TSO6;
+		}
 	}
 }
 

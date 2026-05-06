@@ -266,18 +266,18 @@ get_or_add_pg(scf_service_t *s, scf_instance_t *i, const char *n, const char *t,
  * If service is NULL, use instance, otherwise use only the service.
  *
  * Return SCF_SUCCESS or SCF_FAILED on
- * 	SCF_ERROR_BACKEND_ACCESS
- * 	SCF_ERROR_BACKEND_READONLY
- * 	SCF_ERROR_CONNECTION_BROKEN
- * 	SCF_ERROR_DELETED
- * 	SCF_ERROR_HANDLE_MISMATCH
- * 	SCF_ERROR_INTERNAL
- * 	SCF_ERROR_INVALID_ARGUMENT
- * 	SCF_ERROR_NO_RESOURCES
- * 	SCF_ERROR_NOT_BOUND
- * 	SCF_ERROR_NOT_FOUND
- * 	SCF_ERROR_NOT_SET
- * 	SCF_ERROR_PERMISSION_DENIED
+ *	SCF_ERROR_BACKEND_ACCESS
+ *	SCF_ERROR_BACKEND_READONLY
+ *	SCF_ERROR_CONNECTION_BROKEN
+ *	SCF_ERROR_DELETED
+ *	SCF_ERROR_HANDLE_MISMATCH
+ *	SCF_ERROR_INTERNAL
+ *	SCF_ERROR_INVALID_ARGUMENT
+ *	SCF_ERROR_NO_RESOURCES
+ *	SCF_ERROR_NOT_BOUND
+ *	SCF_ERROR_NOT_FOUND
+ *	SCF_ERROR_NOT_SET
+ *	SCF_ERROR_PERMISSION_DENIED
  */
 static int
 del_pg(scf_service_t *s, scf_instance_t *i, const char *n,
@@ -818,17 +818,17 @@ cleanup:
  * NULL.
  *
  * return SCF_SUCCESS or SCF_FAILED on
- * 	SCF_ERROR_BACKEND_ACCESS
- * 	SCF_ERROR_CONNECTION_BROKEN
- * 	SCF_ERROR_CONSTRAINT_VIOLATED
- * 	SCF_ERROR_DELETED
- * 	SCF_ERROR_HANDLE_MISMATCH
- * 	SCF_ERROR_INTERNAL
- * 	SCF_ERROR_INVALID_ARGUMENT
- * 	SCF_ERROR_NO_RESOURCES
- * 	SCF_ERROR_NOT_BOUND
- * 	SCF_ERROR_NOT_FOUND
- * 	SCF_ERROR_NOT_SET
+ *	SCF_ERROR_BACKEND_ACCESS
+ *	SCF_ERROR_CONNECTION_BROKEN
+ *	SCF_ERROR_CONSTRAINT_VIOLATED
+ *	SCF_ERROR_DELETED
+ *	SCF_ERROR_HANDLE_MISMATCH
+ *	SCF_ERROR_INTERNAL
+ *	SCF_ERROR_INVALID_ARGUMENT
+ *	SCF_ERROR_NO_RESOURCES
+ *	SCF_ERROR_NOT_BOUND
+ *	SCF_ERROR_NOT_FOUND
+ *	SCF_ERROR_NOT_SET
  */
 static int
 decode_fmri(const char *fmri, scf_handle_t *h, scf_service_t **s,
@@ -1165,8 +1165,8 @@ cleanup:
  * *mech and must not be freed.
  *
  * Returns SCF_SUCCESS or SCF_FAILED on
- * 	SCF_ERROR_NO_MEMORY
- * 	SCF_ERROR_NOT_FOUND
+ *	SCF_ERROR_NO_MEMORY
+ *	SCF_ERROR_NOT_FOUND
  */
 static int
 get_mech_name(const char *name, char **mech, char **val)
@@ -1339,12 +1339,12 @@ smf_notify_set_params(const char *class, nvlist_t *attr)
 		}
 		if (s == NULL) {
 			/* We only need to refresh the instance */
-			if (_smf_refresh_instance_i(i) != 0 &&
+			if (smf_refresh_instance_by_instance(i) != 0 &&
 			    check_scf_error(scf_error(), errs_1))
 				goto cleanup;
 		} else {
 			/* We have to refresh all instances in the service */
-			if (_smf_refresh_all_instances(s) != 0 &&
+			if (smf_refresh_all_instances(s) != 0 &&
 			    check_scf_error(scf_error(), errs_1))
 				goto cleanup;
 		}
@@ -1360,7 +1360,7 @@ smf_notify_set_params(const char *class, nvlist_t *attr)
 		if (notify_set_params(pg, params) != 0) {
 			goto cleanup;
 		}
-		if (_smf_refresh_instance_i(i) != 0 &&
+		if (smf_refresh_instance_by_instance(i) != 0 &&
 		    check_scf_error(scf_error(), errs_1))
 			goto cleanup;
 	}
@@ -1520,9 +1520,9 @@ get_stn_pg(scf_service_t *s, scf_instance_t *i, scf_instance_t *g,
  * Populates nvlist_t params with the source fmri for the pg
  *
  * return SCF_SUCCESS or SCF_FAILED on
- * 	SCF_ERROR_DELETED
- * 	SCF_ERROR_CONNECTION_BROKEN
- * 	SCF_ERROR_NO_MEMORY
+ *	SCF_ERROR_DELETED
+ *	SCF_ERROR_CONNECTION_BROKEN
+ *	SCF_ERROR_NO_MEMORY
  */
 static int
 get_pg_source(scf_propertygroup_t *pg, nvlist_t *params)
@@ -1934,12 +1934,12 @@ smf_notify_del_params(const char *class, const char *fmri, int32_t tset)
 		}
 		if (s == NULL) {
 			/* We only need to refresh the instance */
-			if (_smf_refresh_instance_i(i) != 0 &&
+			if (smf_refresh_instance_by_instance(i) != 0 &&
 			    check_scf_error(scf_error(), errs_1))
 				goto cleanup;
 		} else {
 			/* We have to refresh all instances in the service */
-			if (_smf_refresh_all_instances(s) != 0 &&
+			if (smf_refresh_all_instances(s) != 0 &&
 			    check_scf_error(scf_error(), errs_1))
 				goto cleanup;
 		}
@@ -1959,7 +1959,7 @@ smf_notify_del_params(const char *class, const char *fmri, int32_t tset)
 			}
 		}
 
-		if (_smf_refresh_instance_i(i) != 0 &&
+		if (smf_refresh_instance_by_instance(i) != 0 &&
 		    check_scf_error(scf_error(), errs_1))
 			goto cleanup;
 	}
