@@ -36,6 +36,7 @@ SUBDIRS =		\
 	fac_prov_mptsas	\
 	ipmi		\
 	nic		\
+	pciebus		\
 	ses		\
 	smbios		\
 	usb		\

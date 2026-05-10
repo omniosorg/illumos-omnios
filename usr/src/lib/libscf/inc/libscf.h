@@ -23,6 +23,7 @@
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2016 RackTop Systems.
  * Copyright 2020 Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 #ifndef	_LIBSCF_H
@@ -806,6 +807,19 @@ int scf_tmpl_error_pg(const scf_tmpl_error_t *, char **, char **);
 int scf_tmpl_error_prop_tmpl(const scf_tmpl_error_t *, char **, char **);
 int scf_tmpl_error_prop(const scf_tmpl_error_t *, char **, char **);
 int scf_tmpl_error_value(const scf_tmpl_error_t *, char **);
+
+/*
+ * Simplified calls that operate on the service and instance.
+ */
+int smf_refresh_all_instances(scf_service_t *);
+int smf_enable_instance_by_instance(scf_instance_t *, int, const char *);
+int smf_disable_instance_by_instance(scf_instance_t *, int, const char *);
+int smf_refresh_instance_by_instance(scf_instance_t *);
+int smf_restart_instance_by_instance(scf_instance_t *);
+int smf_maintain_instance_by_instance(scf_instance_t *, int);
+int smf_degrade_instance_by_instance(scf_instance_t *, int);
+int smf_restore_instance_by_instance(scf_instance_t *);
+char *smf_get_state_by_instance(scf_instance_t *);
 
 /*
  * Simplified calls

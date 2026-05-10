@@ -202,7 +202,8 @@ viona_copy_mblk(const mblk_t *mp, size_t seek, caddr_t buf, size_t len,
 }
 
 static int
-viona_recv_plain(viona_vring_t *ring, const mblk_t *mp, size_t msz)
+viona_recv_plain(viona_vring_t *ring, const mblk_t *mp, size_t msz,
+    uint8_t gro_type)
 {
 	struct iovec iov[VTNET_MAXSEGS];
 	uint16_t cookie;
@@ -273,18 +274,15 @@ viona_recv_plain(viona_vring_t *ring, const mblk_t *mp, size_t msz)
 	bzero(hdr, hdr_sz);
 	if (hdr_sz > offsetof(struct virtio_net_mrgrxhdr, vrh_bufs))
 		hdr->vrh_bufs = 1;
+	hdr->vrh_gso_type = gro_type;
+	if (gro_type != VIRTIO_NET_HDR_GSO_NONE) {
+		hdr->vrh_gso_size = DB_LSOMSS(mp);
+	}
 	copied += hdr_sz;
 
 	/* Add chksum bits, if needed */
 	if ((features & VIRTIO_NET_F_GUEST_CSUM) != 0) {
 		uint32_t cksum_flags;
-
-		if (((features & VIRTIO_NET_F_GUEST_TSO4) != 0) &&
-		    ((DB_CKSUMFLAGS(mp) & HW_LSO) != 0)) {
-			hdr->vrh_gso_type |= VIRTIO_NET_HDR_GSO_TCPV4;
-			hdr->vrh_gso_size = DB_LSOMSS(mp);
-		}
-
 		mac_hcksum_get((mblk_t *)mp, NULL, NULL, NULL, NULL,
 		    &cksum_flags);
 		if ((cksum_flags & HCK_FULLCKSUM_OK) != 0) {
@@ -308,7 +306,8 @@ bad_frame:
 }
 
 static int
-viona_recv_merged(viona_vring_t *ring, const mblk_t *mp, size_t msz)
+viona_recv_merged(viona_vring_t *ring, const mblk_t *mp, size_t msz,
+    uint8_t gro_type)
 {
 	struct iovec iov[VTNET_MAXSEGS];
 	used_elem_t uelem[VTNET_MAXSEGS];
@@ -348,6 +347,10 @@ viona_recv_merged(viona_vring_t *ring, const mblk_t *mp, size_t msz)
 	hdr = (struct virtio_net_mrgrxhdr *)iov[0].iov_base;
 	bzero(hdr, hdr_sz);
 	hdr->vrh_bufs = 1;
+	hdr->vrh_gso_type = gro_type;
+	if (gro_type != VIRTIO_NET_HDR_GSO_NONE) {
+		hdr->vrh_gso_size = DB_LSOMSS(mp);
+	}
 
 	/*
 	 * If there is any space remaining in the first buffer after writing
@@ -438,13 +441,6 @@ viona_recv_merged(viona_vring_t *ring, const mblk_t *mp, size_t msz)
 	/* Add chksum bits, if needed */
 	if ((features & VIRTIO_NET_F_GUEST_CSUM) != 0) {
 		uint32_t cksum_flags;
-
-		if (((features & VIRTIO_NET_F_GUEST_TSO4) != 0) &&
-		    ((DB_CKSUMFLAGS(mp) & HW_LSO) != 0)) {
-			hdr->vrh_gso_type |= VIRTIO_NET_HDR_GSO_TCPV4;
-			hdr->vrh_gso_size = DB_LSOMSS(mp);
-		}
-
 		mac_hcksum_get((mblk_t *)mp, NULL, NULL, NULL, NULL,
 		    &cksum_flags);
 		if ((cksum_flags & HCK_FULLCKSUM_OK) != 0) {
@@ -494,8 +490,6 @@ viona_rx_common(viona_vring_t *ring, mblk_t *mp, boolean_t is_loopback)
 	mblk_t *mpdrop = NULL, **mpdrop_prevp = &mpdrop;
 	const boolean_t do_merge =
 	    (link->l_features & VIRTIO_NET_F_MRG_RXBUF) != 0;
-	const boolean_t allow_gro =
-	    (link->l_features & VIRTIO_NET_F_GUEST_TSO4) != 0;
 
 	size_t cnt_accept = 0, size_accept = 0, cnt_drop = 0;
 
@@ -532,73 +526,147 @@ viona_rx_common(viona_vring_t *ring, mblk_t *mp, boolean_t is_loopback)
 		}
 
 		/*
-		 * Virtio devices are prohibited from passing on packets larger
-		 * than the MTU + Eth if the guest has not negotiated GRO flags
-		 * (e.g., GUEST_TSO*). This occurs irrespective of `do_merge`.
+		 * If we see `HW_LSO` on a packet then it has either been
+		 * created by performing GRO elsewhere in the stack, or it has
+		 * arrived on a loopback path from a client which expected to
+		 * make use of LSO but MAC has not emulated it. The latter case
+		 * is a performance optimisation which some out-of-tree MAC
+		 * providers use, and are aware of any resulting edge cases in
+		 * eliding emulation. The MAC loopback path may also make this
+		 * determination in limited cases in the future.
+		 *
+		 * For such packets we need to inform the guest about the
+		 * packet's type, and to check that it is willing to receive
+		 * coalesced packets on that protocol.
 		 */
-		if (size > sizeof (struct ether_header) + link->l_mtu) {
-			const boolean_t can_emu_lso = DB_LSOMSS(mp) != 0;
-			const boolean_t attempt_emu =
-			    !allow_gro || size > VIONA_GRO_MAX_PACKET_SIZE;
+		uint8_t gro_type = VIRTIO_NET_HDR_GSO_NONE;
+		if ((DB_CKSUMFLAGS(mp) & HW_LSO) != 0) {
+			mac_ether_offload_info_t meoi;
+			mac_ether_offload_info(mp, &meoi);
+			const mac_ether_offload_flags_t needed =
+			    MEOI_L2INFO_SET | MEOI_L3INFO_SET | MEOI_L4INFO_SET;
 
-			if ((DB_CKSUMFLAGS(mp) & HW_LSO) == 0 ||
-			    (attempt_emu && !can_emu_lso)) {
-				VIONA_PROBE3(rx_drop_over_mtu, viona_vring_t *,
+			/*
+			 * Any large send/receive offloads require a valid MSS
+			 * tag for placing in gso_size, and possibly for
+			 * emulation. We also need to pull out the L3/L4 types.
+			 */
+			if (DB_LSOMSS(mp) == 0 || (meoi.meoi_flags & needed) !=
+			    needed) {
+				VIONA_PROBE3(rx_gro_malformed, viona_vring_t *,
 				    ring, mblk_t *, mp, size_t, size);
-				VIONA_RING_STAT_INCR(ring, rx_drop_over_mtu);
-				err = E2BIG;
+				VIONA_RING_STAT_INCR(ring, rx_gro_malformed);
+				err = EINVAL;
 				goto pad_drop;
 			}
 
-			/*
-			 * If the packet has come from another device or viona
-			 * which expected to make use of LSO, we can split the
-			 * packet on its behalf.
-			 */
-			if (attempt_emu) {
-				mblk_t *tail = NULL;
-				uint_t n_pkts = 0;
-
-				/*
-				 * Emulation of LSO requires that cksum offload
-				 * be enabled on the mblk.
-				 */
-				if ((DB_CKSUMFLAGS(mp) &
-				    (HCK_FULLCKSUM | HCK_PARTIALCKSUM)) == 0) {
-					DB_CKSUMFLAGS(mp) |= HCK_FULLCKSUM;
+			/* We only support TCP large send/receive today. */
+			if (meoi.meoi_l4proto == IPPROTO_TCP) {
+				switch (meoi.meoi_l3proto) {
+				case ETHERTYPE_IP:
+					gro_type = VIRTIO_NET_HDR_GSO_TCPV4;
+					break;
+				case ETHERTYPE_IPV6:
+					gro_type = VIRTIO_NET_HDR_GSO_TCPV6;
+					break;
+				default:
+					break;
 				}
-
-				/*
-				 * IPv4 packets should have the offload enabled
-				 * for the IPv4 header checksum.
-				 */
-				mac_ether_offload_info_t meoi;
-				mac_ether_offload_info(mp, &meoi);
-				if ((meoi.meoi_flags & MEOI_L2INFO_SET) != 0 &&
-				    meoi.meoi_l3proto == ETHERTYPE_IP) {
-					DB_CKSUMFLAGS(mp) |= HCK_IPV4_HDRCKSUM;
-				}
-
-				mac_hw_emul(&mp, &tail, &n_pkts, MAC_ALL_EMULS);
-				if (mp == NULL) {
-					VIONA_RING_STAT_INCR(ring,
-					    rx_gro_fallback_fail);
-					viona_ring_stat_error(ring);
-					mp = next;
-					continue;
-				}
-				VIONA_PROBE4(rx_gro_fallback, viona_vring_t *,
-				    ring, mblk_t *, mp, size_t, size,
-				    uint_t, n_pkts);
-				VIONA_RING_STAT_INCR(ring, rx_gro_fallback);
-				ASSERT3P(tail, !=, NULL);
-				if (tail != mp) {
-					tail->b_next = next;
-					next = mp->b_next;
-					mp->b_next = NULL;
-				}
-				size = msgsize(mp);
 			}
+
+			/*
+			 * We don't yet negotiate `VIRTIO_NET_F_GUEST_HDRLEN`.
+			 * When we do, we'll need to use meoi's length fields to
+			 * populate `vrh_hdr_len`. This is mandatory for GRO
+			 * packets when this feature is negotiated.
+			 */
+		}
+
+		/*
+		 * We need to check that the packet is compatible with what
+		 * the guest advertises support for.
+		 */
+		uint64_t gro_feature_flag = 0;
+		switch (gro_type) {
+		case VIRTIO_NET_HDR_GSO_TCPV4:
+			gro_feature_flag = VIRTIO_NET_F_GUEST_TSO4;
+			break;
+		case VIRTIO_NET_HDR_GSO_TCPV6:
+			gro_feature_flag = VIRTIO_NET_F_GUEST_TSO6;
+			break;
+		default:
+			break;
+		}
+
+		/*
+		 * The virtio spec requires that we MUST NOT:
+		 *
+		 * - set vrh_gso_type to a value corresponding to a feature flag
+		 *   we don't have.
+		 *
+		 * - pass any VIRTIO_NET_HDR_GSO_NONE packets larger than the
+		 *   negotiated MTU.
+		 *
+		 * In the first case we can split the packet on the guest's
+		 * behalf to avoid dropping such traffic. We also need to do so
+		 * if the packet is larger than the maximum stated in §5.1.6.3.
+		 */
+		const boolean_t supported_type =
+		    gro_type == VIRTIO_NET_HDR_GSO_NONE ||
+		    (link->l_features & gro_feature_flag) != 0;
+		const boolean_t oversize_gro =
+		    gro_type != VIRTIO_NET_HDR_GSO_NONE &&
+		    size > VIONA_GRO_MAX_PACKET_SIZE;
+		if (!supported_type || oversize_gro) {
+			mblk_t *tail = NULL;
+			uint_t n_pkts = 0;
+
+			/*
+			 * Emulation of LSO requires that cksum offload
+			 * be enabled on the mblk.
+			 */
+			if ((DB_CKSUMFLAGS(mp) &
+			    (HCK_FULLCKSUM | HCK_PARTIALCKSUM)) == 0) {
+				DB_CKSUMFLAGS(mp) |= HCK_FULLCKSUM;
+			}
+
+			/*
+			 * IPv4 packets should have the offload enabled
+			 * for the IPv4 header checksum.
+			 */
+			if (gro_type == VIRTIO_NET_HDR_GSO_TCPV4) {
+				DB_CKSUMFLAGS(mp) |= HCK_IPV4_HDRCKSUM;
+			}
+
+			mac_hw_emul(&mp, &tail, &n_pkts, MAC_ALL_EMULS);
+			if (mp == NULL) {
+				VIONA_RING_STAT_INCR(ring,
+				    rx_gro_fallback_fail);
+				viona_ring_stat_error(ring);
+				mp = next;
+				continue;
+			}
+			VIONA_PROBE4(rx_gro_fallback, viona_vring_t *,
+			    ring, mblk_t *, mp, size_t, size,
+			    uint_t, n_pkts);
+			VIONA_RING_STAT_INCR(ring, rx_gro_fallback);
+			ASSERT3P(tail, !=, NULL);
+			if (tail != mp) {
+				tail->b_next = next;
+				next = mp->b_next;
+				mp->b_next = NULL;
+			}
+			size = msgsize(mp);
+			gro_type = VIRTIO_NET_HDR_GSO_NONE;
+		}
+
+		if (gro_type == VIRTIO_NET_HDR_GSO_NONE &&
+		    size > sizeof (struct ether_header) + link->l_mtu) {
+			VIONA_PROBE3(rx_drop_over_mtu, viona_vring_t *,
+			    ring, mblk_t *, mp, size_t, size);
+			VIONA_RING_STAT_INCR(ring, rx_drop_over_mtu);
+			err = E2BIG;
+			goto pad_drop;
 		}
 
 		/*
@@ -642,9 +710,9 @@ viona_rx_common(viona_vring_t *ring, mblk_t *mp, boolean_t is_loopback)
 		}
 
 		if (do_merge) {
-			err = viona_recv_merged(ring, mp, size);
+			err = viona_recv_merged(ring, mp, size, gro_type);
 		} else {
-			err = viona_recv_plain(ring, mp, size);
+			err = viona_recv_plain(ring, mp, size, gro_type);
 		}
 
 		/*

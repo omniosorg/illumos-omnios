@@ -231,10 +231,19 @@ scf_value_create.3scf
 	scf_value_type.3scf
 smf_enable_instance.3scf
 	smf_degrade_instance.3scf
+	smf_degrade_instance_by_instance.3scf
 	smf_disable_instance.3scf
+	smf_disable_instance_by_instance.3scf
 	smf_disable_instance_with_comment.3scf
+	smf_enable_instance_by_instance.3scf
 	smf_get_state.3scf
+	smf_get_state_by_instance.3scf
 	smf_maintain_instance.3scf
+	smf_maintain_instance_by_instance.3scf
+	smf_refresh_all_instances.3scf
 	smf_refresh_instance.3scf
+	smf_refresh_instance_by_instance.3scf
 	smf_restart_instance.3scf
+	smf_restart_instance_by_instance.3scf
 	smf_restore_instance.3scf
+	smf_restore_instance_by_instance.3scf

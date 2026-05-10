@@ -28,6 +28,7 @@
 
 /*
  * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -36,6 +37,7 @@
 /*
  * ps -- print things about processes.
  */
+
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -139,7 +141,23 @@ enum fname {	/* enumeration of field names */
 	F_ZONEID,	/* zone id */
 	F_CTID,		/* process contract id */
 	F_LGRP,		/* process home lgroup */
-	F_DMODEL	/* process data model */
+	F_DMODEL,	/* process data model */
+	F_USERTIME,	/* prusage_t user time */
+	F_SYSTIME,	/* prusage_t system time */
+	F_TTIME,	/* prusage_t trap time */
+	F_TFTIME,	/* prusage_t text page fault time */
+	F_DFTIME,	/* prusage_t data page fault time */
+	F_KFTIME,	/* prusage_t kernel page fault time */
+	F_LTIME,	/* prusage_t user lock time */
+	F_SLPTIME,	/* prusage_t sleep time */
+	F_WTIME,	/* prusage_t wait-cpu time */
+	F_STOPTIME,	/* prusage_t stop time */
+	F_MINF,		/* minor page faults */
+	F_MAJF,		/* major page faults */
+	F_VCTX,		/* voluntary context switches */
+	F_ICTX,		/* involuntary context switches */
+	F_SIGS,		/* signals received */
+	F_SYSC		/* system calls */
 };
 
 struct field {
@@ -153,71 +171,6 @@ static	struct field *fields = NULL;	/* fields selected via -o */
 static	struct field *last_field = NULL;
 static	int do_header = 0;
 static	struct timeval now;
-
-/* array of defined fields, in fname order */
-struct def_field {
-	const char *fname;
-	const char *header;
-	int width;
-	int minwidth;
-};
-
-static struct def_field fname[] = {
-	/* fname	header		width	minwidth */
-	{ "user",	"USER",		8,	8	},
-	{ "ruser",	"RUSER",	8,	8	},
-	{ "group",	"GROUP",	8,	8	},
-	{ "rgroup",	"RGROUP",	8,	8	},
-	{ "uid",	"UID",		5,	5	},
-	{ "ruid",	"RUID",		5,	5	},
-	{ "gid",	"GID",		5,	5	},
-	{ "rgid",	"RGID",		5,	5	},
-	{ "pid",	"PID",		5,	5	},
-	{ "ppid",	"PPID",		5,	5	},
-	{ "pgid",	"PGID",		5,	5	},
-	{ "sid",	"SID",		5,	5	},
-	{ "psr",	"PSR",		3,	2	},
-	{ "lwp",	"LWP",		6,	2	},
-	{ "lwpname",	"LWPNAME",	32,	8	},
-	{ "nlwp",	"NLWP",		4,	2	},
-	{ "opri",	"PRI",		3,	2	},
-	{ "pri",	"PRI",		3,	2	},
-	{ "f",		"F",		2,	2	},
-	{ "s",		"S",		1,	1	},
-	{ "c",		"C",		2,	2	},
-	{ "pcpu",	"%CPU",		4,	4	},
-	{ "pmem",	"%MEM",		4,	4	},
-	{ "osz",	"SZ",		4,	4	},
-	{ "vsz",	"VSZ",		4,	4	},
-	{ "rss",	"RSS",		4,	4	},
-	{ "nice",	"NI",		2,	2	},
-	{ "class",	"CLS",		4,	2	},
-	{ "stime",	"STIME",	8,	8	},
-	{ "etime",	"ELAPSED",	11,	7	},
-	{ "time",	"TIME",		11,	5	},
-	{ "tty",	"TT",		7,	7	},
-#ifdef _LP64
-	{ "addr",	"ADDR",		16,	8	},
-	{ "wchan",	"WCHAN",	16,	8	},
-#else
-	{ "addr",	"ADDR",		8,	8	},
-	{ "wchan",	"WCHAN",	8,	8	},
-#endif
-	{ "fname",	"COMMAND",	8,	8	},
-	{ "comm",	"COMMAND",	80,	8	},
-	{ "args",	"COMMAND",	80,	80	},
-	{ "taskid",	"TASKID",	5,	5	},
-	{ "projid",	"PROJID",	5,	5	},
-	{ "project",	"PROJECT",	8,	8	},
-	{ "pset",	"PSET",		3,	3	},
-	{ "zone",	"ZONE",		8,	8	},
-	{ "zoneid",	"ZONEID",	5,	5	},
-	{ "ctid",	"CTID",		5,	5	},
-	{ "lgrp",	"LGRP",		4,	2	},
-	{ "dmodel",	"DMODEL",	6,	6	},
-};
-
-#define	NFIELDS	(sizeof (fname) / sizeof (fname[0]))
 
 static	int	retcode = 1;
 static	int	lflg;
@@ -242,8 +195,86 @@ static	int	zflg;
 static	int	Zflg;
 static	int	hflg;
 static	int	Hflg;
+static	int	mflg;
 static	uid_t	tuid = (uid_t)-1;
 static	int	errflg;
+
+/* array of defined fields, in fname order */
+struct def_field {
+	const char *fname;
+	const char *header;
+	int width;
+	int minwidth;
+	int *flag;
+};
+
+static struct def_field fname[] = {
+	/* fname	header		width	minwidth */
+	{ "user",	"USER",		8,	8,	NULL	},
+	{ "ruser",	"RUSER",	8,	8,	NULL	},
+	{ "group",	"GROUP",	8,	8,	NULL	},
+	{ "rgroup",	"RGROUP",	8,	8,	NULL	},
+	{ "uid",	"UID",		5,	5,	NULL	},
+	{ "ruid",	"RUID",		5,	5,	NULL	},
+	{ "gid",	"GID",		5,	5,	NULL	},
+	{ "rgid",	"RGID",		5,	5,	NULL	},
+	{ "pid",	"PID",		5,	5,	NULL	},
+	{ "ppid",	"PPID",		5,	5,	NULL	},
+	{ "pgid",	"PGID",		5,	5,	NULL	},
+	{ "sid",	"SID",		5,	5,	NULL	},
+	{ "psr",	"PSR",		3,	2,	NULL	},
+	{ "lwp",	"LWP",		6,	2,	&Lflg	},
+	{ "lwpname",	"LWPNAME",	32,	8,	&lflg	},
+	{ "nlwp",	"NLWP",		4,	2,	NULL	},
+	{ "opri",	"PRI",		3,	2,	NULL	},
+	{ "pri",	"PRI",		3,	2,	NULL	},
+	{ "f",		"F",		2,	2,	NULL	},
+	{ "s",		"S",		1,	1,	NULL	},
+	{ "c",		"C",		2,	2,	NULL	},
+	{ "pcpu",	"%CPU",		4,	4,	NULL	},
+	{ "pmem",	"%MEM",		4,	4,	NULL	},
+	{ "osz",	"SZ",		4,	4,	NULL	},
+	{ "vsz",	"VSZ",		4,	4,	NULL	},
+	{ "rss",	"RSS",		4,	4,	NULL	},
+	{ "nice",	"NI",		2,	2,	NULL	},
+	{ "class",	"CLS",		4,	2,	NULL	},
+	{ "stime",	"STIME",	8,	8,	NULL	},
+	{ "etime",	"ELAPSED",	11,	7,	NULL	},
+	{ "time",	"TIME",		11,	5,	NULL	},
+	{ "tty",	"TT",		7,	7,	NULL	},
+	{ "addr",	"ADDR",		16,	8,	NULL	},
+	{ "wchan",	"WCHAN",	16,	8,	NULL	},
+	{ "fname",	"COMMAND",	8,	8,	NULL	},
+	{ "comm",	"COMMAND",	80,	8,	NULL	},
+	{ "args",	"COMMAND",	80,	80,	NULL	},
+	{ "taskid",	"TASKID",	5,	5,	NULL	},
+	{ "projid",	"PROJID",	5,	5,	NULL	},
+	{ "project",	"PROJECT",	8,	8,	NULL	},
+	{ "pset",	"PSET",		3,	3,	NULL	},
+	{ "zone",	"ZONE",		8,	8,	NULL	},
+	{ "zoneid",	"ZONEID",	5,	5,	NULL	},
+	{ "ctid",	"CTID",		5,	5,	NULL	},
+	{ "lgrp",	"LGRP",		4,	2,	NULL	},
+	{ "dmodel",	"DMODEL",	6,	6,	NULL	},
+	{ "usertime",	"USERTIME",	16,	4,	&mflg	},
+	{ "systime",	"SYSTIME",	16,	4,	&mflg	},
+	{ "ttime",	"TTIME",	16,	4,	&mflg	},
+	{ "tftime",	"TFTIME",	16,	4,	&mflg	},
+	{ "dftime",	"DFTIME",	16,	4,	&mflg	},
+	{ "kftime",	"KFTIME",	16,	4,	&mflg	},
+	{ "ltime",	"LTIME",	16,	4,	&mflg	},
+	{ "slptime",	"SLPTIME",	16,	4,	&mflg	},
+	{ "wtime",	"WTIME",	16,	4,	&mflg	},
+	{ "stoptime",	"STOPTIME",	16,	4,	&mflg	},
+	{ "minf",	"MINF",		16,	4,	&mflg	},
+	{ "majf",	"MAJF",		16,	4,	&mflg	},
+	{ "vctx",	"VCTX",		16,	4,	&mflg	},
+	{ "ictx",	"ICTX",		16,	4,	&mflg	},
+	{ "sigs",	"SIGS",		16,	4,	&mflg	},
+	{ "sysc",	"SYSC",		16,	4,	&mflg	},
+};
+
+#define	NFIELDS	(sizeof (fname) / sizeof (fname[0]))
 
 static	int	ndev;		/* number of devices */
 static	int	maxdev;		/* number of devl structures allocated */
@@ -295,7 +326,8 @@ static struct ughead	ruid_tbl;	/* table to store selected real uid's */
 static struct ughead	egid_tbl;	/* table to store selected egid's */
 static struct ughead	rgid_tbl;	/* table to store selected real gid's */
 static prheader_t *lpsinfobuf;		/* buffer to contain lpsinfo */
-static size_t	lpbufsize;
+static prheader_t *lusage;		/* buffer to contain lusage */
+static size_t	lpbufsize, lusagesize;
 
 /*
  * This constant defines the sentinal number of process IDs below which we
@@ -311,13 +343,16 @@ static	char	*getarg(char **);
 static	char	*parse_format(char *);
 static	char	*gettty(psinfo_t *);
 static	int	prfind(int, psinfo_t *, char **);
-static	void	prcom(psinfo_t *, char *);
+static	void	prcom(psinfo_t *, const char *, const prusage_t *);
 static	void	prtpct(ushort_t, int);
 static	void	print_time(time_t, int);
-static	void	print_field(psinfo_t *, struct field *, const char *);
-static	void	print_zombie_field(psinfo_t *, struct field *, const char *);
-static	void	pr_fields(psinfo_t *, const char *,
-		void (*print_fld)(psinfo_t *, struct field *, const char *));
+static	void	print_field(psinfo_t *, const struct field *, const char *,
+		    const prusage_t *);
+static	void	print_zombie_field(psinfo_t *, const struct field *,
+		    const char *, const prusage_t *);
+static	void	pr_fields(psinfo_t *, const char *, const prusage_t *,
+		void (*print_fld)(psinfo_t *, const struct field *,
+		    const char *, const prusage_t *));
 static	int	search(pid_t *, int, pid_t);
 static	void	add_ugentry(struct ughead *, char *);
 static	int	uconv(struct ughead *);
@@ -430,7 +465,7 @@ stdmain(int argc, char **argv)
 
 	fname[F_STIME].width = fname[F_STIME].minwidth = len;
 
-	while ((c = getopt(argc, argv, "jlfceAadLPWyZHh:t:p:g:u:U:G:n:s:o:z:"))
+	while ((c = getopt(argc, argv, "jlfceAadLPWyZHmh:t:p:g:u:U:G:n:s:o:z:"))
 	    != EOF)
 		switch (c) {
 		case 'H':		/* Show home lgroups */
@@ -529,6 +564,9 @@ stdmain(int argc, char **argv)
 			break;
 		case 'y':	/* omit F & ADDR, report RSS & SZ in Kby */
 			yflg++;
+			break;
+		case 'm':	/* show microstate information */
+			mflg++;
 			break;
 		case 'n':	/* no longer needed; retain as no-op */
 			(void) fprintf(stderr,
@@ -786,8 +824,14 @@ stdmain(int argc, char **argv)
 		exit(1);
 
 	/* allocate a buffer for lwpsinfo structures */
-	lpbufsize = 4096;
+	lpbufsize = lusagesize = 4096;
 	if (Lflg && (lpsinfobuf = malloc(lpbufsize)) == NULL) {
+		(void) fprintf(stderr,
+		    gettext("ps: no memory\n"));
+		exit(1);
+	}
+
+	if (Lflg && mflg && (lusage = malloc(lusagesize)) == NULL) {
 		(void) fprintf(stderr,
 		    gettext("ps: no memory\n"));
 		exit(1);
@@ -876,6 +920,11 @@ stdmain(int argc, char **argv)
 			(void) printf(" %s", loc_stime_str);
 		if (Hflg)
 			(void) printf(" LGRP");
+		if (mflg) {
+			(void) printf(" USERTIME  SYSTIME    TTIME   TFTIME"
+			    "   DFTIME   KFTIME    LTIME  SLPTIME    WTIME"
+			    " STOPTIME");
+		}
 		if (Lflg)
 			(void) printf(" TTY        LTIME CMD\n");
 		else
@@ -941,7 +990,7 @@ print_proc(char *pid_name)
 	if (pdlen >= sizeof (pname) - 10)
 		return (1);
 retry:
-	(void) strcpy(&pname[pdlen], "psinfo");
+	(void) strlcpy(&pname[pdlen], "psinfo", sizeof (pname) - pdlen);
 	if ((procfd = open(pname, O_RDONLY)) == -1) {
 		/* Process may have exited meanwhile. */
 		return (1);
@@ -1003,7 +1052,8 @@ retry:
 		long nlwp = 0;
 		lwpsinfo_t *lwpsinfo;   /* array of lwpsinfo structs */
 
-		(void) strcpy(&pname[pdlen], "lpsinfo");
+		(void) strlcpy(&pname[pdlen], "lpsinfo",
+		    sizeof (pname) - pdlen);
 		if ((procfd = open(pname, O_RDONLY)) == -1)
 			return (1);
 		/*
@@ -1016,10 +1066,11 @@ retry:
 			(void) close(procfd);
 			if (saverr == EAGAIN)
 				goto retry;
-			if (saverr != ENOENT)
+			if (saverr != ENOENT) {
 				(void) fprintf(stderr,
 				    gettext("ps: read() on %s: %s\n"),
 				    pname, err_string(saverr));
+			}
 			return (1);
 		}
 		(void) close(procfd);
@@ -1034,15 +1085,101 @@ retry:
 		}
 		if (lpsinfobuf->pr_nent != (info.pr_nlwp + info.pr_nzomb))
 			goto retry;
+
+		/*
+		 * If microstates were requested, read all of the lusage
+		 * structures.
+		 */
+		if (mflg) {
+			(void) strlcpy(&pname[pdlen], "lusage", sizeof (pname) -
+			    pdlen);
+			if ((procfd = open(pname, O_RDONLY)) == -1)
+				return (1);
+
+			prsz = read(procfd, lusage, lusagesize);
+			if (prsz == -1) {
+				int	saverr = errno;
+
+				(void) close(procfd);
+				if (saverr == EAGAIN)
+					goto retry;
+				if (saverr != ENOENT) {
+					(void) fprintf(stderr,
+					    gettext("ps: read() on %s: %s\n"),
+					    pname, err_string(saverr));
+				}
+				return (1);
+			}
+			(void) close(procfd);
+			if (prsz == lusagesize) {
+				/*
+				 * buffer overflow. Realloc new buffer.
+				 * Error handling is done in Realloc().
+				 */
+				lusagesize *= 2;
+				lusage = Realloc(lusage, lusagesize);
+				goto retry;
+			}
+			if (lpsinfobuf->pr_nent > lusage->pr_nent)
+				goto retry;
+		}
+
 		lwpsinfo = (lwpsinfo_t *)(lpsinfobuf + 1);
 		do {
+			prusage_t *usage = NULL;
+
 			info.pr_lwp = *lwpsinfo;
-			prcom(&info, tp);
+			if (mflg) {
+				long i;
+				uintptr_t u = (uintptr_t)(lusage + 1);
+
+				for (i = 0; i < lusage->pr_nent; i++, u +=
+				    lusage->pr_entsize) {
+					prusage_t *pru = (prusage_t *)u;
+					if (pru->pr_lwpid ==
+					    lwpsinfo->pr_lwpid) {
+						usage = pru;
+						break;
+					}
+				}
+			}
+			prcom(&info, tp, usage);
 			lwpsinfo = (lwpsinfo_t *)((char *)lwpsinfo +
 			    lpsinfobuf->pr_entsize);
 		} while (++nlwp < lpsinfobuf->pr_nent);
 	} else {
-		prcom(&info, tp);
+		prusage_t usage, *up = NULL;
+
+		if (mflg) {
+			ssize_t prusz;
+			(void) strlcpy(&pname[pdlen], "usage",
+			    sizeof (pname) - pdlen);
+			if ((procfd = open(pname, O_RDONLY)) == -1)
+				return (1);
+
+			prusz = read(procfd, &usage, sizeof (usage));
+			if (prusz == -1) {
+				int	saverr = errno;
+				(void) close(procfd);
+				if (saverr == EAGAIN)
+					goto retry;
+				if (saverr != ENOENT) {
+					(void) fprintf(stderr,
+					    gettext("ps: read() on %s: %s\n"),
+					    pname, err_string(saverr));
+				}
+				return (1);
+			} else if (prusz != sizeof (usage)) {
+				(void) fprintf(stderr, gettext("ps: usage "
+				    "information unavailable for %s due to "
+				    "short read (got %zd, expected %zu)\n"),
+				    pname, prusz, sizeof (usage));
+			} else {
+				up = &usage;
+			}
+		}
+
+		prcom(&info, tp, up);
 	}
 	return (0);
 }
@@ -1063,7 +1200,7 @@ usage(void)		/* print usage message and quit */
 	int pos = 80, i = 0;
 
 	static char usage1[] =
-	    "ps [ -aAdefHlcjLPWyZ ] [ -o format ] [ -t termlist ]";
+	    "ps [ -aAdefHlcjLmPWyZ ] [ -o format ] [ -t termlist ]";
 	static char usage2[] =
 	    "\t[ -u userlist ] [ -U userlist ] [ -G grouplist ]";
 	static char usage3[] =
@@ -1175,13 +1312,14 @@ parse_format(char *arg)
 				header++;
 		}
 	}
-	for (df = &fname[0]; df < &fname[NFIELDS]; df++)
+	for (df = &fname[0]; df < &fname[NFIELDS]; df++) {
 		if (strcmp(name, df->fname) == 0) {
-			if (strcmp(name, "lwp") == 0 ||
-			    strcmp(name, "lwpname") == 0)
-				Lflg++;
+			if (df->flag != NULL)
+				(*df->flag)++;
 			break;
 		}
+	}
+
 	if (df >= &fname[NFIELDS]) {
 		(void) fprintf(stderr,
 		    gettext("ps: unknown output format: -o %s\n"),
@@ -1353,10 +1491,64 @@ prfind(int found, psinfo_t *psinfo, char **tpp)
 }
 
 /*
+ * Print a rounded value for a microstate. Our goal is to make this somewhat
+ * useful, so similar to libcmdutils nicenum() we round this to a given number
+ * of ns, us, ms, s, m, h, d, and stop at y for years. We assume that a given
+ * value will be printed as a 3.2 value with up to two digits of suffix. If
+ * something has multiple years of microstates then well, columns will not be
+ * really aligned. This means that we need at least nine characters per
+ * microstate.
+ */
+#define	IDX_MAX	8
+#define	MS_MAXCHARS	9
+static void
+print_mstate(const timestruc_t *ts)
+{
+	uint64_t val, sum;
+	uint64_t divs[IDX_MAX] = { 1, 1000, 1000, 1000, 60, 60, 24, 365 };
+	const char *suffix[IDX_MAX] = { "ns", "us", "ms", "s", "m", "h", "d",
+	    "y" };
+	size_t idx;
+	char buf[32];
+
+	/*
+	 * We don't have a value for some reason. Short circuit and stop here.
+	 */
+	if (ts == NULL) {
+		(void) printf(" %8s", "--");
+		return;
+	}
+
+	if (ts->tv_sec > UINT64_MAX / NANOSEC) {
+		val = UINT64_MAX;
+	} else {
+		val = ts->tv_sec * NANOSEC + ts->tv_nsec;
+	}
+
+	for (idx = 0, sum = 1; idx < IDX_MAX; idx++) {
+		sum *= divs[idx];
+		if (idx + 1 == IDX_MAX)
+			break;
+		if (val / divs[idx + 1] < sum)
+			break;
+	}
+
+	if (val % sum == 0) {
+		(void) snprintf(buf, sizeof (buf), "%" PRIu64 "%s", val / sum,
+		    suffix[idx]);
+	} else {
+		(void) snprintf(buf, sizeof (buf), "%.2f%s", (double)val / sum,
+		    suffix[idx]);
+	}
+
+	(void) printf(" %8s", buf);
+}
+
+/*
  * Print info about the process.
  */
 static void
-prcom(psinfo_t *psinfo, char *ttyp)
+prcom(psinfo_t *psinfo, const char *ttyp, const prusage_t *up)
 {
 	char	*cp;
 	long	tm;
@@ -1372,7 +1564,7 @@ prcom(psinfo_t *psinfo, char *ttyp)
 	 */
 	if (psinfo->pr_nlwp == 0) {
 		if (fields != NULL)
-			pr_fields(psinfo, ttyp, print_zombie_field);
+			pr_fields(psinfo, ttyp, up, print_zombie_field);
 		else
 			przom(psinfo);
 		return;
@@ -1384,7 +1576,7 @@ prcom(psinfo_t *psinfo, char *ttyp)
 	 * If user specified '-o format', print requested fields and return.
 	 */
 	if (fields != NULL) {
-		pr_fields(psinfo, ttyp, print_field);
+		pr_fields(psinfo, ttyp, up, print_field);
 		return;
 	}
 
@@ -1544,6 +1736,19 @@ prcom(psinfo_t *psinfo, char *ttyp)
 		(void) printf(" %4d", (int)psinfo->pr_lwp.pr_lgrp);
 	}
 
+	if (mflg) {
+		print_mstate(up != NULL ? &up->pr_utime : NULL);
+		print_mstate(up != NULL ? &up->pr_stime : NULL);
+		print_mstate(up != NULL ? &up->pr_ttime : NULL);
+		print_mstate(up != NULL ? &up->pr_tftime : NULL);
+		print_mstate(up != NULL ? &up->pr_dftime : NULL);
+		print_mstate(up != NULL ? &up->pr_kftime : NULL);
+		print_mstate(up != NULL ? &up->pr_ltime : NULL);
+		print_mstate(up != NULL ? &up->pr_slptime : NULL);
+		print_mstate(up != NULL ? &up->pr_wtime : NULL);
+		print_mstate(up != NULL ? &up->pr_stoptime : NULL);
+	}
+
 	(void) printf(" %-8.14s", ttyp);			/* TTY */
 	if (Lflg) {
 		tm = psinfo->pr_lwp.pr_time.tv_sec;
@@ -1647,7 +1852,22 @@ print_time(time_t tim, int width)
 }
 
 static void
-print_field(psinfo_t *psinfo, struct field *f, const char *ttyp)
+print_mstate_field(const timestruc_t *ts, int width)
+{
+	uint64_t val;
+
+	if (ts->tv_sec > UINT64_MAX / NANOSEC) {
+		val = UINT64_MAX;
+	} else {
+		val = ts->tv_sec * NANOSEC + ts->tv_nsec;
+	}
+
+	(void) printf("%#*" PRIx64, width, val);
+}
+
+static void
+print_field(psinfo_t *psinfo, const struct field *f, const char *ttyp,
+    const prusage_t *prusage)
 {
 	int width = f->width;
 	struct passwd *pwd;
@@ -2047,11 +2267,124 @@ print_field(psinfo_t *psinfo, struct field *f, const char *ttyp)
 		(void) printf("%*s", width,
 		    psinfo->pr_dmodel == PR_MODEL_LP64 ? "_LP64" : "_ILP32");
 		break;
+	case F_USERTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_utime, width);
+		}
+		break;
+	case F_SYSTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_stime, width);
+		}
+		break;
+	case F_TTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_ttime, width);
+		}
+		break;
+	case F_TFTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_tftime, width);
+		}
+		break;
+	case F_DFTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_dftime, width);
+		}
+		break;
+	case F_KFTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_kftime, width);
+		}
+		break;
+	case F_LTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_ltime, width);
+		}
+		break;
+	case F_SLPTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_slptime, width);
+		}
+		break;
+	case F_WTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_wtime, width);
+		}
+		break;
+	case F_STOPTIME:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			print_mstate_field(&prusage->pr_stoptime, width);
+		}
+		break;
+	case F_MINF:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			(void) printf("%*lu", width, prusage->pr_minf);
+		}
+		break;
+	case F_MAJF:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			(void) printf("%*lu", width, prusage->pr_majf);
+		}
+		break;
+	case F_VCTX:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			(void) printf("%*lu", width, prusage->pr_vctx);
+		}
+		break;
+	case F_ICTX:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			(void) printf("%*lu", width, prusage->pr_ictx);
+		}
+		break;
+	case F_SIGS:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			(void) printf("%*lu", width, prusage->pr_sigs);
+		}
+		break;
+	case F_SYSC:
+		if (prusage == NULL) {
+			(void) printf("%*s", width, "-");
+		} else {
+			(void) printf("%*lu", width, prusage->pr_sysc);
+		}
+		break;
 	}
 }
 
 static void
-print_zombie_field(psinfo_t *psinfo, struct field *f, const char *ttyp)
+print_zombie_field(psinfo_t *psinfo, const struct field *f, const char *ttyp,
+    const prusage_t *prusage)
 {
 	int wcnt;
 	int width = f->width;
@@ -2091,19 +2424,20 @@ print_zombie_field(psinfo_t *psinfo, struct field *f, const char *ttyp)
 		break;
 
 	default:
-		print_field(psinfo, f, ttyp);
+		print_field(psinfo, f, ttyp, prusage);
 		break;
 	}
 }
 
 static void
-pr_fields(psinfo_t *psinfo, const char *ttyp,
-    void (*print_fld)(psinfo_t *, struct field *, const char *))
+pr_fields(psinfo_t *psinfo, const char *ttyp, const prusage_t *prusage,
+    void (*print_fld)(psinfo_t *, const struct field *, const char *,
+    const prusage_t *))
 {
 	struct field *f;
 
 	for (f = fields; f != NULL; f = f->next) {
-		print_fld(psinfo, f, ttyp);
+		print_fld(psinfo, f, ttyp, prusage);
 		if (f->next != NULL)
 			(void) printf(" ");
 	}

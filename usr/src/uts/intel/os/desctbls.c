@@ -570,12 +570,10 @@ init_gdt(void)
 	ulong_t ma[1];		/* XXPV should be a memory_t */
 	ulong_t addr;
 
-#if !defined(__lint)
 	/*
 	 * Our gdt is never larger than a single page.
 	 */
 	ASSERT((sizeof (*gdt0) * NGDT) <= PAGESIZE);
-#endif
 	gdt0 = (user_desc_t *)BOP_ALLOC(bootops, (caddr_t)GDT_VA,
 	    PAGESIZE, PAGESIZE);
 	ASSERT3P(gdt0, !=, NULL);
@@ -638,14 +636,10 @@ init_gdt(void)
 static user_desc_t *
 init_gdt(void)
 {
-	desctbr_t	r_gdt;
-
-#if !defined(__lint)
 	/*
 	 * Our gdt is never larger than a single page.
 	 */
 	ASSERT((sizeof (*gdt0) * NGDT) <= PAGESIZE);
-#endif
 	gdt0 = (user_desc_t *)BOP_ALLOC(bootops, (caddr_t)GDT_VA,
 	    PAGESIZE, PAGESIZE);
 	bzero(gdt0, PAGESIZE);
@@ -655,9 +649,9 @@ init_gdt(void)
 	/*
 	 * Install our new GDT
 	 */
-	r_gdt.dtr_limit = (sizeof (*gdt0) * NGDT) - 1;
-	r_gdt.dtr_base = (uintptr_t)gdt0;
-	wr_gdtr(&r_gdt);
+	gdt0_default_r.dtr_limit = (sizeof (*gdt0) * NGDT) - 1;
+	gdt0_default_r.dtr_base = (uintptr_t)gdt0;
+	wr_gdtr(&gdt0_default_r);
 
 	/*
 	 * Reload the segment registers to use the new GDT
@@ -962,9 +956,7 @@ init_desctbls(void)
 	/*
 	 * Setup and install our IDT.
 	 */
-#if !defined(__lint)
 	ASSERT(NIDT * sizeof (*idt0) <= PAGESIZE);
-#endif
 	idt0 = (gate_desc_t *)BOP_ALLOC(bootops, (caddr_t)IDT_VA,
 	    PAGESIZE, PAGESIZE);
 	bzero(idt0, PAGESIZE);
@@ -997,15 +989,11 @@ init_desctbls(void)
 	 * Allocate IDT and TSS structures on unique pages for better
 	 * performance in virtual machines.
 	 */
-#if !defined(__lint)
 	ASSERT(NIDT * sizeof (*idt0) <= PAGESIZE);
-#endif
 	idt0 = (gate_desc_t *)BOP_ALLOC(bootops, (caddr_t)IDT_VA,
 	    PAGESIZE, PAGESIZE);
 	bzero(idt0, PAGESIZE);
-#if !defined(__lint)
 	ASSERT(sizeof (*ktss0) <= PAGESIZE);
-#endif
 	ktss0 = (tss_t *)BOP_ALLOC(bootops, (caddr_t)KTSS_VA,
 	    PAGESIZE, PAGESIZE);
 	bzero(ktss0, PAGESIZE);

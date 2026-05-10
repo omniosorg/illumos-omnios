@@ -1,10 +1,11 @@
 '\" te
 .\" Copyright (c) 2007, Sun Microsystems, Inc. All Rights Reserved.
 .\" Copyright 2020 Joyent, Inc.
+.\" Copyright 2026 Oxide Computer Company
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License.
 .\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.  See the License for the specific language governing permissions and limitations under the License.
 .\" When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH SMF_ENABLE_INSTANCE 3SCF "May 15, 2020"
+.TH SMF_ENABLE_INSTANCE 3SCF "Apr 17, 2026"
 .SH NAME
 smf_enable_instance, smf_disable_instance, smf_disable_instance_with_comment,
 smf_refresh_instance, smf_restart_instance, smf_maintain_instance,
@@ -16,61 +17,77 @@ cc [ \fIflag\fR\&.\|.\|. ] \fIfile\fR\&.\|.\|. \fB-lscf\fR [ \fIlibrary\fR\&.\|.
 #include <libscf.h>
 
 \fBint\fR \fBsmf_enable_instance\fR(\fBconst char *\fR\fIinstance\fR, \fBint\fR \fIflags\fR);
+\fBint\fR \fBsmf_enable_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR,
+    \fBint\fR \fIflags\fR, \fBconst char *\fR\fIcomment\fR);
 .fi
 
 .LP
 .nf
 \fBint\fR \fBsmf_disable_instance\fR(\fBconst char *\fR\fIinstance\fR, \fBint\fR \fIflags\fR);
-.fi
-
-.LP
-.nf
 \fBint\fR \fBsmf_disable_instance_with_comment\fR(\fBconst char *\fR\fIinstance\fR,
+    \fBint\fR \fIflags\fR, \fBconst char *\fR\fIcomment\fR);
+\fBint\fR \fBsmf_disable_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR,
     \fBint\fR \fIflags\fR, \fBconst char *\fR\fIcomment\fR);
 .fi
 
 .LP
 .nf
 \fBint\fR \fBsmf_refresh_instance\fR(\fBconst char *\fR\fIinstance\fR);
+\fBint\fR \fBsmf_refresh_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR);
+\fBint\fR \fBsmf_refresh_all_instances\fR(\fBscf_service_t *\fR\fIservice\fR);
 .fi
 
 .LP
 .nf
 \fBint\fR \fBsmf_restart_instance\fR(\fBconst char *\fR\fIinstance\fR);
+\fBint\fR \fBsmf_restart_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR);
 .fi
 
 .LP
 .nf
 \fBint\fR \fBsmf_maintain_instance\fR(\fBconst char *\fR\fIinstance\fR, \fBint\fR \fIflags\fR);
+\fBint\fR \fBsmf_maintain_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR,
+    \fBint\fR \fIflags\fR);
 .fi
 
 .LP
 .nf
 \fBint\fR \fBsmf_degrade_instance\fR(\fBconst char *\fR\fIinstance\fR, \fBint\fR \fIflags\fR);
+\fBint\fR \fBsmf_degrade_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR,
+    \fBint\fR \fIflags\fR);
 .fi
 
 .LP
 .nf
 \fBint\fR \fBsmf_restore_instance\fR(\fBconst char *\fR\fIinstance\fR);
+\fBint\fR \fBsmf_restore_instance_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR);
 .fi
 
 .LP
 .nf
 \fBchar *\fR\fBsmf_get_state\fR(\fBconst char *\fR\fIinstance\fR);
+\fBchar *\fR\fBsmf_get_state_by_instance\fR(\fBscf_instance_t *\fR\fIinst\fR);
 .fi
 
 .SH DESCRIPTION
 These functions provide administrative control over service instances. Using
 these functions, an administrative tool can make a request to enable, disable,
 refresh, or restart an instance. All calls are asynchronous. They request an
-action, but do not wait to see if the action succeeds or fails.
+action, but do not wait to see if the action succeeds or fails. The _by_instance
+variants operate on an existing \fBscf_instance_t *\fR that was previously
+obtained through something such as \fBscf_handle_decode_fmri\fR(3SCF).
 .sp
 .LP
 The \fBsmf_enable_instance()\fR function enables the service instance specified
 by \fIinstance\fR FMRI. If \fIflags\fR is \fBSMF_TEMPORARY\fR, the enabling of
 the service instance is a temporary change, lasting only for the lifetime of
 the current system instance. The \fIflags\fR argument is set to \fB0\fR if no
-flags are to be use.
+flags are to be use. The \fBsmf_enable_instance_by_instance()\fR function has
+the same behavior as \fBsmf_enable_instance()\fR except that it operates on a
+service instance indicated by the \fIinst\fR \fBscf_instance_t *\fR object
+rather than parsing a string FMRI. A comment may be optionally passed for this.
+The default behavior here is to pass \fBNULL\fR to indicate no comment (the
+behavior of \fBsmf_enable_instance()\fR).
 .sp
 .LP
 The \fBsmf_disable_instance()\fR function places the service instance specified
@@ -88,12 +105,30 @@ The comment may be up to \fBSCF_COMMENT_MAX_LENGTH\fR characters including
 the NUL terminator.
 .sp
 .LP
+The \fBsmf_disable_instance_by_instance()\fR function behaves similarly to
+\fBsmf_disable_instance()\fR and \fBsmf_disable_instance_with_comment()\fR except
+that it operates on an instance identified by \fIinst\fR rather than a string
+FMRI. If \fIcomment\fR is a non-\fBNULL\fR value then a comment will be set like
+\fBsmf_disable_instance_with_comment()\fR. Otherwise, no comment will be set
+like \fBsmf_disable_instance()\fR.
+.sp
+.LP
 The \fBsmf_refresh_instance()\fR function causes the service instance specified
-by \fIinstance\fR FMRI to re-read its configuration information.
+by \fIinstance\fR FMRI to re-read its configuration information. The
+\fBsmf_refresh_instance_by_instance()\fR function similarly refreshes an
+instance that is instead identified by \fIinst\fR and not a string FMRI.
+.sp
+.LP
+The \fBsmf_refresh_all_instances()\fR iterates over every instance in the
+service \fIservice\fR and causes it to be refreshed as though
+\fBsmf_refresh_instance_by_instance()\fR was called upon it. If an error occurs,
+the refresh method may not be called on some instances.
 .sp
 .LP
 The \fBsmf_restart_instance()\fR function restarts the service instance
-specified by \fIinstance\fR FMRI.
+specified by \fIinstance\fR FMRI. The \fBsmf_restart_instance_by_instance()\fR
+function similarly restarts an instance that is instead identified by
+\fIinst\fR and not a string FMRI.
 .sp
 .LP
 The \fBsmf_maintain_instance()\fR function moves the service instance specified
@@ -102,25 +137,34 @@ by \fIinstance\fR into the maintenance state. If \fIflags\fR is
 killing any running methods. If \fIflags\fR is \fBSMF_TEMPORARY\fR, the change
 to maintenance state is a temporary change, lasting only for the lifetime of
 the current system instance. The \fIflags\fR argument is set to \fB0\fR if no
-flags are to be use.
+flags are to be use. The \fBsmf_maintain_instance_by_instance()\fR works the
+same as \fBsmf_maintain_instance()\fR but instead identifies a service by
+\fIinst\fR and not a string FMRI.
 .sp
 .LP
 The \fBsmf_degrade_instance()\fR function moves an online service instance into
 the degraded state. This function operates only on instances in the online
 state. The \fIflags\fR argument is set to \fB0\fR if no flags are to be use.
 The only available flag is \fBSMF_IMMEDIATE\fR, which causes the instance to be
-moved into the degraded state immediately.
+moved into the degraded state immediately. The
+\fBsmf_degrade_instance_by_instance()\fR works the same as
+\fBsmf_degrade_instance()\fR but instead identifies a service by \fIinst\fR
+and not a string FMRI.
 .sp
 .LP
 The \fBsmf_restore_instance()\fR function brings an instance currently in the
 maintenance to the uninitialized state, so that it can be brought back online.
 For a service in the degraded state, \fBsmf_restore_instance()\fR brings the
-specified instance back to the online state.
+specified instance back to the online state. The
+\fBsmf_restore_instance_by_instance()\fR works the same as
+\fBsmf_restore_instance()\fR but instead identifies a service by \fIinst\fR
+and not a string FMRI.
 .sp
 .LP
-The \fBsmf_get_state()\fR function returns a pointer to a string containing the
-name of the instance's current state. The user is responsible for freeing this
-string. Possible state strings are defined as the following:
+The \fBsmf_get_state()\fR and \fBsmf_get_state_by_instance()\fR function returns
+a pointer to a string containing the name of the instance's current state. The
+user is responsible for freeing this string. Possible state strings are defined
+as the following:
 .sp
 .in +2
 .nf
@@ -135,15 +179,20 @@ string. Possible state strings are defined as the following:
 
 .SH RETURN VALUES
 Upon successful completion, \fBsmf_enable_instance()\fR,
-\fBsmf_disable_instance()\fR, \fBsmf_disable_instance_with_comment()\fR,
-\fBsmf_refresh_instance()\fR, \fBsmf_restart_instance()\fR,
-\fBsmf_maintain_instance()\fR, \fBsmf_degrade_instance()\fR,
-and \fBsmf_restore_instance()\fR return \fB0\fR.
-Otherwise, they return \fB-1\fR\&.
+\fBsmf_enable_instance_by_instance()\fR, \fBsmf_disable_instance()\fR,
+\fBsmf_disable_instance_with_comment()\fR,
+\fBsmf_disable_instance_by_instance()\fR, \fBsmf_refresh_instance()\fR,
+\fBsmf_refresh_instance_by_instance()\fR, \fBsmf_restart_instance()\fR,
+\fBsmf_refresh_all_instances()\fR, \fBsmf_restart_instance_by_instance()\fR,
+\fBsmf_maintain_instance()\fR, \fBsmf_maintain_instance_by_instance()\fR,
+\fBsmf_degrade_instance()\fR, \fBsmf_degrade_instance_by_instance()\fR,
+\fBsmf_restore_instance()\fR, and \fBsmf_restore_instance_by_instance()\fR
+return \fB0\fR.  Otherwise, they return \fB-1\fR\&.
 .sp
 .LP
-Upon successful completion, smf_get_state returns an allocated string.
-Otherwise, it returns \fINULL\fR.
+Upon successful completion, \fBsmf_get_state()\fR and
+\fBsmf_get_state_by_instance()\fR return an allocated string.  Otherwise, they
+return \fINULL\fR.
 .SH ERRORS
 These functions will fail if:
 .sp
@@ -198,9 +247,12 @@ The server has insufficient resources.
 
 .sp
 .LP
-The \fBsmf_maintain_instance()\fR, \fBsmf_refresh_instance()\fR,
-\fBsmf_restart_instance()\fR, \fBsmf_degrade_instance()\fR, and
-\fBsmf_restore_instance()\fR functions will fail if:
+The \fBsmf_maintain_instance()\fR, \fBsmf_maintain_instance_by_instance()\fR,
+\fBsmf_refresh_instance()\fR, \fBsmf_refresh_instance_by_instance()\fR,
+\fBsmf_refresh_all_instances()\fR, \fBsmf_restart_instance()\fR,
+\fBsmf_restart_instance_by_instance()\fR, \fBsmf_degrade_instance()\fR,
+\fBsmf_degrade_instance_by_instance()\fR, \fBsmf_restore_instance()\fR, and
+\fBsmf_restore_instance_by_instance()\fR functions will fail if:
 .sp
 .ne 2
 .na
@@ -233,8 +285,9 @@ The repository's backend is read-only.
 
 .sp
 .LP
-The \fBsmf_restore_instance()\fR and \fBsmf_degrade_instance()\fR functions
-will fail if:
+The \fBsmf_restore_instance()\fR, \fBsmf_restore_instance_by_instance()\fR,
+\fBsmf_degrade_instance()\fR and \fBsmf_degrade_instance_by_instance()\fR
+functions will fail if:
 .sp
 .ne 2
 .na
