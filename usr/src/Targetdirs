@@ -536,11 +536,9 @@ SYM.DIRS= \
 	/usr/ucblib/32 \
 	/var/ld/32
 
-i386_SYM.DIRS64= \
-	/usr/lib/brand/lx/64
-
 amd64_SYM.DIRS64= \
-	/usr/platform/i86pc/lib/fm/topo/plugins/64
+	/usr/platform/i86pc/lib/fm/topo/plugins/64 \
+	/usr/lib/brand/lx/64
 
 SYM.DIRS64= \
 	$($(MACH64)_SYM.DIRS64) \

@@ -36,7 +36,7 @@
  * Copyright 2015 Pluribus Networks Inc.
  * Copyright 2019 Joyent, Inc.
  * Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 #ifndef	_VIONA_IMPL_H
@@ -215,6 +215,7 @@ typedef struct viona_vring {
 		uint64_t	rs_rx_drop_over_mtu;
 		uint64_t	rs_rx_gro_fallback;
 		uint64_t	rs_rx_gro_fallback_fail;
+		uint64_t	rs_rx_gro_malformed;
 		uint64_t	rs_too_short;
 		uint64_t	rs_tx_absent;
 		uint64_t	rs_tx_gso_fail;
@@ -418,13 +419,27 @@ struct virtio_net_hdr {
 #define	VIRTIO_NET_HDR_F_NEEDS_CSUM	(1 << 0)
 #define	VIRTIO_NET_HDR_F_DATA_VALID	(1 << 1)
 
-#define	VIRTIO_NET_HDR_GSO_NONE		0
-#define	VIRTIO_NET_HDR_GSO_TCPV4	1
+/*
+ * Each of these is an offload type, except for the ECN and GSO_UDP_TUNNEL
+ * values, which are logically OR-ed with one of the other types.
+ */
+#define	VIRTIO_NET_HDR_GSO_NONE			0
+#define	VIRTIO_NET_HDR_GSO_TCPV4		1
+#define	VIRTIO_NET_HDR_GSO_UDP			3
+#define	VIRTIO_NET_HDR_GSO_TCPV6		4
+#define	VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV4	0x20
+#define	VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV6	0x40
+#define	VIRTIO_NET_HDR_GSO_ECN			0x80
+
+#define	VIRTIO_NET_HDR_GSO_AUX_FLAGS	(VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV4 | \
+	VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV6 | VIRTIO_NET_HDR_GSO_ECN)
 
 #define	VIRTIO_NET_F_CSUM		(1ULL << 0)
 #define	VIRTIO_NET_F_GUEST_CSUM		(1ULL << 1)
 #define	VIRTIO_NET_F_GUEST_TSO4		(1ULL << 7) /* guest can accept TSO */
+#define	VIRTIO_NET_F_GUEST_TSO6		(1ULL << 8) /* for IPv4 and/or v6 */
 #define	VIRTIO_NET_F_HOST_TSO4		(1ULL << 11) /* host can accept TSO */
+#define	VIRTIO_NET_F_HOST_TSO6		(1ULL << 12) /* for IPv4 and/or v6 */
 #define	VIRTIO_NET_F_MRG_RXBUF		(1ULL << 15) /* host can mrg RX bufs */
 #define	VIRTIO_F_RING_NOTIFY_ON_EMPTY	(1ULL << 24)
 #define	VIRTIO_F_RING_INDIRECT_DESC	(1ULL << 28)

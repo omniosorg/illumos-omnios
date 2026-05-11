@@ -39,6 +39,19 @@
 
 $mapfile_version 2
 
+SYMBOL_VERSION ILLUMOS_0.2 {
+    global:
+	smf_refresh_all_instances;
+	smf_enable_instance_by_instance;
+	smf_disable_instance_by_instance;
+	smf_refresh_instance_by_instance;
+	smf_restart_instance_by_instance;
+	smf_maintain_instance_by_instance;
+	smf_degrade_instance_by_instance;
+	smf_restore_instance_by_instance;
+	smf_get_state_by_instance;
+} ILLUMOS_0.1;
+
 SYMBOL_VERSION ILLUMOS_0.1 {
     global:
 	smf_disable_instance_with_comment;
@@ -337,7 +350,6 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	scf_default_secflags;
 	_check_services;
 	_scf_handle_create_and_bind;
-	_smf_refresh_all_instances;
     local:
 	*;
 };
