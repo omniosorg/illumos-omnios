@@ -384,7 +384,7 @@ mp_startup_boot(void)
 
 	init_cpu_info(cp);
 
-	cp->cpu_flags |= CPU_RUNNING | CPU_READY | CPU_EXISTS;
+	cp->cpu_flags |= CPU_RUNNING | CPU_EXISTS;
 
 	cpu_event_init_cpu(cp);
 
@@ -415,6 +415,7 @@ mp_startup_boot(void)
 
 	mutex_enter(&cpu_lock);
 	cp->cpu_flags &= ~CPU_OFFLINE;
+	cp->cpu_flags |= CPU_READY;
 	cpu_enable_intr(cp);
 	cpu_add_active(cp);
 	mutex_exit(&cpu_lock);
