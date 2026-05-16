@@ -21,7 +21,7 @@
  */
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -1160,4 +1160,347 @@ cpumap_bail:
 
 done:
 	return (count);
+}
+
+/*
+ * NUMA topology extraction from FDT.
+ *
+ * Parses numa-node-id properties on CPU and memory nodes, the
+ * distance-map node's distance-matrix property, and performs a full
+ * tree walk to catch any additional numa-node-id values on device
+ * nodes (e.g. PCIe root complexes in their own NUMA domain).
+ *
+ * All data is returned in static storage valid until the next call.
+ */
+
+#define	FDT_NUMA_MAX_NODES	64
+#define	FDT_NUMA_MAX_MEM	128
+#define	FDT_NUMA_MAX_DIST	(FDT_NUMA_MAX_NODES * FDT_NUMA_MAX_NODES)
+
+static prom_fdt_numa_cpu_t	fdt_numa_cpus[NCPU];
+static prom_fdt_numa_mem_t	fdt_numa_mem[FDT_NUMA_MAX_MEM];
+static prom_fdt_numa_dist_t	fdt_numa_dist[FDT_NUMA_MAX_DIST];
+static uint32_t			fdt_numa_node_ids[FDT_NUMA_MAX_NODES];
+
+/*
+ * Add a node ID to the unique set.  Returns B_TRUE if added (new),
+ * B_FALSE if already present or the set is full.
+ */
+static boolean_t
+fdt_numa_add_node_id(uint32_t *ids, uint_t *count, uint_t max, uint32_t nid)
+{
+	uint_t i;
+
+	for (i = 0; i < *count; i++) {
+		if (ids[i] == nid) {
+			return (B_FALSE);
+		}
+	}
+
+	if (*count >= max) {
+		return (B_FALSE);
+	}
+
+	ids[*count] = nid;
+	(*count)++;
+	return (B_TRUE);
+}
+
+/*
+ * Read a big-endian u32 cell from an FDT property value at the given
+ * byte offset.
+ */
+static uint32_t
+fdt_numa_read_cell32(const void *prop, int byte_off)
+{
+	fdt32_t v;
+
+	memcpy(&v, (const char *)prop + byte_off, sizeof (fdt32_t));
+	return (fdt32_to_cpu(v));
+}
+
+/*
+ * Read a 64-bit value from 1 or 2 big-endian u32 cells at the given
+ * cell index within a property value.
+ */
+static uint64_t
+fdt_numa_read_cells(const void *prop, int cell_index, int ncells)
+{
+	uint64_t val = 0;
+	int i;
+
+	for (i = 0; i < ncells; i++) {
+		val <<= 32;
+		val |= fdt_numa_read_cell32(prop,
+		    (cell_index + i) * sizeof (fdt32_t));
+	}
+
+	return (val);
+}
+
+/*
+ * Record a memory range.  If an entry with the same (base, size) already
+ * exists - as happens when the bootloader consolidates multiple /memory
+ * nodes' ranges into one node's reg - overwrite its node ID.  A later,
+ * more specific /memory node is authoritative for its address range.
+ *
+ * This odd logic works around what appears to be a bug in qemu virt.
+ */
+static int
+fdt_numa_add_mem(uint_t *nmem, uint64_t base, uint64_t size, uint32_t nid)
+{
+	uint_t i;
+
+	for (i = 0; i < *nmem; i++) {
+		if (fdt_numa_mem[i].pfnm_base == base &&
+		    fdt_numa_mem[i].pfnm_size == size) {
+			fdt_numa_mem[i].pfnm_node_id = nid;
+			return (0);
+		}
+	}
+
+	if (*nmem >= FDT_NUMA_MAX_MEM) {
+		cmn_err(CE_WARN, "prom_fdt: too many NUMA memory nodes");
+		return (-1);
+	}
+
+	fdt_numa_mem[*nmem].pfnm_base = base;
+	fdt_numa_mem[*nmem].pfnm_size = size;
+	fdt_numa_mem[*nmem].pfnm_node_id = nid;
+	(*nmem)++;
+	return (0);
+}
+
+void
+prom_fdt_get_numa_topo(prom_fdt_numa_topo_t *topo)
+{
+	int		cpus_off, cpu_off, mem_off, dmap_off, node_off;
+	int		addr_cells, size_cells, cpu_addr_cells;
+	int		len, depth;
+	const void	*prop;
+	uint_t		ncpus = 0, nmem = 0, ndist = 0, nnids = 0;
+	boolean_t	has_numa = B_FALSE;
+	boolean_t	has_dmap = B_FALSE;
+
+	bzero(topo, sizeof (*topo));
+	bzero(fdt_numa_cpus, sizeof (fdt_numa_cpus));
+	bzero(fdt_numa_mem, sizeof (fdt_numa_mem));
+	bzero(fdt_numa_dist, sizeof (fdt_numa_dist));
+	bzero(fdt_numa_node_ids, sizeof (fdt_numa_node_ids));
+
+	/*
+	 * Step 1: Walk /cpus children for MPIDR and numa-node-id.
+	 */
+	cpus_off = fdt_path_offset(fdtp, "/cpus");
+	if (cpus_off >= 0) {
+		/*
+		 * CPU reg property uses #address-cells from /cpus.
+		 */
+		cpu_addr_cells = fdt_address_cells(fdtp, cpus_off);
+		if (cpu_addr_cells < 1 || cpu_addr_cells > 2) {
+			cmn_err(CE_WARN, "!prom_fdt: /cpus missing or invalid "
+			    "#address-cells, NUMA disabled");
+			return;
+		}
+
+		fdt_for_each_subnode(cpu_off, fdtp, cpus_off) {
+			const void *dt_prop;
+			int dt_len;
+			uint32_t nid;
+			uint64_t mpidr;
+
+			/*
+			 * Only process nodes with device_type = "cpu".
+			 */
+			dt_prop = fdt_getprop(fdtp, cpu_off,
+			    "device_type", &dt_len);
+			if (dt_prop == NULL || dt_len < 4 ||
+			    strcmp(dt_prop, "cpu") != 0)
+				continue;
+
+			/*
+			 * Read MPIDR from reg property.
+			 */
+			prop = fdt_getprop(fdtp, cpu_off, "reg", &len);
+			if (prop == NULL ||
+			    len < (int)(cpu_addr_cells * sizeof (fdt32_t)))
+				continue;
+
+			mpidr = fdt_numa_read_cells(prop, 0, cpu_addr_cells);
+
+			/*
+			 * Read numa-node-id if present.
+			 */
+			prop = fdt_getprop(fdtp, cpu_off,
+			    "numa-node-id", &len);
+			if (prop == NULL || len != (int)sizeof (fdt32_t))
+				continue;
+
+			nid = fdt_numa_read_cell32(prop, 0);
+			has_numa = B_TRUE;
+
+			if (ncpus < NCPU) {
+				fdt_numa_cpus[ncpus].pfnc_mpidr = mpidr;
+				fdt_numa_cpus[ncpus].pfnc_node_id = nid;
+				ncpus++;
+			}
+			fdt_numa_add_node_id(fdt_numa_node_ids, &nnids,
+			    FDT_NUMA_MAX_NODES, nid);
+		}
+	}
+
+	/*
+	 * Step 2: Walk /memory nodes for address ranges and numa-node-id.
+	 * Use fdt_node_offset_by_prop_value to find all nodes with
+	 * device_type = "memory".
+	 */
+	addr_cells = fdt_address_cells(fdtp, 0);
+	if (addr_cells < 1 || addr_cells > 2) {
+		cmn_err(CE_WARN, "!prom_fdt: / missing or invalid "
+		    "#address-cells, NUMA disabled");
+		return;
+	}
+
+	size_cells = fdt_size_cells(fdtp, 0);
+	if (size_cells < 1 || size_cells > 2) {
+		cmn_err(CE_WARN, "!prom_fdt: / missing or invalid "
+		    "#size-cells, NUMA disabled");
+		return;
+	}
+
+	mem_off = fdt_node_offset_by_prop_value(fdtp, -1,
+	    "device_type", "memory", sizeof ("memory"));
+	while (mem_off >= 0) {
+		uint32_t nid;
+		int tuple_size, ntuples, t;
+
+		/*
+		 * Read numa-node-id if present.
+		 */
+		prop = fdt_getprop(fdtp, mem_off, "numa-node-id", &len);
+		if (prop != NULL && len == (int)sizeof (fdt32_t)) {
+			nid = fdt_numa_read_cell32(prop, 0);
+			has_numa = B_TRUE;
+
+			fdt_numa_add_node_id(fdt_numa_node_ids, &nnids,
+			    FDT_NUMA_MAX_NODES, nid);
+
+			/*
+			 * Parse reg property: may contain multiple
+			 * (base, size) tuples, each using the root's
+			 * #address-cells and #size-cells.
+			 */
+			prop = fdt_getprop(fdtp, mem_off, "reg", &len);
+			if (prop != NULL) {
+				tuple_size = (addr_cells + size_cells) *
+				    (int)sizeof (fdt32_t);
+				ntuples = len / tuple_size;
+
+				for (t = 0; t < ntuples && nmem <
+				    FDT_NUMA_MAX_MEM; t++) {
+					uint64_t base, size;
+					int cell_idx;
+
+					cell_idx = t *
+					    (addr_cells + size_cells);
+					base = fdt_numa_read_cells(prop,
+					    cell_idx, addr_cells);
+					size = fdt_numa_read_cells(prop,
+					    cell_idx + addr_cells,
+					    size_cells);
+
+					if (size == 0) {
+						continue;
+					}
+
+					if (fdt_numa_add_mem(
+					    &nmem, base, size, nid) != 0) {
+						return;
+					}
+				}
+			}
+		}
+
+		mem_off = fdt_node_offset_by_prop_value(fdtp, mem_off,
+		    "device_type", "memory", sizeof ("memory"));
+	}
+
+	/*
+	 * Step 3: Parse /distance-map node.
+	 */
+	dmap_off = fdt_node_offset_by_compatible(fdtp, -1,
+	    "numa-distance-map-v1");
+	if (dmap_off >= 0) {
+		prop = fdt_getprop(fdtp, dmap_off, "distance-matrix", &len);
+		if (prop != NULL && len > 0) {
+			if (len % sizeof (fdt32_t) != 0 ||
+			    (len / sizeof (fdt32_t)) % 3 != 0) {
+				cmn_err(CE_WARN, "!prom_fdt: invalid "
+				    "distance-matrix, NUMA disabled");
+				return;
+			}
+
+			int entry_count = len / (int)sizeof (fdt32_t);
+			int i;
+
+			has_dmap = B_TRUE;
+			if (has_numa == B_FALSE && entry_count >= 3) {
+				has_numa = B_TRUE;
+			}
+
+			for (i = 0; i + 2 < entry_count &&
+			    ndist < FDT_NUMA_MAX_DIST; i += 3) {
+				uint32_t from, to, dist;
+
+				from = fdt_numa_read_cell32(prop,
+				    i * (int)sizeof (fdt32_t));
+				to = fdt_numa_read_cell32(prop,
+				    (i + 1) * (int)sizeof (fdt32_t));
+				dist = fdt_numa_read_cell32(prop,
+				    (i + 2) * (int)sizeof (fdt32_t));
+
+				fdt_numa_dist[ndist].pfnd_from = from;
+				fdt_numa_dist[ndist].pfnd_to = to;
+				fdt_numa_dist[ndist].pfnd_distance = dist;
+				ndist++;
+
+				fdt_numa_add_node_id(fdt_numa_node_ids,
+				    &nnids, FDT_NUMA_MAX_NODES, from);
+				fdt_numa_add_node_id(fdt_numa_node_ids,
+				    &nnids, FDT_NUMA_MAX_NODES, to);
+			}
+		}
+	}
+
+	/*
+	 * Step 4: Full tree walk for any remaining numa-node-id
+	 * properties on device nodes (e.g. PCIe root complexes).
+	 */
+	depth = 0;
+	node_off = fdt_next_node(fdtp, -1, &depth);
+	while (node_off >= 0 && depth >= 0) {
+		prop = fdt_getprop(fdtp, node_off, "numa-node-id", &len);
+		if (prop != NULL && len == (int)sizeof (fdt32_t)) {
+			uint32_t nid = fdt_numa_read_cell32(prop, 0);
+
+			has_numa = B_TRUE;
+			fdt_numa_add_node_id(fdt_numa_node_ids, &nnids,
+			    FDT_NUMA_MAX_NODES, nid);
+		}
+		node_off = fdt_next_node(fdtp, node_off, &depth);
+	}
+
+	/*
+	 * Fill in the result structure.
+	 */
+	topo->pfnt_cpus = fdt_numa_cpus;
+	topo->pfnt_ncpus = ncpus;
+	topo->pfnt_mem = fdt_numa_mem;
+	topo->pfnt_nmem = nmem;
+	topo->pfnt_dist = fdt_numa_dist;
+	topo->pfnt_ndist = ndist;
+	topo->pfnt_node_ids = fdt_numa_node_ids;
+	topo->pfnt_nnode_ids = nnids;
+	topo->pfnt_has_numa = has_numa;
+	topo->pfnt_has_distance_map = has_dmap;
 }

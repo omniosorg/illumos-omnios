@@ -236,6 +236,14 @@ mlsetup(struct regs *rp, struct xboot_info *xbp)
 	pg_cpu_bootstrap(CPU);
 
 	/*
+	 * Pass firmware table pointers to the lgroup platform layer before
+	 * lgrp_init runs.  These values are all 0 on FDT platforms.
+	 */
+	extern void lgrp_plat_set_fw_tables(uint64_t, uint64_t,
+	    uint64_t, uint64_t);
+	lgrp_plat_set_fw_tables(0, 0, 0, 0);
+
+	/*
 	 * lgroup framework initialization. This must be done prior
 	 * to devices being mapped.
 	 */

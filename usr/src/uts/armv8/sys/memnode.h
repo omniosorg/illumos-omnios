@@ -33,6 +33,7 @@ extern "C" {
 #ifdef	_KERNEL
 
 #include <sys/lgrp.h>
+#include <sys/param.h>
 
 
 /*
@@ -41,12 +42,21 @@ extern "C" {
  * memory slice ID and the high-order bits are the SSM nodeid.
  */
 
+#define	MAX_MEM_NODES_PER_LGROUP	2	/* DR headroom per domain */
+/*
+ * memnodes are tracked in mnodeset_t, a bitmap type, so the maximum
+ * number of nodes is the number of bits in the tracking bitmap.
+ */
 #ifndef	MAX_MEM_NODES
-#define	MAX_MEM_NODES			1
+#define	MAX_MEM_NODES			(NBBY * sizeof (mnodeset_t))
 #endif	/* MAX_MEM_NODES */
 
-#define	PFN_2_MEM_NODE(pfn)		0
-#define	MEM_NODE_2_LGRPHAND(mnode)	LGRP_DEFAULT_HANDLE
+#define	PFN_2_MEM_NODE(pfn)			\
+	((max_mem_nodes > 1) ? plat_pfn_to_mem_node(pfn) : 0)
+
+#define	MEM_NODE_2_LGRPHAND(mnode)		\
+	((max_mem_nodes > 1) ? plat_mem_node_to_lgrphand(mnode) : \
+	    LGRP_DEFAULT_HANDLE)
 
 /*
  * Platmod hooks

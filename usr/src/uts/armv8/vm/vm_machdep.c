@@ -748,7 +748,7 @@ mnode_range_setup(mnoderange_t *mnoderanges)
 {
 	mnoderange_t *mp = mnoderanges;
 	int	mnode, mri;
-	int	mindex = 0;	/* current index into mnoderanges array */
+	ssize_t	mindex = 0;	/* current index into mnoderanges array */
 	int	i, j;
 	pfn_t	hipfn;
 	int	last, hi;
@@ -779,6 +779,8 @@ mnode_range_setup(mnoderange_t *mnoderanges)
 				break;
 		}
 	}
+
+	VERIFY3S(mindex, <=, mnoderangecnt);
 
 	/*
 	 * For now do a simple sort of the mnoderanges array to fill in
@@ -1834,12 +1836,24 @@ page_get_anylist(struct vnode *vp, u_offset_t off, struct as *as, caddr_t vaddr,
 	int		m;
 	int		szc;
 	int		fullrange;
+	int		mnode;
+	int		local_failed_stat = 0;
+	lgrp_mnode_cookie_t	lgrp_cookie;
 
 	VM_STAT_ADD(pga_vmstats.pga_alloc);
 
 	/* only base pagesize currently supported */
-	if (size != MMU_PAGESIZE)
+	if (size != MMU_PAGESIZE) {
 		return (NULL);
+	}
+
+	/*
+	 * If we're passed a specific lgroup, we use it.  Otherwise,
+	 * assume first-touch placement is desired.
+	 */
+	if (!LGRP_EXISTS(lgrp)) {
+		lgrp = lgrp_home_lgrp();
+	}
 
 	/* LINTED */
 	AS_2_BIN(as, seg, vp, vaddr, bin, 0);
@@ -1861,12 +1875,14 @@ page_get_anylist(struct vnode *vp, u_offset_t off, struct as *as, caddr_t vaddr,
 		/*
 		 * We can guarantee alignment only for page boundary.
 		 */
-		if (dma_attr->dma_attr_align > MMU_PAGESIZE)
+		if (dma_attr->dma_attr_align > MMU_PAGESIZE) {
 			return (NULL);
+		}
 
 		/* Sanity check the dma_attr */
-		if (pfnlo > pfnhi)
+		if (pfnlo > pfnhi) {
 			return (NULL);
+		}
 
 		n = pfn_2_mtype(pfnlo);
 		m = pfn_2_mtype(pfnhi);
@@ -1882,27 +1898,37 @@ page_get_anylist(struct vnode *vp, u_offset_t off, struct as *as, caddr_t vaddr,
 	 * Try local memory node first, but try remote if we can't
 	 * get a page of the right color.
 	 */
-	/*
-	 * allocate pages from high pfn to low.
-	 */
-	mtype = m;
-	do {
-		if (fullrange != 0) {
-			pp = page_get_mnode_freelist(0, bin, mtype, szc, flags);
-			if (pp == NULL) {
-				pp = page_get_mnode_cachelist(bin, flags, 0,
-				    mtype);
+	LGRP_MNODE_COOKIE_INIT(lgrp_cookie, lgrp, LGRP_SRCH_HIER);
+	while ((mnode = lgrp_memnode_choose(&lgrp_cookie)) >= 0) {
+		/*
+		 * allocate pages from high pfn to low.
+		 */
+		mtype = m;
+		do {
+			if (fullrange != 0) {
+				pp = page_get_mnode_freelist(mnode,
+				    bin, mtype, szc, flags);
+				if (pp == NULL) {
+					pp = page_get_mnode_cachelist(
+					    bin, flags, mnode, mtype);
+				}
+			} else {
+				pp = page_get_mnode_anylist(bin, szc,
+				    flags, mnode, mtype, dma_attr);
 			}
-		} else {
-			pp = page_get_mnode_anylist(bin, szc, flags, 0,
-			    mtype, dma_attr);
+			if (pp != NULL) {
+				VM_STAT_ADD(pga_vmstats.pga_allocok);
+				check_dma(dma_attr, pp, 1);
+				return (pp);
+			}
+		} while (mtype != n &&
+		    (mtype = mnoderanges[mtype].mnr_next) != -1);
+
+		if (!local_failed_stat) {
+			lgrp_stat_add(lgrp->lgrp_id, LGRP_NUM_ALLOC_FAIL, 1);
+			local_failed_stat = 1;
 		}
-		if (pp != NULL) {
-			VM_STAT_ADD(pga_vmstats.pga_allocok);
-			check_dma(dma_attr, pp, 1);
-			return (pp);
-		}
-	} while (mtype != n && (mtype = mnoderanges[mtype].mnr_next) != -1);
+	}
 	VM_STAT_ADD(pga_vmstats.pga_allocfailed);
 
 	return (NULL);

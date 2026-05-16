@@ -80,6 +80,56 @@ typedef struct prom_fdt_cpu_topo {
 
 extern int prom_fdt_get_cpu_topology(prom_fdt_cpu_topo_t *topo, int max_cpus);
 
+/*
+ * NUMA topology extracted from FDT numa-node-id and distance-map.
+ */
+
+/*
+ * Per-CPU NUMA node assignment from the FDT.
+ */
+typedef struct prom_fdt_numa_cpu {
+	uint64_t	pfnc_mpidr;
+	uint32_t	pfnc_node_id;
+} prom_fdt_numa_cpu_t;
+
+/*
+ * Per-memory-range NUMA node assignment from the FDT.
+ */
+typedef struct prom_fdt_numa_mem {
+	uint64_t	pfnm_base;
+	uint64_t	pfnm_size;
+	uint32_t	pfnm_node_id;
+} prom_fdt_numa_mem_t;
+
+/*
+ * Distance matrix entry from the FDT distance-map node.
+ */
+typedef struct prom_fdt_numa_dist {
+	uint32_t	pfnd_from;
+	uint32_t	pfnd_to;
+	uint32_t	pfnd_distance;
+} prom_fdt_numa_dist_t;
+
+/*
+ * Aggregate NUMA topology extracted from the FDT.
+ *
+ * Pointers refer to static storage inside promif; valid until next call.
+ */
+typedef struct prom_fdt_numa_topo {
+	prom_fdt_numa_cpu_t	*pfnt_cpus;
+	uint_t			pfnt_ncpus;
+	prom_fdt_numa_mem_t	*pfnt_mem;
+	uint_t			pfnt_nmem;
+	prom_fdt_numa_dist_t	*pfnt_dist;
+	uint_t			pfnt_ndist;
+	uint32_t		*pfnt_node_ids;
+	uint_t			pfnt_nnode_ids;
+	boolean_t		pfnt_has_numa;
+	boolean_t		pfnt_has_distance_map;
+} prom_fdt_numa_topo_t;
+
+extern void prom_fdt_get_numa_topo(prom_fdt_numa_topo_t *topo);
+
 #ifdef	__cplusplus
 }
 #endif
