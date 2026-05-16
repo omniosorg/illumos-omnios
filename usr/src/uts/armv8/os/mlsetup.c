@@ -217,8 +217,6 @@ mlsetup(struct regs *rp, struct xboot_info *xbp)
 
 	cpu_vm_data_init(CPU);
 
-	pg_cpu_bootstrap(CPU);
-
 	/* Get value of boot_ncpus. */
 	boot_ncpus = NCPU;
 	max_ncpus = boot_max_ncpus = boot_ncpus;
@@ -228,6 +226,14 @@ mlsetup(struct regs *rp, struct xboot_info *xbp)
 	 * values for boot_ncpus, boot_max_ncpus and max_ncpus.
 	 */
 	cpuinfo_bootstrap(CPU, xbp);
+
+	/*
+	 * Initialise the PG platform layer before pg_cpu_bootstrap runs.
+	 */
+	extern void pg_plat_set_fw(uint64_t);
+	pg_plat_set_fw(0);
+
+	pg_cpu_bootstrap(CPU);
 
 	/*
 	 * lgroup framework initialization. This must be done prior

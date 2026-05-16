@@ -24,11 +24,13 @@
  * All rights reserved.
  */
 /*
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef	_SYS_PROM_PLAT_H
 #define	_SYS_PROM_PLAT_H
+
+#include <sys/types.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -50,6 +52,33 @@ extern pnode_t prom_fdt_find_compatible(pnode_t node, const char *compatible);
 extern void prom_fdt_walk(void(*func)(pnode_t, void*), void *arg);
 extern int prom_fdt_get_reg_address(pnode_t node, int index, uint64_t *reg);
 extern int prom_fdt_get_reg_size(pnode_t node, int index, uint64_t *regsize);
+
+/*
+ * Per-CPU topology extracted from the FDT by prom_fdt_get_cpu_topology.
+ *
+ * pft_mpidr       MPIDR affinity value from the cpu node's reg property.
+ * pft_llc_id      Last-level cache group identity, derived by following the
+ *                 next-level-cache phandle chain to its terminal node.  Two
+ *                 CPUs with the same pft_llc_id share an LLC.  Set to -1 if
+ *                 the cpu node has no next-level-cache property.
+ * pft_chip_id     Socket/package identity from the cpu-map node.  Set to 0
+ *                 (single socket) if cpu-map is absent or has no socket
+ *                 nodes.
+ * pft_cluster_id  Cluster identity from the cpu-map node.  Set to 0 (single
+ *                 cluster) if cpu-map is absent or has no cluster nodes.
+ * pft_core_id     Core identity from the cpu-map node.  Set to the CPU's
+ *                 ordinal index if cpu-map is absent or lacks a core/thread
+ *                 hierarchy (one core per CPU, no SMT).
+ */
+typedef struct prom_fdt_cpu_topo {
+	uint64_t	pft_mpidr;
+	id_t		pft_llc_id;
+	id_t		pft_chip_id;
+	id_t		pft_cluster_id;
+	id_t		pft_core_id;
+} prom_fdt_cpu_topo_t;
+
+extern int prom_fdt_get_cpu_topology(prom_fdt_cpu_topo_t *topo, int max_cpus);
 
 #ifdef	__cplusplus
 }

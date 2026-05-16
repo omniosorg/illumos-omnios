@@ -33,6 +33,9 @@
 #include <sys/systm.h>
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
+#include <sys/param.h>
+#include <sys/prom_plat.h>
+#include <sys/cmn_err.h>
 #include <libfdt.h>
 
 static const struct fdt_header *fdtp = NULL;
@@ -765,4 +768,396 @@ promif_setup(void)
 {
 	if (prom_propname_warn == -1)
 		prom_propname_warn = 1;
+}
+
+/*
+ * Classification of cpu-map node types per DTSpec cpu-topology binding.
+ *
+ * Node names must be "socketN", "clusterN", "coreN", or "threadN".
+ */
+typedef enum cpumap_level {
+	CML_SOCKET,
+	CML_CLUSTER,
+	CML_CORE,
+	CML_THREAD,
+	CML_UNKNOWN
+} cpumap_level_t;
+
+static cpumap_level_t
+cpumap_classify(const char *name)
+{
+	if (name == NULL) {
+		return (CML_UNKNOWN);
+	} else if (strncmp(name, "socket", 6) == 0) {
+		return (CML_SOCKET);
+	} else if (strncmp(name, "cluster", 7) == 0) {
+		return (CML_CLUSTER);
+	} else if (strncmp(name, "core", 4) == 0) {
+		return (CML_CORE);
+	} else if (strncmp(name, "thread", 6) == 0) {
+		return (CML_THREAD);
+	}
+
+	return (CML_UNKNOWN);
+}
+
+/*
+ * Check that all children of a cpu-map container node share a single
+ * classification.  Returns the common type, or CML_UNKNOWN if the node
+ * has no children, any child has an unrecognised name, or children have
+ * mixed types.
+ */
+static cpumap_level_t
+cpumap_children_type(int parent_off)
+{
+	cpumap_level_t common = CML_UNKNOWN;
+	int child;
+
+	fdt_for_each_subnode(child, fdtp, parent_off) {
+		const char *name = fdt_get_name(fdtp, child, NULL);
+		cpumap_level_t t = cpumap_classify(name);
+
+		if (t == CML_UNKNOWN) {
+			return (CML_UNKNOWN);
+		}
+
+		if (common == CML_UNKNOWN) {
+			common = t;
+		} else if (t != common) {
+			return (CML_UNKNOWN);
+		}
+	}
+
+	return (common);
+}
+
+/*
+ * Walk the /cpus node of the FDT and extract per-CPU topology information.
+ *
+ * For each cpu node (device_type = "cpu"):
+ * - Read the MPIDR affinity value from the reg property.
+ * - Follow the next-level-cache phandle chain to its terminal node.
+ *   The terminal node's phandle becomes the LLC group identity. CPUs
+ *   sharing the same terminal cache phandle share an LLC.
+ * - If /cpus/cpu-map exists, walk its full hierarchy per the DTSpec
+ *   cpu-topology binding:
+ *     cpu-map -> socketN -> clusterN [-> clusterN] -> coreN [-> threadN]
+ *   Socket is optional: clusters may appear directly under cpu-map.
+ *   Clusters may nest.  Cores are leaves (no SMT) or contain threads.
+ *   Node names are validated against "socketN", "clusterN", "coreN",
+ *   "threadN" conventions.
+ *
+ * When cpu-map is absent or structurally invalid, the flat fallback is
+ * applied: all CPUs in socket 0, cluster 0, one core per CPU, no SMT.
+ *
+ * Returns the number of CPUs found (written to topo[0..n-1]), or -1
+ * on error.  max_cpus limits the output array size.
+ */
+int
+prom_fdt_get_cpu_topology(prom_fdt_cpu_topo_t *topo, int max_cpus)
+{
+	int cpus_off;
+	int cpu_off;
+	int count = 0;
+	int ac;
+
+	if (fdtp == NULL) {
+		return (-1);
+	}
+
+	cpus_off = fdt_path_offset(fdtp, "/cpus");
+	if (cpus_off < 0) {
+		return (-1);
+	}
+
+	ac = fdt_address_cells(fdtp, cpus_off);
+	if (ac != 1 && ac != 2) {
+		return (-1);
+	}
+
+	/*
+	 * We need to match cpu-map leaf "cpu" phandles back to the
+	 * enumerated cpu nodes.  Store phandles alongside the topo
+	 * entries.  Static because this runs exactly once at boot and
+	 * NCPU may be large enough to stress early boot stacks.
+	 */
+	static uint32_t cpu_phandles[NCPU];
+
+	fdt_for_each_subnode(cpu_off, fdtp, cpus_off) {
+		const char *devtype;
+		const void *prop;
+		int plen;
+
+		devtype = fdt_getprop(fdtp, cpu_off, "device_type", &plen);
+		if (devtype == NULL || strcmp(devtype, "cpu") != 0) {
+			continue;
+		}
+
+		if (count >= max_cpus) {
+			break;
+		}
+
+		/* MPIDR from reg property */
+		prop = fdt_getprop(fdtp, cpu_off, "reg", &plen);
+		if (prop == NULL) {
+			continue;
+		}
+
+		uint64_t mpidr = 0;
+		if (ac == 1 && plen >= (int)sizeof (uint32_t)) {
+			uint32_t v;
+			memcpy(&v, prop, sizeof (v));
+			mpidr = fdt32_to_cpu(v);
+		} else if (ac == 2 && plen >= (int)(sizeof (uint32_t) * 2)) {
+			uint32_t parts[2];
+			memcpy(parts, prop, sizeof (parts));
+			mpidr = ((uint64_t)fdt32_to_cpu(parts[0]) << 32) |
+			    fdt32_to_cpu(parts[1]);
+		} else {
+			continue;
+		}
+
+		topo[count].pft_mpidr = mpidr;
+
+		/*
+		 * Follow next-level-cache phandle chain to the terminal
+		 * cache node (the one without its own next-level-cache).
+		 */
+		id_t llc_id = -1;
+		int cur_off = cpu_off;
+		int depth = 0;
+#define	MAX_CACHE_DEPTH	8
+		for (;;) {
+			if (++depth > MAX_CACHE_DEPTH) {
+				cmn_err(CE_WARN, "prom_fdt: invalid "
+				    "next-level-cache chain");
+				return (-1);
+			}
+
+			prop = fdt_getprop(fdtp, cur_off,
+			    "next-level-cache", &plen);
+			if (prop == NULL || plen != (int)sizeof (uint32_t)) {
+				break;
+			}
+
+			uint32_t ph;
+			memcpy(&ph, prop, sizeof (ph));
+			ph = fdt32_to_cpu(ph);
+			llc_id = (id_t)ph;
+			int cache_off =
+			    fdt_node_offset_by_phandle(fdtp, ph);
+			if (cache_off < 0) {
+				break;
+			}
+
+			cur_off = cache_off;
+		}
+		topo[count].pft_llc_id = llc_id;
+
+		/* Default: single socket, single cluster, unique core */
+		topo[count].pft_chip_id = 0;
+		topo[count].pft_cluster_id = 0;
+		topo[count].pft_core_id = (id_t)count;
+
+		/* Record cpu node phandle for cpu-map matching */
+		prop = fdt_getprop(fdtp, cpu_off, "phandle", &plen);
+		if (prop != NULL && plen == (int)sizeof (uint32_t)) {
+			uint32_t ph;
+			memcpy(&ph, prop, sizeof (ph));
+			cpu_phandles[count] = fdt32_to_cpu(ph);
+		} else {
+			cpu_phandles[count] = 0;
+		}
+
+		count++;
+	}
+
+	/*
+	 * Parse cpu-map if present.
+	 *
+	 * The DTSpec cpu-topology binding defines a strict hierarchy:
+	 *   cpu-map -> socketN -> clusterN [-> clusterN] -> coreN [-> threadN]
+	 *
+	 * Socket is optional (clusters may appear directly under cpu-map).
+	 * Clusters may nest (inner clusters group cores within outer ones).
+	 * Cores are leaves when there is no SMT, or contain thread nodes.
+	 * Node names are mandated: "socketN", "clusterN", "coreN", "threadN".
+	 *
+	 * We walk depth-first with an explicit stack, classifying each node
+	 * by name prefix and validating children at each container level.
+	 * Any structural violation causes a bail to the flat fallback
+	 * (chip=0, cluster=0, core=cpu ordinal).
+	 */
+	int cpumap_off = fdt_subnode_offset(fdtp, cpus_off, "cpu-map");
+	if (cpumap_off < 0) {
+		goto done;
+	}
+
+	cpumap_level_t top_type = cpumap_children_type(cpumap_off);
+	if (top_type != CML_SOCKET && top_type != CML_CLUSTER) {
+		cmn_err(CE_WARN, "prom_fdt: invalid cpu-map structure, "
+		    "ignoring");
+		goto done;
+	}
+
+	id_t next_chip = 0, next_cluster = 0, next_core = 0;
+	id_t cur_chip = 0, cur_cluster = 0, cur_core = 0;
+
+#define	CPUMAP_MAX_DEPTH	8
+	int wstack[CPUMAP_MAX_DEPTH];
+	int wsp = 0;
+	int wnode;
+
+	wnode = fdt_first_subnode(fdtp, cpumap_off);
+	if (wnode < 0) {
+		goto done;
+	}
+
+	for (;;) {
+		const char *nname;
+		cpumap_level_t level;
+		boolean_t is_leaf = B_FALSE;
+
+		nname = fdt_get_name(fdtp, wnode, NULL);
+		level = cpumap_classify(nname);
+
+		if (level == CML_UNKNOWN) {
+			cmn_err(CE_WARN, "prom_fdt: unrecognised cpu-map "
+			    "node '%s', ignoring cpu-map",
+			    nname != NULL ? nname : "<null>");
+			goto cpumap_bail;
+		}
+
+		/* Update hierarchy context */
+		switch (level) {
+		case CML_SOCKET:
+			cur_chip = next_chip++;
+			break;
+		case CML_CLUSTER:
+			cur_cluster = next_cluster++;
+			break;
+		case CML_CORE:
+			cur_core = next_core++;
+			break;
+		default:
+			break;
+		}
+
+		/* Validate structure and handle leaves */
+		switch (level) {
+		case CML_SOCKET: {
+			cpumap_level_t ct = cpumap_children_type(wnode);
+			if (ct != CML_CLUSTER) {
+				cmn_err(CE_WARN, "prom_fdt: socket children "
+				    "must be clusters, ignoring cpu-map");
+				goto cpumap_bail;
+			}
+			break;
+		}
+		case CML_CLUSTER: {
+			cpumap_level_t ct = cpumap_children_type(wnode);
+			if (ct != CML_CLUSTER && ct != CML_CORE) {
+				cmn_err(CE_WARN, "prom_fdt: cluster children "
+				    "must be clusters or cores, ignoring "
+				    "cpu-map");
+				goto cpumap_bail;
+			}
+			break;
+		}
+		case CML_CORE: {
+			int fc = fdt_first_subnode(fdtp, wnode);
+			if (fc >= 0) {
+				cpumap_level_t ct =
+				    cpumap_children_type(wnode);
+				if (ct != CML_THREAD) {
+					cmn_err(CE_WARN, "prom_fdt: core "
+					    "children must be threads, "
+					    "ignoring cpu-map");
+					goto cpumap_bail;
+				}
+			} else {
+				is_leaf = B_TRUE;
+			}
+			break;
+		}
+		case CML_THREAD:
+			if (fdt_first_subnode(fdtp, wnode) >= 0) {
+				cmn_err(CE_WARN, "prom_fdt: thread node "
+				    "must be a leaf, ignoring cpu-map");
+				goto cpumap_bail;
+			}
+			is_leaf = B_TRUE;
+			break;
+		default:
+			goto cpumap_bail;
+		}
+
+		/* Match cpu phandle at leaf nodes */
+		if (is_leaf) {
+			const void *cpuprop;
+			int cpulen;
+
+			cpuprop = fdt_getprop(fdtp, wnode, "cpu", &cpulen);
+			if (cpuprop == NULL ||
+			    cpulen != (int)sizeof (uint32_t)) {
+				cmn_err(CE_WARN, "prom_fdt: cpu-map leaf "
+				    "'%s' missing cpu phandle, ignoring "
+				    "cpu-map",
+				    nname != NULL ? nname : "<null>");
+				goto cpumap_bail;
+			}
+
+			uint32_t cpu_ph;
+			memcpy(&cpu_ph, cpuprop, sizeof (cpu_ph));
+			cpu_ph = fdt32_to_cpu(cpu_ph);
+
+			for (int i = 0; i < count; i++) {
+				if (cpu_phandles[i] == cpu_ph) {
+					topo[i].pft_chip_id = cur_chip;
+					topo[i].pft_cluster_id = cur_cluster;
+					topo[i].pft_core_id = cur_core;
+					break;
+				}
+			}
+		}
+
+		/* Descend to first child for container nodes */
+		if (!is_leaf) {
+			int child = fdt_first_subnode(fdtp, wnode);
+			if (child >= 0 && wsp < CPUMAP_MAX_DEPTH) {
+				wstack[wsp++] = wnode;
+				wnode = child;
+				continue;
+			}
+
+			if (wsp >= CPUMAP_MAX_DEPTH) {
+				cmn_err(CE_WARN,
+				    "prom_fdt: cpu-map hierarchy too deep");
+				goto cpumap_bail;
+			}
+		}
+
+		/* Move to next sibling or pop up */
+		for (;;) {
+			int sib = fdt_next_subnode(fdtp, wnode);
+			if (sib >= 0) {
+				wnode = sib;
+				break;
+			}
+			if (wsp == 0) {
+				goto done;
+			}
+			wnode = wstack[--wsp];
+		}
+	}
+
+cpumap_bail:
+	for (int i = 0; i < count; i++) {
+		topo[i].pft_chip_id = 0;
+		topo[i].pft_cluster_id = 0;
+		topo[i].pft_core_id = (id_t)i;
+	}
+
+done:
+	return (count);
 }
