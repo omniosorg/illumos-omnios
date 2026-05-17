@@ -912,6 +912,13 @@ ns16550detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 		DEBUGNOTE2(NS16550_DEBUG_INIT, "ns16550%d: %s shutdown.",
 		    instance, ns16550_hw_name(ns16550));
 
+		/*
+		 * Disable interrupts before destroying any state they
+		 * depend on.  Hard interrupt first, then soft interrupt.
+		 */
+		ddi_remove_intr(devi, 0, ns16550->ns16550_iblock);
+		ddi_remove_softintr(ns16550->ns16550_softintr_id);
+
 		/* cancel DTR hold timeout */
 		if (nsasync->nsasync_dtrtid != 0) {
 			(void) untimeout(nsasync->nsasync_dtrtid);
@@ -921,13 +928,11 @@ ns16550detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 		/* remove all minor device node(s) for this device */
 		ddi_remove_minor_node(devi, NULL);
 
+		cv_destroy(&nsasync->nsasync_flags_cv);
 		mutex_destroy(&ns16550->ns16550_excl);
 		mutex_destroy(&ns16550->ns16550_excl_hi);
-		cv_destroy(&nsasync->nsasync_flags_cv);
-		ddi_remove_intr(devi, 0, ns16550->ns16550_iblock);
-		ddi_regs_map_free(&ns16550->ns16550_iohandle);
-		ddi_remove_softintr(ns16550->ns16550_softintr_id);
 		mutex_destroy(&ns16550->ns16550_soft_lock);
+		ddi_regs_map_free(&ns16550->ns16550_iohandle);
 		ns16550_soft_state_free(ns16550);
 		DEBUGNOTE1(NS16550_DEBUG_INIT, "ns16550%d: shutdown complete",
 		    instance);
