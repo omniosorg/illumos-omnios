@@ -511,7 +511,7 @@ av_rem_softintr(void *intr_id, int lvl, avfunc xxintr, boolean_t rem_softinfo)
 		return (0);
 	}
 	vecp = &softvect[lvl];
-	remove_av(intr_id, vecp, xxintr, lvl, 0);
+	remove_av(intr_id, vecp, xxintr, lvl, NO_VECT);
 
 	if (rem_softinfo) {
 		kmem_free(infop, sizeof (av_softinfo_t));
