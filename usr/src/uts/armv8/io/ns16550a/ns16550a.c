@@ -925,6 +925,18 @@ ns16550detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 			nsasync->nsasync_dtrtid = 0;
 		}
 
+		/* cancel untimed break hold timeout */
+		if (nsasync->nsasync_utbrktid != 0) {
+			(void) untimeout(nsasync->nsasync_utbrktid);
+			nsasync->nsasync_utbrktid = 0;
+		}
+
+		/* cancel close drain progress timer */
+		if (nsasync->nsasync_timer != 0) {
+			(void) untimeout(nsasync->nsasync_timer);
+			nsasync->nsasync_timer = 0;
+		}
+
 		/* remove all minor device node(s) for this device */
 		ddi_remove_minor_node(devi, NULL);
 
