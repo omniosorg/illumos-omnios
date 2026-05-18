@@ -663,13 +663,13 @@ membar_exit(void)
 extern __GNU_INLINE void
 membar_producer(void)
 {
-	__sync_synchronize();
+	__asm__ __volatile__("dmb ishst" ::: "memory");
 }
 
 extern __GNU_INLINE void
 membar_consumer(void)
 {
-	__sync_synchronize();
+	__asm__ __volatile__("dmb ishld" ::: "memory");
 }
 
 extern __GNU_INLINE void
