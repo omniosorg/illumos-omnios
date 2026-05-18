@@ -109,6 +109,10 @@ atomic_add_ushort(volatile ushort_t *target, short value)
 { (void)__sync_add_and_fetch(target, value); }
 
 void
+atomic_add_short(volatile short *target, short value)
+{ (void)__sync_add_and_fetch(target, value); }
+
+void
 atomic_add_32(volatile uint32_t *target, int32_t value)
 { (void)__sync_add_and_fetch(target, value); }
 
@@ -394,47 +398,43 @@ atomic_cas_ptr(volatile void *target, void *cmp, void *newval)
 
 uint8_t
 atomic_swap_8(volatile uint8_t *target, uint8_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 uchar_t
 atomic_swap_char(volatile uchar_t *target, uchar_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 uchar_t
 atomic_swap_uchar(volatile uchar_t *target, uchar_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 uint16_t
 atomic_swap_16(volatile uint16_t *target, uint16_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
-
-void
-atomic_add_short(volatile short *target, short value)
-{ (void)__sync_add_and_fetch(target, value); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 ushort_t
 atomic_swap_ushort(volatile ushort_t *target, ushort_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 uint32_t
 atomic_swap_32(volatile uint32_t *target, uint32_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 uint_t
 atomic_swap_uint(volatile uint_t *target, uint_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 uint64_t
 atomic_swap_64(volatile uint64_t *target, uint64_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 void *
 atomic_swap_ptr(volatile void *target, void *newval)
-{ return __sync_lock_test_and_set((void **)target, newval); }
+{ return __atomic_exchange_n((void **)target, newval, __ATOMIC_SEQ_CST); }
 
 ulong_t
 atomic_swap_ulong(volatile ulong_t *target, ulong_t newval)
-{ return __sync_lock_test_and_set(target, newval); }
+{ return __atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST); }
 
 int
 atomic_set_long_excl(volatile ulong_t *target, uint_t value)
