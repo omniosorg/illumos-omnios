@@ -601,7 +601,8 @@ thread_onproc(kthread_id_t t, cpu_t *cp)
 	mov	w2, #TS_ONPROC
 	str	w2, [x0, #T_STATE]
 	add	x3, x1, #CPU_THREAD_LOCK
-	str	x3, [x0, #T_LOCKP]
+	add	x4, x0, #T_LOCKP
+	stlr	x3, [x4]
 	ret
 	SET_SIZE(thread_onproc)
 
