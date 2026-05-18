@@ -460,11 +460,11 @@ membar_exit(void)
 
 void
 membar_producer(void)
-{ __sync_synchronize(); }
+{ __asm__ __volatile__("dmb ishst" ::: "memory"); }
 
 void
 membar_consumer(void)
-{ __sync_synchronize(); }
+{ __asm__ __volatile__("dmb ishld" ::: "memory"); }
 
 void
 membar_sync(void)
