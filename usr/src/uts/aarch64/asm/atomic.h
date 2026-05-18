@@ -582,55 +582,55 @@ atomic_cas_ptr(volatile void *target, void *cmp, void *newval)
 extern __GNU_INLINE uint8_t
 atomic_swap_8(volatile uint8_t *target, uint8_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE uchar_t
 atomic_swap_char(volatile uchar_t *target, uchar_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE uint16_t
 atomic_swap_16(volatile uint16_t *target, uint16_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE ushort_t
 atomic_swap_ushort(volatile ushort_t *target, ushort_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE uint32_t
 atomic_swap_32(volatile uint32_t *target, uint32_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE uint_t
 atomic_swap_uint(volatile uint_t *target, uint_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE uint64_t
 atomic_swap_64(volatile uint64_t *target, uint64_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE void *
 atomic_swap_ptr(volatile void *target, void *newval)
 {
-	return (__sync_lock_test_and_set((void **)target, newval));
+	return (__atomic_exchange_n((void **)target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE ulong_t
 atomic_swap_ulong(volatile ulong_t *target, ulong_t newval)
 {
-	return (__sync_lock_test_and_set(target, newval));
+	return (__atomic_exchange_n(target, newval, __ATOMIC_SEQ_CST));
 }
 
 extern __GNU_INLINE int
