@@ -408,6 +408,8 @@ sendvec_small_chunk(file_t *fp, u_offset_t *fileoff, struct sendfilevec *sfv,
 	model_t model = get_udatamodel();
 	u_offset_t maxoff = (model == DATAMODEL_ILP32) ?
 	    MAXOFF32_T : MAXOFFSET_T;
+#elif defined(_LP64) && !defined(_MULTI_DATAMODEL)
+	const u_offset_t maxoff = MAXOFFSET_T;
 #else
 	const u_offset_t maxoff = MAXOFF32_T;
 #endif
@@ -698,6 +700,8 @@ sendvec_chunk(file_t *fp, u_offset_t *fileoff, struct sendfilevec *sfv,
 	model_t model = get_udatamodel();
 	u_offset_t maxoff = (model == DATAMODEL_ILP32) ?
 	    MAXOFF32_T : MAXOFFSET_T;
+#elif defined(_LP64) && !defined(_MULTI_DATAMODEL)
+	const u_offset_t maxoff = MAXOFFSET_T;
 #else
 	const u_offset_t maxoff = MAXOFF32_T;
 #endif

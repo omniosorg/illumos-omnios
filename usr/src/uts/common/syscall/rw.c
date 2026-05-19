@@ -349,6 +349,8 @@ pread(int fdes, void *cbuf, size_t count, off_t offset)
 #ifdef _SYSCALL32_IMPL
 	u_offset_t maxoff = get_udatamodel() == DATAMODEL_ILP32 ?
 	    MAXOFF32_T : MAXOFFSET_T;
+#elif defined(_LP64) && !defined(_MULTI_DATAMODEL)
+	const u_offset_t maxoff = MAXOFFSET_T;
 #else
 	const u_offset_t maxoff = MAXOFF32_T;
 #endif
@@ -489,6 +491,8 @@ pwrite(int fdes, void *cbuf, size_t count, off_t offset)
 #ifdef _SYSCALL32_IMPL
 	u_offset_t maxoff = get_udatamodel() == DATAMODEL_ILP32 ?
 	    MAXOFF32_T : MAXOFFSET_T;
+#elif defined(_LP64) && !defined(_MULTI_DATAMODEL)
+	const u_offset_t maxoff = MAXOFFSET_T;
 #else
 	const u_offset_t maxoff = MAXOFF32_T;
 #endif
