@@ -5690,10 +5690,16 @@ ddi_create_minor_common(dev_info_t *dip, const char *name, int spec_type,
 		kmem_free(dmdp, sizeof (struct ddi_minor_data));
 		return (DDI_FAILURE);
 	}
+	if (node_type != NULL &&
+	    (dmdp->ddm_node_type = i_ddi_strdup(node_type,
+	    KM_NOSLEEP)) == NULL) {
+		kmem_free(dmdp->ddm_name, strlen(dmdp->ddm_name) + 1);
+		kmem_free(dmdp, sizeof (struct ddi_minor_data));
+		return (DDI_FAILURE);
+	}
 	dmdp->dip = dip;
 	dmdp->ddm_dev = makedevice(major, minor_num);
 	dmdp->ddm_spec_type = spec_type;
-	dmdp->ddm_node_type = node_type;
 	dmdp->type = mtype;
 	if (flag & CLONE_DEV) {
 		dmdp->type = DDM_ALIAS;
@@ -5783,6 +5789,10 @@ ddi_remove_minor_node(dev_info_t *dip, const char *name)
 					    dmdp->ddm_name);
 				kmem_free(dmdp->ddm_name,
 				    strlen(dmdp->ddm_name) + 1);
+			}
+			if (dmdp->ddm_node_type != NULL) {
+				kmem_free(dmdp->ddm_node_type,
+				    strlen(dmdp->ddm_node_type) + 1);
 			}
 			/*
 			 * Release device privilege, if any.

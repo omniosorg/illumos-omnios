@@ -732,7 +732,7 @@ struct ddi_minor {
 	dev_t		dev;		/* device number */
 	int		spec_type;	/* block or char */
 	int		flags;		/* access flags */
-	const char	*node_type;	/* block, byte, serial, network */
+	char		*node_type;	/* block, byte, serial, network */
 	struct devplcy	*node_priv;	/* privilege for this minor */
 	mode_t		priv_mode;	/* default apparent privilege mode */
 };
