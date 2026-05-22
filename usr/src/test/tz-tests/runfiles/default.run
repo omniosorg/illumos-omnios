@@ -1,0 +1,31 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2026 Oxide Computer Company
+#
+
+#
+# Time zone tests. These are the tests that can be used to validate basic
+# functionality or are otherwise regression tests.
+#
+
+[DEFAULT]
+pre =
+verbose = False
+quiet = False
+timeout = 60
+outputdir = /var/tmp/test_results
+
+[/opt/tz-tests/tests/basic_tzs]
+[/opt/tz-tests/tests/strftime_18091.32]
+[/opt/tz-tests/tests/strftime_18091.64]
+[/opt/tz-tests/tests/tzname_17947]
