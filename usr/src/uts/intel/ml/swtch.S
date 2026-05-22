@@ -518,3 +518,41 @@ resume_from_intr_return:
 	call	thread_exit	/* destroy thread if it returns. */
 	/*NOTREACHED*/
 	SET_SIZE(thread_start)
+
+	ENTRY(thread_splitstack_run)
+	pushq	%rbp			/* push base pointer */
+	movq	%rsp, %rbp		/* construct frame */
+	movq	%rdi, %rsp		/* set stack pinter */
+	movq	%rdx, %rdi		/* load arg */
+	INDIRECT_CALL_REG(rsi)		/* call specified function */
+	leave				/* pop base pointer */
+	ret
+	SET_SIZE(thread_splitstack_run)
+
+	/*
+	 * Once we're back on our own stack, we need to be sure to set the
+	 * value of rsp0 in the TSS back to our original stack:  if we gave
+	 * up the CPU at all while on our split stack, the rsp0 will point
+	 * to that stack from resume (above); if were to try to return to
+	 * userland in that state, we will die absolutely horribly (namely,
+	 * trying to iretq back to registers in a bunch of freed segkp).  We
+	 * are expecting this to be called after T_STACK has been restored,
+	 * but before we return.  It's okay if we are preempted in this code:
+	 * when the new CPU picks us up, they will automatically set rsp0
+	 * correctly, which is all we're trying to do here.
+	 */
+	ENTRY(thread_splitstack_cleanup)
+	LOADCPU(%r8)
+	movq	CPU_TSS(%r8), %r9
+	cmpq	$1, kpti_enable
+	jne	1f
+	leaq	CPU_KPTI_TR_RSP(%r8), %rax
+	jmp	2f
+1:
+	movq	CPU_THREAD(%r8), %r10
+	movq	T_STACK(%r10), %rax
+	addq	$REGSIZE+MINFRAME, %rax
+2:
+	movq	%rax, TSS_RSP0(%r9)
+	ret
+	SET_SIZE(thread_splitstack_cleanup)
