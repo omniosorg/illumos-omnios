@@ -47,6 +47,9 @@ extern "C" {
 #define	SHA256_HMAC_BLOCK_SIZE	64	/* SHA256-HMAC block size */
 #define	SHA512_HMAC_BLOCK_SIZE	128	/* SHA512-HMAC block size */
 
+#define	SHA256_BLOCK_SIZE	64	/* SHA256 block size */
+#define	SHA512_BLOCK_SIZE	128	/* SHA512 block size */
+
 #define	SHA256			0
 #define	SHA256_HMAC		1
 #define	SHA256_HMAC_GEN		2

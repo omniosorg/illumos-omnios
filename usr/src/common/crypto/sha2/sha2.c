@@ -198,7 +198,7 @@ SHA256Transform(SHA2_CTX *ctx, const uint8_t *blk)
 #endif	/* __sparc */
 
 	if ((uintptr_t)blk & 0x3) {		/* not 4-byte aligned? */
-		bcopy(blk, ctx->buf_un.buf32,  sizeof (ctx->buf_un.buf32));
+		bcopy(blk, ctx->buf_un.buf32, SHA256_BLOCK_SIZE);
 		blk = (uint8_t *)ctx->buf_un.buf32;
 	}
 
@@ -414,7 +414,7 @@ SHA512Transform(SHA2_CTX *ctx, const uint8_t *blk)
 
 
 	if ((uintptr_t)blk & 0x7) {		/* not 8-byte aligned? */
-		bcopy(blk, ctx->buf_un.buf64,  sizeof (ctx->buf_un.buf64));
+		bcopy(blk, ctx->buf_un.buf64, SHA512_BLOCK_SIZE);
 		blk = (uint8_t *)ctx->buf_un.buf64;
 	}
 
@@ -810,7 +810,7 @@ SHA2Update(SHA2_CTX *ctx, const void *inptr, size_t input_len)
 		uint32_t il = input_len & UINT32_MAX;
 
 		il = il << 3;
-		buf_limit = 64;
+		buf_limit = SHA256_BLOCK_SIZE;
 
 		/* compute number of bytes mod 64 */
 		buf_index = (ctx->count.c32[1] >> 3) & 0x3F;
@@ -825,7 +825,7 @@ SHA2Update(SHA2_CTX *ctx, const void *inptr, size_t input_len)
 		uint64_t il = input_len;
 
 		il = il << 3;
-		buf_limit = 128;
+		buf_limit = SHA512_BLOCK_SIZE;
 
 		/* compute number of bytes mod 128 */
 		buf_index = (ctx->count.c64[1] >> 3) & 0x7F;
