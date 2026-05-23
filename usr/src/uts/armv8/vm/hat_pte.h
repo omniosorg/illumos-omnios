@@ -63,8 +63,26 @@ typedef int8_t level_t;
 
 #define	PTE_ISVALID(pte)	((pte) & PTE_VALID)
 #define	PTE_EQUIV(a, b)		(((a) | PTE_AF) == ((b) | PTE_AF))
-#define	PTE_ISPAGE(p, l)	(PTE_ISVALID(p) && (((l) == PAGE_LEVEL) || \
-	(((p) & PTE_TYPE_MASK) == PTE_BLOCK)))
+
+extern __GNU_INLINE boolean_t
+PTE_ISTABLE(uint64_t pte, uint_t level)
+{
+	if (!PTE_ISVALID(pte)) {
+		return (B_FALSE);
+	}
+
+	return ((((pte) & PTE_TYPE_MASK) == PTE_TABLE) && (level != 0));
+}
+
+extern __GNU_INLINE boolean_t
+PTE_ISPAGE(uint64_t pte, uint_t level)
+{
+	if (!PTE_ISVALID(pte)) {
+		return (B_FALSE);
+	}
+
+	return (!PTE_ISTABLE(pte, level));
+}
 
 #define	MAKEPTE(pfn, l)		(((pfn) << MMU_PAGESHIFT) | PTE_SH_INNER | \
 	(l == PAGE_LEVEL? PTE_PAGE: PTE_BLOCK))

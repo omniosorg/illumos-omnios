@@ -1688,7 +1688,7 @@ pte_set(htable_t *ht, uint_t entry, pte_t new, void *ptr)
 		 * Detect if we have a collision of installing a large
 		 * page mapping where there already is a lower page table.
 		 */
-		if (l > 0 && (prev & PTE_TYPE_MASK) == PTE_TABLE) {
+		if (PTE_ISTABLE(prev, l)) {
 			old = LPAGE_ERROR;
 			goto done;
 		}

@@ -140,21 +140,24 @@ hat_kern_alloc(
 	pte_t *l3_ptbl = (pte_t *)pa_to_kseg(TTBR_BADDR48(read_ttbr1()));
 
 	for (int i = 0; i < NPTEPERPT; i++) {
-		if ((l3_ptbl[i] & PTE_TYPE_MASK) != PTE_TABLE)
+		if (!PTE_ISTABLE(l3_ptbl[i], 3)) {
 			continue;
+		}
 		++table_cnt;
 
 		pte_t *l2_ptbl = (pte_t *)pa_to_kseg(l3_ptbl[i] & PTE_PFN_MASK);
 		for (int j = 0; j < NPTEPERPT; j++) {
-			if ((l2_ptbl[j] & PTE_TYPE_MASK) != PTE_TABLE)
+			if (!PTE_ISTABLE(l2_ptbl[j], 2)) {
 				continue;
+			}
 			++table_cnt;
 
 			pte_t *l1_ptbl = (pte_t *)pa_to_kseg(l2_ptbl[j] &
 			    PTE_PFN_MASK);
 			for (int k = 0; k < NPTEPERPT; k++) {
-				if ((l1_ptbl[k] & PTE_TYPE_MASK) != PTE_TABLE)
+				if (!PTE_ISTABLE(l1_ptbl[k], 1)) {
 					continue;
+				}
 				++table_cnt;
 
 			}
@@ -373,7 +376,7 @@ boot_reserve(void)
 			ptbl[l] += SEGKPM_SIZE / page_size;
 			continue;
 		}
-		if ((*ptbl[l] & PTE_VALID) == 0) {
+		if (!PTE_ISVALID(*ptbl[l])) {
 			va += page_size;
 			++ptbl[l];
 			if (((uintptr_t)ptbl[l] & MMU_PAGEOFFSET) == 0) {
@@ -382,7 +385,7 @@ boot_reserve(void)
 			continue;
 		}
 
-		if (l > 0 && (*ptbl[l] & PTE_TYPE_MASK) == PTE_TABLE) {
+		if (PTE_ISTABLE(*ptbl[l], l)) {
 			ASSERT(ptbl[l - 1] == NULL);
 			ptbl[l - 1] = (pte_t *)pa_to_kseg(*ptbl[l] &
 			    PTE_PFN_MASK);

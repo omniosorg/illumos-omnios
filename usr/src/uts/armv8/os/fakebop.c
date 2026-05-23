@@ -206,33 +206,33 @@ map_phys(bootops_t *bop, pte_t pte_attr, uintptr_t vaddr, uint64_t paddr)
 	pte_t *l3_ptbl = (pte_t *)(IS_KERNEL_MAPPING(vaddr) ?
 	    read_ttbr1() : read_ttbr0());
 
-	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) == 0) {
+	if (!PTE_ISVALID(l3_ptbl[l3_idx])) {
 		paddr_t pa = pt_alloc(bop);
 		dsb(ish);
 		l3_ptbl[l3_idx] =
 		    PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER | pa | PTE_TABLE;
 	}
 
-	if ((l3_ptbl[l3_idx] & PTE_VALID) == 0) {
-		bop_panic("invalid L3 PT\n");
+	if (!PTE_ISTABLE(l3_ptbl[l3_idx], 3)) {
+		bop_panic("invalid L2 PT\n");
 	}
 
 	pte_t *l2_ptbl = (pte_t *)(uintptr_t)(l3_ptbl[l3_idx] & PTE_PFN_MASK);
 
-	if ((l2_ptbl[l2_idx] & PTE_TYPE_MASK) == 0) {
+	if (!PTE_ISVALID(l2_ptbl[l2_idx])) {
 		paddr_t pa = pt_alloc(bop);
 		dsb(ish);
 		l2_ptbl[l2_idx] =
 		    PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER | pa | PTE_TABLE;
 	}
 
-	if ((l2_ptbl[l2_idx] & PTE_TYPE_MASK) != PTE_TABLE) {
+	if (!PTE_ISTABLE(l2_ptbl[l2_idx], 2)) {
 		bop_panic("invalid L2 PT\n");
 	}
 
 	pte_t *l1_ptbl = (pte_t *)(uintptr_t)(l2_ptbl[l2_idx] & PTE_PFN_MASK);
 
-	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) == 0) {
+	if (!PTE_ISVALID(l1_ptbl[l1_idx])) {
 		paddr_t pa = pt_alloc(bop);
 		bzero((void *)(uintptr_t)pa, MMU_PAGESIZE);
 		dsb(ish);
@@ -240,13 +240,13 @@ map_phys(bootops_t *bop, pte_t pte_attr, uintptr_t vaddr, uint64_t paddr)
 		    PTE_TABLE_UXNT | PTE_TABLE_APT_NOUSER | pa | PTE_TABLE;
 	}
 
-	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) != PTE_TABLE) {
+	if (!PTE_ISTABLE(l1_ptbl[l1_idx], 1)) {
 		bop_panic("invalid L1 PT\n");
 	}
 
 	pte_t *l0_ptbl = (pte_t *)(uintptr_t)(l1_ptbl[l1_idx] & PTE_PFN_MASK);
-	if (l0_ptbl[l0_idx] & PTE_VALID) {
-		bop_panic("invalid L0 PT\n");
+	if (PTE_ISVALID(l0_ptbl[l0_idx])) {
+		bop_panic("L0 page table entry in use\n");
 	}
 	l0_ptbl[l0_idx] = paddr | pte_attr | PTE_PAGE;
 	dsb(ish);

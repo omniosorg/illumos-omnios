@@ -283,11 +283,14 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, size_t bytes)
 
 	pte_t *l3_ptbl = IS_KERNEL_MAPPING(vaddr) ? l3_ptbl1 : l3_ptbl0;
 
-	if ((l3_ptbl[l3_idx] & PTE_TYPE_MASK) == 0)
+	if (!PTE_ISVALID((l3_ptbl[l3_idx]))) {
 		l3_ptbl[l3_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
 		    PTE_TABLE|alloc_pagetable_page("L3");
-	if ((l3_ptbl[l3_idx] & PTE_VALID) == 0)
+	}
+
+	if (!PTE_ISTABLE(l3_ptbl[l3_idx], 3)) {
 		panic("invalid L3 PT\n");
+	}
 
 	pte_t *l2_ptbl = (pte_t *)(uintptr_t)(l3_ptbl[l3_idx] & PTE_PFN_MASK);
 
@@ -296,18 +299,21 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, size_t bytes)
 			panic("invalid vaddr alignment (1G)\n");
 		if (paddr & (MMU_PAGESIZE1G - 1))
 			panic("invalid paddr alignment (1G)\n");
-		if (l2_ptbl[l2_idx] & PTE_VALID)
-			panic("invalid L2 PT\n");
+		if (PTE_ISVALID(l2_ptbl[l2_idx]))
+			panic("L2 PT already used\n");
 		l2_ptbl[l2_idx] = paddr|pte_attr|PTE_BLOCK;
 		dsb(ish);
 		return;
 	}
 
-	if ((l2_ptbl[l2_idx] & PTE_TYPE_MASK) == 0)
+	if (!PTE_ISVALID(l2_ptbl[l2_idx])) {
 		l2_ptbl[l2_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
 		    PTE_TABLE|alloc_pagetable_page("L2");
-	if ((l2_ptbl[l2_idx] & PTE_TYPE_MASK) != PTE_TABLE)
+	}
+
+	if (!PTE_ISTABLE(l2_ptbl[l2_idx], 2)) {
 		panic("invalid L2 PT\n");
+	}
 
 	pte_t *l1_ptbl = (pte_t *)(uintptr_t)(l2_ptbl[l2_idx] & PTE_PFN_MASK);
 
@@ -316,18 +322,21 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, size_t bytes)
 			panic("invalid vaddr alignment (2M)\n");
 		if (paddr & (MMU_PAGESIZE2M - 1))
 			panic("invalid paddr alignment (2M)\n");
-		if (l1_ptbl[l1_idx] & PTE_VALID)
-			panic("invalid L1 PT\n");
+		if (PTE_ISVALID(l1_ptbl[l1_idx]))
+			panic("L1 PT already used\n");
 		l1_ptbl[l1_idx] = paddr|pte_attr|PTE_BLOCK;
 		dsb(ish);
 		return;
 	}
 
-	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) == 0)
+	if (!PTE_ISVALID(l1_ptbl[l1_idx])) {
 		l1_ptbl[l1_idx] = PTE_TABLE_APT_NOUSER|PTE_TABLE_UXNT|
 		    PTE_TABLE|alloc_pagetable_page("L1");
-	if ((l1_ptbl[l1_idx] & PTE_TYPE_MASK) != PTE_TABLE)
+	}
+
+	if (!PTE_ISTABLE(l1_ptbl[l1_idx], 1)) {
 		panic("invalid L1 PT\n");
+	}
 
 	pte_t *l0_ptbl = (pte_t *)(uintptr_t)(l1_ptbl[l1_idx] & PTE_PFN_MASK);
 	if (bytes == MMU_PAGESIZE) {
@@ -335,8 +344,8 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, size_t bytes)
 			panic("invalid vaddr alignment (4K)\n");
 		if (paddr & (MMU_PAGESIZE - 1))
 			panic("invalid paddr alignment (4K)\n");
-		if (l0_ptbl[l0_idx] & PTE_VALID)
-			panic("invalid L0 PT\n");
+		if (PTE_ISVALID(l0_ptbl[l0_idx]))
+			panic("L0 PT already in use\n");
 		l0_ptbl[l0_idx] = paddr|pte_attr|PTE_PAGE;
 		dsb(ish);
 		return;
@@ -481,20 +490,19 @@ dump_tables(uint64_t tab, uint64_t va_offset)
 	for (index = 0; index < ptes_per_table; ++index) {
 		pgsize = 1ull << shift_amt[l];
 		pteval = ((pte_t *)table)[index];
-		if (!(pteval & PTE_VALID))
+		if (!PTE_ISVALID(pteval))
 			goto next_entry;
 
 		dboot_printf("%s [L%u] 0x%p[%u] = 0x%" PRIx64 ", va=0x%" PRIx64,
 		    tabs + l, l, (void *)table, index, (uint64_t)pteval, va);
 		pa = pteval & PTE_PFN_MASK;
-		if (l == 0 ||
-		    (l != 0 && (pteval & PTE_TYPE_MASK) == PTE_BLOCK)) {
+		if (PTE_ISPAGE(pteval, l)) {
 			dboot_printf(" physaddr=0x%" PRIx64 "\n", pa);
 		} else {
 			dboot_printf(" => 0x%" PRIx64 "\n", pa);
 		}
 
-		if (l > 0 && (pteval & PTE_TYPE_MASK) == PTE_TABLE) {
+		if (PTE_ISTABLE(pteval, l)) {
 			save_table[l] = table;
 			save_index[l] = index;
 			--l;
@@ -508,7 +516,7 @@ dump_tables(uint64_t tab, uint64_t va_offset)
 		 */
 		for (i = 1; index + i < ptes_per_table; ++i) {
 			pteval = ((pte_t *)table)[index + i];
-			if (!(pteval & PTE_TYPE_MASK))
+			if (!PTE_ISVALID(pteval))
 				break;
 			pa1 = (pteval & PTE_PFN_MASK);
 			if (pa1 != pa + (i * pgsize))
