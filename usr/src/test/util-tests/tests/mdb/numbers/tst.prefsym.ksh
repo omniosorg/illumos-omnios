@@ -30,13 +30,20 @@ tst_sym2="_007"
 tst_out=
 tst_err=0
 
-$MDB -e "$tst_sym0=K" $tst_prog | grep -q "$tst_sym0"
+# Buffer stdin to stdout through a 4kB buffer, this is because mdb fails if
+# writes to stdout fail, which they will if a later command in the pipeline
+# such as `grep -q` exits early (when it short circuits successfully)
+buffer() {
+	dd bs=4096 conv=block 2>/dev/null
+}
+
+$MDB -e "$tst_sym0=K" $tst_prog | buffer | grep -q "$tst_sym0"
 if (( $? == 0 )); then
 	printf >&2 "%s=K somehow returned itself, did it become a number?\n" \
 	    "$tst_sym0"
 fi
 
-$MDB -e "$tst_sym0/K | ::eval ./s" $tst_prog | grep -q 'Am I a string?'
+$MDB -e "$tst_sym0/K | ::eval ./s" $tst_prog | buffer | grep -q 'Am I a string?'
 if (( $? != 0 )); then
 	printf >&2 "Failed to find expected output for %s\n" "$tst_sym0"
 	tst_err=1
@@ -46,27 +53,27 @@ fi
 # We grep against tst_sym0 as if mdb does interpret this as a number,
 # then it'll show it without the '_' characters.
 #
-$MDB -e "$tst_sym1=K" $tst_prog | grep -q "$tst_sym0"
+$MDB -e "$tst_sym1=K" $tst_prog | buffer | grep -q "$tst_sym0"
 if (( $? == 0 )); then
 	printf >&2 "%s=K somehow returned itself, did it become a number?\n" \
 	    "$tst_sym0"
 	tst_err=1
 fi
 
-$MDB -e "$tst_sym1/K | ::eval ./s" $tst_prog | grep -q 'I am not a string'
+$MDB -e "$tst_sym1/K | ::eval ./s" $tst_prog | buffer | grep -q 'I am not a string'
 if (( $? != 0 )); then
 	printf >&2 "Failed to find expected output for %s\n" "$tst_sym1"
 	tst_err=1
 fi
 
-$MDB -e "$tst_sym2=K" $tst_prog | grep -q "$tst_sym2"
+$MDB -e "$tst_sym2=K" $tst_prog | buffer | grep -q "$tst_sym2"
 if (( $? == 0 )); then
 	printf >&2 "%s=K somehow returned itself, did it become a number?\n" \
 	    "$tst_sym2"
 	tst_err=1
 fi
 
-$MDB -e "$tst_sym2::dis" $tst_prog | egrep -qi '^_007:'
+$MDB -e "$tst_sym2::dis" $tst_prog | buffer | egrep -qi '^_007:'
 if (( $? != 0 )); then
 	printf >&2 "Failed to find expected output for %s::dis\n" "$tst_sym2"
 	tst_err=1
