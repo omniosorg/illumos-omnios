@@ -971,7 +971,7 @@ do_htables_dcmd(hat_t *hatp)
 	for (h = 0; h < hat.hat_num_hash; ++h) {
 		if (mdb_vread(&ht, sizeof (htable_t *),
 		    (uintptr_t)(hat.hat_ht_hash + h)) == -1) {
-			mdb_warn("Couldn't read htable ptr\\n");
+			mdb_warn("Couldn't read htable ptr\n");
 			return (DCMD_ERR);
 		}
 		for (; ht != NULL; ht = htable.ht_next) {

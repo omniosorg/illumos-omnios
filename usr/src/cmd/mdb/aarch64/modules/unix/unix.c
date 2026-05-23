@@ -22,6 +22,8 @@
 #include <sys/modctl.h>
 #include <sys/sunddi.h>
 
+#include "htable.h"
+#include "memseg.h"
 #include "mmu.h"
 
 static int
@@ -209,12 +211,21 @@ static const mdb_dcmd_t dcmds[] = {
 	    arm_features_dcmd },
 	{ "interrupts", "", "print interrupts", gic_interrupts_dcmd },
 	{ "memseg_list", ":", "show memseg list", memseg_list },
+	{ "ptable", ":[-rRvl N]", "decode page table given a physaddr",
+	    ptable_dcmd },
+	{ "pte", ":[-l N]", "decode page table entries", pte_dcmd },
+	{ "vatopa", ":[-a as]", "translate a virtual to a physical address",
+	    vatopa },
+	{ "patova", ":[-a as]", "translate a physical into its virtual "
+	    "addresses", patova },
 	{ NULL },
 };
 
 static const mdb_walker_t walkers[] = {
 	{ "memseg", "walk the memseg structures",
 	    memseg_walk_init, memseg_walk_step, memseg_walk_fini },
+	{ "htables", "walk a hat's htables",
+	    htables_walk_init, htables_walk_step, htables_walk_fini },
 	{ NULL }
 };
 

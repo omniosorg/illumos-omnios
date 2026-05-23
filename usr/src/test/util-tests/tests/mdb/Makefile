@@ -33,6 +33,8 @@ MAKEDIRS = \
 	sou \
 	typedef
 
+$(AARCH64_BLD)MAKEDIRS += aarch64
+
 FILES = \
 	exit-e/err.cmdbadopt.ksh \
 	exit-e/err.enocmd.ksh \
@@ -123,7 +125,9 @@ FILES = \
 	typedef/tst.structvla.mdb \
 	typedef/tst.structvla.mdb.out \
 	typedef/tst.union.mdb \
-	typedef/tst.union.mdb.out \
+	typedef/tst.union.mdb.out
+
+$(AARCH64_BLD)FILES += aarch64/tst.address-translation.ksh
 
 ROOTFILES = $(FILES:%=$(TESTDIR)/%)
 ROOTMAKEDIRS = $(MAKEDIRS:%=$(TESTDIR)/%)

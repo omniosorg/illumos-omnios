@@ -13,25 +13,19 @@
  * Copyright 2026 Richard Lowe
  */
 
-#ifndef _MMU_H
-#define	_MMU_H
+#ifndef _HTABLE_H
+#define	_HTABLE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <vm/hat_pte.h>
-
-extern struct hat_mmu_info mmu;
-
-extern void init_mmu(void);
-extern int pte_dcmd(uintptr_t, uint_t, int, const mdb_arg_t *);
-extern int ptable_dcmd(uintptr_t, uint_t, int, const mdb_arg_t *);
-extern int vatopa(uintptr_t, uint_t, int, const mdb_arg_t *);
-extern int patova(uintptr_t, uint_t, int, const mdb_arg_t *);
+extern int htables_walk_init(mdb_walk_state_t *);
+extern int htables_walk_step(mdb_walk_state_t *);
+extern void htables_walk_fini(mdb_walk_state_t *);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _MMU_H */
+#endif /* _HTABLE_H */

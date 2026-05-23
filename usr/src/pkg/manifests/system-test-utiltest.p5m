@@ -1741,6 +1741,9 @@ file path=opt/util-tests/tests/libsff/libsff_wave mode=0555
 file path=opt/util-tests/tests/libsff/libsff_wave.out mode=0444
 file path=opt/util-tests/tests/make_test mode=0555
 dir  path=opt/util-tests/tests/mdb
+$(aarch64_ONLY)dir path=opt/util-tests/tests/mdb/aarch64
+$(aarch64_ONLY)file \
+    path=opt/util-tests/tests/mdb/aarch64/tst.address-translation.ksh mode=0444
 dir  path=opt/util-tests/tests/mdb/exit-e
 file path=opt/util-tests/tests/mdb/exit-e/err.cmdbadopt.ksh mode=0444
 file path=opt/util-tests/tests/mdb/exit-e/err.enocmd.ksh mode=0444
