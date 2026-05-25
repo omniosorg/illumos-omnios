@@ -307,6 +307,7 @@ file path=lib/svc/bin/lsvcrun group=sys mode=0555
 file path=lib/svc/bin/mfstscan group=sys mode=0555
 file path=lib/svc/bin/restore_repository group=sys mode=0555
 file path=lib/svc/bin/rootisramdisk group=sys mode=0555
+file path=lib/svc/bin/settle group=sys mode=0555
 file path=lib/svc/bin/sqlite group=sys mode=0555
 file path=lib/svc/bin/svc.configd group=sys mode=0555
 file path=lib/svc/bin/svc.ipfd group=sys mode=0555

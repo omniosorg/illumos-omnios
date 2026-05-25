@@ -30,6 +30,7 @@ SUBDIR_CMD=		\
 	mfstscan	\
 	rootisramdisk	\
 	servinfo	\
+	settle		\
 	svcadm		\
 	svccfg		\
 	svcprop		\

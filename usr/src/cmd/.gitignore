@@ -1981,6 +1981,7 @@ svc/seed/lib/
 svc/seed/miniroot.db
 svc/seed/nonglobal.db
 svc/servinfo/servinfo
+svc/settle/settle
 svc/startd/svc.startd
 svc/svcadm/svcadm
 svc/svccfg/svccfg
