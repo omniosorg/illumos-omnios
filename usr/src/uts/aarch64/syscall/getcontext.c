@@ -106,7 +106,12 @@ savecontext(ucontext_t *ucp, const k_sigset_t *mask)
 	}
 
 	getgregs(lwp, ucp->uc_mcontext.gregs);
-	getfpregs(lwp, &ucp->uc_mcontext.fpregs);
+
+	if (lwp->lwp_pcb.pcb_fpu.fpu_flags & FPU_EN) {
+		getfpregs(lwp, &ucp->uc_mcontext.fpregs);
+	} else {
+		ucp->uc_flags &= ~UC_FPU;
+	}
 
 	sigktou(mask, &ucp->uc_sigmask);
 }

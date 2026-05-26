@@ -303,18 +303,14 @@ t0:
 .Lnot_cortex_a5x_1:
 
 	/*
-	 * NOTE: we don't set cpacr_el1 here, which is something we do in
-	 * dboot for the boot processor. Might need to revisit this as we
-	 * get deeper into the bootstrap process, but for now we're booting
-	 * into a kernel that has the correct traps in place already, so it
-	 * is unlikely we'll need this.
+	 * Have the core trap when attempting to execute FPU
+	 * instructions - mirrors what dboot has done for the
+	 * boot processor.
 	 */
-#if 0
 	mrs	x0, cpacr_el1
 	bic	x0, x0, #CPACR_FPEN_MASK
-	//orr	x0, x0, #CPACR_FPEN_DIS
 	msr	cpacr_el1, x0
-#endif
+	isb
 
 	/*
 	 * Invalidate all caches and the TLB (again).

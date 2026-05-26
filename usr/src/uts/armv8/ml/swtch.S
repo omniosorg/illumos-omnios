@@ -87,6 +87,8 @@
 	bl	savectx
 .nosavectx:
 
+	bl	kernel_fpu_no_swtch
+
 	// Call savepctx if process has installed context ops.
 	ldr	x0, [x21, #T_PROCP]
 	ldr	x1, [x0, #P_PCTX]
@@ -227,8 +229,8 @@
 	isb
 	mrs	x0, cpacr_el1
 	bic	x0, x0, #CPACR_FPEN_MASK
-	//orr	x0, x0, #CPACR_FPEN_DIS
 	msr	cpacr_el1, x0
+	isb
 
 	// Temporarily switch to the idle thread's stack
 	ldr	x0, [x20, #CPU_IDLE_THREAD]

@@ -361,7 +361,15 @@ _user_rtt:
 	orr	x0, x0, MDSCR_SS
 	msr	mdscr_el1, x0
 
-1:	ldrb	w9, [x21, #T_ASTFLAG]
+1:
+	// Check for deferred register updates (e.g., FPU reload)
+	ldr	x0, [x21, #T_LWP]
+	cbz	x0, 2f
+	ldrb	w9, [x0, #LWP_PCB_RUPDATE]
+	cbz	w9, 2f
+	bl	pcb_return_check
+2:
+	ldrb	w9, [x21, #T_ASTFLAG]
 	cbnz	w9, 3f
 
 	__RESTORE_REGS_EL0

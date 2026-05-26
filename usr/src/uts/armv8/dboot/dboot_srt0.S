@@ -308,7 +308,6 @@
 
 	mrs	x0, cpacr_el1
 	bic	x0, x0, #CPACR_FPEN_MASK
-	//orr	x0, x0, #CPACR_FPEN_DIS
 	msr	cpacr_el1, x0
 
 	/*

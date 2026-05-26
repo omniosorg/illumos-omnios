@@ -162,6 +162,7 @@ define	LWP_SYS			LWP_SYS
 define	LWP_RU_SYSC		offsetof(struct _klwp, lwp_ru.sysc)
 define	LWP_STATE		offsetof(struct _klwp, lwp_state)
 define	LWP_PCB_TPIDR		offsetof(struct _klwp, lwp_pcb.pcb_tpidr)
+define	LWP_PCB_RUPDATE		offsetof(struct _klwp, lwp_pcb.pcb_rupdate)
 
 define	SYSENT_SIZE		sizeof(struct sysent)
 define	SY_CALLC		offsetof(struct sysent, sy_callc)

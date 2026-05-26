@@ -900,11 +900,15 @@ out:
 			break;
 		case T_SIMDFP_ACCESS:
 			/*
-			 * XXXARM: I'm not sure why this is conditional for a
-			 * trap in kernel mode.
+			 * An FPU-disabled trap from the kernel is always a
+			 * bug: kernel code must use kernel_fpu_begin/end to
+			 * access the FPU, which enables it explicitly.
+			 *
+			 * Allowing fp_fenflt here would silently restore
+			 * user FPU state into a kernel context, corrupting
+			 * the user's registers.
 			 */
-			if (fp_fenflt())
-				die(ec, esr, addr, rp);
+			die(ec, esr, addr, rp);
 			break;
 		case T_INSTRUCTION_ABORT_EL:
 		case T_NV2_DATA_ABORT:

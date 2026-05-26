@@ -42,7 +42,18 @@ typedef struct pcb {
 	uint_t		pcb_flags;	/* state flags; cleared on fork */
 	uint_t		pcb_instr;	/* /proc: instruction at stop */
 	uint64_t	pcb_tpidr;
+	uint8_t		pcb_rupdate;	/* deferred register updates */
 } pcb_t;
+
+/*
+ * pcb_rupdate flags -- deferred register reload on return to userland.
+ * Matches the intel PCB_UPDATE_FPU interface.
+ */
+#define	PCB_UPDATE_FPU		0x02
+#define	PCB_SET_UPDATE_FPU(pcb)		((pcb)->pcb_rupdate |= PCB_UPDATE_FPU)
+#define	PCB_NEED_UPDATE_FPU(pcb) \
+	(((pcb)->pcb_rupdate & PCB_UPDATE_FPU) != 0)
+#define	PCB_CLEAR_UPDATE_FPU(pcb)	((pcb)->pcb_rupdate &= ~PCB_UPDATE_FPU)
 
 #endif /* ! _ASM */
 

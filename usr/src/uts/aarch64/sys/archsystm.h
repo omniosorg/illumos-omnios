@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright 2024 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #ifndef _SYS_ARCHSYSTM_H
@@ -54,6 +54,13 @@ extern void setgregs(klwp_t *, gregset_t);
 extern void getgregs(klwp_t *, gregset_t);
 extern void setfpregs(klwp_t *, fpregset_t *);
 extern void getfpregs(klwp_t *, fpregset_t *);
+
+struct fpu_ctx;
+
+extern void fp_free(struct fpu_ctx *);
+extern void fp_save(struct fpu_ctx *);
+extern void fp_restore(struct fpu_ctx *);
+extern void fp_lwp_init(klwp_t *);
 
 extern int getpil(void);
 extern void tenmicrosec(void);

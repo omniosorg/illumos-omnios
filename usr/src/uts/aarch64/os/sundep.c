@@ -378,7 +378,7 @@ setregs(uarg_t *args)
 	lwp->lwp_eosys = JUSTRETURN;
 	t->t_post_sys = 1;
 
-	fp_init();
+	fp_exec();
 }
 
 

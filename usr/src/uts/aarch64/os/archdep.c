@@ -365,16 +365,43 @@ void
 setfpregs(klwp_t *lwp, fpregset_t *fp)
 {
 	struct fpu_ctx *fpu = &lwp->lwp_pcb.pcb_fpu;
-	pcb_t *pcb = &lwp->lwp_pcb;
 
 	kpreempt_disable();
-	fpu->fpu_regs.kfpu_cr = fp->fp_cr;
-	fpu->fpu_regs.kfpu_sr = fp->fp_sr;
+
+	/*
+	 * If FPU is enabled and state is live in hardware, save first
+	 * so we don't lose any non-legacy state.
+	 */
+	if ((fpu->fpu_flags & (FPU_EN | FPU_VALID)) == FPU_EN) {
+		if (curthread == lwptot(lwp)) {
+			ASSERT(!(curthread->t_flag & T_KFPU));
+			fp_save(fpu);
+		}
+	}
+
+	/*
+	 * Sanitise user-supplied FPCR and FPSR: mask off reserved and
+	 * feature-gated bits to prevent unexpected trapping behaviour
+	 * or enabling of unsupported features.
+	 */
+	fpu->fpu_regs.kfpu_cr = fp->fp_cr & FPCR_USER_MASK;
+	fpu->fpu_regs.kfpu_sr = fp->fp_sr & FPSR_USER_MASK;
 	bcopy(fp->d_fpregs, fpu->fpu_regs.kfpu_regs,
 	    sizeof (fpu->fpu_regs.kfpu_regs));
-	if (ttolwp(curthread) == lwp) {
-		fp_restore(fpu);
+
+	/*
+	 * If the thread has never used the FPU (e.g., a debugger is
+	 * writing FPU state via /proc), install ctxops so the state
+	 * gets managed across context switches and reloaded on
+	 * return to userland.
+	 */
+	if (!(fpu->fpu_flags & FPU_EN)) {
+		fp_lwp_init(lwp);
 	}
+
+	fpu->fpu_flags |= FPU_VALID;
+	PCB_SET_UPDATE_FPU(&lwp->lwp_pcb);
+
 	kpreempt_enable();
 }
 
@@ -385,12 +412,28 @@ void
 getfpregs(klwp_t *lwp, fpregset_t *fp)
 {
 	struct fpu_ctx *fpu = &lwp->lwp_pcb.pcb_fpu;
-	pcb_t *pcb = &lwp->lwp_pcb;
 
 	kpreempt_disable();
-	if (ttolwp(curthread) == lwp) {
-		fp_save(fpu);
+
+	/*
+	 * If FPU is enabled and state is live in hardware, save first.
+	 */
+	if ((fpu->fpu_flags & (FPU_EN | FPU_VALID)) == FPU_EN) {
+		if (curthread == lwptot(lwp)) {
+			ASSERT(!(curthread->t_flag & T_KFPU));
+			fp_save(fpu);
+		}
 	}
+
+	if ((fpu->fpu_flags & (FPU_EN | FPU_VALID)) == 0) {
+		/* FPU never used -- return zeroes */
+		bzero(fp, sizeof (*fp));
+		kpreempt_enable();
+		return;
+	}
+
+	/* FPU_VALID must not be set without FPU_EN */
+	ASSERT(fpu->fpu_flags & FPU_EN);
 
 	fp->fp_cr = fpu->fpu_regs.kfpu_cr;
 	fp->fp_sr = fpu->fpu_regs.kfpu_sr;

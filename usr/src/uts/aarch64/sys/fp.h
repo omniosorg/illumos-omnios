@@ -136,11 +136,45 @@ extern "C" {
 
 #define	FPCR_INIT	(FPCR_RM_RN << FPCR_RM_SHIFT)
 
+/*
+ * Mask of FPCR bits that userland is permitted to set.  Used to sanitise
+ * user-supplied FPCR values in setfpregs (signal return, /proc, etc.).
+ *
+ * Permitted: AHP, DN, FZ, RM, FZ16, exception trap enables (IDE..IOE).
+ * Excluded: reserved bits, NEP, AFP, FIZ, EBF (require optional features
+ * and could cause unexpected trapping or behavioural changes).
+ */
+#define	FPCR_USER_MASK	(FPCR_AHP | FPCR_DN | FPCR_FZ | FPCR_RM_MASK | \
+			    FPCR_FZ16 | FPCR_IDE | FPCR_IXE | FPCR_UFE | \
+			    FPCR_OFE | FPCR_DZE | FPCR_IOE)
+
+/*
+ * Mask of FPSR bits that userland is permitted to set.
+ *
+ * Permitted: condition flags (N, Z, C, V), cumulative saturation (QC),
+ * and cumulative exception flags (IDC, IXC, UFC, OFC, DZC, IOC).
+ */
+#define	FPSR_USER_MASK	(FPSR_N | FPSR_Z | FPSR_C | FPSR_V | FPSR_QC | \
+			    FPSR_IDC | FPSR_IXC | FPSR_UFC | FPSR_OFC | \
+			    FPSR_DZC | FPSR_IOC)
+
+/*
+ * fpu_flags values.  These mirror the intel/sys/pcb.h definitions so
+ * that the two implementations are conceptually similar.
+ *
+ * FPU_EN	Thread has used the FPU (ctxops installed).
+ * FPU_VALID	fpu_regs contains valid saved state (hardware may differ).
+ * FPU_KERNEL	Kernel is currently using the FPU via kernel_fpu_begin.
+ */
+#define	FPU_EN		0x01
+#define	FPU_VALID	0x02
+#define	FPU_KERNEL	0x08
+
 #ifndef _ASM
 typedef upad128_t fpreg_t;
 
 /*
- * Kernel's FPU save area
+ * Hardware FPU save area -- 32 x 128-bit SIMD/FP registers + FPCR + FPSR.
  */
 typedef struct {
 	fpreg_t			kfpu_regs[32];
@@ -148,13 +182,20 @@ typedef struct {
 	uint32_t		kfpu_sr;
 } kfpu_t;
 
+/*
+ * Per-LWP FPU context.  The fpu_flags field drives all save/restore
+ * decisions -- see the flag definitions above.
+ */
 typedef struct fpu_ctx {
 	kfpu_t		fpu_regs;	/* kernel save area for FPU */
+	uint_t		fpu_flags;	/* FPU state flags */
 } fpu_ctx_t;
 
-extern void fp_save(fpu_ctx_t *ctx);
-extern void fp_restore(fpu_ctx_t *ctx);
-extern void fp_init(void);
+extern void fp_save_hw(kfpu_t *);
+extern void fp_restore_hw(kfpu_t *);
+extern void fp_save(fpu_ctx_t *);
+extern void fp_restore(fpu_ctx_t *);
+extern void fp_exec(void);
 extern int fp_fenflt(void);
 #endif	/* _ASM */
 

@@ -14,9 +14,9 @@ define	MODS_WEAK		MODS_WEAK
 define	MODS_NOUNLOAD		MODS_NOUNLOAD
 define	MODS_INSTALLED		MODS_INSTALLED
 
-define	FPU_CTX_FPU_REGS	offsetof(fpu_ctx_t, fpu_regs.kfpu_regs[0])
-define	FPU_CTX_FPU_CR		offsetof(fpu_ctx_t, fpu_regs.kfpu_cr)
-define	FPU_CTX_FPU_SR		offsetof(fpu_ctx_t, fpu_regs.kfpu_sr)
+define	KFPU_REGS		offsetof(kfpu_t, kfpu_regs[0])
+define	KFPU_CR			offsetof(kfpu_t, kfpu_cr)
+define	KFPU_SR			offsetof(kfpu_t, kfpu_sr)
 
 define	CPACR_FPEN_MASK		CPACR_FPEN_MASK
 define	CPACR_FPEN_EN		CPACR_FPEN_EN

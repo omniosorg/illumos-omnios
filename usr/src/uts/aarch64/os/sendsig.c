@@ -212,6 +212,15 @@ sendsig(int sig, k_siginfo_t *sip, void (*hdlr)())
 	rp = lwptoregs(lwp);
 	upc = rp->r_pc;
 
+	/*
+	 * Signals are delivered on the return-to-user path, so the kernel
+	 * must not be actively using the FPU.  If FPU_KERNEL is set here,
+	 * a kernel_fpu_begin/end pair was not balanced before signal
+	 * delivery, and savecontext would save kernel FPU state as the
+	 * user's state.
+	 */
+	ASSERT(!(lwp->lwp_pcb.pcb_fpu.fpu_flags & FPU_KERNEL));
+
 	ASSERT((sizeof (struct sigframe) % STACK_ENTRY_ALIGN) == 0);
 
 	minstacksz = sizeof (struct sigframe) + SA(sizeof (*uc));
