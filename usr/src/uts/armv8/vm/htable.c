@@ -1348,7 +1348,7 @@ htable_scan(htable_t *ht, uintptr_t *vap, uintptr_t eaddr)
 {
 	uint_t e;
 	pte_t found_pte = (pte_t)0;
-	caddr_t pte_ptr;
+	volatile caddr_t pte_ptr;
 	caddr_t end_pte_ptr;
 	int l = ht->ht_level;
 	uintptr_t va = *vap & LEVEL_MASK(l);
@@ -1680,10 +1680,7 @@ pte_set(htable_t *ht, uint_t entry, pte_t new, void *ptr)
 		 */
 		if (prev == n) {
 			old = new;
-			dsb(ish);
-			tlbi_mva(addr);
-			dsb(ish);
-			isb();
+			hat_tlb_inval(hat, addr);
 			goto done;
 		}
 
@@ -1710,8 +1707,22 @@ pte_set(htable_t *ht, uint_t entry, pte_t new, void *ptr)
 	 * Segmap is the only place where remaps happen on the same pfn and for
 	 * that we want to preserve the stale REF/MOD bits.
 	 */
-	if (old & PTE_AF)
+	if (old & PTE_AF) {
 		hat_tlb_inval(hat, addr);
+	} else if (PTE_ISVALID(n)) {
+		/*
+		 * New mapping installed (old PTE was invalid or this is a
+		 * remap to the same PFN with AF clear).  The hardware page
+		 * table walker may not observe the new PTE without a DSB,
+		 * as eret alone is only a context synchronization event
+		 * and does not order prior stores with respect to the
+		 * walker.  Without this barrier the walker can raise a
+		 * translation fault even though the PTE is present,
+		 * causing an infinite fault loop because the pagefault
+		 * slow-path reinstalls the same PTE without setting AF.
+		 */
+		dsb(ish);
+	}
 
 done:
 	return (old);
@@ -1730,6 +1741,15 @@ pte_cas(htable_t *ht, uint_t entry, pte_t old, pte_t new)
 	pte_t	*ptep;
 	ptep = PT_INDEX_PTR(hat_kpm_pfn2va(ht->ht_pfn), entry);
 	pte = CAS_PTE(ptep, old, new);
+	if (pte == old && PTE_ISVALID(new)) {
+		/*
+		 * Successfully linked a new intermediate page table.
+		 * Ensure the store is visible to the hardware walker
+		 * before any subsequent mapping in the child table
+		 * can be accessed.
+		 */
+		dsb(ish);
+	}
 	return (pte);
 }
 
@@ -1773,6 +1793,14 @@ pte_inval(
 		}
 		found = CAS_PTE(ptep, oldpte, 0);
 	} while (found != oldpte);
+
+	/*
+	 * When tlb is B_TRUE, invalidate the TLB entry and issue
+	 * the necessary barriers (DSB + TLBI + DSB + ISB).  When
+	 * tlb is B_FALSE (batched unload path), the caller is
+	 * responsible for issuing hat_tlb_inval_range() covering
+	 * this address before the unload is considered complete.
+	 */
 	if (tlb && (oldpte & PTE_AF))
 		hat_tlb_inval(ht->ht_hat, htable_e2va(ht, entry));
 
@@ -1800,28 +1828,76 @@ pte_update(
 	ptep = PT_INDEX_PTR(hat_kpm_pfn2va(ht->ht_pfn), entry);
 
 	/*
-	 * ARM ARM D5.10.1: Break-Before-Make is required when changing
-	 * the output address (PFN) of a valid PTE.  A direct valid-to-valid
-	 * CAS with a different PFN allows concurrent speculative walks to
-	 * see a transiently inconsistent mapping.
+	 * ARM requires break-before-make when changing a valid PTE's
+	 * output address: the old entry must be invalidated and the
+	 * TLB flushed before installing the new entry, otherwise the
+	 * TLB may hold conflicting entries for the same VA and the
+	 * result is CONSTRAINED UNPREDICTABLE (wrong translations).
 	 *
-	 * Attribute-only changes (same PFN) are safe as a direct CAS.
+	 * Attribute-only changes (same output address) may be done
+	 * in place per ARM ARM D5.10.1.
 	 */
-	if (PTE_ISVALID(expect) && PTE_ISVALID(new) &&
-	    PTE2PFN(expect, ht->ht_level) != PTE2PFN(new, ht->ht_level)) {
-		/* Break: CAS valid -> 0 */
+	if (PTE_ISVALID(expect) &&
+	     PTE2PFN(expect, ht->ht_level) != PTE2PFN(new, ht->ht_level)) {
+		/* Break: atomically invalidate the old entry */
 		found = CAS_PTE(ptep, expect, 0);
-		if (found != expect)
+		if (found != expect) {
 			return (found);
+		}
+
+		/*
+		 * Flush TLB for the old mapping.  hat_tlb_inval
+		 * issues DSB ISH + TLBI + DSB ISH + ISB, ensuring
+		 * completion before the new entry is installed.
+		 */
 		hat_tlb_inval(ht->ht_hat, htable_e2va(ht, entry));
-		/* Make: store the new PTE */
-		*ptep = new;
+
+		/*
+		 * Make: install the new entry.  No CAS needed as
+		 * we hold the slot (PTE is 0) and hat-level locking
+		 * prevents concurrent mappers to the same entry.
+		 */
+		*(volatile pte_t *)ptep = new;
+		/*
+		 * Ensure the new PTE is visible to the hardware page
+		 * table walker before we return.  No TLBI was issued
+		 * (the slot was zeroed and flushed above), so a DSB
+		 * is needed to order this store for the walker.
+		 */
+		dsb(ish);
 		return (expect);
 	}
 
 	found = CAS_PTE(ptep, expect, new);
 	if (found == expect) {
-		hat_tlb_inval(ht->ht_hat, htable_e2va(ht, entry));
+		/*
+		 * Determine whether the change only adds permissions.
+		 *
+		 * ARM ARM D5.10.2: setting the Access flag does not
+		 * require TLB maintenance.  ARM ARM D5.10.1: relaxation
+		 * of permissions (RO->RW, XN->X) does not create a TLB
+		 * conflict; the stale restrictive entry is safe until
+		 * naturally evicted or the next TLBI.
+		 *
+		 * For such changes a standalone DSB ensures the walker
+		 * sees the updated PTE and avoids a cross-CPU TLBI
+		 * broadcast.  Restrictive changes (clearing AF, adding
+		 * AP_RO/UXN/PXN) or non-permission changes require a
+		 * full TLB invalidate.
+		 */
+		pte_t diff = expect ^ new;
+		pte_t newly_restricted =
+		    ((new & ~expect) & (PTE_AP_RO | PTE_UXN | PTE_PXN)) |
+		    ((~new & expect) & PTE_AF);
+		pte_t non_perm = diff &
+		    ~(PTE_AF | PTE_AP_RO | PTE_UXN | PTE_PXN);
+
+		if (newly_restricted == 0 && non_perm == 0) {
+			dsb(ish);
+		} else {
+			hat_tlb_inval(ht->ht_hat,
+			    htable_e2va(ht, entry));
+		}
 	}
 	return (found);
 }
@@ -1852,6 +1928,15 @@ pte_copy(htable_t *src, htable_t *dest, uint_t entry, uint_t count)
 	 */
 	size = count << PTE_BITS;
 	bcopy(src_va, dst_va, size);
+
+	/*
+	 * Ensure the copied PTEs are visible to the hardware page
+	 * table walker before the destination table is linked into
+	 * the page table tree.  Without this barrier, a concurrent
+	 * walker could follow a table descriptor pointing here and
+	 * read stale (pre-copy) entries.
+	 */
+	dsb(ish);
 }
 
 /*
@@ -1872,6 +1957,15 @@ pte_zero(htable_t *dest, uint_t entry, uint_t count)
 
 	size = count << PTE_BITS;
 	bzero(dst_va, size);
+
+	/*
+	 * Ensure the zeroed PTEs are visible to the hardware page
+	 * table walker before this page is linked as a page table.
+	 * Without this barrier, a walker following a newly-installed
+	 * table descriptor could read stale (non-zero) entries from
+	 * a recycled page.
+	 */
+	dsb(ish);
 }
 
 /*

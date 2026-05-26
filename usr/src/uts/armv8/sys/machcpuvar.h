@@ -42,8 +42,6 @@ extern "C" {
 
 struct	machcpu {
 	struct hat	*mcpu_current_hat;
-	uint32_t	mcpu_asid;
-	uint64_t	mcpu_asid_gen;
 	int		mcpu_pri;
 
 	volatile int	xc_pend;
@@ -73,8 +71,6 @@ struct	machcpu {
 #define	NINTR_THREADS	(LOCK_LEVEL)	/* number of interrupt threads */
 #endif
 
-#define	cpu_asid	cpu_m.mcpu_asid
-#define	cpu_asid_gen	cpu_m.mcpu_asid_gen
 #define	cpu_current_hat cpu_m.mcpu_current_hat
 #define	cpu_implementer	cpu_m.mcpu_implementer
 #define	cpu_partname	cpu_m.mcpu_partname

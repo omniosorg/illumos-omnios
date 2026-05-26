@@ -210,6 +210,14 @@ hat_kern_setup(void)
 	    mmu_btop(TTBR_BADDR48(read_ttbr1())));
 
 	/*
+	 * Ensure all boot loader PTE stores are visible to the
+	 * hardware page table walker.  The boot loader likely
+	 * issued its own barriers, but architecturally there
+	 * is no guarantee.
+	 */
+	dsb(ish);
+
+	/*
 	 * The kernel HAT is now officially open for business.
 	 */
 	khat_running = 1;

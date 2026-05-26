@@ -62,21 +62,22 @@ extern "C" {
  * The hat struct exists for each address space.
  */
 struct hat {
-	kmutex_t	hat_mutex;
-	struct as	*hat_as;
-	uint_t		hat_stats;
-	pgcnt_t		hat_pages_mapped[MMU_PAGE_LEVELS];
-	pgcnt_t		hat_ism_pgcnt;
-	uint16_t	hat_flags;
-	htable_t	*hat_htable;	/* top level htable */
-	struct hat	*hat_next;
-	struct hat	*hat_prev;
-	htable_t	**hat_ht_hash;	/* htable hash buckets */
-	htable_t	*hat_ht_cached;	/* cached free htables */
-	uint64_t	hat_asid_gen[NCPU];
-	uint32_t	hat_asid[NCPU];
+	kmutex_t		hat_mutex;
+	struct as		*hat_as;
+	uint_t			hat_stats;
+	pgcnt_t			hat_pages_mapped[MMU_PAGE_LEVELS];
+	pgcnt_t			hat_ism_pgcnt;
+	uint16_t		hat_flags;
+	htable_t		*hat_htable;	/* top level htable */
+	struct hat		*hat_next;
+	struct hat		*hat_prev;
+	htable_t		**hat_ht_hash;	/* htable hash buckets */
+	htable_t		*hat_ht_cached;	/* cached free htables */
+	volatile int64_t	hat_asid_cookie;
 };
 typedef struct hat hat_t;
+
+#define	ASID_RESERVED_FOR_EFI	1
 
 #define	PGCNT_INC(hat, level)	\
 	atomic_inc_ulong(&(hat)->hat_pages_mapped[level]);

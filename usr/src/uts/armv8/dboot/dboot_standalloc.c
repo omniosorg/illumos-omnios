@@ -221,11 +221,20 @@ init_pt(void)
 	    (MAIR_ATTR_INC_ONC	<< (MAIR_NORMAL_MEMORY_UC * 8)) |
 	    (MAIR_ATTR_nGRE	<< (MAIR_UNORDERED * 8)));
 
+	/*
+	 * Enable 16-bit ASIDs if the hardware supports them.  This
+	 * dramatically reduces the frequency of ASID epoch rollovers
+	 * (65534 usable ASIDs vs 254 with 8-bit).
+	 * ID_AA64MMFR0_EL1.ASIDBits == 0x2 means 16-bit ASIDs.
+	 */
+	uint64_t mmfr0 = read_id_aa64mmfr0();
+
 	uint64_t tcr =
-	    ((uint64_t)MMFR0_PARANGE(read_id_aa64mmfr0()) << TCR_IPS_SHIFT) |
+	    ((uint64_t)MMFR0_PARANGE(mmfr0) << TCR_IPS_SHIFT) |
 	    TCR_TG1_4K | TCR_SH1_ISH | TCR_ORGN1_WBWA | TCR_IRGN1_WBWA |
 	    TCR_T1SZ_256T | TCR_TG0_4K | TCR_SH0_ISH | TCR_ORGN0_WBWA |
-	    TCR_IRGN0_WBWA | TCR_T0SZ_256T;
+	    TCR_IRGN0_WBWA | TCR_T0SZ_256T |
+	    (MMFR0_ASIDBITS(mmfr0) >= 0x2 ? TCR_AS : 0);
 
 	uint64_t sctlr = SCTLR_EL1_RES1 | SCTLR_EL1_UCI | SCTLR_EL1_UCT |
 	    SCTLR_EL1_DZE | SCTLR_EL1_I | SCTLR_EL1_C | SCTLR_EL1_M;
