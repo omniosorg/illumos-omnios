@@ -1798,6 +1798,27 @@ pte_update(
 	ASSERT(ht->ht_level <= mmu.max_page_level);
 
 	ptep = PT_INDEX_PTR(hat_kpm_pfn2va(ht->ht_pfn), entry);
+
+	/*
+	 * ARM ARM D5.10.1: Break-Before-Make is required when changing
+	 * the output address (PFN) of a valid PTE.  A direct valid-to-valid
+	 * CAS with a different PFN allows concurrent speculative walks to
+	 * see a transiently inconsistent mapping.
+	 *
+	 * Attribute-only changes (same PFN) are safe as a direct CAS.
+	 */
+	if (PTE_ISVALID(expect) && PTE_ISVALID(new) &&
+	    PTE2PFN(expect, ht->ht_level) != PTE2PFN(new, ht->ht_level)) {
+		/* Break: CAS valid -> 0 */
+		found = CAS_PTE(ptep, expect, 0);
+		if (found != expect)
+			return (found);
+		hat_tlb_inval(ht->ht_hat, htable_e2va(ht, entry));
+		/* Make: store the new PTE */
+		*ptep = new;
+		return (expect);
+	}
+
 	found = CAS_PTE(ptep, expect, new);
 	if (found == expect) {
 		hat_tlb_inval(ht->ht_hat, htable_e2va(ht, entry));

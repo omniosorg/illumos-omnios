@@ -388,10 +388,6 @@ hat_switch(hat_t *hat)
 			write_tcr(read_tcr() | TCR_EPD0);
 			isb();
 		} else {
-			if (old == kas.a_hat || old == NULL) {
-				write_tcr(read_tcr() & ~TCR_EPD0);
-			}
-
 			processorid_t cpuid = cpu->cpu_id;
 			uint64_t cur_gen = cpu->cpu_asid_gen;
 			int req_tlbi = 0;
@@ -408,15 +404,41 @@ hat_switch(hat_t *hat)
 				hat->hat_asid_gen[cpuid] = cur_gen;
 				hat->hat_asid[cpuid] = cur_asid;
 			}
+
+			/*
+			 * Disable TTBR0 walks before writing TTBR0.
+			 * This prevents speculative walks against the
+			 * stale page table base or, on ASID rollover,
+			 * against stale TLB entries from the recycled
+			 * ASID's previous owner.
+			 *
+			 * On rollover the sequence is:
+			 *   set EPD0 -> write TTBR0 -> TLBI -> clear EPD0
+			 * so walks are suppressed for the entire window
+			 * between ASID reuse and TLB flush completion.
+			 *
+			 * Without rollover we still disable walks for
+			 * the TTBR0 write to avoid speculative walks on
+			 * the old base with the new ASID (or vice versa).
+			 */
+			if (!(read_tcr() & TCR_EPD0)) {
+				write_tcr(read_tcr() | TCR_EPD0);
+				isb();
+			}
+
 			write_ttbr0(((uint64_t)hat->hat_asid[cpuid] <<
 			    TTBR_ASID_SHIFT) |
 			    pfn_to_pa(hat->hat_htable->ht_pfn));
 			isb();
+
 			if (req_tlbi) {
 				tlbi_allis();
 				dsb(ish);
 				isb();
 			}
+
+			write_tcr(read_tcr() & ~TCR_EPD0);
+			isb();
 		}
 		cpu->cpu_current_hat = hat;
 	}
@@ -3153,7 +3175,12 @@ hat_page_fault(hat_t *hat, caddr_t vaddr)
 			}
 
 			PTE_SET(newpte, PTE_AF);
-			pte_update(ht, entry, oldpte, newpte);
+			if (pte_update(ht, entry, oldpte, newpte) !=
+			    oldpte) {
+				hm_exit(pp);
+				htable_release(ht);
+				continue;
+			}
 
 			hm_exit(pp);
 		}
