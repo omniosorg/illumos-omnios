@@ -180,11 +180,11 @@ static uintptr_t shmsys(int, uintptr_t, uintptr_t, uintptr_t);
 
 static struct sysent ipcshm_sysent = {
 	4,
-#ifdef	_SYSCALL32_IMPL
+#ifdef	_LP64
 	SE_ARGC | SE_NOUNLOAD | SE_64RVAL,
-#else	/* _SYSCALL32_IMPL */
+#else	/* _LP64 */
 	SE_ARGC | SE_NOUNLOAD | SE_32RVAL1,
-#endif	/* _SYSCALL32_IMPL */
+#endif	/* _LP64 */
 	(int (*)())(uintptr_t)shmsys
 };
 
