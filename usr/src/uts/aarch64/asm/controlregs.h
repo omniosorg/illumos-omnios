@@ -29,6 +29,10 @@
 
 #include <sys/types.h>
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 /*
  * TLBI operand construction macros.
  *
@@ -39,12 +43,8 @@
  * See ARM DDI 0487 (ARM ARM), TLBI SYS instruction encoding.
  */
 #define	TLBI_VA(addr)			(((addr) >> 12) & ((1ul << 44) - 1))
-#define TLBI_ASID(asid)			((uint64_t)(asid) << 48)
+#define	TLBI_ASID(asid)			((uint64_t)(asid) << 48)
 #define	TLBI_VA_ASID(addr, asid)	(TLBI_VA(addr) | TLBI_ASID(asid))
-
-#ifdef	__cplusplus
-extern "C" {
-#endif
 
 /*
  * Insert ISBs after writes to system registers and before reads
