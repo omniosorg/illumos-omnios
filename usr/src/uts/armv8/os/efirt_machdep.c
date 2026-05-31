@@ -857,3 +857,59 @@ efi_reset_system(EFI_RESET_TYPE type, uint64_t status,
 	 */
 	efirt_clear_supported(EFI_RT_SUPPORTED_RESET_SYSTEM);
 }
+
+/*
+ * Get the current time and date from the platform RTC
+ * (UEFI Specification 2.10, Section 8.3).
+ *
+ * caps may be NULL if the caller does not need clock capabilities.
+ */
+uint64_t
+efi_get_time(EFI_TIME *time, EFI_TIME_CAPABILITIES *caps)
+{
+	uint64_t status;
+
+	if (!efirt_is_active()) {
+		return (EFI_UNSUPPORTED);
+	}
+
+	if (!efirt_is_supported(EFI_RT_SUPPORTED_GET_TIME)) {
+		return (EFI_UNSUPPORTED);
+	}
+
+	status = efirt_call_rt(efirt_get_time,
+	    (uint64_t)time, (uint64_t)caps, 0, 0, 0);
+
+	if (status == EFI_UNSUPPORTED) {
+		efirt_clear_supported(EFI_RT_SUPPORTED_GET_TIME);
+	}
+
+	return (status);
+}
+
+/*
+ * Set the current time and date on the platform RTC
+ * (UEFI Specification 2.10, Section 8.3).
+ */
+uint64_t
+efi_set_time(EFI_TIME *time)
+{
+	uint64_t status;
+
+	if (!efirt_is_active()) {
+		return (EFI_UNSUPPORTED);
+	}
+
+	if (!efirt_is_supported(EFI_RT_SUPPORTED_SET_TIME)) {
+		return (EFI_UNSUPPORTED);
+	}
+
+	status = efirt_call_rt(efirt_set_time,
+	    (uint64_t)time, 0, 0, 0, 0);
+
+	if (status == EFI_UNSUPPORTED) {
+		efirt_clear_supported(EFI_RT_SUPPORTED_SET_TIME);
+	}
+
+	return (status);
+}
