@@ -220,6 +220,49 @@ typedef struct _EFI_SYSTEM_TABLE64 {
 } __packed EFI_SYSTEM_TABLE64;
 
 /*
+ * EFI Runtime Services Tables.
+ *
+ * The 32/64-bit variants use opaque pointers (efiptr32_t/efiptr64_t) for
+ * safe access to firmware tables from contexts where native pointer size
+ * may not match.
+ */
+typedef struct _EFI_RUNTIME_SERVICES32 {
+	EFI_TABLE_HEADER	Hdr;
+	efiptr32_t		GetTime;
+	efiptr32_t		SetTime;
+	efiptr32_t		GetWakeupTime;
+	efiptr32_t		SetWakeupTime;
+	efiptr32_t		SetVirtualAddressMap;
+	efiptr32_t		ConvertPointer;
+	efiptr32_t		GetVariable;
+	efiptr32_t		GetNextVariableName;
+	efiptr32_t		SetVariable;
+	efiptr32_t		GetNextHighMonotonicCount;
+	efiptr32_t		ResetSystem;
+	efiptr32_t		UpdateCapsule;
+	efiptr32_t		QueryCapsuleCapabilities;
+	efiptr32_t		QueryVariableInfo;
+} __packed EFI_RUNTIME_SERVICES32;
+
+typedef struct _EFI_RUNTIME_SERVICES64 {
+	EFI_TABLE_HEADER	Hdr;
+	efiptr64_t		GetTime;
+	efiptr64_t		SetTime;
+	efiptr64_t		GetWakeupTime;
+	efiptr64_t		SetWakeupTime;
+	efiptr64_t		SetVirtualAddressMap;
+	efiptr64_t		ConvertPointer;
+	efiptr64_t		GetVariable;
+	efiptr64_t		GetNextVariableName;
+	efiptr64_t		SetVariable;
+	efiptr64_t		GetNextHighMonotonicCount;
+	efiptr64_t		ResetSystem;
+	efiptr64_t		UpdateCapsule;
+	efiptr64_t		QueryCapsuleCapabilities;
+	efiptr64_t		QueryVariableInfo;
+} __packed EFI_RUNTIME_SERVICES64;
+
+/*
  * EFI memory map header, as passed by loader via dboot.  This header
  * structure is a FreeBSD/illumos loader(7) convention, not defined in
  * the UEFI specification; it describes the data returned by
