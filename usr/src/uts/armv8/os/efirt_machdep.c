@@ -69,6 +69,7 @@
 #include <sys/kfpu.h>
 #include <sys/bootconf.h>
 #include <sys/efi.h>
+#include <sys/efirt.h>
 #include <sys/ontrap.h>
 #include <sys/machsystm.h>
 #include <sys/machparam.h>
@@ -812,4 +813,47 @@ boolean_t
 efirt_is_active(void)
 {
 	return (efirt_active);
+}
+
+/*
+ * EFI Runtime Service Wrappers
+ *
+ * Each wrapper follows the same pattern:
+ * 1. Check efirt_is_active - bail if RT services never initialised.
+ * 2. Check efirt_is_supported - bail if firmware advertised this
+ *    service as unsupported, or a previous call returned EFI_UNSUPPORTED.
+ * 3. Call firmware via efirt_call_rt.
+ * 4. If firmware returns EFI_UNSUPPORTED, clear the supported bit so
+ *    subsequent calls return immediately without entering firmware.
+ */
+
+/*
+ * Reset or shut down the system (UEFI Specification 2.10, Section 8.5.1).
+ *
+ * ResetSystem does not return on success - the machine reboots or
+ * powers off.  If we return from this function, the reset failed.
+ *
+ * The data_size/data arguments allow passing a reset reason string
+ * to firmware (optional, may be NULL/0).
+ */
+void
+efi_reset_system(EFI_RESET_TYPE type, uint64_t status,
+    uint64_t data_size, void *data)
+{
+	if (!efirt_is_active()) {
+		return;
+	}
+
+	if (!efirt_is_supported(EFI_RT_SUPPORTED_RESET_SYSTEM)) {
+		return;
+	}
+
+	(void) efirt_call_rt(efirt_reset_system,
+	    (uint64_t)type, status, data_size, (uint64_t)data, 0);
+
+	/*
+	 * If we get here, the reset failed.  Clear the supported bit
+	 * so we don't try this path again.
+	 */
+	efirt_clear_supported(EFI_RT_SUPPORTED_RESET_SYSTEM);
 }
