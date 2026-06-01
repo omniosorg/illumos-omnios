@@ -60,6 +60,7 @@
 #include <sys/reboot.h>
 #include <sys/kdi_machimpl.h>
 #include <sys/bootsvcs.h>
+#include <sys/efirt.h>
 
 #include <c2/audit.h>
 
@@ -625,9 +626,21 @@ mdboot(int cmd, int fcn, char *mdep, boolean_t invoke_cb)
 		halt((char *)NULL);
 	} else if (fcn == AD_POWEROFF) {
 		stop_other_cpus();
+
+		if (!panicstr) {
+			efi_reset_system(EfiResetShutdown,
+			    EFI_SUCCESS, 0, NULL);
+		}
+
 		prom_power_off();
 	} else {
 		stop_other_cpus();
+
+		if (!panicstr) {
+			efi_reset_system(EfiResetCold,
+			    EFI_SUCCESS, 0, NULL);
+		}
+
 		prom_reboot("");
 	}
 	/* MAYBE REACHED */
