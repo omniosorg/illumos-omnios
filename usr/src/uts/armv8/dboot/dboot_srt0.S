@@ -230,39 +230,6 @@
 
 3:
 	/*
-	 * Apply known errata applicable at EL2.
-	 */
-	mrs	x0, midr_el1
-	/* examine implementer, must be Arm (0x41) */
-	ubfx	x1, x0, #24, #8
-	cmp	x1, #(MIDR_IMPL_ARM)
-	b.ne	.Lnot_cortex_a5x_0
-	/* examine the architecture, must be 0xf */
-	ubfx	x1, x0, #15, #4
-	cmp	x1, #0xF
-	b.ne	.Lnot_cortex_a5x_0
-	/* examine the part */
-	ubfx	x1, x0, #4, #12
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A72)
-	b.eq	.Lcortex_a72_0
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A57)
-	b.eq	.Lcortex_a57_0
-	/* Explicitly _not_ Cortex-A55 */
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A53)
-	b.eq	.Lcortex_a53_0
-	b	.Lnot_cortex_a5x_0
-
-.Lcortex_a72_0:
-.Lcortex_a57_0:
-.Lcortex_a53_0:
-	// access L2ACTLR L2ECTLR L2CTLR CPUECTLR CPUACTLR
-	mrs	x0, actlr_el2
-	orr	x0, x0, #0x70
-	orr	x0, x0, #0x3
-	msr	actlr_el2, x0
-.Lnot_cortex_a5x_0:
-
-	/*
 	 * Set up and execute an exception return to our target exception
 	 * level, which is either EL1 or EL2. This also synchronises PSTATE.
 	 */
@@ -271,41 +238,6 @@
 	eret
 
 .Lrun_dboot:
-	/*
-	 * Apply known errata applicable at EL1 or unified EL1/EL2.
-	 */
-	mrs	x0, midr_el1
-	/* examine implementer, must be Arm (0x41) */
-	ubfx	x1, x0, #24, #8
-	cmp	x1, #(MIDR_IMPL_ARM)
-	b.ne	.Lnot_cortex_a5x_1
-	/* examine the architecture, must be 0xf */
-	ubfx	x1, x0, #15, #4
-	cmp	x1, #0xF
-	b.ne	.Lnot_cortex_a5x_1
-	/* examine the part */
-	ubfx	x1, x0, #4, #12
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A72)
-	b.eq	.Lcortex_a72_1
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A57)
-	b.eq	.Lcortex_a57_1
-	/* explicitly _not_ Cortex-A55 */
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A53)
-	b.eq	.Lcortex_a53_1
-	b	.Lnot_cortex_a5x_1
-
-.Lcortex_a72_1:
-.Lcortex_a57_1:
-.Lcortex_a53_1:
-	/* CPUECTLR_EL1.SMPEN -> 1 (enable cache coherence) */
-	mrs	x0, s3_1_c15_c2_1
-	tbnz	x0, #6, .Lnot_cortex_a5x_1
-	orr	x0, x0, #(1<<6)
-	msr	s3_1_c15_c2_1, x0
-	dsb	sy
-	isb
-.Lnot_cortex_a5x_1:
-
 	mrs	x0, cpacr_el1
 	bic	x0, x0, #CPACR_FPEN_MASK
 	msr	cpacr_el1, x0

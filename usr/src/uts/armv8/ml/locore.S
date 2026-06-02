@@ -268,41 +268,6 @@ t0:
 1:
 
 	/*
-	 * Enable SMP cache coherence.
-	 */
-	mrs	x0, midr_el1
-	/* examine implementer, must be Arm (0x41) */
-	ubfx	x1, x0, #24, #8
-	cmp	x1, #(MIDR_IMPL_ARM)
-	b.ne	.Lnot_cortex_a5x_1
-	/* examine the architecture, must be 0xf */
-	ubfx	x1, x0, #15, #4
-	cmp	x1, #0xF
-	b.ne	.Lnot_cortex_a5x_1
-	/* examine the part */
-	ubfx	x1, x0, #4, #12
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A72)
-	b.eq	.Lcortex_a72_1
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A57)
-	b.eq	.Lcortex_a57_1
-	/* explicitly _not_ Cortex-A55 */
-	cmp	x1, #(MIDR_PART_ARM_CORTEX_A53)
-	b.eq	.Lcortex_a53_1
-	b	.Lnot_cortex_a5x_1
-
-.Lcortex_a72_1:
-.Lcortex_a57_1:
-.Lcortex_a53_1:
-	/* CPUECTLR_EL1.SMPEN -> 1 (enable cache coherence) */
-	mrs	x0, s3_1_c15_c2_1
-	tbnz	x0, #6, .Lnot_cortex_a5x_1
-	orr	x0, x0, #(1<<6)
-	msr	s3_1_c15_c2_1, x0
-	dsb	sy
-	isb
-.Lnot_cortex_a5x_1:
-
-	/*
 	 * Have the core trap when attempting to execute FPU
 	 * instructions - mirrors what dboot has done for the
 	 * boot processor.

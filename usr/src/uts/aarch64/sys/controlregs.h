@@ -305,8 +305,6 @@
 #define	CPTR_EL2_NO_E2H_RES1	(0x22fful)
 #define	INIT_CPTR_EL2_NO_E2H	(CPTR_EL2_NO_E2H_RES1)
 
-#define	CPUECTLR_SMP	(1<<6)
-
 #define	TCR_AS		(1ul<<36)
 #define	TCR_IPS_4G	(0ul<<32)
 #define	TCR_IPS_64G	(1ul<<32)
