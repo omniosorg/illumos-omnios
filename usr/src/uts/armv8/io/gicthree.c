@@ -1683,12 +1683,11 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 {
 	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
 
-	switch (intr_op) {
-	case DDI_INTROP_ADDISR:
-		break;
-	case DDI_INTROP_REMISR:
-		break;
+	DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: "
+	    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x\n",
+	    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
 
+	switch (intr_op) {
 	case DDI_INTROP_ENABLE: {
 		ihdl_plat_t *priv = hdlp->ih_private;
 		gicv3_conf_t *gc =
@@ -1728,17 +1727,32 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		gicv3_config_irq(gc, hdlp->ih_vector, state->si_edge_triggered);
 		state->si_prio = hdlp->ih_pri;
 
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: ENABLE "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
+		    "vector 0x%x, pri 0x%x, sense %s, devname %s, "
+		    "cbfunc 0x%p, arg1 0x%p, arg2 0x%p\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
+		    hdlp->ih_vector, hdlp->ih_pri,
+		    state->si_edge_triggered ? "EDGE" : "LEVEL",
+		    DEVI(rdip)->devi_name,
+		    hdlp->ih_cb_func, hdlp->ih_cb_arg1, hdlp->ih_cb_arg2));
+
 		/* Add the interrupt handler */
 		if (!add_avintr((void *)hdlp, hdlp->ih_pri,
 		    hdlp->ih_cb_func, DEVI(rdip)->devi_name, hdlp->ih_vector,
 		    hdlp->ih_cb_arg1, hdlp->ih_cb_arg2, NULL, rdip)) {
 			mutex_exit(&syspic_intrs_lock);
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: ENABLE "
+			    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x: "
+			    "add_avintr failed\n",
+			    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum));
 			return (DDI_FAILURE);
 		}
 
 		mutex_exit(&syspic_intrs_lock);
 		break;
 	}
+
 	case DDI_INTROP_DISABLE: {
 		ihdl_plat_t *priv = hdlp->ih_private;
 
@@ -1759,20 +1773,16 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 
 		hdlp->ih_vector = GIC_FDT_VEC_TO_IRQ(cfg, vector);
 
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: DISABLE "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
+		    "vector 0x%x, pri 0x%x, devname %s, cbfunc 0x%p\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
+		    hdlp->ih_vector, hdlp->ih_pri, DEVI(rdip)->devi_name,
+		    hdlp->ih_cb_func));
+
 		/* Remove the interrupt handler */
 		rem_avintr((void *)hdlp, hdlp->ih_pri,
 		    hdlp->ih_cb_func, hdlp->ih_vector);
-		break;
-	}
-
-	case DDI_INTROP_GETPENDING: {
-		gicv3_conf_t *gc =
-		    ddi_get_soft_state(gicv3_soft_state,
-		    ddi_get_instance(dip));
-		uint32_t irq = hdlp->ih_vector;
-
-		VERIFY3P(gc, !=, NULL);
-		*(int *)result = gicv3_irq_ispending(gc, irq) ? 1 : 0;
 		break;
 	}
 
@@ -1780,31 +1790,49 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		*(int *)result |= DDI_INTR_FLAG_PENDING;
 		*(int *)result |= DDI_INTR_FLAG_EDGE;
 		*(int *)result |= DDI_INTR_FLAG_LEVEL;
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETCAP "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
+		    "result 0x%x\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
+		    *(int *)result));
 		break;
 
-	case DDI_INTROP_SETCAP:
+	case DDI_INTROP_SETCAP:		/* fallthrough */
+	case DDI_INTROP_SETMASK:	/* fallthrough */
+	case DDI_INTROP_CLRMASK:
+		/* SETCAP should have been filtered out by routing */
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x "
+		    "unsupported\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
 		return (DDI_ENOTSUP);
 
-	/* Operations that are valid for us, but unimplemented */
-	case DDI_INTROP_BLOCKDISABLE:
-	case DDI_INTROP_BLOCKENABLE:
+	case DDI_INTROP_GETPENDING: {
+		gicv3_conf_t *gc =
+		    ddi_get_soft_state(gicv3_soft_state,
+		    ddi_get_instance(dip));
+		VERIFY3P(gc, !=, NULL);
+		*(int *)result =
+		    gicv3_irq_ispending(gc, hdlp->ih_vector) ? 1 : 0;
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETPENDING "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
+		    "vector 0x%x, result 0x%x\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
+		    hdlp->ih_vector, *(int *)result));
+		break;
+	}
+
+	case DDI_INTROP_GETTARGET:	/* fallthrough */
+	case DDI_INTROP_SETTARGET:
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x "
+		    "unimplemented\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
 		return (DDI_FAILURE);
 
 	/* Operations which should never have reached us */
-	case DDI_INTROP_ALLOC:
-	case DDI_INTROP_CLRMASK:
-	case DDI_INTROP_DUPVEC:
-	case DDI_INTROP_FREE:
-	case DDI_INTROP_GETPOOL:
-	case DDI_INTROP_GETPRI:
-	case DDI_INTROP_GETTARGET:
-	case DDI_INTROP_NAVAIL:
-	case DDI_INTROP_NINTRS:
-	case DDI_INTROP_SETMASK:
-	case DDI_INTROP_SETPRI:
-	case DDI_INTROP_SETTARGET:
-	case DDI_INTROP_SUPPORTED_TYPES:
-		dev_err(dip, CE_WARN, "unexpected introp %d for %s%d\n",
+	default:
+		dev_err(dip, CE_WARN, "unexpected introp %d for %s%d",
 		    intr_op, ddi_node_name(rdip), ddi_get_instance(rdip));
 		return (DDI_FAILURE);
 	}
