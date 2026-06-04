@@ -118,6 +118,14 @@ typedef struct gicv2m_state {
 extern void gicv2_configure_irq(dev_info_t *gic_dip, uint32_t irq,
     boolean_t is_edge);
 extern boolean_t gicv2_irq_ispending(dev_info_t *gic_dip, uint32_t irq);
+extern processorid_t gicv2_get_target_spi(dev_info_t *gic_dip,
+    uint32_t intid);
+extern void gicv2_set_target_spi(dev_info_t *gic_dip, uint32_t intid,
+    processorid_t cpuid);
+extern void gicv2_register_msi_range(dev_info_t *gic_dip, uint32_t base,
+    uint32_t count);
+extern void gicv2_unregister_msi_range(dev_info_t *gic_dip, uint32_t base,
+    uint32_t count);
 
 static void *gicv2m_soft_state;
 
@@ -465,6 +473,86 @@ gicv2m_getpending(gicv2m_state_t *sc, dev_info_t *rdip,
 }
 
 /*
+ * GETTARGET: return the current CPU target for this device's SPI.
+ *
+ * v2m MSI SPIs live in the distributor just like any other SPI.
+ * Delegate to the parent GICv2's exported inner function, which
+ * acquires the GICD lock internally.
+ */
+static int
+gicv2m_gettarget(gicv2m_state_t *sc, dev_info_t *rdip,
+    ddi_intr_handle_impl_t *hdlp, void *result)
+{
+	gicv2m_dev_state_t *ds;
+	uint32_t spi;
+	uint32_t idx;
+
+	mutex_enter(&sc->v2m_dev_lock);
+	ds = gicv2m_find_dev(sc, rdip);
+	if (ds == NULL) {
+		mutex_exit(&sc->v2m_dev_lock);
+		return (DDI_FAILURE);
+	}
+
+	idx = hdlp->ih_inum - ds->ds_inum_base;
+	if (idx >= ds->ds_count) {
+		mutex_exit(&sc->v2m_dev_lock);
+		return (DDI_FAILURE);
+	}
+
+	if (ds->ds_type == DDI_INTR_TYPE_MSI) {
+		spi = ds->ds_base_spi + idx;
+	} else {
+		spi = ds->ds_spi_array[idx];
+	}
+	mutex_exit(&sc->v2m_dev_lock);
+
+	*(processorid_t *)result = gicv2_get_target_spi(sc->v2m_gic_dip, spi);
+	return (DDI_SUCCESS);
+}
+
+/*
+ * SETTARGET: retarget this device's SPI to a different CPU.
+ */
+static int
+gicv2m_settarget(gicv2m_state_t *sc, dev_info_t *rdip,
+    ddi_intr_handle_impl_t *hdlp, void *result)
+{
+	gicv2m_dev_state_t *ds;
+	processorid_t new_cpu = *(processorid_t *)result;
+	uint32_t spi;
+	uint32_t idx;
+
+	if (new_cpu < 0 || new_cpu >= 8) {
+		return (DDI_EINVAL);
+	}
+
+	mutex_enter(&sc->v2m_dev_lock);
+	ds = gicv2m_find_dev(sc, rdip);
+	if (ds == NULL) {
+		mutex_exit(&sc->v2m_dev_lock);
+		return (DDI_FAILURE);
+	}
+
+	idx = hdlp->ih_inum - ds->ds_inum_base;
+	if (idx >= ds->ds_count) {
+		mutex_exit(&sc->v2m_dev_lock);
+		return (DDI_FAILURE);
+	}
+
+	if (ds->ds_type == DDI_INTR_TYPE_MSI) {
+		spi = ds->ds_base_spi + idx;
+	} else {
+		spi = ds->ds_spi_array[idx];
+	}
+	mutex_exit(&sc->v2m_dev_lock);
+
+	gicv2_set_target_spi(sc->v2m_gic_dip, spi, new_cpu);
+	return (DDI_SUCCESS);
+}
+
+
+/*
  * bus_intr_op entry point - dispatches interrupt operations from the
  * MSI framework to per-operation handlers.
  */
@@ -510,6 +598,10 @@ gicv2m_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		*(int *)result |= DDI_INTR_FLAG_EDGE;
 		*(int *)result &= ~DDI_INTR_FLAG_LEVEL;
 		return (DDI_SUCCESS);
+	case DDI_INTROP_GETTARGET:
+		return (gicv2m_gettarget(sc, rdip, hdlp, result));
+	case DDI_INTROP_SETTARGET:
+		return (gicv2m_settarget(sc, rdip, hdlp, result));
 	default:
 		return (DDI_ENOTSUP);
 	}
@@ -674,6 +766,14 @@ gicv2m_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	    sc->v2m_spi_base,
 	    sc->v2m_spi_base + sc->v2m_spi_count - 1,
 	    sc->v2m_doorbell_pa);
+
+	/*
+	 * Register our SPI range with the parent GICv2 so it rejects
+	 * direct GETTARGET/SETTARGET for our INTIDs -- only we can
+	 * issue targeting operations for our SPIs.
+	 */
+	gicv2_register_msi_range(sc->v2m_gic_dip, sc->v2m_spi_base,
+	    sc->v2m_spi_count);
 
 	ddi_report_dev(dip);
 	return (DDI_SUCCESS);
