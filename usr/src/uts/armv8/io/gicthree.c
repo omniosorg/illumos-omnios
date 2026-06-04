@@ -70,11 +70,17 @@
  *   gc_lpi_prop_lock (mutex)
  *     Protects the LPI property table (gc_lpi_prop) reads and writes.
  *
+ *   gc_msi_lock (mutex, blockable - never held with gc_dist_lock)
+ *
  *   ih_rwlock --> syspic_intrs_lock --> gc_dist_lock --> av_lock
- *   gc_lpi_prop_lock is independent (no nesting with other locks).
+ *   gc_lpi_prop_lock and gc_msi_lock are each independent of all the
+ *   above (no nesting).  gc_msi_lock is only acquired from blockable
+ *   context (intr_ops, attach, detach) and must never be held when
+ *   acquiring gc_dist_lock.
  */
 
 #include <sys/types.h>
+#include <sys/stddef.h>
 #include <sys/syspic.h>
 #include <sys/syspic_impl.h>
 #include <sys/gic.h>
@@ -86,6 +92,7 @@
 #include <sys/cpuinfo.h>
 #include <sys/sysmacros.h>
 #include <sys/archsystm.h>
+#include <sys/list.h>
 #include <sys/mach_intr.h>
 #include <sys/gic_v3.h>
 #include <sys/vmem.h>
@@ -136,6 +143,16 @@ typedef struct {
 	ddi_dma_handle_t	gr_pend_dmah;
 	ddi_acc_handle_t	gr_pend_acch;
 } gicv3_redistributor_t;
+
+/*
+ * MSI SPI range - registered by SPI-backed child MSI controllers (v2m)
+ * so the parent can reject direct GETTARGET/SETTARGET for those INTIDs.
+ */
+typedef struct gicv3_msi_range {
+	list_node_t	mr_node;
+	uint32_t	mr_base;	/* first SPI in range */
+	uint32_t	mr_count;	/* number of SPIs */
+} gicv3_msi_range_t;
 
 typedef struct gicv3_conf {
 	/* Base address of, and handle to, the distributor */
@@ -196,6 +213,13 @@ typedef struct gicv3_conf {
 	 * A GICv3 is always the system PIC.
 	 */
 	syspic_ops_t		gc_syspic;
+
+	/*
+	 * MSI SPI ranges registered by child MSI controllers.
+	 * Protected by gc_msi_lock.
+	 */
+	kmutex_t		gc_msi_lock;
+	list_t			gc_msi_ranges;
 } gicv3_conf_t;
 
 #define	TO_CONF(__c)		((gicv3_conf_t *)(__c))
@@ -243,6 +267,13 @@ static inline void
 gicd_write4(gicv3_conf_t *gic, uint32_t reg, uint32_t val)
 {
 	ddi_put32(gic->gc_gicd_regh, (uint32_t *)(gic->gc_gicd + reg), val);
+}
+
+static inline uint64_t
+gicd_read8(gicv3_conf_t *gic, uint32_t reg)
+{
+	return (ddi_get64(gic->gc_gicd_regh,
+	    (uint64_t *)(gic->gc_gicd + reg)));
 }
 
 static inline void
@@ -1562,6 +1593,10 @@ gicv3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 		    (uint64_t)i_ddi_pd_getreg(dip, 1 + i)->regspec_size;
 	}
 
+	mutex_init(&gc->gc_msi_lock, NULL, MUTEX_DRIVER, NULL);
+	list_create(&gc->gc_msi_ranges, sizeof (gicv3_msi_range_t),
+	    offsetof(gicv3_msi_range_t, mr_node));
+
 	if ((ret = gicv3_init(dip, gc)) != DDI_SUCCESS) {
 		if (gc->gc_num_redist && gc->gc_redist)
 			kmem_free(gc->gc_redist,
@@ -1667,6 +1702,140 @@ gicv3_irq_ispending(gicv3_conf_t *gc, uint32_t irq)
 
 	val = gicd_read4(gc, GICD_ISPENDRn(GICD_IPENDR_REGNUM(irq)));
 	return ((val & GICD_IPENDR_REGBIT(irq)) != 0);
+}
+
+
+/*
+ * Check whether an INTID falls within a registered MSI SPI range.
+ * Caller must hold gc_msi_lock.
+ */
+static boolean_t
+gicv3_is_msi_spi(gicv3_conf_t *gc, uint32_t intid)
+{
+	gicv3_msi_range_t *mr;
+
+	ASSERT(MUTEX_HELD(&gc->gc_msi_lock));
+
+	for (mr = list_head(&gc->gc_msi_ranges); mr != NULL;
+	    mr = list_next(&gc->gc_msi_ranges, mr)) {
+		if (intid >= mr->mr_base &&
+		    intid < mr->mr_base + mr->mr_count) {
+			return (B_TRUE);
+		}
+	}
+
+	return (B_FALSE);
+}
+
+/*
+ * Register an MSI SPI range owned by a child driver (v2m).
+ * Called from child attach.
+ */
+void
+gicv3_register_msi_range(dev_info_t *gic_dip, uint32_t base, uint32_t count)
+{
+	gicv3_conf_t *gc = ddi_get_soft_state(gicv3_soft_state,
+	    ddi_get_instance(gic_dip));
+	gicv3_msi_range_t *mr;
+
+	VERIFY3P(gc, !=, NULL);
+
+	mr = kmem_alloc(sizeof (*mr), KM_SLEEP);
+	mr->mr_base = base;
+	mr->mr_count = count;
+
+	mutex_enter(&gc->gc_msi_lock);
+	list_insert_tail(&gc->gc_msi_ranges, mr);
+	mutex_exit(&gc->gc_msi_lock);
+}
+
+/*
+ * Unregister an MSI SPI range.  Called from child detach.
+ */
+void
+gicv3_unregister_msi_range(dev_info_t *gic_dip, uint32_t base, uint32_t count)
+{
+	gicv3_conf_t *gc = ddi_get_soft_state(gicv3_soft_state,
+	    ddi_get_instance(gic_dip));
+	gicv3_msi_range_t *mr;
+
+	VERIFY3P(gc, !=, NULL);
+
+	mutex_enter(&gc->gc_msi_lock);
+	for (mr = list_head(&gc->gc_msi_ranges); mr != NULL;
+	    mr = list_next(&gc->gc_msi_ranges, mr)) {
+		if (mr->mr_base == base && mr->mr_count == count) {
+			list_remove(&gc->gc_msi_ranges, mr);
+			mutex_exit(&gc->gc_msi_lock);
+			kmem_free(mr, sizeof (*mr));
+			return;
+		}
+	}
+	mutex_exit(&gc->gc_msi_lock);
+	panic("gicv3_unregister_msi_range: range %u+%u not found", base,
+	    count);
+}
+
+/*
+ * Return the CPU targeted by GICD_IROUTERn for an SPI.
+ *
+ * If IRM=1 (any-of-N routing), returns CPU 0 by convention.
+ * Otherwise, extracts the affinity field and maps it to a
+ * processorid_t.  The GICD lock is held only for the register
+ * read; the cpuinfo lookup runs unlocked.
+ */
+processorid_t
+gicv3_get_target_spi(dev_info_t *gic_dip, uint32_t intid)
+{
+	gicv3_conf_t *gc = ddi_get_soft_state(gicv3_soft_state,
+	    ddi_get_instance(gic_dip));
+	uint64_t irouter;
+	struct cpuinfo *ci;
+
+	VERIFY3P(gc, !=, NULL);
+	ASSERT(GIC_INTID_IS_SPI(intid));
+
+	GICD_LOCK(gc);
+	irouter = gicd_read8(gc, GICD_IROUTERn(intid));
+	GICD_UNLOCK(gc);
+
+	if (irouter & GICD_IROUTER_Interrupt_Routing_Mode) {
+		return (0);
+	}
+
+	/*
+	 * The affinity field in IROUTER uses the same layout as MPIDR_EL1
+	 * (Aff3:Aff2:Aff1:Aff0 in bits 39:32, 23:16, 15:8, 7:0).
+	 * cpuinfo stores MPIDR values, so we can look up directly.
+	 * Mask off IRM (bit 31) before the lookup -- it is zero here,
+	 * but be explicit.
+	 */
+	ci = cpuinfo_for_affinity(
+	    irouter & ~GICD_IROUTER_Interrupt_Routing_Mode);
+	if (ci == NULL) {
+		return (0);
+	}
+
+	return (ci->ci_id);
+}
+
+/*
+ * Reprogram GICD_IROUTERn to target a single CPU for an SPI.
+ * Clears IRM (switches from any-of-N to explicit routing).
+ * Acquires and releases GICD lock internally.
+ */
+void
+gicv3_set_target_spi(dev_info_t *gic_dip, uint32_t intid, processorid_t cpuid)
+{
+	gicv3_conf_t *gc = ddi_get_soft_state(gicv3_soft_state,
+	    ddi_get_instance(gic_dip));
+
+	VERIFY3P(gc, !=, NULL);
+	ASSERT(GIC_INTID_IS_SPI(intid));
+
+	GICD_LOCK(gc);
+	gicd_write8(gc, GICD_IROUTERn(intid), cpu[cpuid]->cpu_m.affinity);
+	GICD_UNLOCK(gc);
 }
 
 static int
@@ -1957,13 +2126,90 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		break;
 	}
 
-	case DDI_INTROP_GETTARGET:	/* fallthrough */
-	case DDI_INTROP_SETTARGET:
-		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: "
-		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x "
-		    "unimplemented\n",
-		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
-		return (DDI_FAILURE);
+	case DDI_INTROP_GETTARGET: {
+		gicv3_conf_t *gc;
+
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			return (DDI_FAILURE);
+		}
+
+		if (GIC_INTID_IS_PERCPU(intid)) {
+			*(processorid_t *)result = CPU->cpu_id;
+			return (DDI_SUCCESS);
+		}
+		if (GIC_INTID_IS_LPI(intid)) {
+			return (DDI_ENOTSUP);
+		}
+		if (!GIC_INTID_IS_SPI(intid)) {
+			return (DDI_ENOTSUP);
+		}
+
+		gc = ddi_get_soft_state(gicv3_soft_state,
+		    ddi_get_instance(dip));
+		VERIFY3P(gc, !=, NULL);
+
+		mutex_enter(&gc->gc_msi_lock);
+		if (gicv3_is_msi_spi(gc, intid)) {
+			mutex_exit(&gc->gc_msi_lock);
+			return (DDI_ENOTSUP);
+		}
+		mutex_exit(&gc->gc_msi_lock);
+
+		*(processorid_t *)result =
+		    gicv3_get_target_spi(dip, intid);
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETTARGET "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
+		    "vector 0x%x, result 0x%x\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
+		    intid, *(int *)result));
+		return (DDI_SUCCESS);
+	}
+
+	case DDI_INTROP_SETTARGET: {
+		gicv3_conf_t *gc;
+		processorid_t new_cpu;
+
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			return (DDI_FAILURE);
+		}
+
+		new_cpu = *(processorid_t *)result;
+
+		if (GIC_INTID_IS_PERCPU(intid)) {
+			return (DDI_ENOTSUP);
+		}
+		if (GIC_INTID_IS_LPI(intid)) {
+			return (DDI_ENOTSUP);
+		}
+		if (!GIC_INTID_IS_SPI(intid)) {
+			return (DDI_ENOTSUP);
+		}
+
+		gc = ddi_get_soft_state(gicv3_soft_state,
+		    ddi_get_instance(dip));
+		VERIFY3P(gc, !=, NULL);
+
+		if (new_cpu < 0 || new_cpu >= (processorid_t)gc->gc_num_redist) {
+			return (DDI_EINVAL);
+		}
+
+		mutex_enter(&gc->gc_msi_lock);
+		if (gicv3_is_msi_spi(gc, intid)) {
+			mutex_exit(&gc->gc_msi_lock);
+			return (DDI_ENOTSUP);
+		}
+		mutex_exit(&gc->gc_msi_lock);
+
+		gicv3_set_target_spi(dip, intid, new_cpu);
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: SETTARGET "
+		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
+		    "vector 0x%x, new CPU 0x%x\n",
+		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
+		    intid, (int)new_cpu));
+		return (DDI_SUCCESS);
+	}
 
 	/* Operations which should never have reached us */
 	default:

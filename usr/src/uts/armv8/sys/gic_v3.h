@@ -60,6 +60,14 @@ extern uint32_t	gicv3_redist_procnum(dev_info_t *, processorid_t);
 extern uint32_t	gicv3_num_redists(dev_info_t *);
 extern uint32_t	gicv3_lpi_idbits(dev_info_t *);
 
+/* SPI targeting - inner functions for use by child MSI controllers */
+extern processorid_t	gicv3_get_target_spi(dev_info_t *, uint32_t);
+extern void		gicv3_set_target_spi(dev_info_t *, uint32_t, processorid_t);
+
+/* MSI SPI range registration for child MSI controllers */
+extern void	gicv3_register_msi_range(dev_info_t *, uint32_t, uint32_t);
+extern void	gicv3_unregister_msi_range(dev_info_t *, uint32_t, uint32_t);
+
 #ifdef __cplusplus
 }
 #endif
