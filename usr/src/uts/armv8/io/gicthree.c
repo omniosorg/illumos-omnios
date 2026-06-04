@@ -82,6 +82,7 @@
 #include <sys/avintr.h>
 #include <sys/smp_impldefs.h>
 #include <sys/sunddi.h>
+#include <sys/ddi_subrdefs.h>
 #include <sys/cpuinfo.h>
 #include <sys/sysmacros.h>
 #include <sys/archsystm.h>
@@ -1668,6 +1669,54 @@ gicv3_irq_ispending(gicv3_conf_t *gc, uint32_t irq)
 	return ((val & GICD_IPENDR_REGBIT(irq)) != 0);
 }
 
+static int
+gicv3_parse_unitintr(dev_info_t *dip, dev_info_t *rdip,
+    ddi_intr_handle_impl_t *hdlp, uint32_t *pcfg, uint32_t *pvector,
+    uint32_t *psense, uint32_t *pintid)
+{
+	ihdl_plat_t *priv;
+	unit_intr_t *ui;
+	uint32_t *p;
+#if defined(DEBUG)
+	int i;
+#endif
+
+	if ((priv = hdlp->ih_private) == NULL) {
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_parse_unitintr: "
+		    "for rdip = 0x%p (%s%d), hdlp = 0x%p, inum = 0x%x: "
+		    "no ihdl_plat\n",
+		    rdip, ddi_node_name(rdip), ddi_get_instance(rdip),
+		    hdlp, hdlp->ih_inum));
+		return (DDI_FAILURE);
+	}
+
+	if ((ui = priv->ip_unitintr) == NULL) {
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_parse_unitintr: "
+		    "for rdip = 0x%p (%s%d), hdlp = 0x%p, inum = 0x%x: "
+		    "no unitintr\n",
+		    rdip, ddi_node_name(rdip), ddi_get_instance(rdip),
+		    hdlp, hdlp->ih_inum));
+		return (DDI_FAILURE);
+	}
+
+	/*
+	 * Always 3+ interrupt cells in the gicv3 binding.
+	 */
+	p = &ui->ui_v[ui->ui_addrcells];
+	*pcfg = *p++;
+	*pvector = *p++;
+	*psense = *p++;
+
+#if defined(DEBUG)
+	for (i = 3; i < priv->ip_unitintr->ui_intrcells; i++) {
+		ASSERT3U(*p++, ==, 0);
+	}
+#endif
+
+	*pintid = GIC_FDT_VEC_TO_IRQ(*pcfg, *pvector);
+	return (DDI_SUCCESS);
+}
+
 /*
  * Field interrupt operation requests to program this interrupt controller.
  *
@@ -1681,6 +1730,11 @@ static int
 gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
+	uint32_t cfg;
+	uint32_t vector;
+	uint32_t sense;
+	uint32_t intid;
+
 	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
 
 	DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: "
@@ -1688,32 +1742,92 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 	    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
 
 	switch (intr_op) {
+	case DDI_INTROP_GETPRI: {
+		int shared;
+		uint_t curpri;
+
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETPRI "
+			    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x: "
+			    "gicv3_parse_unitintr failed\n",
+			    rdip, hdlp, hdlp->ih_inum));
+			return (DDI_FAILURE);
+		}
+
+		shared = av_get_shared(intid, &curpri);
+		if (shared > 0) {
+			hdlp->ih_pri = curpri;
+		} else if (hdlp->ih_pri == 0) {
+			hdlp->ih_pri = i_ddi_get_intr_pri(rdip, hdlp->ih_inum);
+		}
+
+		ASSERT3U(hdlp->ih_pri, !=, 0);
+		*(int *)result = hdlp->ih_pri;
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETPRI "
+		    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x, "
+		    "shared = %d, result = 0x%x\n",
+		    rdip, hdlp, hdlp->ih_inum, shared, *(int *)result));
+		break;
+	}
+
+	case DDI_INTROP_SETPRI: {
+		int shared;
+		uint_t curpri;
+		uint_t newpri;
+
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: SETPRI "
+		    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x, is 0x%x\n",
+		    rdip, hdlp, hdlp->ih_inum, *(int *)result));
+		if (*(int *)result > LOCK_LEVEL) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: SETPRI "
+			    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x: "
+			    "new pri %d exceed LOCK_LEVEL %d\n",
+			    rdip, hdlp, hdlp->ih_inum,
+			    *(int *)result, LOCK_LEVEL));
+			return (DDI_FAILURE);
+		}
+
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: SETPRI "
+			    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x: "
+			    "gicv3_parse_unitintr failed\n",
+			    rdip, hdlp, hdlp->ih_inum));
+			return (DDI_FAILURE);
+		}
+
+		shared = av_get_shared(intid, &curpri);
+		newpri = (uint_t)(*(int *)result);
+		if (shared > 0 && newpri != curpri) {
+			dev_err(dip, CE_NOTE,
+			    "!%s%d: refusing attempt to set pri 0x%x on "
+			    "shared INTID %u with pri 0x%x",
+			    ddi_node_name(rdip), ddi_get_instance(rdip),
+			    newpri, intid, curpri);
+			return (DDI_FAILURE);
+		}
+
+		ASSERT3U(*(int *)result, !=, 0);
+		hdlp->ih_pri = *(int *)result;
+		break;
+	}
+
 	case DDI_INTROP_ENABLE: {
-		ihdl_plat_t *priv = hdlp->ih_private;
 		gicv3_conf_t *gc =
 		    ddi_get_soft_state(gicv3_soft_state, ddi_get_instance(dip));
 		syspic_intr_state_t *state = NULL;
 
-		VERIFY3P(priv, !=, NULL);
-		VERIFY3P(priv->ip_unitintr, !=, NULL);
-		VERIFY3P(gc, !=, NULL);
-
-		/*
-		 * Always 3+ interrupt cells in the gicv3 binding (but this is
-		 * FDT specific, and needs to be better)
-		 */
-		unit_intr_t *ui = priv->ip_unitintr;
-		uint32_t *p = &ui->ui_v[ui->ui_addrcells];
-		const uint32_t cfg = *p++;
-		const uint32_t vector = *p++;
-		const uint32_t sense = *p++;
-
-		for (int i = 3; i < priv->ip_unitintr->ui_intrcells; i++) {
-			ASSERT3U(*p++, ==, 0);
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: ENABLE "
+			    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x: "
+			    "gicv3_parse_unitintr failed\n",
+			    rdip, hdlp, hdlp->ih_inum));
+			return (DDI_FAILURE);
 		}
 
-		hdlp->ih_vector = GIC_FDT_VEC_TO_IRQ(cfg, vector);
-
+		hdlp->ih_vector = intid;
 		state = syspic_get_state(hdlp->ih_vector);
 		VERIFY3P(state, !=, NULL);
 
@@ -1724,7 +1838,9 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		 */
 		state->si_edge_triggered =
 		    ((sense & 0xff) == 1) ? B_TRUE : B_FALSE;
+		VERIFY3P(gc, !=, NULL);
 		gicv3_config_irq(gc, hdlp->ih_vector, state->si_edge_triggered);
+		ASSERT3U(hdlp->ih_pri, !=, 0);
 		state->si_prio = hdlp->ih_pri;
 
 		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: ENABLE "
@@ -1754,24 +1870,17 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 	}
 
 	case DDI_INTROP_DISABLE: {
-		ihdl_plat_t *priv = hdlp->ih_private;
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: DISABLE "
+			    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x: "
+			    "gicv3_parse_unitintr failed\n",
+			    rdip, hdlp, hdlp->ih_inum));
+			return (DDI_FAILURE);
+		}
 
-		VERIFY3P(priv, !=, NULL);
-		VERIFY3P(priv->ip_unitintr, !=, NULL);
-
-		/*
-		 * Always 3+ interrupt cells in the gicv3 binding (but this is
-		 * FDT specific, and needs to be better).
-		 *
-		 * Here we don't use the sense, we asserted in the enable path
-		 * that any fields present but not understood are 0.
-		 */
-		unit_intr_t *ui = priv->ip_unitintr;
-		uint32_t *p = &ui->ui_v[ui->ui_addrcells];
-		const uint32_t cfg = *p++;
-		const uint32_t vector = *p++;
-
-		hdlp->ih_vector = GIC_FDT_VEC_TO_IRQ(cfg, vector);
+		hdlp->ih_vector = intid;
+		ASSERT3U(hdlp->ih_pri, !=, 0);
 
 		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: DISABLE "
 		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
@@ -1812,13 +1921,21 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		    ddi_get_soft_state(gicv3_soft_state,
 		    ddi_get_instance(dip));
 		VERIFY3P(gc, !=, NULL);
+		if (gicv3_parse_unitintr(dip, rdip, hdlp,
+		    &cfg, &vector, &sense, &intid) != DDI_SUCCESS) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETPENDING "
+			    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x: "
+			    "gicv3_parse_unitintr failed\n",
+			    rdip, hdlp, hdlp->ih_inum));
+			return (DDI_FAILURE);
+		}
 		*(int *)result =
-		    gicv3_irq_ispending(gc, hdlp->ih_vector) ? 1 : 0;
+		    gicv3_irq_ispending(gc, intid) ? 1 : 0;
 		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: GETPENDING "
 		    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x, op 0x%x, "
 		    "vector 0x%x, result 0x%x\n",
 		    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op,
-		    hdlp->ih_vector, *(int *)result));
+		    intid, *(int *)result));
 		break;
 	}
 
