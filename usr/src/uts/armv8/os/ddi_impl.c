@@ -2144,18 +2144,7 @@ done:
 	 * The unit interrupt descriptor in the platform private data is
 	 * specific to a single pass of FIXED interrupt mapping and must
 	 * be cleared on the way back down the tree.
-	 *
-	 * For FIXED interrupts, ih_vector is also transient (re-derived
-	 * each call via map_interrupt/unitintr).
-	 *
-	 * For MSI/MSI-X, ih_vector is the LPI INTID set during ENABLE
-	 * and must persist for DISABLE/FREE.  The ip_msi_* fields in
-	 * the platform private data are persistent for the handle's
-	 * lifetime - do not clear them here.
 	 */
-	if (!DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type))
-		hdlp->ih_vector = 0;
-
 	ihdl_plat_t *priv = hdlp->ih_private;
 	if (priv != NULL) {
 		i_ddi_free_unitintr(priv->ip_unitintr);
