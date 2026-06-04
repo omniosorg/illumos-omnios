@@ -1946,6 +1946,7 @@ map_interrupt_map(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 			return (parent);
 		}
 
+		ndi_rele_devi(parent);
 		effective_stride += par_addr_cells + par_intr_cells;
 	}
 
