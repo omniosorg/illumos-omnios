@@ -112,7 +112,13 @@ extern uint_t softlevel1(caddr_t, caddr_t);
 extern int av_get_vec_lvl(uint_t vect, int *lvl);
 
 #if defined(__aarch64__)
+
+struct ddi_intr_handle_impl;	/* <sys/ddi_intr_impl.h> */
+
 extern int av_get_shared(uint_t vecnum, uint_t *prip);
+extern uint_t av_get_vector_info(uint_t vecnum,
+    struct ddi_intr_handle_impl **hdlpp, dev_info_t **dips, uint_t dips_max);
+
 #endif
 
 #endif	/* _KERNEL */

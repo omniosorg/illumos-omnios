@@ -46,6 +46,9 @@
 #ifdef __xpv
 #include <sys/evtchn_impl.h>
 #endif
+#if defined(__aarch64__)
+#include <sys/ddi_intr_impl.h>
+#endif
 
 #define	NO_VECT	((uint_t)-1)
 
@@ -378,6 +381,65 @@ av_get_shared(uint_t vecnum, uint_t *prip)
 		}
 	}
 	mutex_exit(&av_lock);
+	return (count);
+}
+
+/*
+ * Retrieve information about all handlers registered on a given interrupt
+ * vector.  Returns the total number of active handlers (which may exceed
+ * dips_max if the caller-provided array is too small).
+ *
+ * If hdlpp is non-NULL, a representative ddi_intr_handle_impl_t pointer
+ * is stored there.  For a shared vector all handles resolve to the same
+ * underlying interrupt, so any one is suitable for GETTARGET/SETTARGET
+ * via i_ddi_intr_ops.
+ *
+ * If dips is non-NULL, up to dips_max dev_info_t pointers are copied out.
+ * The caller owns the buffer; no memory is allocated.
+ *
+ * The walk is performed under av_lock.  The returned pointers (dips and
+ * handle) remain valid as long as the interrupt has not been removed;
+ * callers that require stability across the lookup should hold the
+ * nexus devinfo tree lock (ndi_devi_enter) around the call and any
+ * subsequent use of the returned pointers.
+ */
+uint_t
+av_get_vector_info(uint_t vecnum, ddi_intr_handle_impl_t **hdlpp,
+    dev_info_t **dips, uint_t dips_max)
+{
+	struct av_head *vecp;
+	struct autovec *p;
+	uint_t count = 0;
+
+	if (hdlpp != NULL) {
+		*hdlpp = NULL;
+	}
+
+	vecp = &autovect[vecnum % MAX_VECT];
+
+	mutex_enter(&av_lock);
+	for (p = vecp->avh_link; p != NULL; p = p->av_link) {
+		if (p->av_vector == NULL || !av_vector_match(p, vecnum)) {
+			continue;
+		}
+
+		/*
+		 * Store the first valid handle as representative.
+		 * All handles on a shared vector are equivalent for
+		 * GETTARGET/SETTARGET since they resolve to the same INTID.
+		 */
+		if (count == 0 && hdlpp != NULL) {
+			*hdlpp = (ddi_intr_handle_impl_t *)p->av_intr_id;
+		}
+
+		if (dips != NULL && count < dips_max) {
+			dips[count] = p->av_dip;
+		}
+
+		count++;
+	}
+	mutex_exit(&av_lock);
+
 	return (count);
 }
 #endif /* __aarch64__ */
