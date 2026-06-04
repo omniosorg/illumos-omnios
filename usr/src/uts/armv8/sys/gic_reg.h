@@ -249,6 +249,9 @@ extern "C" {
 #define	GICD_ITARGETSR_REGNUM(n)		((n) >> 2)
 #define	GICD_ITARGETSR_REGVAL(n, v)		(((v) & 0xff) << \
 						(((n) & 0x3) << 3))
+#define	GICD_ITARGETSR_GETTARGETS(val, n)	(((val) >> \
+						(((n) & 0x3) << 3)) & \
+						GICD_ITARGETSR_REGMASK)
 #define	GICD_ITARGETSR_SETTARGETS(val, n, v)	(((val) & \
 						~(GICD_ITARGETSR_REGVAL((n), \
 						0xFF))) | \
