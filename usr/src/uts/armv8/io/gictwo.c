@@ -1141,6 +1141,11 @@ gicv2_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		break;
 	}
 
+	case DDI_INTROP_ADDISR:	/* fallthrough */
+	case DDI_INTROP_REMISR:
+		/* no-op in this implementation */
+		break;
+
 	case DDI_INTROP_ENABLE: {
 		gicv2_conf_t *sc =
 		    ddi_get_soft_state(gicv2_soft_state, ddi_get_instance(dip));
