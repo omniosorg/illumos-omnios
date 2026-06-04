@@ -1057,6 +1057,19 @@ gicv2_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 	    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
 
 	switch (intr_op) {
+	case DDI_INTROP_ALLOC:
+		*(int *)result = hdlp->ih_scratch1;
+		DDI_INTR_NEXDBG((CE_CONT, "gicv2_intr_ops: ALLOC "
+		    "for rdip = 0x%p, inum = 0x%x, result is 0x%x for 0x%x\n",
+		    rdip, hdlp->ih_inum, *(int *)result, hdlp->ih_scratch1));
+		break;
+
+	case DDI_INTROP_FREE:
+		DDI_INTR_NEXDBG((CE_CONT, "gicv2_intr_ops: FREE "
+		    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x\n",
+		    rdip, hdlp, hdlp->ih_inum));
+		break;
+
 	case DDI_INTROP_GETPRI: {
 		int shared;
 		uint_t curpri;
