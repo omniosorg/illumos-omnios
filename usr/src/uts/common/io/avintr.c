@@ -346,6 +346,42 @@ av_get_vec_lvl(uint_t vect, int *lvl)
 	return (0);
 }
 
+#if defined(__aarch64__)
+/*
+ * Return the number of active handlers registered for the given
+ * vector.
+ *
+ * This walks the autovect hash chain and counts entries with a
+ * matching av_vecnum and non-NULL av_vector.  Because MAX_VECT is
+ * smaller than the INTID space on aarch64, multiple vectors hash to
+ * the same bucket; av_vector_match() disambiguates.
+ *
+ * av_lock is acquired internally; callers must not already hold it.
+ */
+int
+av_get_shared(uint_t vecnum, uint_t *prip)
+{
+	struct av_head *vecp;
+	struct autovec *p;
+	int count = 0;
+
+	vecp = &autovect[vecnum % MAX_VECT];
+
+	mutex_enter(&av_lock);
+	for (p = vecp->avh_link; p != NULL; p = p->av_link) {
+		if (p->av_vector != NULL && av_vector_match(p, vecnum)) {
+			if (count == 0 && prip != NULL) {
+				*prip = p->av_prilevel;
+			}
+
+			count++;
+		}
+	}
+	mutex_exit(&av_lock);
+	return (count);
+}
+#endif /* __aarch64__ */
+
 void
 update_avsoftintr_args(void *intr_id, int lvl, caddr_t arg2)
 {

@@ -111,6 +111,10 @@ extern void wait_till_seen(int ipl);
 extern uint_t softlevel1(caddr_t, caddr_t);
 extern int av_get_vec_lvl(uint_t vect, int *lvl);
 
+#if defined(__aarch64__)
+extern int av_get_shared(uint_t vecnum, uint_t *prip);
+#endif
+
 #endif	/* _KERNEL */
 
 #ifdef	__cplusplus
