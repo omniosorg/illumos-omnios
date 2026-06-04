@@ -348,7 +348,7 @@ extern "C" {
 #define	GICD_NSACRnE(n)				(0x3600+(4*(n)))
 #define	GICD_INMIRnE(n)				(0x3b00+(4*(n)))
 
-#define	GICD_IROUTERn(n)			(0x6100+(8*(n)))
+#define	GICD_IROUTERn(n)			(0x6000+(8*(n)))
 #define	GICD_IROUTERnE(n)			(0x8000+(8*(n)))
 #define	GICD_IROUTER_Interrupt_Routing_Mode	0x0000000080000000
 
