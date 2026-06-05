@@ -729,12 +729,11 @@ implementation.
   The interrupt vector.  This is initially derived from `ih_inum` but updated as
   interrupt requests move through the device tree to ultimately contain the
   vector from the point of view of the main interrupt controller.  On SPARC
-  and AArch64 this is re-set between requests, so that interrupts maybe
-  re-mapped.  Intel need not do this because the PSM sets <<interrupt-flags,
-  flags>> indicating the domain of `ih_vector`.  AArch64 does not use this
-  field, because a single `uint32_t` cannot represent an interrupt, and
-  because determining which field of an interrupt description is the vector is
-  bus-specific.
+  this is re-set between requests, so that interrupts may be re-mapped.  Intel
+  need not do this because the PSM sets <<interrupt-flags, flags>> indicating
+  the domain of `ih_vector`.  AArch64 leaves this field in-place, as it is
+  used to populate interrupt kstats.  If it does happen to go stale it will not
+  affect interrupt operations, as those always re-derive the value.
 
 `uint16_t ih_ver`::
   Interrupt handle version.  `DDI_INTR_VERSION`.  NOTE: this is the 5th
@@ -1717,9 +1716,6 @@ the root-most interrupt parent and handled there.
 
 === AArch64
 
-WARNING: The implementation described here is not the current implementation,
-and exists only prototypically.
-
 AArch64 systems are broken into two major categories based on their firmware
 device tree implementation.
 
@@ -1809,275 +1805,313 @@ in use.
 The devicetree.org specification has a mechanism for expressing MSI that is
 entirely distinct from that adopted by OpenFirmware on SPARC.
 
-The **"msi-parent"** property is a list of `<RID, controller>` pairs, where
-the RID may be absent if **"#msi-cells"** is 0.  This list is not ordered, and
-software may use any combination in any order.
+The **"msi-parent"** property is a list of `<phandle [msi-specifier]>` pairs,
+where the phandle is a reference to the MSI controller, and the msi-specifier
+is controller-specific sideband data (governed by that
+controller's **"#msi-cells"**).
 
 For MSI on PCI there is an **"msi-map"** property, which maps ranges of RID
 to MSI specifiers on specific controllers.
 
-NOTE: illumos does not currently support this mechanism, as MSI support on
-AArch64 does not yet exist
+illumos supports both **"msi-map"** and **"msi-parent"** via the `map_msi()`
+function in the DDI implementation.  See <<aarch64-msi-routing, MSI/MSI-X
+routing>> below.
 
 ==== Message Signalled Interrupts
 
-WARNING: the prototype does not implement MSI/X at all, this is all thoroughly
-pre-implementation thinking
+There are several ways MSI/X are implemented on AArch64.  illumos supports
+#1 and #5 at present.
 
-There are several ways MSI/X are implement on AArch64
+1. A GICv2m device alongside GIC version 2, which maps MSI onto a range of
+  SPIs (shared with the fixed interrupt vector space).  The GIC controls
+  affinity via `GICD_ITARGETSRn`.  The `gicv2m` driver handles MSI allocation
+  from its assigned SPI window, and delegates GETTARGET/SETTARGET to the
+  parent `gictwo` driver.
 
-1. A GIC v2m device alongside GIC version 2, which maps MSI onto a range of
-  vectors shared with fixed interrupts.  The GIC controls affinity.
+2. A GICv3 device directly receives messages and maps MSI onto SPIs.  These
+  are Message Based Interrupts (MBIs), using the `GICD_SETSPI_NSR` doorbell.
+  For FDT the mapping is expressed in the devicetree; ACPI can describe this.
+  illumos does not yet have an MBI driver.
 
-2. A GIC v3 device directly receives messages and maps MSI onto a range of
-  vectors shared with fixed interrupts. (Message Based SPIs).  For FDT the
-  mapping is expressed in the devicetree or device binding, ACPI cannot
-  express this.
+3. The above, but level-triggered.  illumos has no concept of a
+  level-triggered MSI, and one would need to be added to implement this.
+  We have no reason to do so.
 
-3. ... the above, but level-triggered.  illumos has no concept of a
-  level-triggered MSI, and one would probably need to be added, if we were to
-  implement this.
-
-4. A GIC v3 redistributor device directly receives messages and raises
+4. A GICv3 redistributor device directly receives messages and raises
   _locality-specific peripheral interrupts_ (LPIs).  This is basically #2 but
-  without mapping onto vectors shared with fixed interrupts, the vector is now
-  in a specific (very broad) range..  affinity is implicit in the choice of
-  redistributor device.  This is mutually exclusive with #5
+  without mapping onto vectors shared with fixed interrupts; the vector is in
+  the LPI range (INTID 8192+).  Affinity is implicit in the choice of
+  redistributor device.  This is mutually exclusive with #5.
 
-5. _Interrupt Translation Service_ (ITS) devices receive messages which raises
-  LPIs like #4.  Affinity is handled by the ITS.
+5. _Interrupt Translation Service_ (ITS) devices receive messages which raise
+  LPIs like #4.  Affinity is handled by the ITS via collections mapped to
+  redistributors.  The `gicv3_its` driver handles allocation, enabling, and
+  targeting of LPIs.
 
-6. Devices like RaspberryPi,4 which has a GIC version 2 with no v2m, and
+6. Devices like RaspberryPi,4 which have a GIC version 2 with no v2m, and
   handles MSI in the PCIe host (which is basically how SPARC hardware seemed
   to work).
 
-This appears to fit with the scheme described, whereby we attach drivers that
-field these interrupts as we would any other.  Some drivers need to handle
-both fixed and MSI/X, some only one or the other.
+Distinct drivers are attached to each of these controllers.  The `gictwo` and
+`gicthree` drivers handle both fixed and MSI-related operations (since GICv2m
+SPIs and MBI SPIs are in the same INTID space as fixed SPIs).  The `gicv2m`
+and `gicv3_its` drivers handle only MSI/MSI-X.
 
-Of the methods above, it seems like we have no reason to implement #3.
-Whether to implement #4 depends on how commonly used it is compared to #5 (and
-vice-versa).
-
-#6 is either very simple and transparent to us, or requires that the
-downstream nexus be an interrupt controller for our purposes.
+#6 requires that the downstream PCIe host bridge nexus be an interrupt
+controller for our purposes.  We do not currently support this topology.
 
 ==== Implementation
+
+All <<interrupt-operations, interrupt operations>> on AArch64 are routed by
+`i_ddi_intr_ops()`.  There are three paths, determined by the interrupt type
+on the handle.
+
+===== Routing: UNKNOWN type
+
+A handle with type `DDI_INTR_TYPE_UNKNOWN` is walked toward the root of the
+device tree via the parent/child relationship.  The only valid operation at
+this stage is `DDI_INTROP_SUPPORTED_TYPES`.
+
+If a PCI root complex (via `pci_common_intr_ops`) is encountered during the
+walk, it synthesises the supported types by combining the device's own
+capabilities with the platform's.  For FIXED support it checks whether the
+device has an **"interrupts"** property.  For MSI/MSI-X support it calls
+`i_ddi_msi_supported_types()` which uses `map_msi()` to reach the MSI
+controller and query it directly - this is necessary because the MSI path in
+`i_ddi_intr_ops()` requires a known type, which is exactly what we are trying
+to determine.
+
+If no root complex is encountered, the walk continues to the root nexus, which
+declares `DDI_INTR_TYPE_FIXED` unconditionally.
+
+===== Routing: FIXED interrupts
+
+FIXED operations are routed through the interrupt hierarchy, not the device
+hierarchy.  `i_ddi_intr_ops()` calls `map_interrupt()` which resolves the
+interrupt domain by walking the interrupt tree upward from the device,
+returning a held reference to the interrupt controller's `dev_info_t`.  The
+operation is then dispatched to the controller's `bus_intr_op` entry point.
+
+The `map_interrupt()` walk proceeds as follows:
+
+1. On first entry (no `ip_unitintr` yet), `i_ddi_unitintr()` reads the
+   device's **"interrupts"** property to build a unit interrupt descriptor -
+   the combination of unit address (from the device's position on its parent
+   bus) and interrupt specifier (encoded per the parent interrupt domain's
+   **"#interrupt-cells"**).
+
+2. `map_interrupt_parent()` is called.  This follows the **"interrupt-parent"**
+   property if present, otherwise the device tree parent.  It updates the unit
+   interrupt descriptor's unit address component to reflect the addressing
+   context at the current node.
+
+3. At the resolved parent: if it has an **"interrupt-map"** property,
+   `map_interrupt_map()` translates the interrupt specifier through the map
+   (applying the **"interrupt-map-mask"** and matching against entries).  The
+   output is a new unit interrupt descriptor in the parent's interrupt domain
+   and a new parent to recurse into.  If there is no **"interrupt-map"**,
+   `map_interrupt_parent()` walks one more hop up.
+
+4. The walk recurses until reaching a node that is an
+   **"interrupt-controller"** with no explicit **"interrupt-parent"** of its
+   own.  This is the controller that will handle the operation.
+
+On entry, `i_ddi_intr_ops()` allocates the platform-private handle data
+(`ihdl_plat_t`) if not already present.  On return, it frees the transient
+`ip_unitintr` - this is per-call state used only during the walk.  The
+`ihdl_plat_t` itself persists across the lifetime of the handle for fields
+like `ip_ticks` and `ip_ksp`.
+
+The GIC controller drivers (`gictwo`, `gicthree`) parse the unit interrupt
+descriptor to extract the GIC-specific INTID and sense (edge vs. level).  Each
+driver implements the full set of FIXED verbs: NINTRS, NAVAIL, ALLOC, FREE,
+GETPRI, SETPRI, ADDISR, REMISR, ENABLE, DISABLE, GETCAP, SETMASK, CLRMASK,
+GETPENDING, GETTARGET, and SETTARGET.
+
+The root nexus on AArch64 is not normally an interrupt controller.  For FIXED
+handles, it forwards all operations to the controller via `i_ddi_intr_ops()`.
+The typical topology is that the root nexus has an **"interrupt-parent"**
+pointing at the GIC, which is the real root of the interrupt hierarchy.  This
+is how QEMU,virt works and is also the most convenient way to establish a
+default interrupt parent for ACPI systems.
+
+===== Routing: MSI/MSI-X interrupts
+
+MSI/MSI-X operations are routed through the MSI tree, which is orthogonal to
+both the device hierarchy and the fixed interrupt hierarchy.  When
+`i_ddi_intr_ops()` sees an MSI or MSI-X type handle, it calls `map_msi()` to
+resolve one hop toward the MSI controller, then dispatches the operation to
+whatever `map_msi()` returned.
+
+The `map_msi()` walk proceeds as follows:
+
+1. At each hop, check the current node for an **"msi-map"** property (the PCI
+   host bridge case).  If found, the device's Requester ID (RID) is matched
+   against the map's ranges to resolve the MSI controller phandle and
+   translate the RID into a device ID in the controller's domain.  The
+   translated device ID is stashed in `ip_msi_devid` for the controller.
+
+2. If no **"msi-map"**, check for an **"msi-parent"** property (the simple
+   case where all children of a node share a single MSI controller).
+
+3. If neither property is present, return the held device tree parent.  This
+   causes the natural `bus_intr_op` recursion (which calls back into
+   `i_ddi_intr_ops()` at the parent) to drive the walk one hop at a time,
+   until a node with **"msi-map"** or **"msi-parent"** is found.
+
+The MSI controller driver (`gicv2m` for GICv2, `gicv3_its` for GICv3 ITS)
+receives the operation and handles it.
+
+===== The role of `pci_common`
+
+PCI nexuses (`ecam` on AArch64) use `pci_common_intr_ops()` as their
+`bus_intr_op` implementation.  This function integrates PCI-specific actions
+with controller actions by performing any PCI-level work (device capability
+checks, MSI enable/disable in config space, kstat management) and then
+forwarding to the controller via `i_ddi_intr_ops()`.
+
+For FIXED interrupts, the PCI nexus sits between the device and the interrupt
+controller in the interrupt hierarchy.  Its forwarding call enters
+`i_ddi_intr_ops()` with the nexus as `dip`, which causes `map_interrupt()` to
+continue the interrupt tree walk from the nexus rather than from the device.
+
+For MSI/MSI-X interrupts, the PCI nexus sits between the device and the MSI
+controller in the MSI tree.  Its forwarding call enters `i_ddi_intr_ops()`
+which calls `map_msi()` at the nexus.  Since the **"msi-map"** property
+typically lives on the PCI host bridge (the nexus itself), this is where the
+RID-to-device-ID translation happens and the controller is resolved.
+
+PCI-to-PCI bridges (`ppb`) are a pure passthrough for interrupt operations.
+Bridges never perform MSI work or interrupt translation themselves - they
+simply forward to their parent via `i_ddi_intr_ops()`.
+
+Some operations are handled entirely within `pci_common` without forwarding.
+SUPPORTED_TYPES composes its answer from the device's PCI capabilities and the
+platform's controller capabilities.  GETPRI checks the device's PCI class code
+to generate a default priority if none has been set.
+
+===== Interrupt targeting
+
+Both SPI (FIXED) and LPI (MSI/MSI-X) interrupts can be targeted to specific
+CPUs via `DDI_INTROP_GETTARGET` and `DDI_INTROP_SETTARGET`.  These operations
+route to the interrupt controller like any other verb, but the mechanism
+differs by controller type.
+
+For FIXED interrupts (SPIs), targeting is handled by the root GIC driver:
+
+- Per-CPU interrupts (SGIs, PPIs) cannot be retargeted.
+
+- **GICv2** (`gictwo`): reads and writes `GICD_ITARGETSRn` registers, which
+  encode an 8-bit CPU target mask per SPI (systems with GICv2 only support up
+  to 8 CPUs).  SPIs that are owned by a GICv2m frame for MSI use are
+  rejected - their targeting follows the MSI targeting path.
+
+- **GICv3** (`gicthree`): reads and writes `GICD_IROUTERn` registers, which
+  encode an affinity value (Aff3.Aff2.Aff1.Aff0) per SPI.
+
+For MSI/MSI-X interrupts (LPIs), targeting is handled by the MSI controller:
+
+- **GICv3 ITS** (`gicv3_its`): targeting uses the ITS MOVI command to move an
+  LPI from one collection to another.  Each collection is mapped to a
+  redistributor (and thus a CPU) via the collection table.  The ITS tracks the
+  current target CPU per vector in software (`gv_target_cpu`) and issues a
+  MOVI+SYNC command pair to effect the move.
+
+- **GICv2m** (`gicv2m`): MSI interrupts on GICv2m are mapped onto the SPI
+  range, so targeting is delegated to the parent GICv2 driver via its
+  GETTARGET/SETTARGET implementation.
+
+The **pci_intrs** kstats and **pcitool** interrupt ioctls build on
+GETTARGET/SETTARGET to expose per-vector CPU affinity to userspace.  The
+interrupt redistribution daemon (`intrd`) uses these to balance interrupt load
+across CPUs.
+
+===== IRM pools
+
+The <<psarc-irm, Interrupt Resource Manager>> on i86pc uses a single global
+pool because the APIC vector space is flat and shared.  On AArch64 the
+situation is different: each MSI controller has its own vector namespace,
+so IRM pools are scoped per controller instance.
+
+- **GICv3 ITS** (`gicv3_its`): the IRM pool covers the LPI range.  LPIs are
+  a dedicated interrupt namespace (INTID 8192+) that is not shared with fixed
+  interrupts.  The pool is owned by the GICv3 driver (since the LPI
+  configuration and pending tables are global to the GIC, not per-ITS) and
+  shared by all ITS instances.  Each ITS returns this pool via
+  `DDI_INTROP_GETPOOL`.
+
+- **GICv2m** (`gicv2m`): the IRM pool covers the SPI range assigned to the
+  v2m frame.  Unlike LPIs these are shared with the fixed interrupt namespace
+  - a v2m MSI consumes one of the GICv2's SPI vectors.  Each v2m frame
+  instance has its own pool scoped to its assigned SPI window.
+
+- **GICv3 MBI** (message based SPIs, not yet implemented): these would also
+  consume SPI vectors shared with fixed interrupts, similar to GICv2m.
+
+FIXED interrupts (`gictwo`, `gicthree`) do not participate in IRM.  There is
+no allocation phase for fixed interrupts - they are statically described in
+the firmware.
+
+The per-controller pool scoping means that IRM balancing decisions are local
+to each controller's namespace.  A system with multiple ITS instances shares
+one LPI pool.  A system with multiple GICv2m frames has independent pools,
+each backed by a disjoint SPI range.
 
 [#no-intrspec]
 ===== `struct intrspec`-free operation
 
-Given `struct intrspec` is insufficient to describe interrupts on the GIC, it
-is to our advantage of nothing in the AArch64 support treated an intrspec as
-canonical.  Common nexuses that uses them in there implementation is fine
-because we can guarantee that they represent an interrupt domain with an
-interrupt representation that the intrspec is sufficient for.
+`struct intrspec` is insufficient to describe interrupts on the GIC.  Nothing
+in the AArch64 support treats an `intrspec` as canonical.  Common nexuses that
+use them in their implementation are acceptable because we can guarantee that
+they represent an interrupt domain with an interrupt representation that the
+intrspec is sufficient for.
 
-The problem area is interrupts that directly target the GIC (those passing
-through the root nexus and the interrupt controller drivers themselves), or
-any AArch64-specific devices with bindings that `struct intrspec` cannot
-represent.
+SPARC is almost entirely free of `struct intrspec`, which confirms this is
+practical.
 
-SPARC is almost entirely free of `struct intrspec`, which suggests this is
-not only practical but desirable -- it must have been removed from the SPARC
-code already.
+Because `uint32_t ih_vector` cannot represent an interrupt in most cases, we
+use `ip_unitintr` to hold this data.  `ih_vector` is preserved for FIXED
+interrupts (where it carries the INTID after controller parsing) but is not
+the authoritative representation during the interrupt tree walk.
 
 ===== Early use
 
-Interrupt controllers in the path between the system clock and the CPU must
-provide a limited interface to allow this clock interrupt to be established.
-
-This is to avoid an unfortunate chicken-and-egg situation where we need the
-clock interrupt to build the device tree, and the device tree to establish the
-clock interrupt via the DDI interfaces.  The intel platform does this via
-calling into the PSM, which the current AArch64 scheme does not have (or
-probably need).
-
-===== Structure
-
-====== Interrupt Establishing Operations
-
-As on SPARC, we expect at least the relevant subset of interrupt operations
-(**DDI_INTROP_ADDISR**, **DDI_INTROP_REMISR**, **DDI_INTROP_ENABLE**,
-**DDI_INTROP_DISABLE**, **DDI_INTROP_BLOCKENABLE**,
-**DDI_INTROP_BLOCKDISABLE**) to be mapped to a driver attached to hardware
-functioning as an interrupt controller.  On SPARC these would be host bridge
-drivers, which would then establish their interrupts directly.  The actual
-root-most interrupt hardware is part of the basic platform.
-
-On AArch64 we have several possible root-most interrupt controllers, 3
-possible versions of the ARM Generic Interrupt Controller (GIC), and several
-methods of transmitting MSI/X to the root controller, and cannot practically
-follow this scheme as-is, since the actual establishment of the interrupt in
-hardware is interrupt-controller dependent.
-
-The Intel platform uses the PSM to abstract over this, in a manner not
-entirely dissimilar from the way the DDI2 implementation abstracts over
-interrupt operations.  See <<psm-ddi2-comparison, the comparison>> for how
-they line up.
-
-On AArch64 the interrupt controllers available to us are present in the device
-tree directly, and the mapping between hardware and interrupt controllers is
-clearly expressed there (or in the case of ACPI, can be expressed there in a
-well known way) we choose to attach distinct drivers to these controllers, and
-allow those drivers to handle the low-level establishment of interrupts.  In
-spirit, if not entirely in fact, the PSM operation called "on" the interrupt
-controller is replaced with the matching DDI2 operation mapped up the
-interrupt hieararchy.
-
-This means that the system has full device drivers, rather than misc modules
-attaching to any GIC v2 or GIC v3 interrupt controllers, and in the future,
-drivers for the GIC v2m frame, and GIC ITS MSI to GIC translation hardware.
-
-All busses are expected to call `i_ddi_intr_ops()` to pass the request to
-higher levels of the interrupt hierarchy, and to the correct instance of the
-drivers attached to the interrupt controllers.
-
-NOTE: While it may seem surprising, it is a valid topology for the rootnex to
-have an **"interrupt-parent"** that actually fields the interrupts, rather than each
-bus pointing to the interrupt controller.  That is, the root nexus is the root
-of the device tree _but not necessarily the interrupt hieararchy_.  This is
-how QEMU,virt works and is also the most convenient way to establish a default
-**"interrupt-parent"** for ACPI systems.
-
-====== Other Interrupt Operations
-
-Other operations may be handled directly by nexus drivers, or passed up the
-device tree hierarchy to refine their results.
-
-WARNING: This is a weak point in the scheme described here.
-
-Why do these operations follow a different hierarchy, and get direct answers
-from busses, except for this was how things work on SPARC? (where the
-hierarchies are almost always, we think, isomorphic).
-
-Why do busses answer on their own behalf, does the root system not have any
-say in resource availability, etc?
-
-The answer in the current prototype is that this is how SPARC worked, and that
-is directly analogous to how interrupts are structured for us too.
-
-It would be nice if:
-
-. All operations that can follow the interrupt hierarchy, did.  Even if this
-  meant temporary handles have to be more completely allocated.
-. It were clear and documented which operations follow which hieararchy, and
-  whom we expect to be ultimately responsible.
-
-===== Rationale
-
-The approach used in our Intel codebase is usually the more attractive,
-because that code base is actively maintained.  In this case though the nature
-of interrupts on the platform, such as the potential for arbitrary cascading
-of interrupt controllers make the approach of having each nexus directly
-establish interrupts via a PSM seem unworkable.  We may have to program
-multiple controllers on the way through the hierarchy, at which we would at
-best be emulating the journey through the interrupt hierarchy of the device
-tree.  Further, the PSM operations interface and the DDI2 interface are
-<<psm-ddi2-comparison, so similar>>, it's not obvious what benefit there would be
-
-The approach used on SPARC seems to fit our needs, and in fact the prototype
-is very SPARC-y with the exception that interrupt establishing operations pass
-each node up the tree, rather than directly going to the uppermost.  This
-seems to be because the SPARC platform has a simple interrupt programming
-interface, here `add_ivintr()` registers a handler in an interrupt vector used
-for vectored interrupts, and mondo interrupts are effectively message based,
-queued in hardware and de-queued in software.
-
-The SPARC approach though is also somewhat dissatisfying.  Why must we take
-two distinct paths through the device tree depending on the interrupt
-operation?  With the exception of <<ddi-introp-supported-types,
-`DDI_INTROP_SUPPORTED_TYPES`>> which cannot reach an interrupt controller
-(would it go to the fixed or MSI controller?).
-
-It would be nice to have a simpler scheme where the path through the tree was
-not split like this, where each operation is expected to call its parent via
-`i_ddi_intr_ops()` either to provide the information, or to provide further
-filtering to the value in `*result`.
-
-The addition of MSI support on ARM will present a departure from the SPARC
-scheme. On SPARC it is assumed that a direct ancestor of our device will be a
-host bridge device which will handle translating MSIs to Mondos (or whatever
-ends up happening), the same assumption as used to exist for fixed
-interrupts, too.  Whereas on ARM we have potentially several such devices
-appearing discretely and handling MSI/X for different subsets of devices in
-the system, to which they may (and usually do) have no familial relation in
-the device tree.
-
-===== Problems
-
-A major outstanding wart in the prototype is that on real platforms, we can
-take several paths through the interrupt tree depending on the device and its
-position in the device tree.  This means that there is no single global place
-to provide book-keeping at the DDI level.  Much of this bookkeeping is at
-present maintaining the `struct intrspec` compatibility pieces in the parent
-private data, and would go away if and when that does, but I am not convinced
-it is all the global bookkeeping we would ever want.  Counter to my instincts
-is the fact that interrupt support on SPARC makes this work without shared
-bookkeeping.
-
-Another wart is that a full conversion to this scheme is an unfortunate amount
-of work to the extent that a lot of our machine dependent drivers are more
-Intel-derived than SPARC derived, so their interrupt operations must be
-refactored, perhaps substantially, and retested.
-
-This sounds bad, but <<psm-ddi2-comparison, the comparison>> between
-<<psm-operations, PSM operations>> and <<interrupt-operations, DDI2
-operations>> shows a lot of overlap where calls to PSM operations would be
-directly replaced with `i_ddi_intr_ops()` calls.  Other operations are either
-unnecessary in this scheme (vector translation) or not currently implementable
-on AArch64, but with the appearance we could implement these in the same manner.
-
-Because `uint32_t ih_vector` cannot represent an interrupt in most cases, we
-use `ip_unitintr` to hold this data.
-
-Because the data in `ip_unitintr` is only intelligible by the bus, `ih_vector`
-isn't kept up-to-date.  We would require an operation to ask the bus for the
-vector given a descriptor.  We haven't added such an operation (private or
-otherwise) because it doesn't, so far, seem we need one.  It would be easy
-to add.
-
-====== Vastly increased interrupt vector space
-
-The autovectoring interrupt support in illumos currently has a maximum of 256
-vectors.  The vector space on AArch64 is vastly larger than this, although
-sparse.
-
-WARNING: The implementation of autovectoring is also inconsistent about what
-happens to vectors > 256.  `add_avintr()` and `rem_avintr()` will take the
-vector modulo `MAX_VECT` as the index into the table, `av_dispatch_autovect()`
-will not do this, and assert the vector itself is lower than `MAX_VECT`.  All
-other code on all other platforms will just overrun `autovect[MAX_VECT]`.
-
-The apix PSM has a problem not unlike ours, and solves it using the `addintr`
-and `remintr` function pointers, which if non-NULL entirely replace the
-implementation of `add_avintr()` and `rem_avintr()`.  The metadata tracked in
-the GIC implementations just keeps an AVL of active vectors, rather than a
-huge sparse table.  This is problematic in interrupt context though.
+Interrupt controllers in the path between the system clock (expressed in
+the device tree) and the CPU are discovered, bound and attached via the
+normal DDI mechanisms.  Due to the AArch64 implementation we do not have an
+uncomfortable chicken-and-egg problem in bootstrapping the cyclic subsystem,
+which is the earliest user of interrupts.
 
 [#aarch64-ihdl-plat]
 ==== Interrupt Handle Platform Data (`ihdl_plat_t`)
 
 Platform-specific data associated with an <<interrupt-handle, interrupt
-handle>>.  This is currently as it is on Intel but incompletely used, and with
-some additional fields
+handle>>.
 
 `kstat_t *ip_ksp`::
-  **kstat(3kstat)** statistics for this interrupt handle, used by the PCI
-  nexuses.  Currently unused in the PCI prototype, but expected.
+  **kstat(3kstat)** statistics for this interrupt handle.  Created by
+  `pci_common` on ADDISR and destroyed on REMISR.  Used by the **pci_intrs**
+  kstat module and **pcitool** interrupt ioctls to expose per-vector interrupt
+  time and CPU targeting to userspace.
 
 `uint64_t ip_ticks`::
-  The number of ticks spent fielding this device's interrupts.
+  The number of ticks spent fielding this device's interrupts.  Updated by
+  `av_dispatch_autovect()` and exposed via the per-handle kstat.
 
 `unit_intr_t *ip_unitintr`::
   A device-tree unit interrupt descriptor (the combination of unit address and
-  interrupt descriptor).  Used by interrupt mapping internal to the AArch64
-  DDI implementation.  This is actually specific to the FDT implementation,
-  but should exist in a usable manner given a devicetree constructed from
-  ACPI.  This is opaque (actually, impossible to correctly interpret) to
-  anyone not the interrupt-controller currently processing `hdlp` and the DDI
-  implementation.  This is used in place of `ih_vector` which cannot represent
-  an interrupt completely.
+  interrupt specifier).  Used by the interrupt mapping machinery internal to
+  the AArch64 DDI implementation.  This is transient per-call state for FIXED
+  interrupt routing: allocated by `map_interrupt()` on entry and freed by
+  `i_ddi_intr_ops()` on return.  It is opaque to anyone except the interrupt
+  controller currently processing `hdlp` and the DDI implementation itself.
+  This is used in place of `ih_vector` which cannot completely represent an
+  interrupt.
+
+`uint32_t ip_msi_devid`::
+  The translated MSI device ID, set by `map_msi()` when an **"msi-map"**
+  property translates the PCI Requester ID into the MSI controller's device
+  ID namespace.  Used by GICv3 ITS to look up the device's ITT.
 
 == References
 
