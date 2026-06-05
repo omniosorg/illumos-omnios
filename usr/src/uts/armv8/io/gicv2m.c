@@ -602,6 +602,40 @@ gicv2m_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		return (gicv2m_gettarget(sc, rdip, hdlp, result));
 	case DDI_INTROP_SETTARGET:
 		return (gicv2m_settarget(sc, rdip, hdlp, result));
+	case DDI_INTROP_SETPRI: {
+		int shared;
+		uint_t curpri;
+		uint_t newpri;
+		uint32_t spi = hdlp->ih_vector;
+
+		DDI_INTR_NEXDBG((CE_CONT, "gicv2m_intr_ops: SETPRI "
+		    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x, "
+		    "is 0x%x\n",
+		    (void *)rdip, (void *)hdlp, hdlp->ih_inum,
+		    *(int *)result));
+		if (*(int *)result > LOCK_LEVEL) {
+			DDI_INTR_NEXDBG((CE_CONT, "gicv2m_intr_ops: SETPRI "
+			    "for rdip = 0x%p: new pri %d exceeds "
+			    "LOCK_LEVEL %d\n",
+			    (void *)rdip, *(int *)result, LOCK_LEVEL));
+			return (DDI_FAILURE);
+		}
+
+		shared = av_get_shared(spi, &curpri);
+		newpri = (uint_t)(*(int *)result);
+		if (shared > 0 && newpri != curpri) {
+			dev_err(rdip, CE_NOTE,
+			    "!%s%d: refusing to set pri 0x%x on "
+			    "shared SPI %u with pri 0x%x",
+			    ddi_node_name(rdip), ddi_get_instance(rdip),
+			    newpri, spi, curpri);
+			return (DDI_FAILURE);
+		}
+
+		ASSERT3U(*(int *)result, !=, 0);
+		hdlp->ih_pri = *(int *)result;
+		return (DDI_SUCCESS);
+	}
 	default:
 		return (DDI_ENOTSUP);
 	}
