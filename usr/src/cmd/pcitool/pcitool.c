@@ -1651,6 +1651,9 @@ get_interrupt_ctlr(int fd, pcitool_uiargs_t *input_args_p)
 		case PCITOOL_CTLR_TYPE_APIX:
 			ctlr_type = "APIX";
 			break;
+		case PCITOOL_CTLR_TYPE_GIC:
+			ctlr_type = "GIC";
+			break;
 
 		default:
 			break;

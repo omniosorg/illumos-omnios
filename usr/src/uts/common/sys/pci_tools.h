@@ -197,6 +197,7 @@ typedef struct pcitool_intr_info {
 #define	PCITOOL_CTLR_TYPE_UPPC		2
 #define	PCITOOL_CTLR_TYPE_PCPLUSMP	3
 #define	PCITOOL_CTLR_TYPE_APIX		4
+#define	PCITOOL_CTLR_TYPE_GIC		5
 
 /*
  * Size and endian fields for acc_attr bitmask.
