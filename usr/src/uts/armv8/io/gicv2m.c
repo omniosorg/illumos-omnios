@@ -382,7 +382,7 @@ gicv2m_enable(gicv2m_state_t *sc, dev_info_t *rdip,
 	if (!add_avintr((void *)hdlp, hdlp->ih_pri,
 	    hdlp->ih_cb_func, DEVI(rdip)->devi_name,
 	    spi, hdlp->ih_cb_arg1, hdlp->ih_cb_arg2,
-	    NULL, rdip)) {
+	    &priv->ip_ticks, rdip)) {
 		syspic_remove_state(spi);
 		mutex_exit(&syspic_intrs_lock);
 		return (DDI_FAILURE);

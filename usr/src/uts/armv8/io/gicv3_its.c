@@ -969,7 +969,7 @@ gicv3_its_enable(gicv3_its_state_t *sc, dev_info_t *rdip,
 	if (!add_avintr((void *)hdlp, hdlp->ih_pri,
 	    hdlp->ih_cb_func, DEVI(rdip)->devi_name,
 	    lpi, hdlp->ih_cb_arg1, hdlp->ih_cb_arg2,
-	    NULL, rdip)) {
+	    &priv->ip_ticks, rdip)) {
 		syspic_remove_state(lpi);
 		mutex_exit(&syspic_intrs_lock);
 		return (DDI_FAILURE);

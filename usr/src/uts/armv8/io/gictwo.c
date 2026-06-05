@@ -1309,6 +1309,7 @@ gicv2_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 	case DDI_INTROP_ENABLE: {
 		gicv2_conf_t *sc =
 		    ddi_get_soft_state(gicv2_soft_state, ddi_get_instance(dip));
+		ihdl_plat_t *priv = hdlp->ih_private;
 		syspic_intr_state_t *state = NULL;
 
 		if (gicv2_parse_unitintr(dip, rdip, hdlp,
@@ -1353,7 +1354,8 @@ gicv2_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		/* Add the interrupt handler */
 		if (!add_avintr((void *)hdlp, hdlp->ih_pri,
 		    hdlp->ih_cb_func, DEVI(rdip)->devi_name, hdlp->ih_vector,
-		    hdlp->ih_cb_arg1, hdlp->ih_cb_arg2, NULL, rdip)) {
+		    hdlp->ih_cb_arg1, hdlp->ih_cb_arg2,
+		    &priv->ip_ticks, rdip)) {
 			mutex_exit(&syspic_intrs_lock);
 			DDI_INTR_NEXDBG((CE_CONT, "gicv2_intr_ops: ENABLE "
 			    "dip 0x%p, hdlp 0x%p, type 0x%x, inum 0x%x: "
