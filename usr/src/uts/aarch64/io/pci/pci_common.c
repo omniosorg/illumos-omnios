@@ -1037,6 +1037,37 @@ pci_intr_getpri(dev_info_t *pdip, dev_info_t *rdip,
 }
 
 static int
+pci_intr_addisr(dev_info_t *pdip, dev_info_t *rdip,
+    ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
+{
+	ihdl_plat_t *ihdl_plat_datap;
+
+	ASSERT3P(hdlp->ih_private, !=, NULL);
+	ihdl_plat_datap = (ihdl_plat_t *)hdlp->ih_private;
+	pci_kstat_create(&ihdl_plat_datap->ip_ksp, pdip, hdlp);
+	return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
+}
+
+static int
+pci_intr_remisr(dev_info_t *pdip, dev_info_t *rdip,
+    ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
+{
+	ihdl_plat_t *ihdl_plat_datap;
+	int ret;
+
+	ret = i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result);
+
+	ASSERT3P(hdlp->ih_private, !=, NULL);
+	ihdl_plat_datap = (ihdl_plat_t *)hdlp->ih_private;
+
+	if (ihdl_plat_datap->ip_ksp != NULL) {
+		pci_kstat_delete(ihdl_plat_datap->ip_ksp);
+	}
+
+	return (ret);
+}
+
+static int
 pci_intr_getcap(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
@@ -1230,6 +1261,10 @@ pci_common_intr_ops(dev_info_t *pdip, dev_info_t *rdip, ddi_intr_op_t intr_op,
 		    hdlp, result));
 	case DDI_INTROP_GETPRI:
 		return (pci_intr_getpri(pdip, rdip, hdlp, result));
+	case DDI_INTROP_ADDISR:
+		return (pci_intr_addisr(pdip, rdip, intr_op, hdlp, result));
+	case DDI_INTROP_REMISR:
+		return (pci_intr_remisr(pdip, rdip, intr_op, hdlp, result));
 	case DDI_INTROP_GETCAP:
 		return (pci_intr_getcap(pdip, rdip, intr_op, hdlp, result));
 	case DDI_INTROP_SETMASK:	/* fallthrough */
@@ -1255,50 +1290,6 @@ pci_common_intr_ops(dev_info_t *pdip, dev_info_t *rdip, ddi_intr_op_t intr_op,
 		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
 	}
 }
-
-#if XXXARM
-int
-pci_get_intr_from_vecirq(apic_get_intr_t *intrinfo_p,
-    int vecirq, boolean_t is_irq)
-{
-	ddi_intr_handle_impl_t	get_info_ii_hdl;
-
-	if (is_irq)
-		intrinfo_p->avgi_req_flags |= PSMGI_INTRBY_IRQ;
-
-	/*
-	 * For this locally-declared and used handle, ih_private will contain a
-	 * pointer to apic_get_intr_t, not an ihdl_plat_t as used for
-	 * global interrupt handling.
-	 */
-	get_info_ii_hdl.ih_private = intrinfo_p;
-	get_info_ii_hdl.ih_vector = vecirq;
-
-	panic("XXXARM: PSM_INTR_OP_GET_INTR");
-
-	if ((*psm_intr_ops)(NULL, &get_info_ii_hdl,
-	    PSM_INTR_OP_GET_INTR, NULL) == PSM_FAILURE)
-		return (DDI_FAILURE);
-
-	return (DDI_SUCCESS);
-}
-
-
-int
-pci_get_cpu_from_vecirq(int vecirq, boolean_t is_irq)
-{
-	int rval;
-	apic_get_intr_t	intrinfo;
-
-	intrinfo.avgi_req_flags = PSMGI_REQ_CPUID;
-	rval = pci_get_intr_from_vecirq(&intrinfo, vecirq, is_irq);
-
-	if (rval == DDI_SUCCESS)
-		return (intrinfo.avgi_cpu_id);
-	else
-		return (-1);
-}
-#endif
 
 /*
  * Miscellaneous library function

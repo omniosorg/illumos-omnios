@@ -40,8 +40,6 @@ ROOTMODULE	= $(ROOT_MISC_DIR)/$(MODULE)
 
 INC_PATH += -I$(SRC)/uts/aarch64/io/pciex/pcierc/
 
-LDFLAGS += -Nmisc/pcie -Nmisc/pci_prd
-
 #
 #	Include common rules.
 #
@@ -54,13 +52,14 @@ ALL_TARGET	= $(BINARY)
 INSTALL_TARGET	= $(BINARY) $(ROOTMODULE)
 
 #
-# depends on misc/pcie
+# depends on misc/pcie and misc/pci_prd
 #
 # pcie supplies PCI Express fabric error support
+# pci_prd provides platform choices and implementations
 #
-LDFLAGS	+= -Nmisc/pcie
+LDFLAGS	+= -Nmisc/pcie -Nmisc/pci_prd
 
-CPPFLAGS += -I$(UTSBASE)/armv8
+CPPFLAGS += -I$(UTSBASE)/armv8 -D_MODULE_NAME="\"$(MODULE)\""
 
 #
 # For now, disable these checks; maintainers should endeavor

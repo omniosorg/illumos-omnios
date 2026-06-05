@@ -78,6 +78,13 @@ int	pci_common_peekpoke(dev_info_t *dip, dev_info_t *rdip,
 	ddi_ctl_enum_t ctlop, void *arg, void *result);
 int	pci_fm_acc_setup(ddi_acc_hdl_t *hp, off_t offset, off_t len);
 
+/*
+ * Functions exported from pci_kstats.c
+ */
+extern void pci_kstat_create(kstat_t **kspp, dev_info_t *nexus_dip,
+    ddi_intr_handle_impl_t *hdlp);
+extern void pci_kstat_delete(kstat_t *kspp);
+
 #ifdef	__cplusplus
 }
 #endif
