@@ -1266,6 +1266,16 @@ gicv3_its_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		*(int *)result |= DDI_INTR_FLAG_EDGE;
 		*(int *)result &= ~DDI_INTR_FLAG_LEVEL;
 		return (DDI_SUCCESS);
+	case DDI_INTROP_GETPOOL: {
+		ddi_irm_pool_t *pool;
+
+		pool = gicv3_get_lpi_irm_pool(sc->its_gic_dip);
+		if (pool == NULL) {
+			return (DDI_ENOTSUP);
+		}
+		*(ddi_irm_pool_t **)result = pool;
+		return (DDI_SUCCESS);
+	}
 	default:
 		return (DDI_ENOTSUP);
 	}
