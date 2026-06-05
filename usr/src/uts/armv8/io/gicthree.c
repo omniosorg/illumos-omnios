@@ -1935,6 +1935,14 @@ gicv3_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 	    rdip, hdlp, hdlp->ih_type, hdlp->ih_inum, intr_op));
 
 	switch (intr_op) {
+	case DDI_INTROP_NINTRS:		/* fallthrough */
+	case DDI_INTROP_NAVAIL:
+		*(int *)result = i_ddi_get_intx_nintrs(rdip);
+		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: op 0x%x "
+		    "for rdip = 0x%p is 0x%x\n",
+		    intr_op, rdip, *(int *)result));
+		break;
+
 	case DDI_INTROP_ALLOC:
 		*(int *)result = hdlp->ih_scratch1;
 		DDI_INTR_NEXDBG((CE_CONT, "gicv3_intr_ops: ALLOC "
