@@ -367,10 +367,11 @@ intr_thread_epilog(struct cpu *cpu, intr_cookie_t ack, uint_t oldpil)
 		(void) splhigh();
 		(void) enable_interrupts();
 
-		it->t_state = TS_FREE;
 		/*
 		 * Return interrupt thread to pool
 		 */
+		it->t_lwp = NULL;
+		it->t_state = TS_FREE;
 		it->t_link = cpu->cpu_intr_thread;
 		cpu->cpu_intr_thread = it;
 		swtch();
@@ -381,9 +382,10 @@ intr_thread_epilog(struct cpu *cpu, intr_cookie_t ack, uint_t oldpil)
 	/*
 	 * Return interrupt thread to the pool
 	 */
+	it->t_lwp = NULL;
+	it->t_state = TS_FREE;
 	it->t_link = cpu->cpu_intr_thread;
 	cpu->cpu_intr_thread = it;
-	it->t_state = TS_FREE;
 
 	basespl = cpu->cpu_base_spl;
 	pil = MAX(oldpil, basespl);
@@ -624,6 +626,7 @@ dosoftint_epilog(struct cpu *cpu, uint_t oldpil)
 		 * This was an interrupt thread, so set CPU's base SPL.
 		 */
 		set_base_spl();
+		it->t_lwp = NULL;
 		it->t_state = TS_FREE;
 		it->t_link = cpu->cpu_intr_thread;
 		cpu->cpu_intr_thread = it;
@@ -633,9 +636,10 @@ dosoftint_epilog(struct cpu *cpu, uint_t oldpil)
 		/*NOTREACHED*/
 		panic("dosoftint_epilog: swtch returned");
 	}
+	it->t_lwp = NULL;
+	it->t_state = TS_FREE;
 	it->t_link = cpu->cpu_intr_thread;
 	cpu->cpu_intr_thread = it;
-	it->t_state = TS_FREE;
 	write_tpidr_el1((uintptr_t)t);
 	cpu->cpu_thread = t;
 	if (t->t_flag & T_INTR_THREAD)
