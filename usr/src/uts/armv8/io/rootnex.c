@@ -1118,16 +1118,21 @@ rootnex_map_handle(ddi_map_req_t *mp)
  */
 
 /*
- * rootnex_intr_ops()
+ * The function of the root nexus, with respect to interrupts, on Arm is
+ * to respond to DDI implementation dispatches for two types of interrupts:
+ * UNKNOWN and FIXED.
  *
- * The function of the root nexus and interrupts is a bit complicated on ARM.
- * We may reach the root nexus in two cases:
+ * For UNKNOWN interrupts, the root nexus is authoritative for all operations,
+ * but the only supported operation is SUPPORTED_TYPES, which always returns
+ * FIXED.  For the "can't happen but if it does" case of SUPPORTED_TYPES coming
+ * through on a FIXED handle, we also return FIXED.
  *
- * 1.  Operations which are verbs not of the interrupt controllers but of the
- *     system, in which we are authoritative and directly answer.
+ * For FIXED interrupts, all supported verbs other than the errant
+ * SUPPORTED_TYPES are dispatched to the controller.
  *
- * 2.  Operations that are verbs of interrupt controllers between which we are
- *     in the path, these must be passed on toward an interrupt controller.
+ * MSI/MSI-X verbs are unsupported on FIXED handles.
+ *
+ * Any other type of handle is unsupported.
  */
 static int
 rootnex_intr_ops(dev_info_t *pdip, dev_info_t *rdip, ddi_intr_op_t intr_op,
@@ -1135,65 +1140,85 @@ rootnex_intr_ops(dev_info_t *pdip, dev_info_t *rdip, ddi_intr_op_t intr_op,
 {
 	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
 
-	switch (intr_op) {
-	case DDI_INTROP_NAVAIL:
-	case DDI_INTROP_NINTRS:
-		*(int *)result = i_ddi_get_intx_nintrs(rdip);
-		break;
-	case DDI_INTROP_SUPPORTED_TYPES:
-		/*
-		 * XXXARM: We have no MSI support yet, so this always filters
-		 * the types supported by the child down to just FIXED, or
-		 * returns that it itself only supports FIXED however you want
-		 * to look at it.
-		 */
-		*(int *)result = DDI_INTR_TYPE_FIXED;
-		break;
-	case DDI_INTROP_GETCAP:
-		*(int *)result = DDI_INTR_FLAG_LEVEL;
-		break;
-	case DDI_INTROP_ALLOC:
-		hdlp->ih_pri = i_ddi_get_intr_pri(rdip, hdlp->ih_inum);
-		*(int *)result = hdlp->ih_scratch1;
-		break;
+	DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: "
+	    "dip 0x%p, type 0x%x, op 0x%x\n",
+	    rdip, hdlp->ih_type, intr_op));
 
-	case DDI_INTROP_FREE:
-		break;
-
-	case DDI_INTROP_GETPRI:
-		if (hdlp->ih_pri == 0) {
-			hdlp->ih_pri = i_ddi_get_intr_pri(rdip, hdlp->ih_inum);
+	if (hdlp->ih_type == DDI_INTR_TYPE_UNKNOWN) {
+		if (intr_op != DDI_INTROP_SUPPORTED_TYPES) {
+			DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: "
+			    "rdip = 0x%p, bad op 0x%x for type 0x%x\n",
+			    rdip, intr_op, hdlp->ih_type));
+			return (DDI_FAILURE);
 		}
 
-		*(int *)result = hdlp->ih_pri;
-		break;
-	case DDI_INTROP_SETPRI:
-		if (*(int *)result > LOCK_LEVEL)
-			return (DDI_FAILURE);
+		*(int *)result = DDI_INTR_TYPE_FIXED;
+		DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: SUPPORTED_TYPES "
+		    "for rdip = 0x%p is 0x%x\n", rdip, *(int *)result));
+		return (DDI_SUCCESS);
+	}
 
-		hdlp->ih_pri = *(int *)result;
-		break;
-
-	case DDI_INTROP_ADDISR:
-	case DDI_INTROP_REMISR:
-	case DDI_INTROP_ENABLE:
-	case DDI_INTROP_DISABLE:
-	case DDI_INTROP_GETTARGET:
-	case DDI_INTROP_SETTARGET:
-	case DDI_INTROP_BLOCKENABLE:
-	case DDI_INTROP_BLOCKDISABLE:
-		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
-
-	/*
-	 * XXXGIC: These seem like they would need to reach an interrupt
-	 * controller to be supported, but they did not (inherently) on SPARC.
-	 */
-	case DDI_INTROP_SETMASK:
-	case DDI_INTROP_CLRMASK:
-	case DDI_INTROP_GETPENDING:
+	if (hdlp->ih_type != DDI_INTR_TYPE_FIXED) {
+		DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: not a FIXED "
+		    "interrupt, dip 0x%p, type 0x%x\n", rdip, hdlp->ih_type));
 		return (DDI_FAILURE);
+	}
 
+	switch (intr_op) {
+	/*
+	 * We're not supposed to see SUPPORTED_TYPES for FIXED interrupts,
+	 * but if it happens to come our way we know we can just give the
+	 * right answer, so we do so.
+	 */
+	case DDI_INTROP_SUPPORTED_TYPES:
+		*(int *)result = DDI_INTR_TYPE_FIXED;
+		DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: SUPPORTED_TYPES "
+		    "for rdip = 0x%p is 0x%x\n", rdip, *(int *)result));
+		return (DDI_SUCCESS);
+	/*
+	 * Verbs that route to the controller.
+	 *
+	 * We should never see SETCAP, but forward it anyway since we're not
+	 * supposed to have an opinion at this point in the tree.
+	 */
+	case DDI_INTROP_NINTRS:			/* fallthrough */
+	case DDI_INTROP_NAVAIL:			/* fallthrough */
+	case DDI_INTROP_ALLOC:			/* fallthrough */
+	case DDI_INTROP_FREE:			/* fallthrough */
+	case DDI_INTROP_GETPRI:			/* fallthrough */
+	case DDI_INTROP_SETPRI:			/* fallthrough */
+	case DDI_INTROP_ADDISR:			/* fallthrough */
+	case DDI_INTROP_REMISR:			/* fallthrough */
+	case DDI_INTROP_ENABLE:			/* fallthrough */
+	case DDI_INTROP_DISABLE:		/* fallthrough */
+	case DDI_INTROP_GETCAP:			/* fallthrough */
+	case DDI_INTROP_SETCAP:			/* fallthrough */
+	case DDI_INTROP_SETMASK:		/* fallthrough */
+	case DDI_INTROP_CLRMASK:		/* fallthrough */
+	case DDI_INTROP_GETPENDING:		/* fallthrough */
+	case DDI_INTROP_GETTARGET:		/* fallthrough */
+	case DDI_INTROP_SETTARGET:
+		DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: op 0x%x "
+		    "for rdip = 0x%p, hdlp = 0x%p, inum = 0x%x -> controller\n",
+		    intr_op, rdip, hdlp, hdlp->ih_inum));
+		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
+	/*
+	 * Verbs that should never reach the root nexus.
+	 *
+	 * These do not apply to FIXED interrupts.
+	 */
+	case DDI_INTROP_DUPVEC:		/* fallthrough */
+	case DDI_INTROP_BLOCKENABLE:	/* fallthrough */
+	case DDI_INTROP_BLOCKDISABLE:	/* fallthrough */
+	case DDI_INTROP_GETPOOL:
+		DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: op 0x%x "
+		    "for rdip = 0x%p, hdlp = 0x%p invalid for FIXED\n",
+		    intr_op, rdip, hdlp));
+		return (DDI_ENOTSUP);
 	default:
+		DDI_INTR_NEXDBG((CE_CONT, "rootnex_intr_ops: op 0x%x "
+		    "for rdip = 0x%p, hdlp = 0x%p invalid\n",
+		    intr_op, rdip, hdlp));
 		return (DDI_FAILURE);
 	}
 

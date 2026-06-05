@@ -1346,76 +1346,90 @@ i_ddi_resolve_msi_map(dev_info_t *bridge_dip, dev_info_t *rdip,
 }
 
 /*
- * Map a device to its MSI controller by walking up the device tree
- * looking for "msi-map" (PCI host bridge) or "msi-parent" (simple case)
- * properties.
+ * Map a single hop toward the MSI controller for a device.
  *
- * Parallel to map_interrupt() for FIXED interrupts.
+ * Checks 'dip' for "msi-map" (PCI host bridge) or "msi-parent" (simple
+ * case) properties and resolves to the MSI controller if found.  If
+ * neither property is present, returns the held parent of 'dip' so that
+ * the natural bus_intr_op recursion (process_intr_ops -> bus_intr_op ->
+ * i_ddi_intr_ops) drives the walk toward the controller one hop at a time,
+ * exactly as map_interrupt does for FIXED interrupts.
  *
- * Returns the MSI controller dip held with ip_msi_devid populated on
- * the handle's platform private data, or NULL if no MSI controller found.
+ * 'rdip' is the requesting leaf device, used solely for RID extraction
+ * by the resolve functions.
+ *
+ * Returns a held dip in all success cases (controller or parent).
+ *
+ * The caller must call ndi_rele_devi() on the returned dip.
  */
 static dev_info_t *
-map_msi(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
+map_msi(dev_info_t *dip, dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp)
 {
-	dev_info_t *cdip;
 	dev_info_t *msi_dip;
+	dev_info_t *parent;
 
 	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
 
-	DDI_INTR_IMPLDBG((CE_CONT, "map_msi: dip = %s%d, ih_type = 0x%x, "
-	    "ih_inum = 0x%x\n", ddi_driver_name(dip),
-	    ddi_get_instance(dip), hdlp->ih_type, hdlp->ih_inum));
+	DDI_INTR_IMPLDBG((CE_CONT, "map_msi: dip = %s%d, rdip = %s%d, "
+	    "ih_type = 0x%x, ih_inum = 0x%x\n",
+	    ddi_driver_name(dip), ddi_get_instance(dip),
+	    ddi_driver_name(rdip), ddi_get_instance(rdip),
+	    hdlp->ih_type, hdlp->ih_inum));
 
-	for (cdip = ddi_get_parent(dip); cdip != NULL;
-	    cdip = ddi_get_parent(cdip)) {
-		/* Check for msi-map first (PCI host bridge case) */
-		if (ddi_prop_exists(DDI_DEV_T_ANY, cdip,
-		    DDI_PROP_DONTPASS, OBP_MSI_MAP)) {
-			msi_dip = i_ddi_resolve_msi_map(cdip, dip, hdlp);
-			if (msi_dip == NULL)
-				return (NULL);
-			if (i_ddi_attach_node_hierarchy(msi_dip) !=
-			    DDI_SUCCESS) {
-				ndi_rele_devi(msi_dip);
-				dev_err(dip, CE_WARN,
-				    "could not attach MSI controller");
-				return (NULL);
-			}
-			DDI_INTR_IMPLDBG((CE_CONT, "map_msi: resolved "
-			    "via msi-map to %s%d, devid = 0x%x\n",
-			    ddi_driver_name(msi_dip),
-			    ddi_get_instance(msi_dip),
-			    (hdlp->ih_private != NULL) ?
-			    ((ihdl_plat_t *)hdlp->ih_private)->ip_msi_devid :
-			    0xdeaddead));
-			return (msi_dip);
+	/* Check for msi-map first (PCI host bridge case) */
+	if (ddi_prop_exists(DDI_DEV_T_ANY, dip,
+	    DDI_PROP_DONTPASS, OBP_MSI_MAP)) {
+		msi_dip = i_ddi_resolve_msi_map(dip, rdip, hdlp);
+		if (msi_dip == NULL) {
+			return (NULL);
 		}
-
-		/* Check for simple msi-parent */
-		if (ddi_prop_exists(DDI_DEV_T_ANY, cdip,
-		    DDI_PROP_DONTPASS, OBP_MSI_PARENT)) {
-			msi_dip = i_ddi_resolve_msi_parent(cdip, dip, hdlp);
-			if (msi_dip == NULL)
-				return (NULL);
-			if (i_ddi_attach_node_hierarchy(msi_dip) !=
-			    DDI_SUCCESS) {
-				ndi_rele_devi(msi_dip);
-				dev_err(dip, CE_WARN,
-				    "could not attach MSI controller");
-				return (NULL);
-			}
-			DDI_INTR_IMPLDBG((CE_CONT, "map_msi: resolved "
-			    "via msi-parent to %s%d\n",
-			    ddi_driver_name(msi_dip),
-			    ddi_get_instance(msi_dip)));
-			return (msi_dip);
+		if (i_ddi_attach_node_hierarchy(msi_dip) != DDI_SUCCESS) {
+			ndi_rele_devi(msi_dip);
+			dev_err(dip, CE_WARN,
+			    "could not attach MSI controller");
+			return (NULL);
 		}
+		DDI_INTR_IMPLDBG((CE_CONT, "map_msi: resolved "
+		    "via msi-map to %s%d, devid = 0x%x\n",
+		    ddi_driver_name(msi_dip),
+		    ddi_get_instance(msi_dip),
+		    (hdlp->ih_private != NULL) ?
+		    ((ihdl_plat_t *)hdlp->ih_private)->ip_msi_devid :
+		    0xdeaddead));
+		return (msi_dip);
 	}
 
-	DDI_INTR_IMPLDBG((CE_CONT, "map_msi: no MSI controller found "
-	    "for %s%d\n", ddi_driver_name(dip), ddi_get_instance(dip)));
-	return (NULL);
+	/* Check for simple msi-parent */
+	if (ddi_prop_exists(DDI_DEV_T_ANY, dip,
+	    DDI_PROP_DONTPASS, OBP_MSI_PARENT)) {
+		msi_dip = i_ddi_resolve_msi_parent(dip, rdip, hdlp);
+		if (msi_dip == NULL) {
+			return (NULL);
+		}
+		if (i_ddi_attach_node_hierarchy(msi_dip) != DDI_SUCCESS) {
+			ndi_rele_devi(msi_dip);
+			dev_err(dip, CE_WARN,
+			    "could not attach MSI controller");
+			return (NULL);
+		}
+		DDI_INTR_IMPLDBG((CE_CONT, "map_msi: resolved "
+		    "via msi-parent to %s%d\n",
+		    ddi_driver_name(msi_dip),
+		    ddi_get_instance(msi_dip)));
+		return (msi_dip);
+	}
+
+	/* Neither found - return held parent for per-hop walk */
+	parent = ddi_get_parent(dip);
+	if (parent == NULL) {
+		DDI_INTR_IMPLDBG((CE_CONT, "map_msi: no MSI controller "
+		    "found for %s%d\n",
+		    ddi_driver_name(dip), ddi_get_instance(dip)));
+		return (NULL);
+	}
+
+	ndi_hold_devi(parent);
+	return (parent);
 }
 
 /*
@@ -2024,131 +2038,105 @@ map_interrupt(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp)
 	return (par);
 }
 
+/*
+ * Route an interrupt operation to the appropriate handler.  Three paths:
+ *
+ *   UNKNOWN  : walk to parent.  The root nexus is authoritative for
+ *              SUPPORTED_TYPES, the only valid verb at this stage.
+ *
+ *   MSI/MSI-X: per-hop map_msi.  Each hop checks for msi-map or
+ *              msi-parent; if neither, returns the held parent so the
+ *              natural bus_intr_op recursion drives the walk to the
+ *              MSI controller.
+ *
+ *   FIXED    : map_interrupt resolves the interrupt domain via
+ *              interrupt-parent/interrupt-map.  All operations route
+ *              to the controller.
+ */
 int
 i_ddi_intr_ops(dev_info_t *dip, dev_info_t *rdip, ddi_intr_op_t op,
-    ddi_intr_handle_impl_t *hdlp, void * result)
+    ddi_intr_handle_impl_t *hdlp, void *result)
 {
-	dev_info_t	*pdip = ddi_get_parent(dip);
-	int		ret = DDI_FAILURE;
+	dev_info_t	*pdip;
+	int		ret;
+	boolean_t	priv_owned = B_FALSE;
+	ihdl_plat_t	*priv = NULL;
 
 	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
 
 	/*
-	 * If we don't know the interrupt type yet, we can't tell which path
-	 * it must take to an interrupt controller.
+	 * UNKNOWN: walk towards parent
 	 *
-	 * These are, by definition, in the group of verbs that operate on the
-	 * system, and are passed up the device tree.
+	 * If a root complex is found on the walk, it synthesizes
+	 * SUPPORTED_TYPES from resource capabilities and controller
+	 * capabilities.
 	 *
-	 * It is in fact, true that we cannot try to map an interrupt that
-	 * has not been configured even this far.
+	 * If no root complex is encountered on the walk, then the root nexus
+	 * is responsible for declaring FIXED interrupt support.
+	 *
+	 * It is an error to walk off the top of the tree.
 	 */
 	if (hdlp->ih_type == DDI_INTR_TYPE_UNKNOWN) {
-		if (pdip == NULL)
+		if ((pdip = ddi_get_parent(dip)) == NULL) {
 			return (DDI_FAILURE);
+		}
 
 		return (process_intr_ops(pdip, rdip, op, hdlp, result));
-	} else if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
-		if (hdlp->ih_pri == 0)
-			hdlp->ih_pri = i_ddi_get_intr_pri(rdip, hdlp->ih_inum);
 	}
 
 	/*
-	 * These operations are verbs specific per-interrupt controller (or,
-	 * in fact, a hierarchy of them in the case of, for eg, GPIO), map the
-	 * handle onto its interrupt parent and call it to perform any
-	 * necessary programming.
-	 *
-	 * Other operations are verbs acting upon the system itself, and
-	 * follow the device tree to the root nexus.
-	 *
-	 * For MSI/MSI-X, ADDISR/REMISR/GETTARGET/SETTARGET route through
-	 * map_msi() directly to the MSI controller.  ALLOC/FREE and
-	 * ENABLE/DISABLE are handled by the PCI nexus (pci_common_intr_ops)
-	 * which performs PCI-level setup/register programming and then calls
-	 * i_ddi_msi_alloc/free/enable/disable to reach the MSI controller.
-	 *
-	 * For FIXED, controller-verbs route through map_interrupt() to
-	 * the interrupt domain, and ALLOC/FREE pass up the device tree.
+	 * From here on out the handle must have a valid type.
 	 */
-	switch (op) {
-	case DDI_INTROP_ADDISR:
-	case DDI_INTROP_REMISR:
-	case DDI_INTROP_GETTARGET:
-	case DDI_INTROP_SETTARGET:
-		if (DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
-			if ((pdip = map_msi(dip, hdlp)) == NULL) {
-				dev_err(dip, CE_WARN, "could not find "
-				    "MSI controller");
-				goto done;
-			}
-		} else {
-			/*
-			 * FIXED: determine the interrupt domain via
-			 * interrupt-map / interrupt-parent.
-			 */
-			if ((pdip = map_interrupt(dip, hdlp)) == NULL) {
-				dev_err(dip, CE_WARN, "could not find "
-				    "interrupt domain");
-				goto done;
-			}
+	ASSERT(DDI_INTR_TYPE_FLAG_VALID(hdlp->ih_type));
+
+	/*
+	 * MSI/MSI-X: per-hop map_msi
+	 */
+	if (DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
+		if ((pdip = map_msi(dip, rdip, hdlp)) == NULL) {
+			dev_err(dip, CE_WARN,
+			    "could not find MSI interrupt controller");
+			return (DDI_FAILURE);
 		}
-		break;
-	case DDI_INTROP_ENABLE:
-	case DDI_INTROP_DISABLE:
-	case DDI_INTROP_BLOCKENABLE:
-	case DDI_INTROP_BLOCKDISABLE:
-		/*
-		 * For MSI/MSI-X, ENABLE/DISABLE flow through the PCI
-		 * nexus (pci_common_intr_ops) which programs the PCI
-		 * MSI/MSI-X registers and then calls i_ddi_msi_enable/
-		 * disable to reach the MSI controller.
-		 * For FIXED, route through map_interrupt().
-		 */
-		if (!DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
-			if ((pdip = map_interrupt(dip, hdlp)) == NULL) {
-				dev_err(dip, CE_WARN, "could not find "
-				    "interrupt domain");
-				goto done;
-			}
+
+		ret = process_intr_ops(pdip, rdip, op, hdlp, result);
+		ndi_rele_devi(pdip);
+		return (ret);
+	}
+
+	/*
+	 * FIXED: per-hop map_interrupt
+	 */
+	ASSERT3U(hdlp->ih_type, ==, DDI_INTR_TYPE_FIXED);
+
+	if (hdlp->ih_private == NULL) {
+		i_ddi_alloc_intr_phdl(hdlp);
+		priv_owned = B_TRUE;
+	}
+
+	if ((pdip = map_interrupt(dip, hdlp)) == NULL) {
+		dev_err(dip, CE_WARN, "could not find interrupt domain");
+
+		if (priv_owned) {
+			i_ddi_free_intr_phdl(hdlp);
 		}
-		break;
+
+		return (DDI_FAILURE);
 	}
 
 	ret = process_intr_ops(pdip, rdip, op, hdlp, result);
-
-done:
-	/*
-	 * Operations which were mapped toward an interrupt controller must
-	 * now release their hold on the controller.
-	 */
-	switch (op) {
-	case DDI_INTROP_ADDISR:
-	case DDI_INTROP_REMISR:
-	case DDI_INTROP_GETTARGET:
-	case DDI_INTROP_SETTARGET:
-		if (pdip != NULL)
-			ndi_rele_devi(pdip);
-		break;
-	case DDI_INTROP_ENABLE:
-	case DDI_INTROP_DISABLE:
-	case DDI_INTROP_BLOCKENABLE:
-	case DDI_INTROP_BLOCKDISABLE:
-		if (!DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type) &&
-		    pdip != NULL)
-			ndi_rele_devi(pdip);
-		break;
-	}
+	ndi_rele_devi(pdip);
 
 	/*
-	 * The unit interrupt descriptor in the platform private data is
-	 * specific to a single pass of FIXED interrupt mapping and must
-	 * be cleared on the way back down the tree.
+	 * FIXED cleanup: transient per-call state
 	 */
-	ihdl_plat_t *priv = hdlp->ih_private;
-	if (priv != NULL) {
+	if ((priv = hdlp->ih_private) != NULL) {
 		i_ddi_free_unitintr(priv->ip_unitintr);
 		priv->ip_unitintr = NULL;
+	}
+
+	if (priv_owned) {
+		i_ddi_free_intr_phdl(hdlp);
 	}
 
 	return (ret);
@@ -2156,262 +2144,35 @@ done:
 
 /*
  * Query the MSI controller for a device's supported MSI types.
- * Used by pci_common_intr_ops() SUPPORTED_TYPES handler to determine
+ *
+ * Used by the pci_common_intr_ops SUPPORTED_TYPES handler to determine
  * whether the platform can deliver MSI/MSI-X interrupts.
  *
- * Returns DDI_SUCCESS with *typesp set to supported MSI type flags,
- * or DDI_FAILURE if no MSI controller is reachable.
- */
-int
-i_ddi_msi_supported_types(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    int *typesp)
-{
-	dev_info_t *msi_dip;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	*typesp = 0;
-	int rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_SUPPORTED_TYPES, hdlp, typesp);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Query the MSI controller for the number of available interrupts.
- * Used by pci_common_intr_ops() NAVAIL handler to cap the reported
- * availability to what the controller can actually deliver.
+ * This is the only helper that uses map_msi directly, because SUPPORTED_TYPES
+ * runs with ih_type == DDI_INTR_TYPE_UNKNOWN, which takes the UNKNOWN
+ * (parent-walk) path in i_ddi_intr_ops, not the MSI path.  pci_common cannot
+ * use i_ddi_intr_ops to reach the MSI controller for this op: it must call
+ * map_msi directly, but map_msi is a blunt implement that should be used with
+ * care, so we don't export it from this file.
  *
- * Returns DDI_SUCCESS with *navailp set to the number of free
- * interrupt IDs, or DDI_FAILURE if no MSI controller is reachable.
+ * Returns DDI_SUCCESS with *typesp set to supported MSI type flags, or
+ * DDI_FAILURE if no MSI controller is reachable.
  */
 int
-i_ddi_msi_navail(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    int *navailp)
-{
-	dev_info_t *msi_dip;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	*navailp = 0;
-	int rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_NAVAIL, hdlp, navailp);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Query the MSI controller for the pending state of an interrupt.
- *
- * Returns DDI_SUCCESS with *(int *)result set to 0 or 1,
- * or DDI_FAILURE if no MSI controller is reachable.
- */
-int
-i_ddi_msi_getpending(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
+i_ddi_msi_supported_types(dev_info_t *pdip, dev_info_t *rdip,
+    ddi_intr_handle_impl_t *hdlp, int *typesp)
 {
 	dev_info_t *msi_dip;
 	int rv;
 
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
+	msi_dip = map_msi(pdip, rdip, hdlp);
+	if (msi_dip == NULL) {
 		return (DDI_FAILURE);
-
-	*(int *)result = 0;
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_GETPENDING, hdlp, result);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X ALLOC to the MSI controller.
- * Called from pci_common_intr_ops() after PCI-level setup
- * (priority, config handle, capability pointer) is complete.
- */
-int
-i_ddi_msi_alloc(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	DDI_INTR_IMPLDBG((CE_CONT, "i_ddi_msi_alloc: rdip = %s%d, "
-	    "ih_inum = 0x%x, ih_type = 0x%x\n",
-	    ddi_driver_name(rdip), ddi_get_instance(rdip),
-	    hdlp->ih_inum, hdlp->ih_type));
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_ALLOC, hdlp, result);
-
-	DDI_INTR_IMPLDBG((CE_CONT, "i_ddi_msi_alloc: rv = %d, "
-	    "actual = %d\n", rv, (result != NULL) ? *(int *)result : -1));
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X FREE to the MSI controller.
- */
-int
-i_ddi_msi_free(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_FREE, hdlp, result);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X ENABLE to the MSI controller.
- * Called from pci_common_intr_ops() after PCI register programming.
- */
-int
-i_ddi_msi_enable(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	DDI_INTR_IMPLDBG((CE_CONT, "i_ddi_msi_enable: rdip = %s%d, "
-	    "ih_inum = 0x%x, ih_type = 0x%x\n",
-	    ddi_driver_name(rdip), ddi_get_instance(rdip),
-	    hdlp->ih_inum, hdlp->ih_type));
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_ENABLE, hdlp, result);
-
-	if (rv == DDI_SUCCESS && hdlp->ih_private != NULL) {
-		ihdl_plat_t *p = (ihdl_plat_t *)hdlp->ih_private;
-		DDI_INTR_IMPLDBG((CE_CONT, "i_ddi_msi_enable: "
-		    "controller returned: ip_msi_addr = 0x%" PRIx64
-		    ", ip_msi_data = 0x%" PRIx32
-		    ", ih_vector = 0x%x\n",
-		    p->ip_msi_addr, p->ip_msi_data,
-		    hdlp->ih_vector));
-	} else {
-		DDI_INTR_IMPLDBG((CE_CONT, "i_ddi_msi_enable: "
-		    "controller returned rv = %d\n", rv));
 	}
 
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X DISABLE to the MSI controller.
- * Called from pci_common_intr_ops() before PCI register teardown.
- */
-int
-i_ddi_msi_disable(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_DISABLE, hdlp, result);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X GETCAP to the MSI controller.
- * The MSI controller reports its interrupt capabilities
- * (e.g. pending, edge) and may clear flags it does not
- * support (e.g. block enable).
- */
-int
-i_ddi_msi_getcap(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_GETCAP, hdlp, result);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X BLOCKENABLE to the MSI controller.
- * The handle carries ih_scratch1 (count) and ih_scratch2 (h_array)
- * from the DDI framework; the MSI controller loops over the array
- * and enables each vector.
- */
-int
-i_ddi_msi_blockenable(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_BLOCKENABLE, hdlp, result);
-
-	ndi_rele_devi(msi_dip);
-	return (rv);
-}
-
-/*
- * Route an MSI/MSI-X BLOCKDISABLE to the MSI controller.
- * The handle carries ih_scratch1 (count) and ih_scratch2 (h_array)
- * from the DDI framework; the MSI controller loops over the array
- * and disables each vector.
- */
-int
-i_ddi_msi_blockdisable(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp,
-    void *result)
-{
-	dev_info_t *msi_dip;
-	int rv;
-
-	msi_dip = map_msi(rdip, hdlp);
-	if (msi_dip == NULL)
-		return (DDI_FAILURE);
-
-	rv = process_intr_ops(msi_dip, rdip,
-	    DDI_INTROP_BLOCKDISABLE, hdlp, result);
+	*typesp = 0;
+	rv = process_intr_ops(msi_dip, rdip, DDI_INTROP_SUPPORTED_TYPES,
+	    hdlp, typesp);
 
 	ndi_rele_devi(msi_dip);
 	return (rv);

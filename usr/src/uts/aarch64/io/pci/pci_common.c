@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2022 Oxide Computer Company
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 /*
@@ -48,15 +49,12 @@
 #include <sys/obpdefs.h>
 #include <sys/plat/pci_prd.h>
 #include <sys/ddi_subrdefs.h>
+#include <sys/avintr.h>
 #include <sys/mach_intr.h>
 
 /*
  * Function prototypes
  */
-static int	pci_get_priority(dev_info_t *, ddi_intr_handle_impl_t *, int *);
-static void	pci_alloc_intr_fixed(dev_info_t *, dev_info_t *,
-		    ddi_intr_handle_impl_t *, void *);
-
 static uint8_t	pci_config_rd8(ddi_acc_impl_t *hdlp, uint8_t *addr);
 static uint16_t	pci_config_rd16(ddi_acc_impl_t *hdlp, uint16_t *addr);
 static uint32_t	pci_config_rd32(ddi_acc_impl_t *hdlp, uint32_t *addr);
@@ -161,30 +159,80 @@ pci_common_set_parent_private_data(dev_info_t *dip)
 	ddi_set_parent_data(dip, pdptr);
 }
 
-/*
- * pci_get_priority:
- *	Figure out the priority of the device
- */
-static int
-pci_get_priority(dev_info_t *dip, ddi_intr_handle_impl_t *hdlp, int *pri)
-{
-	DDI_INTR_NEXDBG((CE_CONT, "pci_get_priority: dip = 0x%p, hdlp = %p\n",
-	    (void *)dip, (void *)hdlp));
-
-	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
-
-	if (hdlp->ih_pri == 0) {
-		hdlp->ih_pri = pci_class_to_pil(dip);
-	}
-
-	*pri = hdlp->ih_pri;
-	return (DDI_SUCCESS);
-}
-
 #if XXXARM			/* Used only for MSIs */
 static int pcieb_intr_pri_counter = 0;
 #endif
 
+/*
+ * Configure a device for FIXED interrupts.
+ *
+ * When firmware leaves a device configured for MSI/MSI-X but the driver
+ * requests FIXED, we need to clear the MSI/MSI-X enable bits in the PCI
+ * capability structures so that FIXED interrupts will flow.
+ */
+static int
+pci_fixed_enable_mode(dev_info_t *rdip, ddi_intr_handle_impl_t *hdlp)
+{
+	ddi_acc_handle_t	handle;
+	ushort_t		cap_ctrl;
+	uint16_t		cap_base;
+	int			ret;
+
+	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
+
+	if ((ret = pci_config_setup(rdip, &handle)) != DDI_SUCCESS) {
+		DDI_INTR_NEXDBG((CE_CONT,
+		    "?pci_fixed_enable_mode: %s%d: "
+		    "pci_config_setup failed: %d\n",
+		    ddi_driver_name(rdip),
+		    ddi_get_instance(rdip),
+		    ret));
+		return (ret);
+	}
+
+	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI, &cap_base) == DDI_SUCCESS) {
+		cap_ctrl = PCI_CAP_GET16(handle, 0, cap_base, PCI_MSI_CTRL);
+		if (cap_ctrl == PCI_CAP_EINVAL16) {
+			ret = DDI_FAILURE;
+			goto out;
+		}
+
+		if (cap_ctrl & PCI_MSI_ENABLE_BIT) {
+			DDI_INTR_NEXDBG((CE_CONT,
+			    "?pci_fixed_enable_mode: %s%d: "
+			    "clearing MSI enable\n",
+			    ddi_driver_name(rdip),
+			    ddi_get_instance(rdip)));
+			cap_ctrl &= ~PCI_MSI_ENABLE_BIT;
+			PCI_CAP_PUT16(handle, 0, cap_base,
+			    PCI_MSI_CTRL, cap_ctrl);
+		}
+	}
+
+	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI_X, &cap_base)
+	    == DDI_SUCCESS) {
+		cap_ctrl = PCI_CAP_GET16(handle, 0, cap_base, PCI_MSIX_CTRL);
+		if (cap_ctrl == PCI_CAP_EINVAL16) {
+			ret = DDI_FAILURE;
+			goto out;
+		}
+
+		if (cap_ctrl & PCI_MSIX_ENABLE_BIT) {
+			DDI_INTR_NEXDBG((CE_CONT,
+			    "?pci_fixed_enable_mode: %s%d: "
+			    "clearing MSIX enable\n",
+			    ddi_driver_name(rdip),
+			    ddi_get_instance(rdip)));
+			cap_ctrl &= ~PCI_MSIX_ENABLE_BIT;
+			PCI_CAP_PUT16(handle, 0, cap_base,
+			    PCI_MSIX_CTRL, cap_ctrl);
+		}
+	}
+
+out:
+	pci_config_teardown(&handle);
+	return (ret);
+}
 
 /*
  * Per-operation helper functions for pci_common_intr_ops.
@@ -194,36 +242,54 @@ static int
 pci_intr_supported_types(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
-	int			device_caps, platform_types;
-	uint16_t		msi_cap_base, msix_cap_base, cap_ctrl;
+	int			device_caps;
+	int			platform_types;
+	uint16_t		msi_cap_base;
+	uint16_t		msix_cap_base;
+	uint16_t		cap_ctrl;
 	ddi_acc_handle_t	handle;
 
 	/*
-	 * Step 1: Determine what the PCI device supports
-	 * by examining its config space capabilities.
+	 * Step 1: Determine what the PCI device supports by examining its
+	 * config space capabilities and device tree properties.
+	 *
+	 * Only include FIXED if the device has both a non-zero interrupt
+	 * pin in config space (PCI_CONF_IPIN) and an "interrupts" property
+	 * in the device tree.  The pin register tells us the hardware
+	 * supports INTx; the property tells us firmware has described the
+	 * routing.  Without both, the FIXED path through map_interrupt
+	 * cannot succeed.
 	 */
-	device_caps = DDI_INTR_TYPE_FIXED;
+	device_caps = 0;
 
-	if (pci_config_setup(rdip, &handle) != DDI_SUCCESS)
+	if (pci_config_setup(rdip, &handle) != DDI_SUCCESS) {
 		return (DDI_FAILURE);
+	}
+
+	if (pci_config_get8(handle, PCI_CONF_IPIN) != 0 &&
+	    ddi_prop_exists(DDI_DEV_T_ANY, rdip,
+	    DDI_PROP_DONTPASS, OBP_INTERRUPTS)) {
+		device_caps |= DDI_INTR_TYPE_FIXED;
+	}
 
 	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI, &msi_cap_base) ==
 	    DDI_SUCCESS) {
-		cap_ctrl = PCI_CAP_GET16(handle, 0, msi_cap_base,
-		    PCI_MSI_CTRL);
-		if (cap_ctrl != PCI_CAP_EINVAL16)
+		cap_ctrl = PCI_CAP_GET16(handle, 0, msi_cap_base, PCI_MSI_CTRL);
+		if (cap_ctrl != PCI_CAP_EINVAL16) {
 			device_caps |= DDI_INTR_TYPE_MSI;
+		}
 	}
 
 	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI_X,
 	    &msix_cap_base) == DDI_SUCCESS) {
 		cap_ctrl = PCI_CAP_GET16(handle, 0, msix_cap_base,
 		    PCI_MSIX_CTRL);
-		if (cap_ctrl != PCI_CAP_EINVAL16)
+		if (cap_ctrl != PCI_CAP_EINVAL16) {
 			device_caps |= DDI_INTR_TYPE_MSIX;
+		}
 	}
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_supported_types: "
 	    "rdip: 0x%p device caps: 0x%x\n", (void *)rdip,
 	    device_caps));
 
@@ -236,6 +302,7 @@ pci_intr_supported_types(dev_info_t *pdip, dev_info_t *rdip,
 			return (DDI_FAILURE);
 		}
 	}
+
 	if (device_caps & DDI_INTR_TYPE_MSIX) {
 		if (ndi_prop_update_int(DDI_DEV_T_NONE, rdip,
 		    "pci-msix-capid-pointer", (int)msix_cap_base) !=
@@ -249,30 +316,31 @@ pci_intr_supported_types(dev_info_t *pdip, dev_info_t *rdip,
 
 	/*
 	 * Step 2: Ask the tree what the platform supports.
+	 *
 	 * This should always return DDI_INTR_TYPE_FIXED.
 	 */
 	platform_types = 0;
-	(void) i_ddi_intr_ops(pdip, rdip, intr_op, hdlp,
-	    &platform_types);
+	(void) i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, &platform_types);
 
 	/*
-	 * Step 3: If the device has MSI/MSI-X caps, ask the
-	 * MSI controller what it supports.
+	 * Step 3: If the device has MSI/MSI-X caps, ask the MSI controller
+	 * what it supports and augment the platform capabilities accordingly.
 	 */
 	if (device_caps & (DDI_INTR_TYPE_MSI | DDI_INTR_TYPE_MSIX)) {
 		int msi_types = 0;
-		if (i_ddi_msi_supported_types(rdip, hdlp,
-		    &msi_types) == DDI_SUCCESS)
+		if (i_ddi_msi_supported_types(pdip, rdip, hdlp,
+		    &msi_types) == DDI_SUCCESS) {
 			platform_types |= msi_types;
+		}
 	}
 
 	/*
-	 * Step 4: Intersect device capabilities with platform
-	 * support to produce the final supported set.
+	 * Step 4: Intersect device capabilities with platform support to
+	 * produce the final supported set.
 	 */
 	*(int *)result = device_caps & platform_types;
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_supported_types: "
 	    "rdip: 0x%p supported types: 0x%x\n", (void *)rdip,
 	    *(int *)result));
 
@@ -285,8 +353,7 @@ pci_intr_navail_nintrs(dev_info_t *pdip, dev_info_t *rdip,
 {
 	int nintrs;
 
-	if (hdlp->ih_type == DDI_INTR_TYPE_MSI ||
-	    hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
+	if (DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
 		/*
 		 * NINTRS: the device's PCI capability count.
 		 * NAVAIL: min(device capability, controller free count).
@@ -295,21 +362,22 @@ pci_intr_navail_nintrs(dev_info_t *pdip, dev_info_t *rdip,
 		 * a power-of-2 aligned contiguous block in the SPI/LPI
 		 * space, so a fragmented arena may not be able to satisfy
 		 * the full count even if enough total free IDs exist.
-		 * ddi_intr_alloc() handles partial allocation via actualp.
+		 * ddi_intr_alloc handles partial allocation.
 		 *
 		 * For MSI-X, vectors are individually allocated so the
 		 * free count is accurate (though racy - these sorts of
 		 * checks are fraught with TOCTOU behaviour by design).
 		 */
 		if (pci_msi_get_nintrs(hdlp->ih_dip, hdlp->ih_type,
-		    &nintrs) != DDI_SUCCESS)
+		    &nintrs) != DDI_SUCCESS) {
 			return (DDI_FAILURE);
+		}
 
 		if (intr_op == DDI_INTROP_NAVAIL) {
 			int navail;
 
-			if (i_ddi_msi_navail(rdip, hdlp,
-			    &navail) == DDI_SUCCESS) {
+			if (i_ddi_intr_ops(pdip, rdip, DDI_INTROP_NAVAIL,
+			    hdlp, &navail) == DDI_SUCCESS) {
 				nintrs = MIN(nintrs, navail);
 			}
 		}
@@ -317,27 +385,25 @@ pci_intr_navail_nintrs(dev_info_t *pdip, dev_info_t *rdip,
 		*(int *)result = nintrs;
 		return (DDI_SUCCESS);
 	} else {
+		/* FIXED: just go up the tree */
 		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
 	}
 }
 
 static int
-pci_intr_alloc_msi(dev_info_t *pdip __unused, dev_info_t *rdip,
+pci_intr_alloc_msi(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
-	int			priority;
 	int			cap_ptr;
 	ddi_acc_handle_t	handle;
 	int			rv;
 	boolean_t		did_alloc_phdl = B_FALSE;
 
-	if (pci_get_priority(rdip, hdlp, &priority) != DDI_SUCCESS)
-		return (DDI_FAILURE);
-	hdlp->ih_pri = priority;
-
 	if (i_ddi_get_pci_config_handle(rdip) == NULL) {
-		if (pci_config_setup(rdip, &handle) != DDI_SUCCESS)
+		if (pci_config_setup(rdip, &handle) != DDI_SUCCESS) {
 			return (DDI_FAILURE);
+		}
+
 		i_ddi_set_pci_config_handle(rdip, handle);
 	}
 
@@ -345,20 +411,22 @@ pci_intr_alloc_msi(dev_info_t *pdip __unused, dev_info_t *rdip,
 	    DDI_PROP_DONTPASS, "pci-msi-capid-pointer", 0);
 	if (cap_ptr == 0) {
 		DDI_INTR_NEXDBG((CE_CONT,
-		    "pci_common_intr_ops: rdip: 0x%p "
+		    "pci_intr_alloc_msi: rdip: 0x%p "
 		    "attempted MSI alloc without "
 		    "cap property\n", (void *)rdip));
 		return (DDI_FAILURE);
 	}
 	i_ddi_set_msi_msix_cap_ptr(rdip, cap_ptr);
 
-	/* Route to MSI controller */
+	/*
+	 * Hand off the rest of the allocation work to the interrupt controller.
+	 */
 	if (hdlp->ih_private == NULL) {
 		i_ddi_alloc_intr_phdl(hdlp);
 		did_alloc_phdl = B_TRUE;
 	}
 
-	rv = i_ddi_msi_alloc(rdip, hdlp, result);
+	rv = i_ddi_intr_ops(pdip, rdip, DDI_INTROP_ALLOC, hdlp, result);
 
 	if (did_alloc_phdl) {
 		i_ddi_free_intr_phdl(hdlp);
@@ -369,23 +437,19 @@ pci_intr_alloc_msi(dev_info_t *pdip __unused, dev_info_t *rdip,
 }
 
 static int
-pci_intr_alloc_msix(dev_info_t *pdip __unused, dev_info_t *rdip,
+pci_intr_alloc_msix(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
-	int			priority;
 	int			cap_ptr;
 	ddi_acc_handle_t	handle;
 	ddi_intr_msix_t		*msix_p;
 	int			rv;
 	boolean_t		did_alloc_phdl = B_FALSE;
 
-	if (pci_get_priority(rdip, hdlp, &priority) != DDI_SUCCESS)
-		return (DDI_FAILURE);
-	hdlp->ih_pri = priority;
-
 	if (i_ddi_get_pci_config_handle(rdip) == NULL) {
-		if (pci_config_setup(rdip, &handle) != DDI_SUCCESS)
+		if (pci_config_setup(rdip, &handle) != DDI_SUCCESS) {
 			return (DDI_FAILURE);
+		}
 		i_ddi_set_pci_config_handle(rdip, handle);
 	}
 
@@ -393,7 +457,7 @@ pci_intr_alloc_msix(dev_info_t *pdip __unused, dev_info_t *rdip,
 	    DDI_PROP_DONTPASS, "pci-msix-capid-pointer", 0);
 	if (cap_ptr == 0) {
 		DDI_INTR_NEXDBG((CE_CONT,
-		    "pci_common_intr_ops: rdip: 0x%p "
+		    "pci_intr_alloc_msix: rdip: 0x%p "
 		    "attempted MSI-X alloc without "
 		    "cap property\n", (void *)rdip));
 		return (DDI_FAILURE);
@@ -406,7 +470,7 @@ pci_intr_alloc_msix(dev_info_t *pdip __unused, dev_info_t *rdip,
 			i_ddi_set_msix(hdlp->ih_dip, msix_p);
 		} else {
 			DDI_INTR_NEXDBG((CE_CONT,
-			    "pci_common_intr_ops: MSI-X "
+			    "pci_intr_alloc_msix: MSI-X "
 			    "table init failed, "
 			    "rdip 0x%p\n", (void *)rdip));
 			return (DDI_FAILURE);
@@ -414,20 +478,14 @@ pci_intr_alloc_msix(dev_info_t *pdip __unused, dev_info_t *rdip,
 	}
 
 	/*
-	 * Route to MSI controller
-	 *
-	 * ddi_intr_alloc() uses a stack-local tmp_hdl with
-	 * ih_private == NULL.  The MSI controller needs
-	 * ih_private for ip_msi_devid, so allocate it here
-	 * and free it after - the controller stashes what
-	 * it needs in its own per-device state.
+	 * Hand off the rest of the allocation work to the interrupt controller.
 	 */
 	if (hdlp->ih_private == NULL) {
 		i_ddi_alloc_intr_phdl(hdlp);
 		did_alloc_phdl = B_TRUE;
 	}
 
-	rv = i_ddi_msi_alloc(rdip, hdlp, result);
+	rv = i_ddi_intr_ops(pdip, rdip, DDI_INTROP_ALLOC, hdlp, result);
 
 	if (did_alloc_phdl) {
 		i_ddi_free_intr_phdl(hdlp);
@@ -442,7 +500,6 @@ pci_intr_alloc(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
-		pci_alloc_intr_fixed(pdip, rdip, hdlp, result);
 		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI) {
 		return (pci_intr_alloc_msi(pdip, rdip, hdlp, result));
@@ -466,8 +523,7 @@ pci_intr_free(dev_info_t *pdip, dev_info_t *rdip,
 		/*
 		 * Tear down config handle on the last free.
 		 */
-		if (i_ddi_intr_get_current_nintrs(hdlp->ih_dip)
-		    - 1 == 0) {
+		if (i_ddi_intr_get_current_nintrs(hdlp->ih_dip) - 1 == 0) {
 			if ((handle = i_ddi_get_pci_config_handle(
 			    rdip)) != NULL) {
 				(void) pci_config_teardown(&handle);
@@ -477,7 +533,8 @@ pci_intr_free(dev_info_t *pdip, dev_info_t *rdip,
 		}
 
 		/* Route to MSI controller */
-		return (i_ddi_msi_free(rdip, hdlp, result));
+		return (i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_FREE, hdlp, result));
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
 		/*
 		 * Tear down config handle and MSI-X table on
@@ -500,34 +557,36 @@ pci_intr_free(dev_info_t *pdip, dev_info_t *rdip,
 		}
 
 		/* Route to MSI controller */
-		return (i_ddi_msi_free(rdip, hdlp, result));
+		return (i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_FREE, hdlp, result));
 	}
 
 	return (DDI_FAILURE);
 }
 
 static int
-pci_intr_enable_msi(dev_info_t *rdip,
+pci_intr_enable_msi(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	ihdl_plat_t	*ihdl_p = (ihdl_plat_t *)hdlp->ih_private;
 	int		nintrs = i_ddi_intr_get_current_nintrs(hdlp->ih_dip);
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_enable_msi: "
 	    "ENABLE MSI type = 0x%x, inum = 0x%x, "
 	    "nintrs = %d for %s%d\n",
 	    hdlp->ih_type, hdlp->ih_inum, nintrs,
 	    ddi_driver_name(rdip), ddi_get_instance(rdip)));
 
 	/*
-	 * First, enable the interrupt in the MSI
-	 * controller.  This sets ip_msi_addr and
-	 * ip_msi_data on the handle.
+	 * First, enable the interrupt in the MSI controller.  This sets
+	 * ip_msi_addr and ip_msi_data on the handle.
 	 */
-	if (i_ddi_msi_enable(rdip, hdlp, result) != DDI_SUCCESS)
+	if (i_ddi_intr_ops(pdip, rdip,
+	    DDI_INTROP_ENABLE, hdlp, result) != DDI_SUCCESS) {
 		return (DDI_FAILURE);
+	}
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_enable_msi: "
 	    "ENABLE: calling pci_msi_configure with "
 	    "addr = 0x%" PRIx64 ", data = 0x%" PRIx32
 	    ", count = %d, inum = 0x%x\n",
@@ -538,24 +597,23 @@ pci_intr_enable_msi(dev_info_t *rdip,
 	 * Program PCI MSI registers with the address and data
 	 * values provided by the MSI controller.
 	 */
-	if (pci_msi_configure(rdip, hdlp->ih_type,
-	    nintrs, hdlp->ih_inum,
-	    ihdl_p->ip_msi_addr,
-	    ihdl_p->ip_msi_data) != DDI_SUCCESS) {
-		(void) i_ddi_msi_disable(rdip, hdlp, result);
+	if (pci_msi_configure(rdip, hdlp->ih_type, nintrs, hdlp->ih_inum,
+	    ihdl_p->ip_msi_addr, ihdl_p->ip_msi_data) != DDI_SUCCESS) {
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_DISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
 	/* Enable MSI in PCI config space */
 	if (pci_msi_enable_mode(rdip, hdlp->ih_type) != DDI_SUCCESS) {
 		(void) pci_msi_set_mask(rdip, hdlp->ih_type, hdlp->ih_inum);
-		(void) pci_msi_unconfigure(rdip, hdlp->ih_type,
-		    hdlp->ih_inum);
-		(void) i_ddi_msi_disable(rdip, hdlp, result);
+		(void) pci_msi_unconfigure(rdip, hdlp->ih_type, hdlp->ih_inum);
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_DISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_enable_msi: "
 	    "ENABLE: MSI fully enabled for %s%d inum 0x%x\n",
 	    ddi_driver_name(rdip), ddi_get_instance(rdip),
 	    hdlp->ih_inum));
@@ -564,13 +622,13 @@ pci_intr_enable_msi(dev_info_t *rdip,
 }
 
 static int
-pci_intr_enable_msix(dev_info_t *rdip,
+pci_intr_enable_msix(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	ihdl_plat_t	*ihdl_p = (ihdl_plat_t *)hdlp->ih_private;
 	int		nintrs = i_ddi_intr_get_current_nintrs(hdlp->ih_dip);
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_enable_msix: "
 	    "ENABLE MSI-X type = 0x%x, inum = 0x%x, "
 	    "nintrs = %d for %s%d\n",
 	    hdlp->ih_type, hdlp->ih_inum, nintrs,
@@ -581,10 +639,12 @@ pci_intr_enable_msix(dev_info_t *rdip,
 	 * controller.  This sets ip_msi_addr and
 	 * ip_msi_data on the handle.
 	 */
-	if (i_ddi_msi_enable(rdip, hdlp, result) != DDI_SUCCESS)
+	if (i_ddi_intr_ops(pdip, rdip, DDI_INTROP_ENABLE,
+	    hdlp, result) != DDI_SUCCESS) {
 		return (DDI_FAILURE);
+	}
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_enable_msix: "
 	    "ENABLE: calling pci_msi_configure with "
 	    "addr = 0x%" PRIx64 ", data = 0x%" PRIx32
 	    ", count = %d, inum = 0x%x\n",
@@ -592,14 +652,13 @@ pci_intr_enable_msix(dev_info_t *rdip,
 	    nintrs, hdlp->ih_inum));
 
 	/*
-	 * Program PCI MSI-X registers with the address and data
-	 * values provided by the MSI controller.
+	 * Program PCI MSI-X registers with the address and data values
+	 * provided by the MSI controller.
 	 */
-	if (pci_msi_configure(rdip, hdlp->ih_type,
-	    nintrs, hdlp->ih_inum,
-	    ihdl_p->ip_msi_addr,
-	    ihdl_p->ip_msi_data) != DDI_SUCCESS) {
-		(void) i_ddi_msi_disable(rdip, hdlp, result);
+	if (pci_msi_configure(rdip, hdlp->ih_type, nintrs, hdlp->ih_inum,
+	    ihdl_p->ip_msi_addr, ihdl_p->ip_msi_data) != DDI_SUCCESS) {
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_DISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
@@ -609,13 +668,13 @@ pci_intr_enable_msix(dev_info_t *rdip,
 	/* Enable MSI-X in PCI config space */
 	if (pci_msi_enable_mode(rdip, hdlp->ih_type) != DDI_SUCCESS) {
 		(void) pci_msi_set_mask(rdip, hdlp->ih_type, hdlp->ih_inum);
-		(void) pci_msi_unconfigure(rdip, hdlp->ih_type,
-		    hdlp->ih_inum);
-		(void) i_ddi_msi_disable(rdip, hdlp, result);
+		(void) pci_msi_unconfigure(rdip, hdlp->ih_type, hdlp->ih_inum);
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_DISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_enable_msix: "
 	    "ENABLE: MSI-X fully enabled for %s%d inum 0x%x\n",
 	    ddi_driver_name(rdip), ddi_get_instance(rdip),
 	    hdlp->ih_inum));
@@ -628,50 +687,61 @@ pci_intr_enable(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
+		if (pci_fixed_enable_mode(rdip, hdlp) != DDI_SUCCESS) {
+			dev_err(rdip, CE_WARN,
+			    "failed to configure interrupt type");
+			return (DDI_FAILURE);
+		}
+
 		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI) {
-		return (pci_intr_enable_msi(rdip, hdlp, result));
+		return (pci_intr_enable_msi(pdip, rdip, hdlp, result));
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
-		return (pci_intr_enable_msix(rdip, hdlp, result));
+		return (pci_intr_enable_msix(pdip, rdip, hdlp, result));
 	}
 
 	return (DDI_FAILURE);
 }
 
 static int
-pci_intr_blockenable_msi(dev_info_t *rdip,
+pci_intr_blockenable_msi(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	int		nintrs = i_ddi_intr_get_current_nintrs(hdlp->ih_dip);
 	ihdl_plat_t	*ihdl_p;
 
 	/*
-	 * Block enable: let the MSI controller enable all vectors,
-	 * then program PCI registers and enable MSI mode.
+	 * Block enable: let the MSI controller enable all vectors, then
+	 * program PCI registers and enable MSI mode.
 	 *
 	 * MSI: there is a single shared capability register set
-	 * (addr/data/MME), so we program it once after all vectors
-	 * are enabled using vector 0's addr/data.
+	 * (addr/data/MME), so we program it once after all vectors are enabled
+	 * using vector 0's addr/data.
 	 */
-	if (i_ddi_msi_blockenable(rdip, hdlp, result) != DDI_SUCCESS)
+	if (i_ddi_intr_ops(pdip, rdip, DDI_INTROP_BLOCKENABLE,
+	    hdlp, result) != DDI_SUCCESS) {
 		return (DDI_FAILURE);
+	}
 
 	/*
-	 * Program the shared PCI MSI capability registers once
-	 * using vector 0's address and base data value.
+	 * Program the shared PCI MSI capability registers once using vector 0's
+	 * address and base data value.
+	 *
 	 * hdlp is h_array[0], so ih_private has vector 0's plat data.
 	 */
 	ihdl_p = (ihdl_plat_t *)hdlp->ih_private;
 
 	if (pci_msi_configure(rdip, hdlp->ih_type, nintrs, 0,
 	    ihdl_p->ip_msi_addr, ihdl_p->ip_msi_data) != DDI_SUCCESS) {
-		(void) i_ddi_msi_blockdisable(rdip, hdlp, result);
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_BLOCKDISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
 	if (pci_msi_enable_mode(rdip, hdlp->ih_type) != DDI_SUCCESS) {
 		(void) pci_msi_unconfigure(rdip, hdlp->ih_type, 0);
-		(void) i_ddi_msi_blockdisable(rdip, hdlp, result);
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_BLOCKDISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
@@ -679,7 +749,7 @@ pci_intr_blockenable_msi(dev_info_t *rdip,
 }
 
 static int
-pci_intr_blockenable_msix(dev_info_t *rdip,
+pci_intr_blockenable_msix(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	int			nintrs;
@@ -689,42 +759,46 @@ pci_intr_blockenable_msix(dev_info_t *rdip,
 	h_array = (ddi_intr_handle_impl_t **)hdlp->ih_scratch2;
 
 	/*
-	 * Block enable: let the MSI controller enable all vectors,
-	 * then program PCI registers and enable MSI-X mode.
+	 * Block enable: let the MSI controller enable all vectors, then
+	 * program PCI registers and enable MSI-X mode.
 	 *
-	 * MSI-X: each vector has its own table entry, so we
-	 * configure and unmask per-vector after the controller
-	 * has populated the address/data for each handle.
+	 * MSI-X: each vector has its own table entry, so we configure and
+	 * unmask per-vector after the controller has populated the
+	 * address/data for each handle.
 	 */
-	if (i_ddi_msi_blockenable(rdip, hdlp, result) != DDI_SUCCESS)
+	if (i_ddi_intr_ops(pdip, rdip, DDI_INTROP_BLOCKENABLE,
+	    hdlp, result) != DDI_SUCCESS) {
 		return (DDI_FAILURE);
+	}
 
 	/*
-	 * Program PCI MSI-X table entries per-vector.  Each handle
-	 * in the array has its ip_msi_addr/ip_msi_data populated
-	 * by the MSI controller's BLOCKENABLE.
+	 * Program PCI MSI-X table entries per-vector.  Each handle in the
+	 * array has its ip_msi_addr/ip_msi_data populated by the MSI
+	 * controller's BLOCKENABLE.
 	 */
 	for (int i = 0; i < nintrs; i++) {
-		ihdl_plat_t *ihdl_p =
-		    (ihdl_plat_t *)h_array[i]->ih_private;
+		ihdl_plat_t *ihdl_p = (ihdl_plat_t *)h_array[i]->ih_private;
 
 		if (pci_msi_configure(rdip, hdlp->ih_type, nintrs, i,
-		    ihdl_p->ip_msi_addr, ihdl_p->ip_msi_data)
-		    != DDI_SUCCESS) {
-			for (int j = i - 1; j >= 0; j--)
+		    ihdl_p->ip_msi_addr, ihdl_p->ip_msi_data) != DDI_SUCCESS) {
+			for (int j = i - 1; j >= 0; j--) {
 				(void) pci_msi_unconfigure(rdip,
 				    hdlp->ih_type, j);
-			(void) i_ddi_msi_blockdisable(rdip, hdlp, result);
+			}
+			(void) i_ddi_intr_ops(pdip, rdip,
+			    DDI_INTROP_BLOCKDISABLE, hdlp, result);
 			return (DDI_FAILURE);
 		}
 		pci_msi_clr_mask(rdip, hdlp->ih_type, i);
 	}
 
 	if (pci_msi_enable_mode(rdip, hdlp->ih_type) != DDI_SUCCESS) {
-		for (int j = nintrs - 1; j >= 0; j--)
+		for (int j = nintrs - 1; j >= 0; j--) {
 			(void) pci_msi_unconfigure(rdip,
 			    hdlp->ih_type, j);
-		(void) i_ddi_msi_blockdisable(rdip, hdlp, result);
+		}
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_BLOCKDISABLE, hdlp, result);
 		return (DDI_FAILURE);
 	}
 
@@ -736,11 +810,11 @@ pci_intr_blockenable(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
-		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
+		return (DDI_ENOTSUP);
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI) {
-		return (pci_intr_blockenable_msi(rdip, hdlp, result));
+		return (pci_intr_blockenable_msi(pdip, rdip, hdlp, result));
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
-		return (pci_intr_blockenable_msix(rdip, hdlp, result));
+		return (pci_intr_blockenable_msix(pdip, rdip, hdlp, result));
 	}
 
 	return (DDI_FAILURE);
@@ -754,20 +828,21 @@ pci_intr_disable(dev_info_t *pdip, dev_info_t *rdip,
 		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI) {
 		/* Disable in MSI controller first */
-		if (i_ddi_msi_disable(rdip, hdlp, result) != DDI_SUCCESS)
+		if (i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_DISABLE, hdlp, result) != DDI_SUCCESS) {
 			return (DDI_FAILURE);
+		}
 
 		/*
-		 * For MSI, the address and data registers are shared
-		 * across all vectors.  Only unconfigure and disable MSI
-		 * mode when this is the last enabled vector.  We check
-		 * nenables (not nintrs) because vectors may be allocated
-		 * but not all enabled.  The caller decrements nenables
-		 * after we return success, so a value of 1 here means
-		 * this is the last one.
+		 * For MSI, the address and data registers are shared across
+		 * all vectors.  Only unconfigure and disable MSI mode when
+		 * this is the last enabled vector.  We check nenables (not
+		 * nintrs) because vectors may be allocated but not all enabled.
+		 *
+		 * The caller decrements nenables after we return success, so
+		 * a value of 1 here means this is the last one.
 		 */
-		if (i_ddi_intr_get_current_nenables(hdlp->ih_dip)
-		    - 1 == 0) {
+		if (i_ddi_intr_get_current_nenables(hdlp->ih_dip) - 1 == 0) {
 			(void) pci_msi_unconfigure(rdip,
 			    hdlp->ih_type, hdlp->ih_inum);
 			(void) pci_msi_disable_mode(rdip, hdlp->ih_type);
@@ -776,25 +851,24 @@ pci_intr_disable(dev_info_t *pdip, dev_info_t *rdip,
 		return (DDI_SUCCESS);
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
 		/* Disable in MSI controller first */
-		if (i_ddi_msi_disable(rdip, hdlp, result) != DDI_SUCCESS)
+		if (i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_DISABLE, hdlp, result) != DDI_SUCCESS) {
 			return (DDI_FAILURE);
+		}
 
 		/* For MSI-X, set the mask bit */
 		pci_msi_set_mask(rdip, hdlp->ih_type, hdlp->ih_inum);
 
 		/*
-		 * For MSI-X, each vector has its own table entry
-		 * and can be unconfigured independently.
+		 * For MSI-X, each vector has its own table entry and can be
+		 * unconfigured independently.
 		 */
-		(void) pci_msi_unconfigure(rdip, hdlp->ih_type,
-		    hdlp->ih_inum);
+		(void) pci_msi_unconfigure(rdip, hdlp->ih_type, hdlp->ih_inum);
 
 		/*
-		 * Disable MSI-X mode if this is the last enabled
-		 * interrupt.
+		 * Disable MSI-X mode if this is the last enabled interrupt.
 		 */
-		if (i_ddi_intr_get_current_nenables(hdlp->ih_dip)
-		    - 1 == 0) {
+		if (i_ddi_intr_get_current_nenables(hdlp->ih_dip) - 1 == 0) {
 			(void) pci_msi_disable_mode(rdip, hdlp->ih_type);
 		}
 
@@ -809,39 +883,39 @@ pci_intr_blockdisable(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_op_t intr_op, ddi_intr_handle_impl_t *hdlp, void *result)
 {
 	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
-		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
+		return (DDI_ENOTSUP);
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI) {
 		int nintrs = i_ddi_intr_get_current_nintrs(hdlp->ih_dip);
 
 		/*
-		 * Disable MSI mode first so the device stops
-		 * generating interrupts, then let the MSI controller
-		 * disable all vectors, and unconfigure PCI registers.
+		 * Disable MSI mode first so the device stops generating
+		 * interrupts, then let the MSI controller disable all vectors,
+		 * and unconfigure PCI registers.
 		 */
 		(void) pci_msi_disable_mode(rdip, hdlp->ih_type);
-		(void) i_ddi_msi_blockdisable(rdip, hdlp, result);
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_BLOCKDISABLE, hdlp, result);
 
-		for (int i = 0; i < nintrs; i++)
-			(void) pci_msi_unconfigure(rdip,
-			    hdlp->ih_type, i);
+		for (int i = 0; i < nintrs; i++) {
+			(void) pci_msi_unconfigure(rdip, hdlp->ih_type, i);
+		}
 
 		return (DDI_SUCCESS);
 	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
 		int nintrs = i_ddi_intr_get_current_nintrs(hdlp->ih_dip);
 
 		/*
-		 * Disable MSI-X mode first so the device stops
-		 * generating interrupts, then let the MSI controller
-		 * disable all vectors.  Mask and unconfigure each
-		 * PCI MSI-X table entry.
+		 * Disable MSI-X mode first so the device stops generating
+		 * interrupts, then let the MSI controller disable all vectors.
+		 * Mask and unconfigure each PCI MSI-X table entry.
 		 */
 		(void) pci_msi_disable_mode(rdip, hdlp->ih_type);
-		(void) i_ddi_msi_blockdisable(rdip, hdlp, result);
+		(void) i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_BLOCKDISABLE, hdlp, result);
 
 		for (int i = 0; i < nintrs; i++) {
 			pci_msi_set_mask(rdip, hdlp->ih_type, i);
-			(void) pci_msi_unconfigure(rdip,
-			    hdlp->ih_type, i);
+			(void) pci_msi_unconfigure(rdip, hdlp->ih_type, i);
 		}
 
 		return (DDI_SUCCESS);
@@ -850,101 +924,115 @@ pci_intr_blockdisable(dev_info_t *pdip, dev_info_t *rdip,
 	return (DDI_FAILURE);
 }
 
+/*
+ * GETPRI for FIXED
+ *
+ * If the FIXED interrupt is shared, then just return the priority of the
+ * existing shared interrupt (all sharers must use the same priority).
+ *
+ * Grab the controller priority via the tree - if this is a non-default
+ * priority, use it.  This allows driver.conf overrides of interrupt priorities
+ * to work for PCI/PCIe devices.
+ *
+ * PCI has a better set of defaults than FIXED (class-based), so if the
+ * controller returned a default priority, then use the class-based priority.
+ */
 static int
-pci_intr_getpri(dev_info_t *rdip,
+pci_intr_fixed_getpri(dev_info_t *pdip, dev_info_t *rdip,
     ddi_intr_handle_impl_t *hdlp, void *result)
 {
-	int priority;
+	uint_t ctlr_pri;
+	uint_t shared_pri;
+	int class_pri;
+	int rv;
 
-	/* XXXARM: Pass up the tree? */
-	/* Get the priority.  `pci_get_priority` updates `hdlp` */
-	if (pci_get_priority(rdip, hdlp, &priority) != DDI_SUCCESS)
-		return (DDI_FAILURE);
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: "
-	    "priority = 0x%x\n", priority));
-	*(int *)result = priority;
-	return (DDI_SUCCESS);
-}
+	if (av_get_shared(hdlp->ih_vector, &shared_pri) > 0) {
+		hdlp->ih_pri = shared_pri;
+		*(uint_t *)result = shared_pri;
 
-static int
-pci_intr_setpri(dev_info_t *rdip,
-    ddi_intr_handle_impl_t *hdlp, void *result)
-{
-	int	psm_rval __unused = -1;
-	int	psm_status __unused = 0;
-
-	/* XXXARM: Pass up the tree */
-
-	/* Validate the interrupt priority passed */
-	if (*(int *)result > LOCK_LEVEL)
-		return (DDI_FAILURE);
-
-	/* For fixed interrupts */
-	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
-		/* if interrupt is shared, return failure */
-
-		panic("XXXARM: PSM_INTR_OP_GET_SHARED");
-#if XXXARM
-		psm_rval = (*psm_intr_ops)(rdip, hdlp,
-		    PSM_INTR_OP_GET_SHARED, &psm_status);
-		/*
-		 * For fixed interrupts, the irq may not have been
-		 * allocated when SET_PRI is called, and the above
-		 * GET_SHARED op may return PSM_FAILURE. This is not
-		 * a real error and is ignored below.
-		 */
-		if ((psm_rval != PSM_FAILURE) && (psm_status == 1)) {
-			DDI_INTR_NEXDBG((CE_CONT,
-			    "pci_common_intr_ops: "
-			    "dip 0x%p cannot setpri, psm_rval=%d,"
-			    "psm_status=%d\n", (void *)rdip, psm_rval,
-			    psm_status));
-			return (DDI_FAILURE);
-		}
-#endif
-	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI) {
-		/* MSI: nothing type-specific before SET_PRI */
-	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
-		/* MSI-X: nothing type-specific before SET_PRI */
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_fixed_getpri: "
+		    "shared, hdlp = 0x%p, vector = 0x%x, priority = 0x%x\n",
+		    hdlp, hdlp->ih_vector, shared_pri));
+		return (DDI_SUCCESS);
 	}
 
-	/* Change the priority */
-	panic("XXXARM: PSM_INTR_OP_SET_PRI");
-#if XXXARM
-	if ((*psm_intr_ops)(rdip, hdlp, PSM_INTR_OP_SET_PRI, result) ==
-	    PSM_FAILURE)
-		return (DDI_FAILURE);
-#endif
+	if ((rv = i_ddi_intr_ops(pdip, rdip, DDI_INTROP_GETPRI,
+	    hdlp, &ctlr_pri)) != DDI_SUCCESS) {
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_fixed_getpri: "
+		    "hdlp = 0x%p, vector = 0x%x, upcall failed, rv = 0x%x\n",
+		    hdlp, hdlp->ih_vector, rv));
+		return (rv);
+	}
 
-	hdlp->ih_pri = *(int *)result;
+	if (ctlr_pri != 5) {
+		hdlp->ih_pri = ctlr_pri;
+		*(uint_t *)result = ctlr_pri;
+
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_fixed_getpri: "
+		    "unshared, hdlp = 0x%p, vector = 0x%x, priority = 0x%x\n",
+		    hdlp, hdlp->ih_vector, ctlr_pri));
+		return (DDI_SUCCESS);
+	}
+
+	if ((class_pri = pci_class_to_pil(rdip)) <= 0) {
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_fixed_getpri: "
+		    "unshared, hdlp = 0x%p, vector = 0x%x, "
+		    "pci_class_to_pil failed, using controller "
+		    "priority = 0x%x\n",
+		    hdlp, hdlp->ih_vector, ctlr_pri));
+		class_pri = (int)ctlr_pri;
+	}
+
+	hdlp->ih_pri = (uint_t)class_pri;
+	*(uint_t *)result = (uint_t)class_pri;
+
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_fixed_getpri: "
+	    "unshared, hdlp = 0x%p, vector = 0x%x, priority = 0x%x\n",
+	    hdlp, hdlp->ih_vector, class_pri));
 	return (DDI_SUCCESS);
 }
 
 static int
-pci_intr_addisr(ddi_intr_handle_impl_t *hdlp __unused)
+pci_intr_getpri(dev_info_t *pdip, dev_info_t *rdip,
+    ddi_intr_handle_impl_t *hdlp, void *result)
 {
-	/* XXXARM: Pass up tree? */
-#ifdef XXXARM
-	ihdl_plat_t *ihdl_plat_datap;
+	int class_pri;
+	uint_t shared_pri;
 
-	ihdl_plat_datap = (ihdl_plat_t *)hdlp->ih_private;
-	pci_kstat_create(&ihdl_plat_datap->ip_ksp, pdip, hdlp);
-#endif
-	return (DDI_SUCCESS);
-}
+	if (!DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
+		return (pci_intr_fixed_getpri(pdip, rdip, hdlp, result));
+	}
 
-static int
-pci_intr_remisr(ddi_intr_handle_impl_t *hdlp __unused)
-{
-	/* XXXARM: Pass up the tree? */
-	/* Get the interrupt structure pointer */
-#if XXXARM
-	ihdl_plat_t *ihdl_plat_datap;
+	if ((class_pri = pci_class_to_pil(rdip)) <= 0) {
+		class_pri = 5;
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_getpri: hdlp = 0x%p, "
+		    "vector = 0x%x, failed to get pil from class, "
+		    "default = 0x%x\n",
+		    hdlp, hdlp->ih_vector, class_pri));
+	}
 
-	ihdl_plat_datap = (ihdl_plat_t *)hdlp->ih_private;
-	if (ihdl_plat_datap->ip_ksp != NULL)
-		pci_kstat_delete(ihdl_plat_datap->ip_ksp);
-#endif
+	if (av_get_shared(hdlp->ih_vector, &shared_pri) > 0) {
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_getpri: hdlp = 0x%p, "
+		    "vector = 0x%x, MSI/MSI-X is shared, using existing "
+		    "priority = 0x%x\n",
+		    hdlp, hdlp->ih_vector, shared_pri));
+		class_pri = (int)shared_pri;
+	}
+
+	if (class_pri < 1 || class_pri >= 15) {
+		DDI_INTR_NEXDBG((CE_CONT, "pci_intr_getpri: hdlp = 0x%p, "
+		    "vector = 0x%x, class priority 0x%x out of range, "
+		    "default = 0x%x\n",
+		    hdlp, hdlp->ih_vector, class_pri, 5));
+		class_pri = 5;
+	}
+
+	hdlp->ih_pri = (uint_t)class_pri;
+	*(uint_t *)result = (uint_t)class_pri;
+
+	DDI_INTR_NEXDBG((CE_CONT, "pci_intr_getpri: hdlp = 0x%p, "
+	    "vector = 0x%x, priority = 0x%x\n",
+	    hdlp, hdlp->ih_vector, class_pri));
 	return (DDI_SUCCESS);
 }
 
@@ -957,36 +1045,41 @@ pci_intr_getcap(dev_info_t *pdip, dev_info_t *rdip,
 	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
 		/*
 		 * Get PCI-side capabilities from config space.
-		 * pci_intx_get_cap returns LEVEL always, plus
-		 * MASKABLE and PENDING if the device supports
-		 * PCI v2.3+ INTx disable.
+		 *
+		 * pci_intx_get_cap returns LEVEL always, plus MASKABLE and
+		 * PENDING if the device supports PCI v2.3+ INTx disable.
 		 */
-		if ((rv = pci_intx_get_cap(rdip, (int *)result)) != DDI_SUCCESS)
+		if ((rv = pci_intx_get_cap(
+		    rdip, (int *)result)) != DDI_SUCCESS) {
 			return (rv);
+		}
 
 		/*
-		 * Chain to the interrupt controller so it can
-		 * add its own capabilities (PENDING, trigger
-		 * modes) and clear any it does not support.
+		 * Chain to the interrupt controller so it can add its own
+		 * capabilities (PENDING, trigger modes) and clear any it
+		 * does not support.
 		 */
 		if ((rv = i_ddi_intr_ops(pdip, rdip,
-		    intr_op, hdlp, result)) != DDI_SUCCESS)
+		    intr_op, hdlp, result)) != DDI_SUCCESS) {
 			return (rv);
+		}
 
 		/*
-		 * PCI INTx is always level-triggered.  The controller
-		 * may honestly report EDGE|LEVEL, but EDGE is not
-		 * valid for INTx - clear it.
+		 * PCI INTx is always level-triggered.  The controller may
+		 * honestly report EDGE|LEVEL, but EDGE is not valid
+		 * for INTx, so clear it.
 		 */
 		*(int *)result &= ~DDI_INTR_FLAG_EDGE;
 		return (DDI_SUCCESS);
-	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI ||
-	    hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
+	} else if (DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
 		if ((rv = pci_msi_get_cap(rdip, hdlp->ih_type, (int *)result))
-		    != DDI_SUCCESS)
+		    != DDI_SUCCESS) {
 			return (rv);
+		}
+
 		/* Let the MSI controller filter/augment */
-		return (i_ddi_msi_getcap(rdip, hdlp, result));
+		return (i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_GETCAP, hdlp, result));
 	}
 
 	return (DDI_FAILURE);
@@ -1005,18 +1098,21 @@ pci_intr_setmask_clrmask(dev_info_t *pdip, dev_info_t *rdip,
 		 * Try PCI config space first (PCI 2.3+ Command Register
 		 * bit 10 INTx disable).
 		 */
-		if (intr_op == DDI_INTROP_SETMASK)
+		if (intr_op == DDI_INTROP_SETMASK) {
 			pci_status = pci_intx_set_mask(rdip);
-		else
+		} else {
 			pci_status = pci_intx_clr_mask(rdip);
+		}
 
-		if (pci_status == DDI_SUCCESS)
+		if (pci_status == DDI_SUCCESS) {
 			return (DDI_SUCCESS);
+		}
 
 		/*
 		 * Device doesn't support PCI-level masking.
-		 * Fall back to the interrupt controller iff it
-		 * advertises masking capability.
+		 *
+		 * Fall back to the interrupt controller iff it advertises
+		 * masking capability.
 		 */
 		if (i_ddi_intr_ops(pdip, rdip, DDI_INTROP_GETCAP,
 		    hdlp, (void *)&caps) == DDI_SUCCESS &&
@@ -1026,14 +1122,15 @@ pci_intr_setmask_clrmask(dev_info_t *pdip, dev_info_t *rdip,
 		}
 
 		return (DDI_FAILURE);
-	} else if (hdlp->ih_type == DDI_INTR_TYPE_MSI ||
-	    hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
-		if (intr_op == DDI_INTROP_SETMASK)
+	} else if (DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
+		if (intr_op == DDI_INTROP_SETMASK) {
 			pci_status = pci_msi_set_mask(rdip,
 			    hdlp->ih_type, hdlp->ih_inum);
-		else
+		} else {
 			pci_status = pci_msi_clr_mask(rdip,
 			    hdlp->ih_type, hdlp->ih_inum);
+		}
+
 		return (pci_status);
 	}
 
@@ -1048,14 +1145,14 @@ pci_intr_getpending(dev_info_t *pdip, dev_info_t *rdip,
 	int	pci_status = 0;
 	int	ctrl_status = 0;
 
-	if (hdlp->ih_type == DDI_INTR_TYPE_MSI ||
-	    hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
+	if (DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
 		/*
-		 * For MSI/MSI-X, query the GIC-side MSI controller.
-		 * The controller reads the hardware pending state
-		 * (GICD_ISPENDRn for SPIs, PENDBASER table for LPIs).
+		 * For MSI/MSI-X, query the MSI controller.
+		 *
+		 * The controller reads the hardware pending state.
 		 */
-		return (i_ddi_msi_getpending(rdip, hdlp, result));
+		return (i_ddi_intr_ops(pdip, rdip,
+		    DDI_INTROP_GETPENDING, hdlp, result));
 	}
 
 	if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
@@ -1072,95 +1169,21 @@ pci_intr_getpending(dev_info_t *pdip, dev_info_t *rdip,
 		 * snapshot.
 		 */
 		pci_rval = pci_intx_get_pending(rdip, &pci_status);
-		if (pci_rval != DDI_SUCCESS)
+		if (pci_rval != DDI_SUCCESS) {
 			pci_status = 0;
+		}
 
 		(void) i_ddi_intr_ops(pdip, rdip, DDI_INTROP_GETPENDING,
 		    hdlp, (void *)&ctrl_status);
 
 		*(int *)result = pci_status | ctrl_status;
 		DDI_INTR_NEXDBG((CE_CONT, "pci: GETPENDING returned = %x "
-		    "(pci %x, gic %x)\n",
+		    "(pci %x, ctlr %x)\n",
 		    *(int *)result, pci_status, ctrl_status));
 		return (DDI_SUCCESS);
 	}
 
 	return (DDI_FAILURE);
-}
-
-static int
-pci_intr_gettarget(dev_info_t *rdip,
-    ddi_intr_handle_impl_t *hdlp)
-{
-	ddi_intr_handle_impl_t tmp_hdl;
-
-	/* XXXARM: Need to pass up the tree */
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: GETTARGET\n"));
-
-	bcopy(hdlp, &tmp_hdl, sizeof (ddi_intr_handle_impl_t));
-	panic("XXXARM PSM_INTR_OP_GET_INTR");
-#if XXXARM
-	tmp_hdl.ih_private = (void *)&intrinfo;
-	intrinfo.avgi_req_flags = PSMGI_INTRBY_DEFAULT;
-	intrinfo.avgi_req_flags |= PSMGI_REQ_CPUID;
-
-	if ((*psm_intr_ops)(rdip, &tmp_hdl, PSM_INTR_OP_GET_INTR,
-	    NULL) == PSM_FAILURE)
-		return (DDI_FAILURE);
-
-	*(int *)result = intrinfo.avgi_cpu_id;
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: GETTARGET "
-	    "vector = 0x%x, cpu = 0x%x\n", hdlp->ih_vector,
-	    *(int *)result));
-#endif
-	return (DDI_SUCCESS);
-}
-
-static int
-pci_intr_settarget(dev_info_t *rdip __unused,
-    ddi_intr_handle_impl_t *hdlp, void *result __unused)
-{
-	/* XXXARM: Need to pass up the tree */
-	DDI_INTR_NEXDBG((CE_CONT, "pci_common_intr_ops: SETTARGET\n"));
-	panic("XXXARM PSM_INTR_OP_SETCPU");
-#if XXXARM
-	{
-		ddi_intr_handle_impl_t tmp_hdl;
-		int psm_status;
-
-		bcopy(hdlp, &tmp_hdl, sizeof (ddi_intr_handle_impl_t));
-		tmp_hdl.ih_private = (void *)(uintptr_t)*(int *)result;
-		tmp_hdl.ih_flags = PSMGI_INTRBY_DEFAULT;
-
-		if ((*psm_intr_ops)(rdip, &tmp_hdl, PSM_INTR_OP_SET_CPU,
-		    &psm_status) == PSM_FAILURE)
-			return (DDI_FAILURE);
-
-		hdlp->ih_vector = tmp_hdl.ih_vector;
-		DDI_INTR_NEXDBG((CE_CONT,
-		    "pci_common_intr_ops: SETTARGET "
-		    "vector = 0x%x\n", hdlp->ih_vector));
-	}
-#endif
-
-	return (DDI_SUCCESS);
-}
-
-static int
-pci_intr_getpool(ddi_intr_handle_impl_t *hdlp __unused,
-    void *result __unused)
-{
-	/* XXXARM: Should be entirely tree-based */
-#if XXXARM	/* XXXARM: No MSI yet */
-	/*
-	 * For MSI/X interrupts use global IRM pool if available.
-	 */
-	if (apix_irm_pool_p && DDI_INTR_IS_MSI_OR_MSIX(hdlp->ih_type)) {
-		*(ddi_irm_pool_t **)result = apix_irm_pool_p;
-		return (DDI_SUCCESS);
-	}
-#endif
-	return (DDI_ENOTSUP);
 }
 
 /*
@@ -1187,7 +1210,7 @@ pci_common_intr_ops(dev_info_t *pdip, dev_info_t *rdip, ddi_intr_op_t intr_op,
 	case DDI_INTROP_SUPPORTED_TYPES:
 		return (pci_intr_supported_types(pdip, rdip, intr_op,
 		    hdlp, result));
-	case DDI_INTROP_NAVAIL:
+	case DDI_INTROP_NAVAIL:	/* fallthrough */
 	case DDI_INTROP_NINTRS:
 		return (pci_intr_navail_nintrs(pdip, rdip, intr_op,
 		    hdlp, result));
@@ -1206,145 +1229,31 @@ pci_common_intr_ops(dev_info_t *pdip, dev_info_t *rdip, ddi_intr_op_t intr_op,
 		return (pci_intr_blockdisable(pdip, rdip, intr_op,
 		    hdlp, result));
 	case DDI_INTROP_GETPRI:
-		return (pci_intr_getpri(rdip, hdlp, result));
-	case DDI_INTROP_SETPRI:
-		return (pci_intr_setpri(rdip, hdlp, result));
-	case DDI_INTROP_ADDISR:
-		return (pci_intr_addisr(hdlp));
-	case DDI_INTROP_REMISR:
-		return (pci_intr_remisr(hdlp));
+		return (pci_intr_getpri(pdip, rdip, hdlp, result));
 	case DDI_INTROP_GETCAP:
 		return (pci_intr_getcap(pdip, rdip, intr_op, hdlp, result));
-	case DDI_INTROP_SETMASK:
+	case DDI_INTROP_SETMASK:	/* fallthrough */
 	case DDI_INTROP_CLRMASK:
 		return (pci_intr_setmask_clrmask(pdip, rdip, intr_op, hdlp));
 	case DDI_INTROP_GETPENDING:
 		return (pci_intr_getpending(pdip, rdip, hdlp, result));
-	case DDI_INTROP_GETTARGET:
-		return (pci_intr_gettarget(rdip, hdlp));
-	case DDI_INTROP_SETTARGET:
-		return (pci_intr_settarget(rdip, hdlp, result));
 	case DDI_INTROP_GETPOOL:
-		return (pci_intr_getpool(hdlp, result));
+		if (hdlp->ih_type == DDI_INTR_TYPE_FIXED) {
+			return (DDI_ENOTSUP);
+		}
+
+		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
+	case DDI_INTROP_DUPVEC:
+		if (hdlp->ih_type == DDI_INTR_TYPE_FIXED ||
+		    hdlp->ih_type == DDI_INTR_TYPE_MSI) {
+			return (DDI_ENOTSUP);
+		}
+
+		return (pci_msix_dup(hdlp->ih_dip, hdlp->ih_inum,
+		    hdlp->ih_scratch1));
 	default:
 		return (i_ddi_intr_ops(pdip, rdip, intr_op, hdlp, result));
 	}
-}
-
-/*
- * Configure a device for a certain type of interrupt.
- *
- * When hdlp->ih_type is DDI_INTR_TYPE_FIXED:
- *  - ensures PCI_MSI_ENABLE_BIT is off in PCI_CAP_ID_MSI
- *  - ensures PCI_MSIX_ENABLE_BIT is off in PCI_CAP_ID_MSI_X
- *
- * When hdlp->ih_type is DDI_INTR_TYPE_MSI
- *  - ensures PCI_MSI_ENABLE_BIT is set in PCI_CAP_ID_MSI
- *  - ensures PCI_MSIX_ENABLE_BIT is off in PCI_CAP_ID_MSI_X
- *
- * When hdlp->ih_type is DDI_INTR_TYPE_MSIX
- *  - ensures PCI_MSI_ENABLE_BIT is off in PCI_CAP_ID_MSI
- *  - ensures PCI_MSIX_ENABLE_BIT is set in PCI_CAP_ID_MSI_X
- */
-static int
-pci_conf_intr_type(dev_info_t *pdip __unused, dev_info_t *rdip,
-    ddi_intr_handle_impl_t *hdlp)
-{
-	ddi_acc_handle_t	handle;
-	ushort_t		cap_ctrl;
-	uint16_t		cap_base;
-	int			ret;
-
-	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
-
-	if ((ret = pci_config_setup(rdip, &handle)) != DDI_SUCCESS)
-		return (ret);
-
-	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI, &cap_base) == DDI_SUCCESS) {
-		cap_ctrl = PCI_CAP_GET16(handle, 0, cap_base, PCI_MSI_CTRL);
-		if (cap_ctrl == PCI_CAP_EINVAL16) {
-			ret = DDI_FAILURE;
-			goto out;
-		}
-
-		if ((cap_ctrl & PCI_MSI_ENABLE_BIT) &&
-		    hdlp->ih_type != DDI_INTR_TYPE_MSI) {
-			DDI_INTR_NEXDBG((CE_CONT,
-			    "?pci_conf_intr_type: %s%d: "
-			    "clearing MSI enable\n",
-			    ddi_driver_name(rdip),
-			    ddi_get_instance(rdip)));
-			cap_ctrl &= ~PCI_MSI_ENABLE_BIT;
-			PCI_CAP_PUT16(handle, 0, cap_base,
-			    PCI_MSI_CTRL, cap_ctrl);
-		} else if (!(cap_ctrl & PCI_MSI_ENABLE_BIT) &&
-		    hdlp->ih_type == DDI_INTR_TYPE_MSI) {
-			DDI_INTR_NEXDBG((CE_CONT,
-			    "?pci_conf_intr_type: %s%d: "
-			    "setting MSI enable\n",
-			    ddi_driver_name(rdip),
-			    ddi_get_instance(rdip)));
-			cap_ctrl |= PCI_MSI_ENABLE_BIT;
-			PCI_CAP_PUT16(handle, 0, cap_base,
-			    PCI_MSI_CTRL, cap_ctrl);
-		}
-	}
-
-	if (PCI_CAP_LOCATE(handle, PCI_CAP_ID_MSI_X, &cap_base)
-	    == DDI_SUCCESS) {
-		cap_ctrl = PCI_CAP_GET16(handle, 0, cap_base, PCI_MSIX_CTRL);
-		if (cap_ctrl == PCI_CAP_EINVAL16) {
-			ret = DDI_FAILURE;
-			goto out;
-		}
-
-		if ((cap_ctrl & PCI_MSIX_ENABLE_BIT) &&
-		    hdlp->ih_type != DDI_INTR_TYPE_MSIX) {
-			DDI_INTR_NEXDBG((CE_CONT,
-			    "?pci_conf_intr_type: %s%d: "
-			    "clearing MSIX enable\n",
-			    ddi_driver_name(rdip),
-			    ddi_get_instance(rdip)));
-			cap_ctrl &= ~PCI_MSIX_ENABLE_BIT;
-			PCI_CAP_PUT16(handle, 0, cap_base,
-			    PCI_MSIX_CTRL, cap_ctrl);
-		} else if (!(cap_ctrl & PCI_MSIX_ENABLE_BIT) &&
-		    hdlp->ih_type == DDI_INTR_TYPE_MSIX) {
-			DDI_INTR_NEXDBG((CE_CONT,
-			    "?pci_conf_intr_type: %s%d: "
-			    "setting MSIX enable\n",
-			    ddi_driver_name(rdip),
-			    ddi_get_instance(rdip)));
-			cap_ctrl |= PCI_MSIX_ENABLE_BIT;
-			PCI_CAP_PUT16(handle, 0, cap_base,
-			    PCI_MSIX_CTRL, cap_ctrl);
-		}
-	}
-
-out:
-	pci_config_teardown(&handle);
-	return (ret);
-}
-
-/*
- * Allocate a vector for FIXED type interrupt.
- */
-void
-pci_alloc_intr_fixed(dev_info_t *pdip, dev_info_t *rdip,
-    ddi_intr_handle_impl_t *hdlp, void *result)
-{
-	int			pci_rval;
-	int			pci_status = 0;
-
-	ASSERT(RW_WRITE_HELD(&hdlp->ih_rwlock));
-
-	/* Figure out if this device supports MASKING */
-	pci_rval = pci_intx_get_cap(rdip, &pci_status);
-	if ((pci_rval == DDI_SUCCESS) && (pci_status != 0))
-		hdlp->ih_cap |= pci_status;
-
-	if (pci_conf_intr_type(pdip, rdip, hdlp) != DDI_SUCCESS)
-		dev_err(rdip, CE_WARN, "failed to configure interrupt type");
 }
 
 #if XXXARM
