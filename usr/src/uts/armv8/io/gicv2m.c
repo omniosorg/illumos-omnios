@@ -55,6 +55,7 @@
 #include <sys/syspic_impl.h>
 #include <sys/mach_intr.h>
 #include <sys/gic_reg.h>
+#include <sys/ddi_intr_impl.h>
 
 /*
  * Device tree properties for SPI base/count override.
@@ -101,6 +102,7 @@ typedef struct gicv2m_state {
 	uint32_t		v2m_spi_base;		/* first SPI (TYPER) */
 	uint32_t		v2m_spi_count;		/* SPI count (TYPER) */
 	vmem_t			*v2m_spi_arena;		/* SPI allocator */
+	ddi_irm_pool_t		*v2m_irm_pool;		/* IRM pool for SPIs */
 	list_t			v2m_devs;		/* gicv2m_dev_state_t */
 	kmutex_t		v2m_dev_lock;		/* protects v2m_devs */
 } gicv2m_state_t;
@@ -636,6 +638,12 @@ gicv2m_intr_ops(dev_info_t *dip, dev_info_t *rdip,
 		hdlp->ih_pri = *(int *)result;
 		return (DDI_SUCCESS);
 	}
+	case DDI_INTROP_GETPOOL:
+		if (sc->v2m_irm_pool == NULL) {
+			return (DDI_ENOTSUP);
+		}
+		*(ddi_irm_pool_t **)result = sc->v2m_irm_pool;
+		return (DDI_SUCCESS);
 	default:
 		return (DDI_ENOTSUP);
 	}
@@ -654,6 +662,9 @@ gicv2m_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 		.devacc_attr_version		= DDI_DEVICE_ATTR_V0,
 		.devacc_attr_endian_flags	= DDI_STRUCTURE_LE_ACC,
 		.devacc_attr_dataorder		= DDI_STRICTORDER_ACC
+	};
+	ddi_irm_params_t params = {
+		.iparams_types = DDI_INTR_TYPE_MSI | DDI_INTR_TYPE_MSIX,
 	};
 
 	switch (cmd) {
@@ -794,6 +805,20 @@ gicv2m_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	    (void *)(uintptr_t)sc->v2m_spi_base,
 	    sc->v2m_spi_count, 1 /* quantum */,
 	    NULL, NULL, NULL, 0, VM_SLEEP);
+
+	/*
+	 * Create an IRM pool for this v2m frame's SPI range.
+	 * Each v2m frame has its own disjoint SPI allocation domain,
+	 * so each gets its own pool for IRM rebalancing.
+	 */
+	params.iparams_total = sc->v2m_spi_count;
+
+	if (ndi_irm_create(dip, &params,
+	    &sc->v2m_irm_pool) != NDI_SUCCESS) {
+		dev_err(dip, CE_WARN,
+		    "failed to create IRM pool");
+		sc->v2m_irm_pool = NULL;
+	}
 
 	dev_err(dip, CE_CONT, "?GICv2m: %u MSI SPIs [%u-%u], "
 	    "doorbell PA 0x%" PRIx64 "\n", sc->v2m_spi_count,
