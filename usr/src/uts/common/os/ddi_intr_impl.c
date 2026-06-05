@@ -554,11 +554,21 @@ set_intr_affinity(ddi_intr_handle_t h, processorid_t tgt)
 		return (DDI_EINVAL);
 
 	rw_enter(&hdlp->ih_rwlock, RW_WRITER);
-	if ((hdlp->ih_state != DDI_IHDL_STATE_ENABLE) ||
-	    (hdlp->ih_type != DDI_INTR_TYPE_MSIX)) {
+	if (hdlp->ih_state != DDI_IHDL_STATE_ENABLE) {
 		rw_exit(&hdlp->ih_rwlock);
 		return (DDI_EINVAL);
 	}
+
+#if !defined(__aarch64__)
+	/*
+	 * This is a really odd place to enforce this restriction, and it's
+	 * a restriction that does not exist on Arm.
+	 */
+	if (hdlp->ih_type != DDI_INTR_TYPE_MSIX) {
+		rw_exit(&hdlp->ih_rwlock);
+		return (DDI_EINVAL);
+	}
+#endif
 
 	ret = i_ddi_intr_ops(hdlp->ih_dip, hdlp->ih_dip,
 	    DDI_INTROP_SETTARGET, hdlp, &tgt);
