@@ -88,6 +88,8 @@
 #include <sys/avintr.h>
 #include <sys/smp_impldefs.h>
 #include <sys/sunddi.h>
+#include <sys/sunndi.h>
+#include <sys/ddi_intr_impl.h>
 #include <sys/ddi_subrdefs.h>
 #include <sys/cpuinfo.h>
 #include <sys/sysmacros.h>
@@ -199,6 +201,7 @@ typedef struct gicv3_conf {
 	uint32_t		gc_lpi_max_intid; /* (1 << idbits) - 1 */
 	uint32_t		gc_lpi_count;	/* max_intid - 8191 */
 	vmem_t			*gc_lpi_arena;	/* LPI INTID allocator */
+	ddi_irm_pool_t		*gc_lpi_irm_pool; /* IRM pool for LPIs */
 	uint8_t			*gc_lpi_prop;	/* PROPBASER table VA */
 	uint64_t		gc_lpi_prop_pa;	/* PROPBASER table PA */
 	size_t			gc_lpi_prop_sz;	/* PROPBASER table bytes */
@@ -1156,6 +1159,11 @@ gicv3_init_lpis(gicv3_conf_t *gc)
 	uint32_t idbits;
 	uint32_t i;
 
+	ddi_irm_params_t params = {
+		.iparams_types = DDI_INTR_TYPE_MSI |
+		    DDI_INTR_TYPE_MSIX,
+	};
+
 	/* Check if LPIs are supported */
 	if ((gc->gc_gicd_typer & GICD_TYPER_LPIS) == 0)
 		return (DDI_SUCCESS);
@@ -1209,6 +1217,22 @@ gicv3_init_lpis(gicv3_conf_t *gc)
 	gc->gc_lpi_arena = vmem_create("lpi_intid",
 	    (void *)(uintptr_t)GIC_INTID_LPI_MIN,
 	    gc->gc_lpi_count, 1, NULL, NULL, NULL, 0, VM_SLEEP);
+
+	/*
+	 * Create an IRM pool for LPI-backed MSI/MSI-X interrupts.
+	 * The pool size is the total LPI INTID range; IRM uses this
+	 * to rebalance vector allocations across consumers.
+	 *
+	 * ITS instances return this pool via DDI_INTROP_GETPOOL.
+	 */
+	params.iparams_total = gc->gc_lpi_count;
+
+	if (ndi_irm_create(gc->gc_dip, &params,
+	    &gc->gc_lpi_irm_pool) != NDI_SUCCESS) {
+		dev_err(gc->gc_dip, CE_WARN,
+		    "failed to create LPI IRM pool");
+		gc->gc_lpi_irm_pool = NULL;
+	}
 
 	return (DDI_SUCCESS);
 
@@ -2292,6 +2316,16 @@ gicv3_lpi_navail(dev_info_t *gic_dip)
 	if (gc->gc_lpi_arena == NULL)
 		return (0);
 	return (vmem_size(gc->gc_lpi_arena, VMEM_FREE));
+}
+
+ddi_irm_pool_t *
+gicv3_get_lpi_irm_pool(dev_info_t *gic_dip)
+{
+	gicv3_conf_t *gc = ddi_get_soft_state(gicv3_soft_state,
+	    ddi_get_instance(gic_dip));
+
+	VERIFY3P(gc, !=, NULL);
+	return (gc->gc_lpi_irm_pool);
 }
 
 void
