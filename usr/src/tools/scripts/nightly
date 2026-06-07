@@ -1070,7 +1070,10 @@ PKGARCHIVE_ORIG=$PKGARCHIVE
 #
 
 function logshuffle {
-	LLOG="$ATLOG/log.`date '+%F.%H:%M'`"
+	# Relative log path name, for the symlink, so the
+	# symlink can be followed in remote mounts.
+	RELLOG="log.`date '+%F.%H:%M'`"
+	LLOG="$ATLOG/$RELLOG"
 	if [ -f $LLOG -o -d $LLOG ]; then
 		LLOG=$LLOG.$$
 	fi
@@ -1182,7 +1185,7 @@ function logshuffle {
 
 	mv $LOGFILE $LLOG
 
-	ln -s "$LLOG" "$ATLOG/latest"
+	ln -s "$RELLOG" "$ATLOG/latest"
 }
 
 #
