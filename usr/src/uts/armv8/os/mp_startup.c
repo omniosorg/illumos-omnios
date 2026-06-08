@@ -30,7 +30,7 @@
  * Copyright (c) 2012, Joyent, Inc.  All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/types.h>
@@ -89,6 +89,18 @@ cpuset_t	cpu_ready_set;
 cpuset_t	mp_cpus;
 
 static cpuset_t procset_slave, procset_master;
+
+static struct cpu_startup_data cpu_startup_data = {
+	.mair	= 0xdeadbeefdeadbeef,
+	.tcr	= 0xdeadbeefdeadbeef,
+	.ttbr0	= 0xdeadbeefdeadbeef,
+	.ttbr1	= 0xdeadbeefdeadbeef,
+	.sctlr	= 0xdeadbeefdeadbeef,
+	.vbar	= 0xdeadbeefdeadbeef
+};
+
+static uint64_t secondary_vec_pa = 0xdeadbeefdeadbeef;
+static uint64_t cpu_startup_data_pa = 0xdeadbeefdeadbeef;
 
 static void
 mp_startup_wait(cpuset_t *sp, processorid_t cpuid)
@@ -270,78 +282,25 @@ cpu_enable_intr(struct cpu *cp)
 	ncpus_intr_enabled++;
 }
 
-static int
-translate_to_pa(uint64_t va, uint64_t *pa)
-{
-	uint64_t p;
-	write_s1e1r(va);
-	isb();
-	p = read_par_el1();
-	if (p & PAR_EL1_F)
-		return (-1);
-	*pa = (p & (PAR_EL1_PA_HI|PAR_EL1_PA)) | (va & MMU_PAGEOFFSET);
-	return (0);
-}
-
-/*
- * Awaken a CPU using a simple release address write to the parked address and
- * a SEV (send-event) instruction.
- *
- * This is the style of CPU parking implemented by U-boot.
- */
-static int
-wakeup_cpu_spin_table_simple(cpu_t *cp)
-{
-	uint64_t addr;
-	uint64_t pa;
-
-	if (translate_to_pa(BOOT_VEC_BASE, &pa) != 0)
-		return (-1);
-	addr = cp->cpu_m.mcpu_ci->ci_parked_addr;
-
-	/*
-	 * XXXARM: This is sketchy.  We're far enough along that we should use
-	 * the VM subsystem properly.
-	 */
-	*(uint64_t *)(kpm_vbase + addr) = pa;
-	flush_data_cache((uintptr_t)kpm_vbase + addr);
-	dsb(ish);
-
-	__asm__ volatile("sev":::"memory");
-	return (0);
-}
-
 /*
  * Awaken a CPU using a CPU_ON PSCI call.
  */
 static int
-wakeup_cpu_psci(cpu_t *cp)
-{
-	uint64_t pa;
-
-	if (translate_to_pa(BOOT_VEC_BASE, &pa) != 0)
-		return (-1);
-
-	psci_cpu_on(cp->cpu_m.affinity, pa, 0);
-	return (0);
-}
-
-static int
 wakeup_cpu(cpu_t *cp)
 {
-	switch (cp->cpu_m.mcpu_ci->ci_ppver) {
-	case CPUINFO_ENABLE_METHOD_PSCI:
-		return (wakeup_cpu_psci(cp));
-	case CPUINFO_ENABLE_METHOD_SPINTABLE_SIMPLE:
-		return (wakeup_cpu_spin_table_simple(cp));
-	default:
-		cmn_err(CE_PANIC, "cpu%d: unknown enable-method %u",
-		    cp->cpu_id, cp->cpu_m.mcpu_ci->ci_ppver);
-		break;
+	VERIFY3U(cpu_startup_data.ttbr1, !=, 0xdeadbeefdeadbeef);
+	VERIFY3U(cpu_startup_data_pa, !=, 0xdeadbeefdeadbeef);
+	VERIFY3U(secondary_vec_pa, !=, 0xdeadbeefdeadbeef);
+	VERIFY3P(cp, !=, NULL);
+	VERIFY3P(cp->cpu_m.mcpu_ci, !=, NULL);
+	VERIFY3U(cp->cpu_m.mcpu_ci->ci_ppver, ==, CPUINFO_ENABLE_METHOD_PSCI);
+
+	if (psci_cpu_on(cp->cpu_m.affinity,
+	    secondary_vec_pa, cpu_startup_data_pa) != PSCI_SUCCESS) {
+		return (-1);
 	}
 
-	/* UNREACHED */
-	return (-1);
+	return (0);
 }
 
 void
@@ -571,35 +530,42 @@ mp_cpu_configure_common(struct cpuinfo *ci)
 int
 mach_cpucontext_init(void)
 {
-	uint64_t pa;
+	pfn_t pfn;
+	uintptr_t va;
 	uint64_t pa_hvc_stub;
+	uintptr_t addr;
+	size_t data_line_size;
 	extern void secondary_vec_start(void);
-	extern void secondary_vec_end(void);
 	extern void hyp_stub_vectors(void);
 
-	if (translate_to_pa((uint64_t)secondary_vec_start, &pa) != 0)
+	va = (uintptr_t)hyp_stub_vectors;
+	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
 		return (-1);
+	}
+	pa_hvc_stub = ptob(pfn) | (va & MMU_PAGEOFFSET);
 
-	if (translate_to_pa((uint64_t)hyp_stub_vectors, &pa_hvc_stub) != 0)
+	va = (uintptr_t)secondary_vec_start;
+	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
 		return (-1);
+	}
+	secondary_vec_pa = ptob(pfn) | (va & MMU_PAGEOFFSET);
 
-	hat_devload(kas.a_hat,
-	    (caddr_t)(uintptr_t)BOOT_VEC_BASE, MMU_PAGESIZE,
-	    btop(pa), PROT_READ | PROT_WRITE | PROT_EXEC, HAT_LOAD_NOCONSIST);
+	va = (uintptr_t)&cpu_startup_data;
+	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
+		return (-1);
+	}
+	cpu_startup_data_pa = ptob(pfn) | (va & MMU_PAGEOFFSET);
 
-	struct cpu_startup_data *cpu_data = (struct cpu_startup_data *)
-	    (BOOT_VEC_BASE + (uintptr_t)secondary_vec_end -
-	    (uintptr_t)secondary_vec_start);
-	cpu_data->mair = read_mair();
-	cpu_data->tcr = read_tcr();
-	cpu_data->ttbr0 = read_ttbr0();
-	cpu_data->ttbr1 = read_ttbr1();
-	cpu_data->sctlr = read_sctlr();
-	cpu_data->vbar = pa_hvc_stub;
+	cpu_startup_data.mair = read_mair();
+	cpu_startup_data.tcr = read_tcr();
+	cpu_startup_data.ttbr0 = read_ttbr0();
+	cpu_startup_data.ttbr1 = read_ttbr1();
+	cpu_startup_data.sctlr = read_sctlr();
+	cpu_startup_data.vbar = pa_hvc_stub;
 
-	size_t data_line_size = CTR_DMINLINE_SIZE(read_ctr_el0());
-	for (uintptr_t addr = P2ALIGN((uintptr_t)cpu_data, data_line_size);
-	    addr < (uintptr_t)cpu_data + sizeof (struct cpu_startup_data);
+	data_line_size = CTR_DMINLINE_SIZE(read_ctr_el0());
+	for (addr = P2ALIGN((uintptr_t)&cpu_startup_data, data_line_size);
+	    addr < (uintptr_t)&cpu_startup_data + sizeof (cpu_startup_data);
 	    addr += data_line_size) {
 		flush_data_cache(addr);
 	}

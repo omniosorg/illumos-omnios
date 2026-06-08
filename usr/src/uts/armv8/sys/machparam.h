@@ -104,7 +104,6 @@ extern "C" {
 #define	SEGKPM_SIZE	(1ull << (VA_BITS - 1))
 
 #define	CONSOLE_BASE	(- CONSOLE_SIZE)		// 0xffffffff_ff800000
-#define	BOOT_VEC_BASE	(CONSOLE_BASE)
 
 #define	SEGDEBUGBASE	(CONSOLE_BASE - SEGDEBUGSIZE)	// 0xffffffff_ff000000
 #define	KERNEL_TEXT	ADDRESS_C(0xfffffffffe000000)	// 0xffffffff_fe000000

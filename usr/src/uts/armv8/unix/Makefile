@@ -26,7 +26,7 @@
 
 #
 # Copyright 2017 Hayashi Naoyuki
-# Copyright 2025 Michael van der Westhuizen
+# Copyright 2026 Michael van der Westhuizen
 #
 
 #
@@ -202,6 +202,7 @@ $(DBOOT_O):	$(DBOOT_BIN)
 	@echo "dboot_image:"				>> $(DBOOT_S)
 	@echo ".incbin \"$(DBOOT_BIN)\""		>> $(DBOOT_S)
 	@echo "	.size	dboot_image, . - dboot_image"	>> $(DBOOT_S)
+	@echo " .balign 4096"				>> $(DBOOT_S)
 	$(COMPILE.s) -o $(DBOOT_O) $(DBOOT_S)
 
 $(DBOOT_OBJS_DIR):

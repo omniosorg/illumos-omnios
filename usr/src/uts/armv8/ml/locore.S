@@ -21,7 +21,7 @@
  */
 /*
  * Copyright 2017 Hayashi Naoyuki
- * Copyright 2025 Michael van der Westhuizen
+ * Copyright 2026 Michael van der Westhuizen
  */
 
 #include <sys/asm_linkage.h>
@@ -58,11 +58,16 @@ t0:
 	bl	mlsetup
 	bl	main
 1:	b	1b
-
 	SET_SIZE(_start)
 
-	.balign 4096
 	ENTRY(secondary_vec_start)
+	/*
+	 * Stash our context ID argument (x0) to a callee-saved register that
+	 * we don't otherwise use - this contains the cpu_startup_data that
+	 * we'll use to configure the CPU to run in kernel-space.
+	 */
+	mov	x20, x0
+
 	/*
 	 * Stash the booted exception-level to x27, then ensure that it's
 	 * EL1 or EL2.
@@ -293,10 +298,10 @@ t0:
 	/*
 	 * Load up system registers stashed by mp_startup.
 	 *
-	 * These are stored in a `struct cpu_startup_data` that is placed
-	 * at `secondary_vec_end`.
+	 * These are stored in a `struct cpu_startup_data` that was passed
+	 * to us by PSCI.
 	 */
-	adr	x0, secondary_vec_end
+	mov	x0, x20
 
 	/* memory attribute indirection */
 	ldr	x1, [x0, #STARTUP_MAIR]
@@ -319,6 +324,8 @@ t0:
 	isb
 	msr	sctlr_el1, x1
 	isb
+
+	/* KVA is now accessible at linked addresses */
 
 	/* replace the hypervisor stub if appropriate */
 	cbz	x25, 1f
@@ -405,10 +412,6 @@ dcache_invalidate_all:
 	b.gt	0b
 4:	ret
 	.ltorg
-
-	.globl secondary_vec_end
-secondary_vec_end:
-	.balign 4096
 SET_SIZE(secondary_vec_start)
 
 /*
