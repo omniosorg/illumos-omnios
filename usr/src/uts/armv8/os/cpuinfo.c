@@ -94,6 +94,42 @@ cpuinfo_for_affinity(uint64_t affinity)
 	return (NULL);
 }
 
+/*
+ * Look up a CPU's processorid_t by its MPIDR affinity value.
+ *
+ * This supports both cpuinfo lifecycle phases:
+ *   - Before cpuinfo_init: walks the boot_ci array.
+ *   - After cpuinfo_init: walks the cpuinfo linked list.
+ *
+ * Returns the ci_id (processorid_t) on success, or -1 if not found.
+ */
+processorid_t
+cpuinfo_id_for_mpidr(uint64_t mpidr)
+{
+	struct cpuinfo *ci;
+	int idx;
+
+	if (boot_xbp != NULL && boot_ci != NULL) {
+		for (idx = 0; idx < boot_xbp->bi_cpuinfo_cnt; idx++) {
+			if (boot_ci[idx].xci_mpidr == mpidr) {
+				return ((processorid_t)idx);
+			}
+		}
+
+		return ((processorid_t)-1);
+	}
+
+	for (ci = cpuinfo_first();
+	    ci != cpuinfo_end();
+	    ci = cpuinfo_next(ci)) {
+		if (ci->ci_mpidr == mpidr) {
+			return (ci->ci_id);
+		}
+	}
+
+	return ((processorid_t)-1);
+}
+
 static int
 fill_cpuinfo(const struct xboot_cpu_info *xci, struct cpuinfo *ci)
 {

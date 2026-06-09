@@ -134,6 +134,7 @@ extern struct cpuinfo *cpuinfo_next_enabled(struct cpuinfo *ci);
 extern struct cpuinfo *cpuinfo_end(void);
 
 extern struct cpuinfo *cpuinfo_for_affinity(uint64_t affinity);
+extern processorid_t cpuinfo_id_for_mpidr(uint64_t mpidr);
 
 #ifdef __cplusplus
 }
