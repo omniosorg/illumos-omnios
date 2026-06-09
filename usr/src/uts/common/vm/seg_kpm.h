@@ -82,13 +82,13 @@ extern int	segmap_kpm;
 #define	IS_KPM_ADDR(addr) \
 	((addr) >= segkpm->s_base && (addr) < (segkpm->s_base + segkpm->s_size))
 
-#ifdef	__x86
+#if defined(__x86) || defined(__aarch64__)
 /* x86 systems use neither kpm_page_t nor kpm_spage_t when supporting kpm. */
 #define	KPMPAGE_T_SZ	(0)
-#else	/* __x86 */
+#else	/* __x86 || __aarch64__ */
 #define	KPMPAGE_T_SZ \
 	((kpm_smallpages == 0) ? sizeof (kpm_page_t) : sizeof (kpm_spage_t))
-#endif	/* __x86 */
+#endif	/* __x86 || __aarch64__ */
 
 #else	/* SEGKPM_SUPPORT */
 
