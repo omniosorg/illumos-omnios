@@ -18,13 +18,13 @@ include $(SRC)/Makefile.master
 PROGS = \
 	file_assoc
 
-$(NOT_AARCH64_BLD)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
 ROOTOPTDIR = $(ROOT)/opt/os-tests/tests
 ROOTOPTPORTFS = $(ROOTOPTDIR)/portfs
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTPORTFS)/%) \
-	$(PROGS64:%=$(ROOTOPTPORTFS)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTPORTFS)/32/%) \
+	$(PROGS64:%=$(ROOTOPTPORTFS)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 
@@ -45,6 +45,18 @@ $(ROOTOPTDIR):
 
 $(ROOTOPTPORTFS): $(ROOTOPTDIR)
 	$(INS.dir)
+
+$(ROOTOPTPORTFS)/32: $(ROOTOPTPORTFS)
+	$(INS.dir)
+
+$(ROOTOPTPORTFS)/64: $(ROOTOPTPORTFS)
+	$(INS.dir)
+
+$(ROOTOPTPORTFS)/32/%: % $(ROOTOPTPORTFS)/32
+	$(INS.file)
+
+$(ROOTOPTPORTFS)/64/%: % $(ROOTOPTPORTFS)/64
+	$(INS.file)
 
 $(ROOTOPTPORTFS)/%: %
 	$(INS.file)

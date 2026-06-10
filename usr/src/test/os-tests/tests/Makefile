@@ -75,12 +75,12 @@ PROGS = \
 	writev
 
 CPPFLAGS += -D_REENTRANT
-$(NOT_AARCH64_BLD)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
 ROOTOPTDIR = $(ROOT)/opt/os-tests/tests
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTDIR)/%) \
-	$(PROGS64:%=$(ROOTOPTDIR)/%) \
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTDIR)/32/%) \
+	$(PROGS64:%=$(ROOTOPTDIR)/64/%) \
 	$(SCRIPTS:%=$(ROOTOPTDIR)/%)
 
 odirectory.32 :=	LDLIBS += -lsocket
@@ -120,6 +120,18 @@ $(ROOTOPTPROGS): $(PROGS32) $(PROGS64) $(ROOTOPTDIR)
 
 $(ROOTOPTDIR):
 	$(INS.dir)
+
+$(ROOTOPTDIR)/32:
+	$(INS.dir)
+
+$(ROOTOPTDIR)/64:
+	$(INS.dir)
+
+$(ROOTOPTDIR)/32/%: % $(ROOTOPTDIR)/32
+	$(INS.file)
+
+$(ROOTOPTDIR)/64/%: % $(ROOTOPTDIR)/64
+	$(INS.file)
 
 $(ROOTOPTDIR)/%: %
 	$(INS.file)

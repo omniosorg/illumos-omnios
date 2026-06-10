@@ -37,8 +37,26 @@ file path=opt/os-tests/bin/ostest mode=0555
 dir  path=opt/os-tests/runfiles
 file path=opt/os-tests/runfiles/default.run mode=0444
 dir  path=opt/os-tests/tests
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/clock_gettime.32 mode=0555
-file path=opt/os-tests/tests/clock_gettime.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/clock_gettime.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/eventfd.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/fifo-tvnsec.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/getcontext_extd.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/odirectory.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/statvfs.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/syncfs.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/ucontext.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/32/writev.32 mode=0555
+dir  path=opt/os-tests/tests/64
+file path=opt/os-tests/tests/64/clock_gettime.64 mode=0555
+file path=opt/os-tests/tests/64/eventfd.64 mode=0555
+file path=opt/os-tests/tests/64/fifo-tvnsec.64 mode=0555
+file path=opt/os-tests/tests/64/getcontext_extd.64 mode=0555
+file path=opt/os-tests/tests/64/odirectory.64 mode=0555
+file path=opt/os-tests/tests/64/statvfs.64 mode=0555
+file path=opt/os-tests/tests/64/syncfs.64 mode=0555
+file path=opt/os-tests/tests/64/ucontext.64 mode=0555
+file path=opt/os-tests/tests/64/writev.64 mode=0555
 dir  path=opt/os-tests/tests/comm_page
 file path=opt/os-tests/tests/comm_page/comm_page_ktest mode=0555
 file path=opt/os-tests/tests/comm_page/comm_page_pre mode=0555
@@ -56,30 +74,41 @@ file path=opt/os-tests/tests/ddi_ufm/ufm-test mode=0555
 file path=opt/os-tests/tests/ddi_ufm/ufm-test-cleanup mode=0555
 file path=opt/os-tests/tests/ddi_ufm/ufm-test-setup mode=0555
 dir  path=opt/os-tests/tests/definit
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/definit/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/definit/32/definit_test.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/definit/64
+file path=opt/os-tests/tests/definit/64/definit_test.64 mode=0555
 file path=opt/os-tests/tests/definit/definit mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/definit/definit_test.32 mode=0555
-file path=opt/os-tests/tests/definit/definit_test.64 mode=0555
 file path=opt/os-tests/tests/definit/init.data mode=0444
 file path=opt/os-tests/tests/definit/init.expected mode=0444
 file path=opt/os-tests/tests/epoll_test mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/eventfd.32 mode=0555
-file path=opt/os-tests/tests/eventfd.64 mode=0555
 dir  path=opt/os-tests/tests/execvpe
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/execvpe/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/execvpe/32/execvpe-test.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/execvpe/64
+file path=opt/os-tests/tests/execvpe/64/execvpe-test.64 mode=0555
 file path=opt/os-tests/tests/execvpe/execvpe-noperm mode=0444
 file path=opt/os-tests/tests/execvpe/execvpe-script mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/execvpe/execvpe-test.32 mode=0555
-file path=opt/os-tests/tests/execvpe/execvpe-test.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/fifo-tvnsec.32 mode=0555
-file path=opt/os-tests/tests/fifo-tvnsec.64 mode=0555
 dir  path=opt/os-tests/tests/file-locking
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/file-locking/acquire-lock.32 \
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/file-locking/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/file-locking/32/acquire-lock.32 \
     mode=0555
-file path=opt/os-tests/tests/file-locking/acquire-lock.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/file-locking/runtests.32 mode=0555
-file path=opt/os-tests/tests/file-locking/runtests.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/getcontext_extd.32 mode=0555
-file path=opt/os-tests/tests/getcontext_extd.64 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/file-locking/32/runtests.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/file-locking/64
+file path=opt/os-tests/tests/file-locking/64/acquire-lock.64 mode=0555
+file path=opt/os-tests/tests/file-locking/64/runtests.64 mode=0555
 dir  path=opt/os-tests/tests/gpio
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/gpio/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/gpio/32/dpio_test.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/gpio/32/gpio_attr.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/gpio/32/gpio_lookup.32 mode=0555
+dir  path=opt/os-tests/tests/gpio/64
+file path=opt/os-tests/tests/gpio/64/dpio_test.64 mode=0555
+file path=opt/os-tests/tests/gpio/64/gpio_attr.64 mode=0555
+file path=opt/os-tests/tests/gpio/64/gpio_lookup.64 mode=0555
 dir  path=opt/os-tests/tests/gpio/data
 file path=opt/os-tests/tests/gpio/data/attr-g0_0-H.out mode=0444
 file path=opt/os-tests/tests/gpio/data/attr-g0_0-Ho.out mode=0444
@@ -112,16 +141,15 @@ file path=opt/os-tests/tests/gpio/data/gpio-sim01-H.out mode=0444
 file path=opt/os-tests/tests/gpio/data/gpio-sim01-o.out mode=0444
 file path=opt/os-tests/tests/gpio/data/gpio-sim01-p.out mode=0444
 file path=opt/os-tests/tests/gpio/data/gpio-sim01.out mode=0444
-file path=opt/os-tests/tests/gpio/dpio_test.32 mode=0555
-file path=opt/os-tests/tests/gpio/dpio_test.64 mode=0555
-file path=opt/os-tests/tests/gpio/gpio_attr.32 mode=0555
-file path=opt/os-tests/tests/gpio/gpio_attr.64 mode=0555
 file path=opt/os-tests/tests/gpio/gpio_fini mode=0555
 file path=opt/os-tests/tests/gpio/gpio_init mode=0555
-file path=opt/os-tests/tests/gpio/gpio_lookup.32 mode=0555
-file path=opt/os-tests/tests/gpio/gpio_lookup.64 mode=0555
 file path=opt/os-tests/tests/gpio/gpioadm_test mode=0555
 dir  path=opt/os-tests/tests/hexdump
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/hexdump/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/hexdump/32/hexdump_basic.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/hexdump/64
+file path=opt/os-tests/tests/hexdump/64/hexdump_basic.64 mode=0555
 dir  path=opt/os-tests/tests/hexdump/data
 file path=opt/os-tests/tests/hexdump/data/_input mode=0444
 file path=opt/os-tests/tests/hexdump/data/addr1 mode=0444
@@ -144,45 +172,57 @@ file path=opt/os-tests/tests/hexdump/data/narrow1 mode=0444
 file path=opt/os-tests/tests/hexdump/data/narrow2 mode=0444
 file path=opt/os-tests/tests/hexdump/data/wide1 mode=0444
 file path=opt/os-tests/tests/hexdump/data/width12 mode=0444
-file path=opt/os-tests/tests/hexdump/hexdump_basic.32 mode=0555
-file path=opt/os-tests/tests/hexdump/hexdump_basic.64 mode=0555
 $(i386_ONLY)dir path=opt/os-tests/tests/i386
 $(i386_ONLY)file path=opt/os-tests/tests/i386/badseg mode=0555
 $(i386_ONLY)file path=opt/os-tests/tests/i386/badseg_exec mode=0555
 $(i386_ONLY)file path=opt/os-tests/tests/i386/ldt mode=0555
 dir  path=opt/os-tests/tests/idmap
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/idmap/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/idmap/32/idmaptest.32 mode=0555
+dir  path=opt/os-tests/tests/idmap/64
+file path=opt/os-tests/tests/idmap/64/idmaptest.64 mode=0555
 file path=opt/os-tests/tests/idmap/idmap_fini mode=0555
 file path=opt/os-tests/tests/idmap/idmap_init mode=0555
-file path=opt/os-tests/tests/idmap/idmaptest.32 mode=0555
-file path=opt/os-tests/tests/idmap/idmaptest.64 mode=0555
 dir  path=opt/os-tests/tests/ilstr
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/ilstr/ilstr_basic.32 mode=0555
-file path=opt/os-tests/tests/ilstr/ilstr_basic.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/ilstr/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/ilstr/32/ilstr_basic.32 mode=0555
+dir  path=opt/os-tests/tests/ilstr/64
+file path=opt/os-tests/tests/ilstr/64/ilstr_basic.64 mode=0555
 $(i386_ONLY)file path=opt/os-tests/tests/imc_test mode=0555
 dir  path=opt/os-tests/tests/ksensor
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksensor/ksensor_basic.32 mode=0555
-file path=opt/os-tests/tests/ksensor/ksensor_basic.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksensor/ksensor_err.32 mode=0555
-file path=opt/os-tests/tests/ksensor/ksensor_err.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/ksensor/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksensor/32/ksensor_basic.32 \
+    mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksensor/32/ksensor_err.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksensor/32/ksensor_sread.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/ksensor/64
+file path=opt/os-tests/tests/ksensor/64/ksensor_basic.64 mode=0555
+file path=opt/os-tests/tests/ksensor/64/ksensor_err.64 mode=0555
+file path=opt/os-tests/tests/ksensor/64/ksensor_sread.64 mode=0555
 file path=opt/os-tests/tests/ksensor/ksensor_fini mode=0555
 file path=opt/os-tests/tests/ksensor/ksensor_init mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksensor/ksensor_sread.32 mode=0555
-file path=opt/os-tests/tests/ksensor/ksensor_sread.64 mode=0555
 file path=opt/os-tests/tests/ksensor/ksensor_stress mode=0555
 file path=opt/os-tests/tests/ksensor/ksensor_unload mode=0555
 dir  path=opt/os-tests/tests/ksid
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksid/ksid.32 mode=0555
-file path=opt/os-tests/tests/ksid/ksid.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/ksid/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/ksid/32/ksid.32 mode=0555
+dir  path=opt/os-tests/tests/ksid/64
+file path=opt/os-tests/tests/ksid/64/ksid.64 mode=0555
 dir  path=opt/os-tests/tests/ktest
 file path=opt/os-tests/tests/ktest/ktest_ktest mode=0555
 file path=opt/os-tests/tests/ktest/stream_ktest mode=0555
 dir  path=opt/os-tests/tests/libsocket
-file path=opt/os-tests/tests/libsocket/getifaddrs_dl.32 mode=0555
-file path=opt/os-tests/tests/libsocket/getifaddrs_dl.64 mode=0555
-file path=opt/os-tests/tests/libsocket/inet6_opt.32 mode=0555
-file path=opt/os-tests/tests/libsocket/inet6_opt.64 mode=0555
-file path=opt/os-tests/tests/libsocket/nametoindex.32 mode=0555
-file path=opt/os-tests/tests/libsocket/nametoindex.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/libsocket/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/libsocket/32/getifaddrs_dl.32 \
+    mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/libsocket/32/inet6_opt.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/libsocket/32/nametoindex.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/libsocket/64
+file path=opt/os-tests/tests/libsocket/64/getifaddrs_dl.64 mode=0555
+file path=opt/os-tests/tests/libsocket/64/inet6_opt.64 mode=0555
+file path=opt/os-tests/tests/libsocket/64/nametoindex.64 mode=0555
 dir  path=opt/os-tests/tests/libtopo
 file path=opt/os-tests/tests/libtopo/digraph-test mode=0555
 file path=opt/os-tests/tests/libtopo/digraph-test-in-badedge.xml mode=0444
@@ -217,8 +257,6 @@ dir  path=opt/os-tests/tests/oclo
 file path=opt/os-tests/tests/oclo/oclo mode=0555
 file path=opt/os-tests/tests/oclo/oclo_errors mode=0555
 file path=opt/os-tests/tests/oclo/ocloexec_verify mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/odirectory.32 mode=0555
-file path=opt/os-tests/tests/odirectory.64 mode=0555
 dir  path=opt/os-tests/tests/pf_key
 file path=opt/os-tests/tests/pf_key/15146 mode=0555
 file path=opt/os-tests/tests/pf_key/acquire-compare mode=0555
@@ -228,8 +266,10 @@ file path=opt/os-tests/tests/pf_key/kmc-update mode=0555
 file path=opt/os-tests/tests/pf_key/kmc-updater mode=0555
 file path=opt/os-tests/tests/poll_test mode=0555
 dir  path=opt/os-tests/tests/portfs
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/portfs/file_assoc.32 mode=0555
-file path=opt/os-tests/tests/portfs/file_assoc.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/portfs/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/portfs/32/file_assoc.32 mode=0555
+dir  path=opt/os-tests/tests/portfs/64
+file path=opt/os-tests/tests/portfs/64/file_assoc.64 mode=0555
 dir  path=opt/os-tests/tests/regression
 file path=opt/os-tests/tests/regression/illumos-15031 mode=0555
 file path=opt/os-tests/tests/regression/illumos-15036 mode=0555
@@ -275,33 +315,36 @@ file path=opt/os-tests/tests/signalfd/multipoll mode=0555
 dir  path=opt/os-tests/tests/sigqueue
 file path=opt/os-tests/tests/sigqueue/sigqueue_queue_size mode=0555
 dir  path=opt/os-tests/tests/sockfs
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/sockfs/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/sockfs/32/recvmsg.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/sockfs/32/rights.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/sockfs/32/timeouts.32 mode=0555
+dir  path=opt/os-tests/tests/sockfs/64
+file path=opt/os-tests/tests/sockfs/64/recvmsg.64 mode=0555
+file path=opt/os-tests/tests/sockfs/64/rights.64 mode=0555
+file path=opt/os-tests/tests/sockfs/64/timeouts.64 mode=0555
 file path=opt/os-tests/tests/sockfs/conn mode=0555
 file path=opt/os-tests/tests/sockfs/dgram mode=0555
 file path=opt/os-tests/tests/sockfs/drop_priv mode=0555
 file path=opt/os-tests/tests/sockfs/nosignal mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/sockfs/recvmsg.32 mode=0555
-file path=opt/os-tests/tests/sockfs/recvmsg.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/sockfs/rights.32 mode=0555
-file path=opt/os-tests/tests/sockfs/rights.64 mode=0555
 file path=opt/os-tests/tests/sockfs/so_protocol mode=0555
 file path=opt/os-tests/tests/sockfs/sockpair mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/sockfs/timeouts.32 mode=0555
-file path=opt/os-tests/tests/sockfs/timeouts.64 mode=0555
 file path=opt/os-tests/tests/spoof-ras mode=0555
 dir  path=opt/os-tests/tests/stackalign
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/stackalign/stackalign.32 mode=0555
-file path=opt/os-tests/tests/stackalign/stackalign.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/statvfs.32 mode=0555
-file path=opt/os-tests/tests/statvfs.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/stackalign/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/stackalign/32/stackalign.32 \
+    mode=0555
+dir  path=opt/os-tests/tests/stackalign/64
+file path=opt/os-tests/tests/stackalign/64/stackalign.64 mode=0555
 dir  path=opt/os-tests/tests/stress
 file path=opt/os-tests/tests/stress/dladm-kstat mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/syncfs.32 mode=0555
-file path=opt/os-tests/tests/syncfs.64 mode=0555
 dir  path=opt/os-tests/tests/syscall
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/syscall/fchmodat.32 mode=0555
-file path=opt/os-tests/tests/syscall/fchmodat.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/syscall/open.32 mode=0555
-file path=opt/os-tests/tests/syscall/open.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/os-tests/tests/syscall/32
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/syscall/32/fchmodat.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/os-tests/tests/syscall/32/open.32 mode=0555
+dir  path=opt/os-tests/tests/syscall/64
+file path=opt/os-tests/tests/syscall/64/fchmodat.64 mode=0555
+file path=opt/os-tests/tests/syscall/64/open.64 mode=0555
 dir  path=opt/os-tests/tests/tcpsig
 file path=opt/os-tests/tests/tcpsig/tcpsig mode=0555
 file path=opt/os-tests/tests/tcpsig/tcpsig_fini mode=0555
@@ -325,10 +368,6 @@ file path=opt/os-tests/tests/uccid/txn-pollerr mode=0555
 file path=opt/os-tests/tests/uccid/yk mode=0555
 file path=opt/os-tests/tests/uccid/yk-poll mode=0555
 file path=opt/os-tests/tests/uccid/yk-readonly mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/ucontext.32 mode=0555
-file path=opt/os-tests/tests/ucontext.64 mode=0555
-$(MULTILIB_ONLY)file path=opt/os-tests/tests/writev.32 mode=0555
-file path=opt/os-tests/tests/writev.64 mode=0555
 $(i386_ONLY)dir path=opt/os-tests/tests/xsave
 $(i386_ONLY)file path=opt/os-tests/tests/xsave/bad_xregs.32 mode=0555
 $(i386_ONLY)file path=opt/os-tests/tests/xsave/bad_xregs.64 mode=0555

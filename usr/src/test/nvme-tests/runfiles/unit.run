@@ -27,28 +27,32 @@ timeout = 120
 post =
 outputdir = /var/tmp/test_results
 
-[/opt/nvme-tests/tests/unit]
+[/opt/nvme-tests/tests/unit/32/]
+arch = i86pc
 tests = [
 	'feature.32',
-	'feature.64',
 	'firmware.32',
-	'firmware.64',
 	'format.32',
-	'format.64',
 	'identify.32',
-	'identify.64',
 	'logs.32',
-	'logs.64',
 	'nsmgmt.32',
-	'nsmgmt.64',
 	'version.32',
-	'version.64'
 	'vuc.32',
-	'vuc.64'
 	]
 
-[/opt/nvme-tests/tests/ioctl]
+[/opt/nvme-tests/tests/unit/64/]
 tests = [
-	'sctostr.32',
-	'sctostr.64'
+	'feature.64',
+	'firmware.64',
+	'format.64',
+	'identify.64',
+	'logs.64',
+	'nsmgmt.64',
+	'version.64',
+	'vuc.64',
 	]
+
+[/opt/nvme-tests/tests/libnvme/32/sctostr.32]
+arch = i86pc
+
+[/opt/nvme-tests/tests/libnvme/64/sctostr.64]

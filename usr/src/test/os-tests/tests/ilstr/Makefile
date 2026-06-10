@@ -18,7 +18,7 @@ include $(SRC)/Makefile.master
 PROGS = \
 	ilstr_basic
 
-$(NOT_AARCH64_BLD)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
 COMOBJS = ilstr.o
@@ -27,7 +27,7 @@ COMOBJS64 = $(COMOBJS:.o=.64.o)
 
 ROOTOPTDIR = $(ROOT)/opt/os-tests/tests
 ROOTOPTILSTR = $(ROOTOPTDIR)/ilstr
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTILSTR)/%) $(PROGS64:%=$(ROOTOPTILSTR)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTILSTR)/32/%) $(PROGS64:%=$(ROOTOPTILSTR)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/cmd/Makefile.ctf
@@ -55,6 +55,18 @@ $(ROOTOPTDIR):
 
 $(ROOTOPTILSTR): $(ROOTOPTDIR)
 	$(INS.dir)
+
+$(ROOTOPTILSTR)/32: $(ROOTOPTILSTR)
+	$(INS.dir)
+
+$(ROOTOPTILSTR)/64: $(ROOTOPTILSTR)
+	$(INS.dir)
+
+$(ROOTOPTILSTR)/32/%: % $(ROOTOPTILSTR)/32
+	$(INS.file)
+
+$(ROOTOPTILSTR)/64/%: % $(ROOTOPTILSTR)/64
+	$(INS.file)
 
 $(ROOTOPTILSTR)/%: %
 	$(INS.file)

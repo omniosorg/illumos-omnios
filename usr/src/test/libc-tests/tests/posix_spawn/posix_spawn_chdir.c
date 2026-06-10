@@ -617,8 +617,7 @@ main(void)
 	}
 
 	for (size_t h = 0; h < ARRAY_SIZE(helpers); h++) {
-		posix_spawn_find_helper(spawn_child, sizeof (spawn_child),
-		    helpers[h]);
+		(void) strlcpy(spawn_child, helpers[h], sizeof (spawn_child));
 		(void) printf("--- child helper: %s ---\n", helpers[h]);
 
 		for (size_t i = 0; i < ARRAY_SIZE(spawn_flags_tests); i++) {

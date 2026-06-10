@@ -26,8 +26,8 @@ set -o pipefail
 export LANG=C.UTF-8
 
 tz_dir=$(dirname $0)
-tz_n32="$tz_dir/tznames.32"
-tz_n64="$tz_dir/tznames.64"
+tz_n32="$tz_dir/32/tznames.32"
+tz_n64="$tz_dir/64/tznames.64"
 tz_exit=0
 
 #
@@ -37,8 +37,10 @@ tz_none="   "
 
 test_one()
 {
-	if ! $tz_n32 "$1" "$2" "$3"; then
-		tz_exit=1
+	if [[ $(mach) != "aarch64" ]]; then
+		if ! $tz_n32 "$1" "$2" "$3"; then
+			tz_exit=1
+		fi
 	fi
 
 	if ! $tz_n64 "$1" "$2" "$3"; then

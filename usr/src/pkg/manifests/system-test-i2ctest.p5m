@@ -51,21 +51,27 @@ file path=opt/i2c-tests/tests/i2cadm/i2cadm-scan mode=0555
 file path=opt/i2c-tests/tests/i2cadm/mux-active-cleanup mode=0555
 file path=opt/i2c-tests/tests/i2cadm/setup-full mode=0555
 dir  path=opt/i2c-tests/tests/ioctl
-file path=opt/i2c-tests/tests/ioctl/addresses.32 mode=0555
-file path=opt/i2c-tests/tests/ioctl/addresses.64 mode=0555
-file path=opt/i2c-tests/tests/ioctl/invalid-io.32 mode=0555
-file path=opt/i2c-tests/tests/ioctl/invalid-io.64 mode=0555
-file path=opt/i2c-tests/tests/ioctl/ioc-errnos.32 mode=0555
-file path=opt/i2c-tests/tests/ioctl/ioc-errnos.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/i2c-tests/tests/ioctl/32
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/ioctl/32/addresses.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/ioctl/32/invalid-io.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/ioctl/32/ioc-errnos.32 mode=0555
+dir  path=opt/i2c-tests/tests/ioctl/64
+file path=opt/i2c-tests/tests/ioctl/64/addresses.64 mode=0555
+file path=opt/i2c-tests/tests/ioctl/64/invalid-io.64 mode=0555
+file path=opt/i2c-tests/tests/ioctl/64/ioc-errnos.64 mode=0555
 dir  path=opt/i2c-tests/tests/libi2c
-file path=opt/i2c-tests/tests/libi2c/addr-util.32 mode=0555
-file path=opt/i2c-tests/tests/libi2c/addr-util.64 mode=0555
-file path=opt/i2c-tests/tests/libi2c/claimed-addrs.32 mode=0555
-file path=opt/i2c-tests/tests/libi2c/claimed-addrs.64 mode=0555
-file path=opt/i2c-tests/tests/libi2c/discovery.32 mode=0555
-file path=opt/i2c-tests/tests/libi2c/discovery.64 mode=0555
-file path=opt/i2c-tests/tests/libi2c/missing-field.32 mode=0555
-file path=opt/i2c-tests/tests/libi2c/missing-field.64 mode=0555
+$(MULTILIB_ONLY)dir path=opt/i2c-tests/tests/libi2c/32
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/libi2c/32/addr-util.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/libi2c/32/claimed-addrs.32 \
+    mode=0555
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/libi2c/32/discovery.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/i2c-tests/tests/libi2c/32/missing-field.32 \
+    mode=0555
+dir  path=opt/i2c-tests/tests/libi2c/64
+file path=opt/i2c-tests/tests/libi2c/64/addr-util.64 mode=0555
+file path=opt/i2c-tests/tests/libi2c/64/claimed-addrs.64 mode=0555
+file path=opt/i2c-tests/tests/libi2c/64/discovery.64 mode=0555
+file path=opt/i2c-tests/tests/libi2c/64/missing-field.64 mode=0555
 driver name=i2csim
 license lic_CDDL license=lic_CDDL
 depend type=require fmri=system/i2c

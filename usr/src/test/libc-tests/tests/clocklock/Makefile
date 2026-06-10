@@ -13,8 +13,10 @@
 # Copyright 2025 Oxide Computer Company
 #
 
+include $(SRC)/Makefile.master
+
 PROG = clock_lock
-PROG32 = $(PROG:%=%.32)
+$(BUILD32)PROG32 = $(PROG:%=%.32)
 PROG64 = $(PROG:%=%.64)
 
 OBJS =	clock_lock.o \
@@ -27,8 +29,8 @@ OBJS32 = $(OBJS:%.o=%.32.o)
 OBJS64 = $(OBJS:%.o=%.64.o)
 
 ROOTOPTDIR = $(ROOT)/opt/libc-tests/tests
-ROOTOPTPROGS =	$(PROG32:%=$(ROOTOPTDIR)/%) \
-		$(PROG64:%=$(ROOTOPTDIR)/%)
+ROOTOPTPROGS =	$(PROG32:%=$(ROOTOPTDIR)/32/%) \
+		$(PROG64:%=$(ROOTOPTDIR)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/cmd/Makefile.ctf
@@ -41,10 +43,22 @@ CTF_MODE = link
 
 all: $(PROG32) $(PROG64)
 
-install: $(ROOTOPTPROGS) $(ROOTOPTDIR)
+install: all $(ROOTOPTPROGS) $(ROOTOPTDIR)
 
 $(ROOTOPTDIR):
 	$(INS.dir)
+
+$(ROOTOPTDIR)/32: $(ROOTOPTDIR)
+	$(INS.dir)
+
+$(ROOTOPTDIR)/64: $(ROOTOPTDIR)
+	$(INS.dir)
+
+$(ROOTOPTDIR)/32/%: % $(ROOTOPTDIR)/32
+	$(INS.file)
+
+$(ROOTOPTDIR)/64/%: % $(ROOTOPTDIR)/64
+	$(INS.file)
 
 $(ROOTOPTDIR)/%: %
 	$(INS.file)

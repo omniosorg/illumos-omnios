@@ -26,37 +26,42 @@ set -o errexit
 set -o pipefail
 
 qe_root=$(dirname $0)
-qe_status32=$qe_root/quick_exit_status.32
-qe_status64=$qe_root/quick_exit_status.64
-qe_order32=$qe_root/quick_exit_order.32
-qe_order64=$qe_root/quick_exit_order.64
+qe_status32=$qe_root/32/quick_exit_status.32
+qe_status64=$qe_root/64/quick_exit_status.64
+qe_order32=$qe_root/32/quick_exit_order.32
+qe_order64=$qe_root/64/quick_exit_order.64
 
 function fatal
 {
 	typeset msg="$*"
 	echo "Test Failed: $msg" >&2
-	exit 1	
+	exit 1
 }
 
 function check_status
 {
 	typeset stat=$1
-	$qe_status32 $stat
-	if [[ $? -ne $stat ]]; then
-		fatal "Test failed: Expected $qestatus32 to exit $stat " \
-		    "got $?"
+
+	if [[ $(mach) != "aarch64" ]]; then
+		$qe_status32 $stat
+		if (( $? != stat )); then
+			fatal "Test failed: Expected $qe_status32 to exit $stat " \
+			    "got $?"
+		fi
 	fi
 
 	$qe_status64 $stat
-	if [[ $? -ne $stat ]]; then
-		fatal "Test failed: Expected $qestatus64 to exit $stat " \
+	if (( $? != stat )); then
+		fatal "Test failed: Expected $qe_status64 to exit $stat " \
 		    "got $?" >&2
 	fi
 }
 
 function check_order
 {
-	$qe_order32 || fatal "$qe_order32 returned $?"
+	if [[ $(mach) != "aarch64" ]]; then
+		$qe_order32 || fatal "$qe_order32 returned $?"
+	fi
 	$qe_order64 || fatal "$qe_order32 returned $?"
 }
 

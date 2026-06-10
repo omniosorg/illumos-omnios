@@ -23,13 +23,13 @@ CSTD = $(CSTD_GNU99)
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 TESTDIR = $(ROOTOPTPKG)/tests/syscall
 
-$(NOT_AARCH64_BLD)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 CMDS = $(PROGS32) $(PROGS64)
 $(CMDS) := FILEMODE = 0555
 
-TESTDIRPROGS = $(PROGS32:%=$(TESTDIR)/%) \
-	$(PROGS64:%=$(TESTDIR)/%)
+TESTDIRPROGS = $(PROGS32:%=$(TESTDIR)/32/%) \
+	$(PROGS64:%=$(TESTDIR)/64/%)
 
 all: $(PROGS32) $(PROGS64)
 
@@ -42,6 +42,18 @@ clean:
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

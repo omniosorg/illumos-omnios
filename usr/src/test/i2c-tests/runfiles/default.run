@@ -47,29 +47,37 @@ pre = /opt/i2c-tests/tests/i2cadm/setup-full
 [/opt/i2c-tests/tests/i2cadm/mux-active-cleanup]
 pre = /opt/i2c-tests/tests/i2cadm/setup-full
 
-[/opt/i2c-tests/tests/ioctl/addresses.32]
-[/opt/i2c-tests/tests/ioctl/addresses.64]
+[/opt/i2c-tests/tests/ioctl/32/]
+arch = i86pc
+tests = ['addresses.32', 'invalid-io.32']
 
-[/opt/i2c-tests/tests/ioctl/invalid-io.32]
-[/opt/i2c-tests/tests/ioctl/invalid-io.64]
+[/opt/i2c-tests/tests/ioctl/64/]
+tests = ['addresses.64', 'invalid-io.64']
 
-[/opt/i2c-tests/tests/ioctl/ioc-errnos.32]
-pre = /opt/i2c-tests/tests/i2cadm/setup-full
-[/opt/i2c-tests/tests/ioctl/ioc-errnos.64]
-pre = /opt/i2c-tests/tests/i2cadm/setup-full
-
-[/opt/i2c-tests/tests/libi2c/addr-util.32]
-[/opt/i2c-tests/tests/libi2c/addr-util.64]
-
-[/opt/i2c-tests/tests/libi2c/claimed-addrs.32]
-pre = /opt/i2c-tests/tests/i2cadm/setup-full
-[/opt/i2c-tests/tests/libi2c/claimed-addrs.64]
+[/opt/i2c-tests/tests/ioctl/32/ioc-errnos.32]
+arch = i86pc
 pre = /opt/i2c-tests/tests/i2cadm/setup-full
 
-[/opt/i2c-tests/tests/libi2c/discovery.32]
-pre = /opt/i2c-tests/tests/i2cadm/setup-full
-[/opt/i2c-tests/tests/libi2c/discovery.64]
+[/opt/i2c-tests/tests/ioctl/64/ioc-errnos.64]
 pre = /opt/i2c-tests/tests/i2cadm/setup-full
 
-[/opt/i2c-tests/tests/libi2c/missing-field.32]
-[/opt/i2c-tests/tests/libi2c/missing-field.64]
+[/opt/i2c-tests/tests/libi2c/32/]
+arch = i86pc
+tests = ['addr-util.32', 'missing-field.32']
+
+[/opt/i2c-tests/tests/libi2c/64/]
+tests = ['addr-util.64', 'missing-field.64']
+
+[/opt/i2c-tests/tests/libi2c/32/claimed-addrs.32]
+arch = i86pc
+pre = /opt/i2c-tests/tests/i2cadm/setup-full
+
+[/opt/i2c-tests/tests/libi2c/64/claimed-addrs.64]
+pre = /opt/i2c-tests/tests/i2cadm/setup-full
+
+[/opt/i2c-tests/tests/libi2c/32/discovery.32]
+arch = i86pc
+pre = /opt/i2c-tests/tests/i2cadm/setup-full
+
+[/opt/i2c-tests/tests/libi2c/64/discovery.64]
+pre = /opt/i2c-tests/tests/i2cadm/setup-full

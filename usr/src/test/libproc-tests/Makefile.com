@@ -38,7 +38,9 @@
 # binaries that don't use libproc.
 #
 
-PROGS32 = $(PROGS:%=%.32)
+include $(SRC)/Makefile.master
+
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
 EXTRA_OBJS32 = $(COMMON_SRCS:%.c=%.o.32)
@@ -47,7 +49,7 @@ EXTRA_OBJS64 = $(COMMON_SRCS:%.c=%.o.64)
 ROOTOPTDIR = $(ROOT)/opt/libproc-tests
 ROOTOPTTESTS = $(ROOTOPTDIR)/tests
 ROOTOPTTARG = $(ROOTOPTTESTS)/$(TESTDIR)
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTTARG)/%) $(PROGS64:%=$(ROOTOPTTARG)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTTARG)/32/%) $(PROGS64:%=$(ROOTOPTTARG)/64/%)
 ROOTOPTPROGS += $(SCRIPTS:%=$(ROOTOPTTARG)/%)
 
 include $(SRC)/cmd/Makefile.cmd
@@ -77,6 +79,18 @@ $(ROOTOPTTESTS): $(ROOTOPTDIR)
 
 $(ROOTOPTTARG): $(ROOTOPTTESTS)
 	$(INS.dir)
+
+$(ROOTOPTTARG)/32: $(ROOTOPTTARG)
+	$(INS.dir)
+
+$(ROOTOPTTARG)/64: $(ROOTOPTTARG)
+	$(INS.dir)
+
+$(ROOTOPTTARG)/32/%: % $(ROOTOPTTARG)/32
+	$(INS.file)
+
+$(ROOTOPTTARG)/64/%: % $(ROOTOPTTARG)/64
+	$(INS.file)
 
 $(ROOTOPTTARG)/%: %
 	$(INS.file)

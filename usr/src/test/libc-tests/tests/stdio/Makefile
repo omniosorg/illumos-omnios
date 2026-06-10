@@ -13,6 +13,8 @@
 # Copyright 2020 Robert Mustacchi
 #
 
+include $(SRC)/Makefile.master
+
 PROGS = \
 	fdclose \
 	fileno \
@@ -27,15 +29,15 @@ PROGS = \
 LFSPROGS = \
 	ftello_12768
 
-PROGS32 = $(PROGS:%=%.32)
-PROGSLFS = $(LFSPROGS:%=%.lfs)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGSLFS = $(LFSPROGS:%=%.lfs)
 PROGS64 = $(PROGS:%=%.64) $(LFSPROGS:%=%.64)
 
 ROOTOPTDIR = $(ROOT)/opt/libc-tests/tests
 ROOTOPTSTDIO = $(ROOTOPTDIR)/stdio
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTSTDIO)/%) \
-	$(PROGS64:%=$(ROOTOPTSTDIO)/%) \
-	$(PROGSLFS:%=$(ROOTOPTSTDIO)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTSTDIO)/32/%) \
+	$(PROGS64:%=$(ROOTOPTSTDIO)/64/%) \
+	$(PROGSLFS:%=$(ROOTOPTSTDIO)/32/%)
 
 include $(SRC)/cmd/Makefile.cmd
 
@@ -79,7 +81,19 @@ $(ROOTOPTDIR):
 $(ROOTOPTSTDIO): $(ROOTOPTDIR)
 	$(INS.dir)
 
+$(ROOTOPTSTDIO)/32: $(ROOPTOPTSTDIO)
+	$(INS.dir)
+
+$(ROOTOPTSTDIO)/64: $(ROOPTOPTSTDIO)
+	$(INS.dir)
+
 $(ROOTOPTSTDIO)/%: %
+	$(INS.file)
+
+$(ROOTOPTSTDIO)/32/%: % $(ROOTOPTSTDIO)/32
+	$(INS.file)
+
+$(ROOTOPTSTDIO)/64/%: % $(ROOTOPTSTDIO)/64
 	$(INS.file)
 
 %.64: %.c

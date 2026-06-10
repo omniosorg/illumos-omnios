@@ -20,11 +20,11 @@ ROOTOPTPKG = $(ROOT)/opt/util-tests
 TESTDIR = $(ROOTOPTPKG)/tests/
 
 PROGS = libjedec_vendors libjedec_temp libjedec_spd
-PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
-ROOTOPTPROGS = $(PROGS32:%=$(TESTDIR)/%) \
-	$(PROGS64:%=$(TESTDIR)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(TESTDIR)/32/%) \
+	$(PROGS64:%=$(TESTDIR)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
@@ -68,6 +68,18 @@ $(CMDS): $(TESTDIR) $(PROG)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

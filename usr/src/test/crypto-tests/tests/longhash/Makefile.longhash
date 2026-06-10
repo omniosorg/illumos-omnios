@@ -19,7 +19,7 @@ include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
 include $(SRC)/cmd/Makefile.ctf
 
-PROGS_32 = $(BASEPROG)_32
+$(BUILD32)PROGS_32 = $(BASEPROG)_32
 PROGS_64 = $(BASEPROG)_64
 PROGS = $(PROGS_32) $(PROGS_64)
 
@@ -36,7 +36,7 @@ LDLIBS += -lmd
 
 CSTD = $(CSTD_GNU99)
 
-CMDS = $(PROGS:%=$(TESTDIR)/%)
+CMDS = $(PROGS_32:%=$(TESTDIR)/32/%) $(PROGS_64:%=$(TESTDIR)/64/%)
 
 $(CMDS) := FILEMODE = 0555
 
@@ -71,8 +71,14 @@ $(CMDS): $(TESTDIR) $(PROGS)
 $(TESTDIR):
 	$(INS.dir)
 
-$(TESTDIR)/%_32: %_32
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%_32: %_32 $(TESTDIR)/32
 	$(INS.file)
 
-$(TESTDIR)/%_64: %_64
+$(TESTDIR)/64/%_64: %_64 $(TESTDIR)/64
 	$(INS.file)

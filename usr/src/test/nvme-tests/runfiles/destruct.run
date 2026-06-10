@@ -34,37 +34,54 @@ post =
 outputdir = /var/tmp/test_results
 
 [/opt/nvme-tests/tests/libnvme/bad-req-nsmgmt.32]
+arch = i86pc
+
 [/opt/nvme-tests/tests/libnvme/bad-req-nsmgmt.64]
+
 [/opt/nvme-tests/tests/libnvme/missing-field-destruct.32]
+arch = i86pc
+
 [/opt/nvme-tests/tests/libnvme/missing-field-destruct.64]
 
 [/opt/nvme-tests/tests/libnvme/format.32]
+arch = i86pc
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
+
 [/opt/nvme-tests/tests/libnvme/format.64]
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
 
 [/opt/nvme-tests/tests/libnvme/need-write-lock.32]
+arch = i86pc
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
+
 [/opt/nvme-tests/tests/libnvme/need-write-lock.64]
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
 
 [/opt/nvme-tests/tests/libnvme/ns-cap.32]
+arch = i86pc
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
+
 [/opt/nvme-tests/tests/libnvme/ns-cap.64]
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
 
 [/opt/nvme-tests/tests/libnvme/ns-lifecycle.32]
+arch = i86pc
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
+
 [/opt/nvme-tests/tests/libnvme/ns-lifecycle.64]
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
 
 [/opt/nvme-tests/tests/libnvme/ns-max.32]
+arch = i86pc
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
+
 [/opt/nvme-tests/tests/libnvme/ns-max.64]
 pre = /opt/nvme-tests/tests/libnvme/device-empty.64
 
 [/opt/nvme-tests/tests/ioctl/general-errors.32]
+arch = i86pc
 pre = /opt/nvme-tests/tests/libnvme/device-reset.64
+
 [/opt/nvme-tests/tests/ioctl/general-errors.64]
 pre = /opt/nvme-tests/tests/libnvme/device-reset.64
 

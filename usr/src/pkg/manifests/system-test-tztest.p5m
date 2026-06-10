@@ -32,17 +32,19 @@ file path=opt/tz-tests/bin/tz-test mode=0555
 dir  path=opt/tz-tests/runfiles
 file path=opt/tz-tests/runfiles/default.run mode=0444
 dir  path=opt/tz-tests/tests
+$(MULTILIB_ONLY)dir path=opt/tz-tests/tests/32
+$(MULTILIB_ONLY)file path=opt/tz-tests/tests/32/strftime_18091.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/tz-tests/tests/32/tzload.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/tz-tests/tests/32/tznames.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/tz-tests/tests/32/zoneinfo_dump.32 mode=0555
+dir  path=opt/tz-tests/tests/64
+file path=opt/tz-tests/tests/64/strftime_18091.64 mode=0555
+file path=opt/tz-tests/tests/64/tzlist.64 mode=0555
+file path=opt/tz-tests/tests/64/tzload.64 mode=0555
+file path=opt/tz-tests/tests/64/tznames.64 mode=0555
+file path=opt/tz-tests/tests/64/tzparams.64 mode=0555
+file path=opt/tz-tests/tests/64/zoneinfo_dump.64 mode=0555
 file path=opt/tz-tests/tests/basic_tzs mode=0555
-file path=opt/tz-tests/tests/strftime_18091.32 mode=0555
-file path=opt/tz-tests/tests/strftime_18091.64 mode=0555
 file path=opt/tz-tests/tests/tz_dump mode=0555
-file path=opt/tz-tests/tests/tzlist.64 mode=0555
-file path=opt/tz-tests/tests/tzload.32 mode=0555
-file path=opt/tz-tests/tests/tzload.64 mode=0555
 file path=opt/tz-tests/tests/tzname_17947 mode=0555
-file path=opt/tz-tests/tests/tznames.32 mode=0555
-file path=opt/tz-tests/tests/tznames.64 mode=0555
-file path=opt/tz-tests/tests/tzparams.64 mode=0555
-file path=opt/tz-tests/tests/zoneinfo_dump.32 mode=0555
-file path=opt/tz-tests/tests/zoneinfo_dump.64 mode=0555
 license lic_CDDL license=lic_CDDL

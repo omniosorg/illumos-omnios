@@ -44,8 +44,14 @@ extern "C" {
  * Both 32-bit and 64-bit child helpers are built. Each test program exercises
  * both to verify posix_spawn works across data models.
  */
-#define	POSIX_SPAWN_CHILD_HELPERS	"posix_spawn_child.32", \
-					"posix_spawn_child.64"
+#if defined(__aarch64__)
+#define	POSIX_SPAWN_CHILD_HELPERS	\
+	"/opt/libc-tests/tests/posix_spawn/64/posix_spawn_child.64"
+#else
+#define	POSIX_SPAWN_CHILD_HELPERS					\
+	"/opt/libc-tests/tests/posix_spawn/32/posix_spawn_child.32",	\
+	"/opt/libc-tests/tests/posix_spawn/64/posix_spawn_child.64"
+#endif
 
 extern void posix_spawn_find_helper(char *, size_t, const char *);
 extern void posix_spawn_pipe_setup(posix_spawn_file_actions_t *, int [2]);

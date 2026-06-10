@@ -18,15 +18,15 @@ include $(SRC)/Makefile.master
 PROGS = statvfs \
 	syncfs
 
-$(NOT_AARCH64_BLD)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
-$(NOT_AARCH64_BLD)OBJS32 = $(PROGS:%=%.32.o)
+OBJS32 = $(PROGS:%=%.32.o)
 OBJS64 = $(PROGS:%=%.64.o)
 
 ROOTOPTDIR =	$(ROOT)/opt/os-tests/tests
-ROOTOPTPROGS =	$(PROGS32:%=$(ROOTOPTDIR)/%) \
-		$(PROGS64:%=$(ROOTOPTDIR)/%)
+ROOTOPTPROGS =	$(PROGS32:%=$(ROOTOPTDIR)/32/%) \
+		$(PROGS64:%=$(ROOTOPTDIR)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/cmd/Makefile.ctf
@@ -58,6 +58,18 @@ $(ROOTOPTPROGS): $(PROGS32) $(PROGS64) $(ROOTOPTDIR)
 
 $(ROOTOPTDIR):
 	$(INS.dir)
+
+$(ROOTOPTDIR)/32:
+	$(INS.dir)
+
+$(ROOTOPTDIR)/64:
+	$(INS.dir)
+
+$(ROOTOPTDIR)/32/%: % $(ROOTOPTDIR)/32
+	$(INS.file)
+
+$(ROOTOPTDIR)/64/%: % $(ROOTOPTDIR)/64
+	$(INS.file)
 
 $(ROOTOPTDIR)/%: %
 	$(INS.file)

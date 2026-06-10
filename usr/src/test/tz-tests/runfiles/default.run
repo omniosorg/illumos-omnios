@@ -26,6 +26,10 @@ timeout = 60
 outputdir = /var/tmp/test_results
 
 [/opt/tz-tests/tests/basic_tzs]
-[/opt/tz-tests/tests/strftime_18091.32]
-[/opt/tz-tests/tests/strftime_18091.64]
+
+[/opt/tz-tests/tests/32/strftime_18091.32]
+arch = i86pc
+
+[/opt/tz-tests/tests/64/strftime_18091.64]
+
 [/opt/tz-tests/tests/tzname_17947]

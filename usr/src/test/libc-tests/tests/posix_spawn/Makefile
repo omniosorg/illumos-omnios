@@ -13,10 +13,12 @@
 # Copyright 2026 Oxide Computer Company
 #
 
+include $(SRC)/Makefile.master
+
 PROGS = posix_spawn_chdir posix_spawn_fileactions posix_spawn_attr \
 	posix_spawn_path posix_spawn_pipe_np posix_spawn_priv
 
-HELPERS32 = posix_spawn_child.32
+$(BUILD32)HELPERS32 = posix_spawn_child.32
 HELPERS64 = posix_spawn_child.64
 
 DATA = posix_spawn_noshebang
@@ -24,15 +26,15 @@ DATA = posix_spawn_noshebang
 COMMON_OBJS32 = posix_spawn_common.32.o
 COMMON_OBJS64 = posix_spawn_common.64.o
 
-PROGS32 = $(PROGS:%=%.32) $(HELPERS32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32) $(HELPERS32)
 PROGS64 = $(PROGS:%=%.64) $(HELPERS64)
 OBJS32 = $(PROGS32:%=%.o) $(COMMON_OBJS32)
 OBJS64 = $(PROGS64:%=%.o) $(COMMON_OBJS64)
 
 ROOTOPTDIR = $(ROOT)/opt/libc-tests/tests
 ROOTOPTSPAWN = $(ROOTOPTDIR)/posix_spawn
-ROOTOPTPROGS =	$(PROGS32:%=$(ROOTOPTSPAWN)/%) \
-		$(PROGS64:%=$(ROOTOPTSPAWN)/%)
+ROOTOPTPROGS =	$(PROGS32:%=$(ROOTOPTSPAWN)/32/%) \
+		$(PROGS64:%=$(ROOTOPTSPAWN)/64/%)
 ROOTOPTDATA = $(DATA:%=$(ROOTOPTSPAWN)/%)
 
 include $(SRC)/cmd/Makefile.cmd
@@ -56,10 +58,22 @@ $(ROOTOPTDIR):
 $(ROOTOPTSPAWN): $(ROOTOPTDIR)
 	$(INS.dir)
 
+$(ROOTOPTSPAWN)/32: $(ROOTOPTSPAWN)
+	$(INS.dir)
+
+$(ROOTOPTSPAWN)/64: $(ROOTOPTSPAWN)
+	$(INS.dir)
+
 $(ROOTOPTPROGS): $(PROGS32) $(PROGS64) $(ROOTOPTSPAWN)
 $(ROOTOPTDATA): $(ROOTOPTSPAWN)
 
 $(ROOTOPTSPAWN)/%: %
+	$(INS.file)
+
+$(ROOTOPTSPAWN)/32/%: % $(ROOTOPTSPAWN)/32
+	$(INS.file)
+
+$(ROOTOPTSPAWN)/64/%: % $(ROOTOPTSPAWN)/64
 	$(INS.file)
 
 %.32.o: %.c

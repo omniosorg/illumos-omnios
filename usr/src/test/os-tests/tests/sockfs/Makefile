@@ -24,10 +24,10 @@ include $(SRC)/test/Makefile.com
 PROGDA = rights recvmsg timeouts
 
 PROG =	conn dgram drop_priv nosignal sockpair \
-	$(PROGDA:%=%.64) \
 	so_protocol
 
-$(NOT_AARCH64_BLD)PROG += $(PROGDA:%=%.32)
+PROG64 = $(PROGDA:%=%.64)
+$(BUILD32)PROG32 = $(PROGDA:%=%.32)
 
 LDLIBS += -lsocket
 LDLIBS64 += -lsocket
@@ -45,7 +45,7 @@ rights.64 := LDLIBS64 += -lproc
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 TESTDIR = $(ROOTOPTPKG)/tests/sockfs
 
-CMDS = $(PROG:%=$(TESTDIR)/%)
+CMDS = $(PROG:%=$(TESTDIR)/%) $(PROG32:%=$(TESTDIR)/32/%) $(PROG64:%=$(TESTDIR)/64/%)
 $(CMDS) := FILEMODE = 0555
 
 all: $(PROG)
@@ -62,7 +62,19 @@ $(CMDS): $(TESTDIR) $(PROG)
 $(TESTDIR):
 	$(INS.dir)
 
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
 $(TESTDIR)/%: %
+	$(INS.file)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
 	$(INS.file)
 
 %.64: %.c

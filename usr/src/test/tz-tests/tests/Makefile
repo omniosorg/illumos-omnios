@@ -13,6 +13,8 @@
 # Copyright 2026 Oxide Computer Company
 #
 
+include $(SRC)/Makefile.master
+
 PROGS = \
 	strftime_18091	\
 	tznames		\
@@ -24,15 +26,15 @@ SCRIPTS = \
 	tz_dump \
 	tzname_17947
 
-PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64) \
 	tzparams.64 \
 	tzlist.64
 
 ROOTOPTDIR = $(ROOT)/opt/tz-tests
 ROOTOPTTESTS = $(ROOTOPTDIR)/tests
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTTESTS)/%) \
-	$(PROGS64:%=$(ROOTOPTTESTS)/%) \
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTTESTS)/32/%) \
+	$(PROGS64:%=$(ROOTOPTTESTS)/64/%) \
 	$(SCRIPTS:%=$(ROOTOPTTESTS)/%)
 
 include $(SRC)/cmd/Makefile.cmd
@@ -59,6 +61,18 @@ $(ROOTOPTDIR):
 
 $(ROOTOPTTESTS): $(ROOTOPTDIR)
 	$(INS.dir)
+
+$(ROOTOPTTESTS)/32: $(ROOTOPTTESTS)
+	$(INS.dir)
+
+$(ROOTOPTTESTS)/64: $(ROOTOPTTESTS)
+	$(INS.dir)
+
+$(ROOTOPTTESTS)/32/%: % $(ROOTOPTTESTS)/32
+	$(INS.file)
+
+$(ROOTOPTTESTS)/64/%: % $(ROOTOPTTESTS)/64
+	$(INS.file)
 
 $(ROOTOPTTESTS)/%: %
 	$(INS.file)

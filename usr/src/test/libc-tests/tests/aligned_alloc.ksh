@@ -33,8 +33,11 @@ alloc_file="aligned_alloc"
 alloc_libraries="none
 libumem.so
 libmtmalloc.so"
-alloc_archs="32
-64"
+alloc_archs="64"
+
+if [[ $(mach) != "aarch64" ]]; then
+	alloc_archs="${alloc_archs} 32"
+fi
 
 function warn
 {
@@ -54,7 +57,7 @@ function run_one
 
 	printf "Running %u-bit tests with library %s\n" $suffix "$preload"
 
-	if ! $alloc_dir/$alloc_file.$suffix; then
+	if ! $alloc_dir/$suffix/$alloc_file.$suffix; then
 		alloc_exit=1
 	fi
 

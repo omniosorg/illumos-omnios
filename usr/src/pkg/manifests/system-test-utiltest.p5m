@@ -33,6 +33,18 @@ file path=opt/util-tests/bin/utiltest mode=0555
 dir  path=opt/util-tests/runfiles
 file path=opt/util-tests/runfiles/default.run mode=0444
 dir  path=opt/util-tests/tests
+$(MULTILIB_ONLY)dir path=opt/util-tests/tests/32
+$(MULTILIB_ONLY)file path=opt/util-tests/tests/32/libjedec_hex2spd.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/util-tests/tests/32/libjedec_spd.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/util-tests/tests/32/libjedec_temp.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/util-tests/tests/32/libjedec_vendors.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/util-tests/tests/32/smbios.32 mode=0555
+dir  path=opt/util-tests/tests/64
+file path=opt/util-tests/tests/64/libjedec_hex2spd.64 mode=0555
+file path=opt/util-tests/tests/64/libjedec_spd.64 mode=0555
+file path=opt/util-tests/tests/64/libjedec_temp.64 mode=0555
+file path=opt/util-tests/tests/64/libjedec_vendors.64 mode=0555
+file path=opt/util-tests/tests/64/smbios.64 mode=0555
 dir  path=opt/util-tests/tests/ar
 file path=opt/util-tests/tests/ar/ar_test0.o mode=0444
 file path=opt/util-tests/tests/ar/ar_test1.o mode=0444
@@ -1696,14 +1708,6 @@ file path=opt/util-tests/tests/iconv_test mode=0555
 dir  path=opt/util-tests/tests/libcustr
 file path=opt/util-tests/tests/libcustr/custr_remove mode=0555
 file path=opt/util-tests/tests/libcustr/custr_trunc mode=0555
-file path=opt/util-tests/tests/libjedec_hex2spd.32 mode=0555
-file path=opt/util-tests/tests/libjedec_hex2spd.64 mode=0555
-file path=opt/util-tests/tests/libjedec_spd.32 mode=0555
-file path=opt/util-tests/tests/libjedec_spd.64 mode=0555
-file path=opt/util-tests/tests/libjedec_temp.32 mode=0555
-file path=opt/util-tests/tests/libjedec_temp.64 mode=0555
-file path=opt/util-tests/tests/libjedec_vendors.32 mode=0555
-file path=opt/util-tests/tests/libjedec_vendors.64 mode=0555
 dir  path=opt/util-tests/tests/libnvpair_json
 file path=opt/util-tests/tests/libnvpair_json/json_00_blank mode=0555
 file path=opt/util-tests/tests/libnvpair_json/json_01_boolean mode=0555
@@ -2024,8 +2028,6 @@ dir  path=opt/util-tests/tests/sleep
 file path=opt/util-tests/tests/sleep/sleep.awk mode=0444
 file path=opt/util-tests/tests/sleep/sleep.d mode=0444
 file path=opt/util-tests/tests/sleep/sleeptest mode=0555
-file path=opt/util-tests/tests/smbios.32 mode=0555
-file path=opt/util-tests/tests/smbios.64 mode=0555
 file path=opt/util-tests/tests/svr4pkg_test mode=0555
 file path=opt/util-tests/tests/xargs_test mode=0555
 license lic_CDDL license=lic_CDDL

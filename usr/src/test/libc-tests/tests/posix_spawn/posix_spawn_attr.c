@@ -834,8 +834,8 @@ main(void)
 	int ret = EXIT_SUCCESS;
 
 	for (size_t h = 0; h < ARRAY_SIZE(helpers); h++) {
-		posix_spawn_find_helper(posix_spawn_child_path,
-		    sizeof (posix_spawn_child_path), helpers[h]);
+		(void) strlcpy(posix_spawn_child_path, helpers[h],
+		    sizeof (posix_spawn_child_path));
 		(void) printf("--- child helper: %s ---\n", helpers[h]);
 
 		for (size_t i = 0; i < ARRAY_SIZE(tests); i++) {

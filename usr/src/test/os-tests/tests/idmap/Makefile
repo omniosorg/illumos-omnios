@@ -16,7 +16,10 @@
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
 
-PROG =	idmaptest.32 idmaptest.64
+PROG64 =	idmaptest.64
+$(BUILD32)PROG32 += idmaptest.32
+
+PROG = $(PROG64) $(PROG32)
 
 SCRIPTS = idmap_init idmap_fini
 
@@ -28,7 +31,7 @@ CSTD = $(CSTD_GNU17)
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 TESTDIR = $(ROOTOPTPKG)/tests/idmap
 
-CMDS = $(PROG:%=$(TESTDIR)/%) \
+CMDS = $(PROG32:%=$(TESTDIR)/32/%) $(PROG64:%=$(TESTDIR)/64/%) \
 	$(SCRIPTS:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555
 
@@ -45,6 +48,18 @@ $(CMDS): $(TESTDIR) $(PROG)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

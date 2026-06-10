@@ -21,7 +21,7 @@ PROG = printf-intmax
 
 $(BUILD32)PROG32 = $(PROG:%=%.32)
 PROG64 = $(PROG:%=%.64)
-$(BUILD32)PROGC89 = $(PROG:%=%.c89)
+PROGC89 = $(PROG:%=%.c89)
 
 OBJS = printf-intmax.o
 
@@ -30,9 +30,9 @@ OBJS64 = $(OBJS:%.o=%.64.o)
 OBJSC89 = $(OBJS:%.o=%.c89.o)
 
 ROOTOPTDIR = $(ROOT)/opt/libc-tests/tests
-ROOTOPTPROGS =	$(PROG32:%=$(ROOTOPTDIR)/%) \
-		$(PROG64:%=$(ROOTOPTDIR)/%) \
-		$(PROGC89:%=$(ROOTOPTDIR)/%)
+ROOTOPTPROGS =	$(PROG32:%=$(ROOTOPTDIR)/32/%) \
+		$(PROG64:%=$(ROOTOPTDIR)/64/%) \
+		$(PROGC89:%=$(ROOTOPTDIR)/64/%)
 ROOTOPTSCRIPTS = $(SCRIPTS:%=$(ROOTOPTDIR)/%)
 
 $(ROOTOPTSCRIPTS) := FILEMODE = 0555
@@ -58,18 +58,30 @@ install: $(ROOTOPTPROGS) $(ROOTOPTSCRIPTS) $(ROOTOPTDIR)
 $(ROOTOPTDIR):
 	$(INS.dir)
 
-$(ROOTOPTDIR)/%: %
+$(ROOTOPTDIR)/32: $(ROOTOPTDIR)
+	$(INS.dir)
+
+$(ROOTOPTDIR)/64: $(ROOTOPTDIR)
+	$(INS.dir)
+
+$(ROOTOPTDIR)/32/%: % $(ROOTOPTDIR)/32
+	$(INS.file)
+
+$(ROOTOPTDIR)/64/%: % $(ROOTOPTDIR)/64
+	$(INS.file)
+
+$(ROOTOPTDIR)/%: % $(ROOTOPTDIR)
 	$(INS.file)
 
 $(ROOTOPTDIR)/%: %.ksh
 	$(INS.rename)
 
 %.c89.o: %.c
-	$(COMPILE.c) -o $@ $<
+	$(COMPILE64.c) -o $@ $<
 	$(POST_PROCESS_O)
 
 %.c89: $(OBJSC89)
-	$(LINK.c) -o $@ $(OBJSC89) $(LDLIBS)
+	$(LINK64.c) -o $@ $(OBJSC89) $(LDLIBS64)
 	$(POST_PROCESS)
 
 %.32.o: %.c

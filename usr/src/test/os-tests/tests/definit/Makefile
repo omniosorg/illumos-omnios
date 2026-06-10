@@ -16,8 +16,10 @@
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
 
-PROG = definit_test.64
-$(NOT_AARCH64_BLD)PROG += definit_test.32
+PROG64 = definit_test.64
+$(BUILD32)PROG32 += definit_test.32
+
+PROG= $(PROG64) $(PROG32)
 
 OBJS = definit.o definit_test.o
 OBJS32 = $(OBJS:.o=.32.o)
@@ -31,7 +33,7 @@ CPPFLAGS += -I$(SRC)/common/definit
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 TESTDIR = $(ROOTOPTPKG)/tests/definit
 
-CMDS = $(PROG:%=$(TESTDIR)/%) $(TESTDIR)/definit
+CMDS = $(PROG32:%=$(TESTDIR)/32/%) $(PROG64:%=$(TESTDIR)/64/%) $(TESTDIR)/definit
 $(CMDS) := FILEMODE = 0555
 DATA = $(DATAFILES:%=$(TESTDIR)/%)
 $(DATA) := FILEMODE = 0444
@@ -53,6 +55,18 @@ $(CMDS): $(TESTDIR) $(PROG)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

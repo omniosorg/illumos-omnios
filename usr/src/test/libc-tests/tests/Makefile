@@ -18,6 +18,8 @@
 # Copyright 2025 Oxide Computer Company
 #
 
+include $(SRC)/Makefile.master
+
 SUBDIRS = \
 	catopen \
 	clocklock \
@@ -92,7 +94,7 @@ SCRIPTS = \
 
 CPPFLAGS += -D_REENTRANT
 
-PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = \
 	$(PROGS:%=%.64) \
 	printf-6961.64
@@ -167,8 +169,9 @@ wcslcpy.32 :=		CSTD=$(CSTD_GNU17)
 wcslcpy.64 :=		CSTD=$(CSTD_GNU17)
 
 ROOTOPTDIR = $(ROOT)/opt/libc-tests/tests
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTDIR)/%) \
-	$(PROGS64:%=$(ROOTOPTDIR)/%) \
+ROOTOPTPROGS32 = $(PROGS32:%=$(ROOTOPTDIR)/32/%)
+ROOTOPTPROGS64 = $(PROGS64:%=$(ROOTOPTDIR)/64/%)
+ROOTOPTPROGS = $(ROOTOPTPROGS32) $(ROOTOPTPROGS64) \
 	$(SCRIPTS:%=$(ROOTOPTDIR)/%)
 
 include $(SRC)/cmd/Makefile.cmd
@@ -185,14 +188,27 @@ install: $(SUBDIRS) $(ROOTOPTPROGS)
 
 all: $(SUBDIRS) $(PROGS32) $(PROGS64)
 
-clean lint: $(SUBDIRS)
+clean: $(SUBDIRS)
 
-$(ROOTOPTPROGS): $(PROGS32) $(PROGS64) $(ROOTOPTDIR)
+$(BUILD32)$(ROOTOPTPROGS): $(ROOTOPTDIR)/32
+$(ROOTOPTPROGS): $(PROGS32) $(PROGS64) $(ROOTOPTDIR) $(ROOTOPTDIR)/64
 
 $(ROOTOPTDIR):
 	$(INS.dir)
 
+$(ROOTOPTDIR)/32:
+	$(INS.dir)
+
+$(ROOTOPTDIR)/64:
+	$(INS.dir)
+
 $(ROOTOPTDIR)/%: %
+	$(INS.file)
+
+$(ROOTOPTDIR)/32/%: %
+	$(INS.file)
+
+$(ROOTOPTDIR)/64/%: %
 	$(INS.file)
 
 $(ROOTOPTDIR)/%: %.ksh

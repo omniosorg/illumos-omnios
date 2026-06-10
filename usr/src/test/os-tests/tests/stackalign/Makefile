@@ -18,7 +18,7 @@ include $(SRC)/Makefile.master
 
 PROGS = stackalign
 
-$(NOT_AARCH64_BLD)PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
 OBJS = $(PROGS32:%=%.o) $(PROGS64:%=%.o)
@@ -28,7 +28,8 @@ $(AARCH64_BLD)OBJS += stack_aarch64.o
 
 ROOTOPTDIR = $(ROOT)/opt/os-tests/tests
 ROOTOPTSTACK = $(ROOTOPTDIR)/stackalign
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTSTACK)/%) $(PROGS64:%=$(ROOTOPTSTACK)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTSTACK)/32/%) \
+	$(PROGS64:%=$(ROOTOPTSTACK)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 
@@ -53,6 +54,18 @@ $(ROOTOPTDIR):
 
 $(ROOTOPTSTACK): $(ROOTOPTDIR)
 	$(INS.dir)
+
+$(ROOTOPTSTACK)/32: $(ROOTOPTSTACK)
+	$(INS.dir)
+
+$(ROOTOPTSTACK)/64: $(ROOTOPTSTACK)
+	$(INS.dir)
+
+$(ROOTOPTSTACK)/32/%: % $(ROOTOPTSTACK)/32
+	$(INS.file)
+
+$(ROOTOPTSTACK)/64/%: % $(ROOTOPTSTACK)/64
+	$(INS.file)
 
 $(ROOTOPTSTACK)/%: %
 	$(INS.file)

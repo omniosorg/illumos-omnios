@@ -20,8 +20,10 @@
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
 
-PROG =	ksid.64
-$(NOT_AARCH64_BLD)PROG += ksid.32
+PROG64 =	ksid.64
+$(BUILD32)PROG32 += ksid.32
+
+PROG= $(PROG64) $(PROG32)
 
 LDLIBS += -lfakekernel
 LDLIBS64 += -lfakekernel
@@ -32,7 +34,7 @@ CPPFLAGS.first += -I$(SRC)/lib/libfakekernel/common -D_FAKE_KERNEL
 ROOTOPTPKG = $(ROOT)/opt/os-tests
 TESTDIR = $(ROOTOPTPKG)/tests/ksid
 
-CMDS = $(PROG:%=$(TESTDIR)/%)
+CMDS = $(PROG32:%=$(TESTDIR)/32/%) $(PROG64:%=$(TESTDIR)/64/%)
 $(CMDS) := FILEMODE = 0555
 
 all: $(PROG)
@@ -48,6 +50,18 @@ $(CMDS): $(TESTDIR) $(PROG)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

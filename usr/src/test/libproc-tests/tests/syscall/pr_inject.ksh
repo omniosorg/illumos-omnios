@@ -24,20 +24,22 @@ set -o pipefail
 
 pr_arg0=$(basename $0)
 pr_dir=$(dirname $0)
-pr_inj32="$pr_dir/pr_inject.32"
-pr_inj64="$pr_dir/pr_inject.64"
-pr_targ32="$pr_dir/pr_target.32"
-pr_targ64="$pr_dir/pr_target.64"
+pr_inj32="$pr_dir/32/pr_inject.32"
+pr_inj64="$pr_dir/64/pr_inject.64"
+pr_targ32="$pr_dir/32/pr_target.32"
+pr_targ64="$pr_dir/64/pr_target.64"
 pr_exit=0
 
-printf "Running 32-bit controller against 32-bit target\n"
-if ! $pr_inj32 $pr_targ32; then
-	pr_exit=1
-fi
+if [[ $(mach) != "aarch64" ]]; then
+	printf "Running 32-bit controller against 32-bit target\n"
+	if ! $pr_inj32 $pr_targ32; then
+		pr_exit=1
+	fi
 
-printf "\nRunning 64-bit controller against 32-bit target\n"
-if ! $pr_inj64 $pr_targ32; then
-	pr_exit=1
+	printf "\nRunning 64-bit controller against 32-bit target\n"
+	if ! $pr_inj64 $pr_targ32; then
+		pr_exit=1
+	fi
 fi
 
 printf "\nRunning 64-bit controller against 64-bit target\n"

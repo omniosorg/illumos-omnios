@@ -13,6 +13,8 @@
 # Copyright 2025 Oxide Computer Company
 #
 
+include $(SRC)/Makefile.master
+
 PROGS = libjedec_hex2spd
 OBJS = \
 	libjedec_hex2spd.o	\
@@ -37,13 +39,13 @@ SPD = \
 	lpddr5/MT62F4G32D8DV-023.spd
 SPDDIR = ddr3 ddr4 ddr5 lpddr3 lpddr4 lpddr5
 
-PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 OBJS32 = $(OBJS:%.o=%.32.o)
 OBJS64 = $(OBJS:%.o=%.64.o)
 
 ROOTOPTDIR = $(ROOT)/opt/util-tests/tests
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTDIR)/%) $(PROGS64:%=$(ROOTOPTDIR)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTDIR)/32/%) $(PROGS64:%=$(ROOTOPTDIR)/64/%)
 ROOTOPTHEX = $(ROOTOPTDIR)/hex2spd
 ROOTHEXDIRS = $(SPDDIR:%=$(ROOTOPTHEX)/%)
 ROOTHEXSPD = $(SPD:%=$(ROOTOPTHEX)/%)
@@ -78,8 +80,20 @@ $(ROOTHEXSPD): $(ROOTHEXDIRS)
 $(ROOTOPTHEX):
 	$(INS.dir)
 
+$(ROOTOPTHEX)/32:
+	$(INS.dir)
+
+$(ROOTOPTHEX)/64:
+	$(INS.dir)
+
 $(ROOTHEXDIRS): $(ROOTOPTHEX)
 	$(INS.dir)
+
+$(ROOTOPTDIR)/32/%: % $(ROOTOPTDIR)/32
+	$(INS.file)
+
+$(ROOTOPTDIR)/64/%: % $(ROOTOPTDIR)/64
+	$(INS.file)
 
 $(ROOTOPTDIR)/%: %
 	$(INS.file)

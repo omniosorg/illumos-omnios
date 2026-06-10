@@ -20,7 +20,7 @@ include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
 include $(SRC)/cmd/Makefile.ctf
 
-PROGS_32 = $(CRYPTO:%=$(BASEPROG)_32_%)
+$(BUILD32)PROGS_32 = $(CRYPTO:%=$(BASEPROG)_32_%)
 PROGS_64 = $(CRYPTO:%=$(BASEPROG)_64_%)
 PROGS = $(PROGS_32) $(PROGS_64)
 
@@ -31,8 +31,10 @@ COMMON_OBJS_64 = $(COMMON_OBJS:%.o=%.64.o)
 # a statement like 'CRYPTO_kcf = $(POUND_SIGN)' in a test's Makefile to
 # disable creation of tests for a given framework.  For an example, see
 # modes/aes/cbc_pad/Makefile
-$(CRYPTO_pkcs)PROGS_pkcs = $(BASEPROG:%=%_32_pkcs) $(BASEPROG:%=%_64_pkcs)
-$(CRYPTO_kcf)PROGS_kcf = $(BASEPROG:%=%_32_kcf) $(BASEPROG:%=%_64_kcf)
+$(CRYPTO_pkcs)PROGS_pkcs_64 = $(BASEPROG:%=%_64_pkcs)
+$(CRYPTO_pkcs)$(BUILD32)PROGS_pkcs_32 += $(BASEPROG:%=%_32_pkcs)
+$(CRYPTO_kcf)PROGS_kcf_64 = $(BASEPROG:%=%_64_kcf)
+$(CRYPTO_kcf)$(BUILD32)PROGS_kcf_32 = $(BASEPROG:%=%_32_kcf)
 
 # $(TESTROOT) must be set by whatever includes this file
 $(CRYPTO_pkcs)TESTDIR_pkcs = $(TESTROOT)/pkcs
@@ -49,12 +51,15 @@ $(CRYPTO_pkcs)$(BASEPROG)_64_pkcs := OBJS += $(COMMONDIR)/cryptotest_pkcs.64.o
 $(CRYPTO_kcf)$(BASEPROG)_32_kcf	:= OBJS += $(COMMONDIR)/cryptotest_kcf.32.o
 $(CRYPTO_kcf)$(BASEPROG)_64_kcf	:= OBJS += $(COMMONDIR)/cryptotest_kcf.64.o
 
-$(CRYPTO_pkcs)$(PROGS_pkcs)	:= LDLIBS += -lpkcs11 -lcryptoutil
+$(CRYPTO_pkcs)$(PROGS_pkcs_32)	:= LDLIBS += -lpkcs11 -lcryptoutil
+$(CRYPTO_pkcs)$(PROGS_pkcs_64)	:= LDLIBS += -lpkcs11 -lcryptoutil
 
 CSTD = $(CSTD_GNU99)
 
-$(CRYPTO_pkcs)CMDS_pkcs = $(PROGS_pkcs:%_pkcs=$(TESTDIR_pkcs)/%)
-$(CRYPTO_kcf)CMDS_kcf = $(PROGS_kcf:%_kcf=$(TESTDIR_kcf)/%)
+$(CRYPTO_pkcs)CMDS_pkcs = $(PROGS_pkcs_32:%_pkcs=$(TESTDIR_pkcs)/32/%) \
+	$(PROGS_pkcs_64:%_pkcs=$(TESTDIR_pkcs)/64/%)
+$(CRYPTO_kcf)CMDS_kcf = $(PROGS_kcf_32:%_kcf=$(TESTDIR_kcf)/32/%) \
+	$(PROGS_kcf_64:%_kcf=$(TESTDIR_kcf)/64/%)
 CMDS = $(CMDS_pkcs) $(CMDS_kcf)
 
 $(CMDS) := FILEMODE = 0555
@@ -96,19 +101,26 @@ clobber: clean
 clean:
 	-$(RM) *.o $(COMMON_OBJS_32) $(COMMON_OBJS_64) $(PROGS)
 
-$(CMDS): $(TESTDIR_pkcs) $(TESTDIR_kcf) $(PROGS)
+$(BUILD32)$(CMDS): $(TESTDIR_pkcs:%=%/32) $(TESTDIR_kcf:%=%/32)
+$(CMDS): $(TESTDIR_pkcs) $(TESTDIR_kcf) $(TESTDIR_pkcs:%=%/64) $(TESTDIR_kcf:%=%/64) $(PROGS)
 
 $(TESTDIR_pkcs) $(TESTDIR_kcf):
 	$(INS.dir)
 
-$(TESTDIR_pkcs)/%_32: %_32_pkcs
+$(TESTDIR_pkcs)/32 $(TESTDIR_pkcs)/64:
+	$(INS.dir)
+
+$(TESTDIR_kcf)/32 $(TESTDIR_kcf)/64:
+	$(INS.dir)
+
+$(TESTDIR_pkcs)/32/%_32: %_32_pkcs
 	$(INS.rename)
 
-$(TESTDIR_pkcs)/%_64: %_64_pkcs
+$(TESTDIR_pkcs)/64/%_64: %_64_pkcs
 	$(INS.rename)
 
-$(TESTDIR_kcf)/%_32: %_32_kcf
+$(TESTDIR_kcf)/32/%_32: %_32_kcf
 	$(INS.rename)
 
-$(TESTDIR_kcf)/%_64: %_64_kcf
+$(TESTDIR_kcf)/64/%_64: %_64_kcf
 	$(INS.rename)

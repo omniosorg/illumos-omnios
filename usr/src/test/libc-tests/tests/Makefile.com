@@ -28,13 +28,12 @@ $(BUILD64)PROG64= $(PROG).$(MACH64)
 $(OBJS_OVERRIDE)SRCS = $(PROG).c ../common/test_common.c
 
 CSTD = $(CSTD_GNU99)
-LINTFLAGS += -I../common -DARCH=\"ARCH\" -DLINT
 CPPFLAGS += -I$(ROOT)/usr/include -I../common
 
 ROOTOPTPKG = $(ROOT)/opt/libc-tests
 TESTDIR = $(ROOTOPTPKG)/tests/$(TESTSUBDIR)
 
-CMDS = $(PROG32:%=$(TESTDIR)/%) $(PROG64:%=$(TESTDIR)/%) \
+CMDS = $(PROG32:%=$(TESTDIR)/32/%) $(PROG64:%=$(TESTDIR)/64/%) \
 	$(KSHPROG:%=$(TESTDIR)/%) $(ARCHPROG:%=$(TESTDIR)/%) \
 	$(EXTRAPROG:%=$(TESTDIR)/%)
 
@@ -77,8 +76,6 @@ $(BUILD64)	$(COMPILE64.c) -o $@ $(CFLAGS_$(MACH64)) -DARCH=\"$(MACH64)\" $<
 
 install: $(SUBDIRS) $(CMDS)
 
-lint: lint_SRCS
-
 clobber: clean
 	-$(RM) $(PROG32) $(PROG64) $(KSHPROG) $(ARCHPROG)
 
@@ -89,6 +86,18 @@ $(CMDS): $(TESTDIR) $(PROG32) $(PROG64) $(KSHPROG) $(ARCHPROG)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

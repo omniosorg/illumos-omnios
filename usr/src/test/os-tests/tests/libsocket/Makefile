@@ -17,17 +17,19 @@
 # Makefile for various libsocket tests.
 #
 
+include $(SRC)/Makefile.master
+
 PROGS = \
 	getifaddrs_dl \
 	inet6_opt \
 	nametoindex
 
-PROGS32 += $(PROGS:%=%.32)
+$(BUILD32)PROGS32 += $(PROGS:%=%.32)
 PROGS64 += $(PROGS:%=%.64)
 
 ROOTOPTDIR = $(ROOT)/opt/os-tests/tests
 ROOTOPTSOCK = $(ROOTOPTDIR)/libsocket
-ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTSOCK)/%) $(PROGS64:%=$(ROOTOPTSOCK)/%)
+ROOTOPTPROGS = $(PROGS32:%=$(ROOTOPTSOCK)/32/%) $(PROGS64:%=$(ROOTOPTSOCK)/64/%)
 
 include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/cmd/Makefile.ctf
@@ -55,6 +57,18 @@ install: $(ROOTOPTSOCK) .WAIT $(ROOTOPTPROGS)
 
 $(ROOTOPTSOCK): $(ROOTOPTTESTS)
 	$(INS.dir)
+
+$(ROOTOPTSOCK)/32: $(ROOTOPTSOCK)
+	$(INS.dir)
+
+$(ROOTOPTSOCK)/64: $(ROOTOPTSOCK)
+	$(INS.dir)
+
+$(ROOTOPTSOCK)/32/%: % $(ROOTOPTSOCK)/32
+	$(INS.file)
+
+$(ROOTOPTSOCK)/64/%: % $(ROOTOPTSOCK)/64
+	$(INS.file)
 
 $(ROOTOPTSOCK)/%: %
 	$(INS.file)

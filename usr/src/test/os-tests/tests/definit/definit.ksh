@@ -31,8 +31,8 @@ esac
 
 for b in ${bits[@]}; do
 	typeset bin=definit_test.$b
-	print "Testing $bin"
-	if ! $dir/$bin $dir/init.data > $tf; then
+	print "Testing $b/$bin"
+	if ! $dir/$b/$bin $dir/init.data > $tf; then
 		print "Failed to run $bin"
 		exitval=1
 	fi

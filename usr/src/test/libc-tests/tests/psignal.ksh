@@ -23,8 +23,8 @@ set -o errexit
 set -o pipefail
 
 ps_root=$(dirname $0)
-ps_sig32=$ps_root/psignal-5097.32
-ps_sig64=$ps_root/psignal-5097.64
+ps_sig32=$ps_root/32/psignal-5097.32
+ps_sig64=$ps_root/64/psignal-5097.64
 ps_out=/tmp/$(basename $0).$$
 
 function fatal
@@ -52,8 +52,12 @@ hello world : Segmentation Fault ( from process  0 )
 Information Request ( from process  0 )
 EOF
 
-[[ $? -ne 0 ]] && fatal "failed to set up output file"
-test_one $ps_sig32
+(( $? != 0 )) && fatal "failed to set up output file"
+
+if [[ $(mach) != "aarch64" ]]; then
+	test_one $ps_sig32
+fi
+
 test_one $ps_sig64
 rm -f $ps_out
 exit 0

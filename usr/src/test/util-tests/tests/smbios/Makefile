@@ -35,7 +35,7 @@ SRCS =	smbios.c \
 	smbios_test_tpm.c
 PROGS = smbios
 
-PROGS32 = $(PROGS:%=%.32)
+$(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = $(PROGS:%=%.64)
 
 OBJS32 = $(SRCS:%.c=%.32.o)
@@ -45,7 +45,7 @@ include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/cmd/Makefile.ctf
 include $(SRC)/test/Makefile.com
 
-CMDS = $(PROGS32:%=$(TESTDIR)/%) $(PROGS64:%=$(TESTDIR)/%)
+CMDS = $(PROGS32:%=$(TESTDIR)/32/%) $(PROGS64:%=$(TESTDIR)/64/%)
 $(CMDS) := FILEMODE = 0555
 CSTD = $(CSTD_GNU17)
 CTF_MODE = link
@@ -77,6 +77,18 @@ $(CMDS): $(TESTDIR) $(PROGS32) $(PROGS64)
 
 $(TESTDIR):
 	$(INS.dir)
+
+$(TESTDIR)/32:
+	$(INS.dir)
+
+$(TESTDIR)/64:
+	$(INS.dir)
+
+$(TESTDIR)/32/%: % $(TESTDIR)/32
+	$(INS.file)
+
+$(TESTDIR)/64/%: % $(TESTDIR)/64
+	$(INS.file)
 
 $(TESTDIR)/%: %
 	$(INS.file)

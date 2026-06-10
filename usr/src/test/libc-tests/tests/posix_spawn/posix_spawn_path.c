@@ -247,7 +247,8 @@ main(void)
 	int ret = EXIT_SUCCESS;
 	char path[PATH_MAX];
 
-	posix_spawn_find_helper(path, sizeof (path), "posix_spawn_noshebang");
+	posix_spawn_find_helper(path, sizeof (path),
+	    "../posix_spawn_noshebang");
 	(void) strlcpy(posix_spawn_noshebang_dir, dirname(path),
 	    sizeof (posix_spawn_noshebang_dir));
 

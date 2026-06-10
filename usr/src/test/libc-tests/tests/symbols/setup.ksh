@@ -19,7 +19,7 @@ export STF_SUITE=/opt/libc-tests
 
 # First we set $dir to dirname $0, using efficient ksh builtins.
 case $0 in
-*/*)	
+*/*)
 	dir=${0%/*}
 	prog=${0##*/}
 	;;
@@ -39,7 +39,7 @@ fi
 
 prog=symbols_test
 
-for a in $* 
+for a in $*
 do
 	if [[ $a == "-d" ]]
 	then
@@ -56,6 +56,8 @@ do
 	[[ -n $debug ]] && print "Checking for arch $f:"
 	for p in \
 		${dir}/${prog}.${f} \
+		${dir}/32/${prog}.${f} \
+		${dir}/64/${prog}.${f} \
 		${dir}/${f}/${prog}.${f} \
 		${dir}/${f}/${prog}
 	do

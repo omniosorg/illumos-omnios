@@ -26,28 +26,34 @@ timeout = 60
 post =
 outputdir = /var/tmp/test_results
 
-[/opt/os-tests/tests/poll_test]
+[/opt/os-tests/tests]
 user = root
 tests = ['poll_test', 'epoll_test']
 
-[/opt/os-tests/tests/eventfd.32]
-[/opt/os-tests/tests/eventfd.64]
+[/opt/os-tests/tests/32]
+arch = i86pc
+tests = [
+	'eventfd.32',
+	'odirectory.32',
+	'clock_gettime.32',
+	'statvfs.32',
+	'syncfs.32',
+	'ucontext.32',
+	'getcontext_extd.32',
+	'writev.32'
+	]
 
-[/opt/os-tests/tests/odirectory.32]
-[/opt/os-tests/tests/odirectory.64]
-
-[/opt/os-tests/tests/clock_gettime.32]
-[/opt/os-tests/tests/clock_gettime.64]
-
-[/opt/os-tests/tests/statvfs.32]
-[/opt/os-tests/tests/statvfs.64]
-[/opt/os-tests/tests/syncfs.32]
-[/opt/os-tests/tests/syncfs.64]
-
-[/opt/os-tests/tests/ucontext.32]
-[/opt/os-tests/tests/ucontext.64]
-[/opt/os-tests/tests/getcontext_extd.32]
-[/opt/os-tests/tests/getcontext_extd.64]
+[/opt/os-tests/tests/64]
+tests = [
+	'eventfd.64',
+	'odirectory.64',
+	'clock_gettime.64',
+	'statvfs.64',
+	'syncfs.64',
+	'ucontext.64',
+	'getcontext_extd.64',
+	'writev.64'
+	]
 
 [/opt/os-tests/tests/secflags]
 user = root
@@ -82,8 +88,10 @@ tests = ['dladm-kstat']
 user = root
 tests = ['timer_limit']
 
-[/opt/os-tests/tests/file-locking]
-tests = ['runtests.32', 'runtests.64']
+[/opt/os-tests/tests/file-locking/32/runtests.32]
+arch = i86pc
+
+[/opt/os-tests/tests/file-locking/64/runtests.64]
 
 [/opt/os-tests/tests/sockfs]
 user = root
@@ -91,17 +99,33 @@ tests = ['conn',
          'dgram',
          'drop_priv',
          'nosignal',
-         'recvmsg.32',
-         'recvmsg.64',
-         'rights.32',
-         'rights.64',
          'so_protocol',
          'sockpair',
-         'timeouts.32',
-         'timeouts.64']
+	 ]
 
-[/opt/os-tests/tests/syscall]
-tests = ['fchmodat.32', 'fchmodat.64', 'open.32', 'open.64']
+[/opt/os-tests/tests/sockfs/32]
+arch = i86pc
+user = root
+tests = [
+	'recvmsg.32',
+	'rights.32',
+        'timeouts.32',
+	]
+
+[/opt/os-tests/tests/sockfs/64]
+user = root
+tests = [
+	'recvmsg.64',
+	'rights.64',
+        'timeouts.64',
+	]
+
+[/opt/os-tests/tests/syscall/32]
+arch = i86pc
+tests = ['fchmodat.32', 'open.32']
+
+[/opt/os-tests/tests/syscall/64]
+tests = ['fchmodat.64', 'open.64']
 
 [/opt/os-tests/tests/pf_key]
 user = root
@@ -114,24 +138,29 @@ tests = ['ufm-test-setup', 'ufm-test', 'ufm-test-cleanup']
 
 [/opt/os-tests/tests/definit/definit]
 
-[/opt/os-tests/tests/idmap]
+[/opt/os-tests/tests/idmap/32/idmaptest.32]
+arch = i86pc
 pre_user=root
-pre = idmap_init
+pre = /opt/os-tests/tests/idmap/idmap_init
 post_user=root
-post = idmap_fini
-tests = ['idmaptest.32','idmaptest.64']
+post = /opt/os-tests/tests/idmap/idmap_fini
 
-[/opt/os-tests/tests/ksid]
-tests = ['ksid.32','ksid.64']
+[/opt/os-tests/tests/idmap/64/idmaptest.64]
+pre_user=root
+pre = /opt/os-tests/tests/idmap/idmap_init
+post_user=root
+post = /opt/os-tests/tests/idmap/idmap_fini
+
+[/opt/os-tests/tests/ksid/32/ksid.32]
+arch = i86pc
+
+[/opt/os-tests/tests/ksid/64/ksid.64]
 
 [/opt/os-tests/tests/i386]
 user = root
 arch = i86pc
 timeout = 300
 tests = ['ldt', 'badseg']
-
-[/opt/os-tests/tests/writev.32]
-[/opt/os-tests/tests/writev.64]
 
 [/opt/os-tests/tests/imc_test]
 arch = i86pc
@@ -151,30 +180,63 @@ tests = ['digraph-test']
 #
 # The GPIO tests require privileges.
 #
-[/opt/os-tests/tests/gpio]
+[/opt/os-tests/tests/gpio/gpioadm_test]
 pre_user = root
 user = root
 post_user = root
-pre = gpio_init
-tests = [ 'dpio_test.32', 'dpio_test.64', 'gpio_attr.32', 'gpio_attr.64',
-    'gpio_lookup.32', 'gpio_lookup.64', 'gpioadm_test' ]
-post = gpio_fini
+pre = /opt/os-tests/tests/gpio/gpio_init
+post = /opt/os-tests/tests/gpio/gpio_fini
+
+[/opt/os-tests/tests/gpio/32]
+arch = i86pc
+pre_user = root
+user = root
+post_user = root
+pre = /opt/os-tests/tests/gpio/gpio_init
+post = /opt/os-tests/tests/gpio/gpio_fini
+tests = [
+	'dpio_test.32',
+	'gpio_attr.32',
+	'gpio_lookup.32'
+	]
+
+[/opt/os-tests/tests/gpio/64]
+pre_user = root
+user = root
+post_user = root
+pre = /opt/os-tests/tests/gpio/gpio_init
+post = /opt/os-tests/tests/gpio/gpio_fini
+tests = [
+	'dpio_test.64',
+	'gpio_attr.64',
+	'gpio_lookup.64'
+	]
 
 #
 # Only the ksensor functional tests are included in the run file.
 # The stress test is designed to be run separately.
 #
-[/opt/os-tests/tests/ksensor]
+[/opt/os-tests/tests/ksensor/32]
+arch = i86pc
 pre_user = root
 user = root
 post_user = root
-pre = ksensor_init
-tests = [ 'ksensor_basic.32','ksensor_basic.64', 'ksensor_err.32',
-    'ksensor_err.64' ]
-post = ksensor_fini
+pre = /opt/os-tests/tests/ksensor/ksensor_init
+tests = [ 'ksensor_basic.32', 'ksensor_err.32' ]
+post = /opt/os-tests/tests/ksensor/ksensor_fini
 
-[/opt/os-tests/tests/stackalign]
-tests = ['stackalign.32', 'stackalign.64']
+[/opt/os-tests/tests/ksensor/64]
+pre_user = root
+user = root
+post_user = root
+pre = /opt/os-tests/tests/ksensor/ksensor_init
+tests = [ 'ksensor_basic.64', 'ksensor_err.64' ]
+post = /opt/os-tests/tests/ksensor/ksensor_fini
+
+[/opt/os-tests/tests/stackalign/32/stackalign.32]
+arch = i86pc
+
+[/opt/os-tests/tests/stackalign/64/stackalign.64]
 
 [/opt/os-tests/tests/cores]
 user = root
@@ -182,9 +244,12 @@ pre = core_prereqs
 tests = ['coretests']
 
 [/opt/os-tests/tests/zen_umc_test]
+arch = i86pc
 
-[/opt/os-tests/tests/portfs]
-tests = ['file_assoc.32', 'file_assoc.64']
+[/opt/os-tests/tests/portfs/32/file_assoc.32]
+arch = i86pc
+
+[/opt/os-tests/tests/portfs/64/file_assoc.64]
 
 [/opt/os-tests/tests/regression]
 tests = [
@@ -212,14 +277,20 @@ tests = [ 'bad_xregs.32', 'bad_xregs.64', 'mdb_xregs', 'proc_writes',
     'fpregs_xbv.32', 'fpregs_xbv.64', 'swapcontext_extd.32',
     'swapcontext_extd.64' ]
 
-[/opt/os-tests/tests/hexdump]
-tests = ['hexdump_basic.32', 'hexdump_basic.64']
+[/opt/os-tests/tests/hexdump/32/hexdump_basic.32]
+arch = i86pc
 
-[/opt/os-tests/tests/ilstr]
-tests = ['ilstr_basic.32', 'ilstr_basic.64']
+[/opt/os-tests/tests/hexdump/64/hexdump_basic.64]
 
-[/opt/os-tests/tests/execve]
-tests = ['execvpe-test.32', 'execvpe-test.64']
+[/opt/os-tests/tests/ilstr/32/ilstr_basic.32]
+arch = i86pc
+
+[/opt/os-tests/tests/ilstr/64/ilstr_basic.64]
+
+[/opt/os-tests/tests/execvpe/32/execvpe-test.32]
+arch = i86pc
+
+[/opt/os-tests/tests/execvpe/64/execvpe-test.64]
 
 [/opt/os-tests/tests/minttl]
 user = root
@@ -232,8 +303,10 @@ pre = tcpsig_init
 tests = ['tcpsig']
 post = tcpsig_fini
 
-[/opt/os-tests/tests/fifo-tvnsec.32]
-[/opt/os-tests/tests/fifo-tvnsec.64]
+[/opt/os-tests/tests/32/fifo-tvnsec.32]
+arch = i86pc
+
+[/opt/os-tests/tests/64/fifo-tvnsec.64]
 
 [/opt/os-tests/tests/saveargs/functional/functional]
 arch = i86pc
@@ -260,6 +333,17 @@ user = root
 pre = comm_page_pre
 tests = ['comm_page_ktest']
 
-[/opt/os-tests/tests/libsocket]
-tests = [ 'getifaddrs_dl.32', 'getifaddrs_dl.64', 'inet6_opt.32',
-    'inet6_opt.64', 'nametoindex.32', 'nametoindex.64' ]
+[/opt/os-tests/tests/libsocket/32]
+arch = i86pc
+tests = [
+	'getifaddrs_dl.32',
+	'inet6_opt.32',
+	'nametoindex.32'
+	]
+
+[/opt/os-tests/tests/libsocket/64]
+tests = [
+	'getifaddrs_dl.64',
+	'inet6_opt.64',
+	'nametoindex.64'
+	]
