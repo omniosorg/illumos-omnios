@@ -520,12 +520,6 @@ Tags: %s
         users = [self.pre_user, self.user, self.post_user]
 
         for f in [f for f in auxfiles if len(f)]:
-            if self.pathname != os.path.dirname(f):
-                logger.info("Warning: TestGroup '%s' not added to this run. "
-                            "Auxiliary script '%s' exists in a different "
-                            "directory." % (self.pathname, f))
-                return False
-
             if not verify_file(f):
                 logger.info("Warning: TestGroup '%s' not added to this run. "
                             "Auxiliary script '%s' failed verification." %
