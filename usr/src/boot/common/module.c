@@ -1,4 +1,5 @@
 /*
+ * Copyright 2026 Edgecast Cloud LLC.
  * Copyright (c) 1998 Michael Smith <msmith@freebsd.org>
  * All rights reserved.
  *
@@ -43,12 +44,6 @@
 #include <libcrypto.h>
 
 #include "bootstrap.h"
-
-#if defined(EFI)
-#define	PTOV(pa)	((void *)pa)
-#else
-#include "../i386/btx/lib/btxv86.h"
-#endif
 
 #define	MDIR_REMOVED	0x0001
 #define	MDIR_NOHINTS	0x0002
@@ -240,6 +235,7 @@ command_lsmod(int argc, char *argv[])
 			verbose = 1;
 			break;
 		case 's':
+			/* Compute and output hash when there is none */
 			hash = 1;
 			break;
 		case '?':
@@ -277,13 +273,29 @@ command_lsmod(int argc, char *argv[])
 			}
 		}
 
-		if (hash == 1) {
-			void *ptr = PTOV(fp->f_addr);
+		void *ptr = ptov(fp->f_addr);
+		char *hptr = strstr(fp->f_args, "hash=");
+		char digest[SHA1_DIGEST_LENGTH * 2 + 1];
 
+		sha1(ptr, fp->f_size, (uint8_t *)lbuf);
+		for (int i = 0; i < SHA1_DIGEST_LENGTH; i++) {
+			(void) snprintf(digest + 2 * i, sizeof (digest) - 2 * i,
+			    "%02x", (int)(lbuf[i] & 0xff));
+		}
+
+		if (hptr != NULL) {
 			(void) pager_output("  hash: ");
-			sha1(ptr, fp->f_size, (uint8_t *)lbuf);
-			for (int i = 0; i < SHA1_DIGEST_LENGTH; i++)
-				printf("%02x", (int)(lbuf[i] & 0xff));
+			if (strcmp(digest, hptr + 5) == 0)
+				(void) pager_output("match");
+			else
+				(void) pager_output("mismatch");
+			if (pager_output("\n"))
+				break;
+		}
+
+		if (hptr == NULL && hash == 1) {
+			(void) pager_output("  hash: ");
+			(void) pager_output(digest);
 			if (pager_output("\n"))
 				break;
 		}
@@ -503,7 +515,7 @@ build_environment_module(void)
 
 	laddr = bi_copyenv(loadaddr);
 	/* Looks OK so far; populate control structure */
-	module_hash(fp, PTOV(loadaddr), laddr - loadaddr);
+	module_hash(fp, ptov(loadaddr), laddr - loadaddr);
 	fp->f_loader = -1;
 	fp->f_addr = loadaddr;
 	fp->f_size = laddr - loadaddr;
@@ -620,7 +632,7 @@ build_font_module(void)
 	laddr += archsw.arch_copyin(fd->vf_bytes, laddr, fi.fi_bitmap_size);
 
 	/* Looks OK so far; populate control structure */
-	module_hash(fp, PTOV(loadaddr), laddr - loadaddr);
+	module_hash(fp, ptov(loadaddr), laddr - loadaddr);
 	fp->f_loader = -1;
 	fp->f_addr = loadaddr;
 	fp->f_size = laddr - loadaddr;
@@ -629,6 +641,57 @@ build_font_module(void)
 	loadaddr = laddr;
 
 	file_insert_tail(fp);
+}
+
+static struct preloaded_file *
+file_assign_hash(int fd, size_t size, int argc, char **argv)
+{
+	char *name = NULL;
+	struct preloaded_file *fp = NULL;
+	char *buf;
+
+	if (size < SHA1_DIGEST_LENGTH * 2)
+		return (fp);
+
+	size = SHA1_DIGEST_LENGTH * 2;
+
+	for (int i = 0; i < argc; i++) {
+		if (strncmp(argv[i], "name=", 5) == 0) {
+			name = argv[i] + 5;
+			break;
+		}
+	}
+	if (name == NULL)
+		return (fp);
+
+	buf = malloc(size + 1);
+	if (buf == NULL)
+		return (fp);
+
+	if (read(fd, buf, size) != (ssize_t)size) {
+		free(buf);
+		return (fp);
+	}
+
+	buf[size] = '\0';
+	fp = file_findfile(name, NULL);
+	if (fp != NULL) {
+		char *tmp = fp->f_args;
+
+		if (tmp == NULL) {
+			(void) asprintf(&fp->f_args, "hash=%s", buf);
+		} else {
+			if (asprintf(&fp->f_args, "%s hash=%s", tmp, buf) < 0) {
+				fp->f_args = tmp;
+				fp = NULL;
+			} else {
+				free(tmp);
+			}
+		}
+	}
+
+	free(buf);
+	return (fp);
 }
 
 /*
@@ -670,6 +733,21 @@ file_loadraw(const char *fname, char *type, int argc, char **argv, int insert)
 		    "stat error '%s': %s", name, strerror(errno));
 		free(name);
 		return (NULL);
+	}
+
+	/*
+	 * hash module should have name=/path argument, pointing to
+	 * file we are providing the hash. This is commonly used
+	 * for boot archive (rootfs).
+	 * Check if the file is already loaded, if so, attach the
+	 * hash to it and skip this module.
+	 */
+	if (strcmp(type, "hash") == 0) {
+		fp = file_assign_hash(fd, st.st_size, argc, argv);
+		if (fp != NULL) {
+			(void) close(fd);
+			return (fp);
+		}
 	}
 
 	if (archsw.arch_loadaddr != NULL)
@@ -1248,13 +1326,10 @@ moduledir_fullpath(struct moduledir *mdp, const char *fname)
 {
 	char *cp;
 
-	cp = malloc(strlen(mdp->d_path) + strlen(fname) + 2);
-	if (cp == NULL)
-		return (NULL);
-	strcpy(cp, mdp->d_path);
-	strcat(cp, "/");
-	strcat(cp, fname);
-	return (cp);
+	if (asprintf(&cp, "%s/%s", mdp->d_path, fname) > 0)
+		return (cp);
+
+	return (NULL);
 }
 
 /*
