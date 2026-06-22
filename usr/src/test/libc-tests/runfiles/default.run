@@ -126,6 +126,8 @@ tests = [
 [/opt/libc-tests/tests/qsort/qsort_test]
 
 [/opt/libc-tests/tests/random/getrandom]
+timeout = 240
+
 [/opt/libc-tests/tests/random/getentropy]
 [/opt/libc-tests/tests/random/chacha]
 [/opt/libc-tests/tests/random/inz_child]

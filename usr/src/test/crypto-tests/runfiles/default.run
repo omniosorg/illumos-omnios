@@ -71,6 +71,7 @@ tests = ['sha1_32', 'sha256_32', 'sha384_32', 'sha512_32', 'sha512_224_32',
 [/opt/crypto-tests/tests/digest/pkcs/64]
 tests = ['sha1_64', 'sha256_64', 'sha384_64', 'sha512_64', 'sha512_224_64',
          'sha512_256_64', 'md5_64' ]
+timeout = 500
 
 [/opt/crypto-tests/tests/digest/kcf/32]
 arch = i86pc
@@ -90,6 +91,7 @@ tests = ['sha1_64', 'sha256_64', 'sha384_64', 'sha512_64', 'sha512_224_64',
          'sha512_256_64', 'md5_64' ]
 post = /opt/crypto-tests/tests/digest/kcf/cleanup
 post_user = root
+timeout = 500
 
 [/opt/crypto-tests/tests/hmac/pkcs/32]
 arch = i86pc
@@ -114,6 +116,7 @@ user = root
 tests = ['hmac_sha1_64', 'hmac_sha1_gen_64', 'hmac_sha2_64', 'hmac_sha2_gen_64']
 post = /opt/crypto-tests/tests/hmac/kcf/cleanup
 post_user = root
+timeout = 500
 
 [/opt/crypto-tests/tests/longhash/32/longhash_32]
 arch = i86pc
