@@ -111,9 +111,6 @@ user = root
 timeout = 180
 tests = ['acquire-compare', 'kmc-update', '15146']
 
-[/opt/os-tests/tests/OS-6097.32]
-[/opt/os-tests/tests/OS-6097.64]
-
 [/opt/os-tests/tests/ddi_ufm]
 user = root
 tests = ['ufm-test-setup', 'ufm-test', 'ufm-test-cleanup']
