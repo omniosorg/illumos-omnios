@@ -541,6 +541,7 @@ extern const nvme_log_page_info_t ocp_log_fwact;
 extern const nvme_log_page_info_t ocp_log_lat;
 extern const nvme_log_page_info_t ocp_log_devcap;
 extern const nvme_log_page_info_t ocp_log_unsup;
+extern const nvme_log_page_info_t ocp_log_hwcomp;
 extern const nvme_log_page_info_t ocp_log_telstr;
 
 extern const nvme_vsd_t wdc_sn840;
@@ -549,6 +550,7 @@ extern const nvme_vsd_t sandisk_sn861;
 extern const nvme_vsd_t micron_7300;
 extern const nvme_vsd_t micron_74x0;
 extern const nvme_vsd_t micron_x500;
+extern const nvme_vsd_t micron_7600;
 extern const nvme_vsd_t micron_9550;
 extern const nvme_vsd_t intel_p5510;
 extern const nvme_vsd_t solidigm_p5x20;
