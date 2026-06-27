@@ -57,7 +57,7 @@ user = root
 [/opt/util-tests/tests/libjedec_hex2spd.64]
 [/opt/util-tests/tests/smbios.32]
 [/opt/util-tests/tests/smbios.64]
-[/opt/util-tests/tests/bunyan]
+[/opt/util-tests/tests/bunyan/bunyan]
 
 #
 # The sleep tests require destructive DTrace. Therefore they must be run
