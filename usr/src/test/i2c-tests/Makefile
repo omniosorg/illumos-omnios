@@ -15,6 +15,9 @@
 
 .PARALLEL: $(SUBDIRS)
 
+include $(SRC)/Makefile.master
+
 SUBDIRS = cmd i2csimd runfiles tests
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com

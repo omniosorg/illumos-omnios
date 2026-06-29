@@ -42,4 +42,6 @@ SUBDIRS = \
 SUBDIRS_i386 = bhyve-tests
 SUBDIRS += $(SUBDIRS_$(MACH))
 
+CHKSUBDIRS = $(SUBDIRS)
+
 include Makefile.com

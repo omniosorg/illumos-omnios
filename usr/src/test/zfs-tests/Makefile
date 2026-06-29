@@ -13,8 +13,11 @@
 # Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 #
 
+include $(SRC)/Makefile.master
+
 .PARALLEL: $(SUBDIRS)
 
 SUBDIRS:sh = find ./* -maxdepth 0 -type d
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com

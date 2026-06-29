@@ -31,117 +31,59 @@ timeout = 120
 post =
 outputdir = /var/tmp/test_results
 
-[/opt/nvme-tests/tests/ioctl/bad-lock.32]
-user = root
+[/opt/nvme-tests/tests/ioctl/32]
 arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/bad-lock.64]
 user = root
+tests = [
+	'bad-lock.32',
+	'basic-get-feature.32',
+	'basic-get-log.32',
+	'basic-identify.32',
+	'basic-lock.32',
+	'ctrl-block-lock.32',
+	'lock-order.32',
+	'lock-signal.32',
+	'multi-lock-err.32',
+	'multi-reader-lock.32',
+	]
 
-[/opt/nvme-tests/tests/ioctl/basic-get-feature.32]
+[/opt/nvme-tests/tests/ioctl/64]
 user = root
+tests = [
+	'bad-lock.64',
+	'basic-get-feature.64',
+	'basic-get-log.64',
+	'basic-identify.64',
+	'basic-lock.64',
+	'ctrl-block-lock.64',
+	'lock-order.64',
+	'lock-signal.64',
+	'multi-lock-err.64',
+	'multi-reader-lock.64'
+	]
+
+[/opt/nvme-tests/tests/libnvme/32]
 arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/basic-get-feature.64]
 user = root
+tests = [
+	'bad-req.32',
+	'ctrl-disc.32',
+	'info-roundtrip.32',
+	'missing-field.32',
+	'ns-disc.32',
+	'ns-info.32',
+	]
 
-[/opt/nvme-tests/tests/ioctl/basic-get-log.32]
+[/opt/nvme-tests/tests/libnvme/64]
 user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/basic-get-log.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/basic-identify.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/basic-identify.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/basic-lock.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/basic-lock.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/ctrl-block-lock.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/ctrl-block-lock.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/lock-order.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/lock-order.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/lock-signal.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/lock-signal.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/multi-lock-err.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/multi-lock-err.64]
-user = root
-
-[/opt/nvme-tests/tests/ioctl/multi-reader-lock.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/ioctl/multi-reader-lock.64]
-user = root
-
-[/opt/nvme-tests/tests/libnvme/bad-req.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/libnvme/bad-req.64]
-user = root
-
-[/opt/nvme-tests/tests/libnvme/ctrl-disc.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/libnvme/ctrl-disc.64]
-user = root
-
-[/opt/nvme-tests/tests/libnvme/info-roundtrip.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/libnvme/info-roundtrip.64]
-user = root
-
-[/opt/nvme-tests/tests/libnvme/missing-field.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/libnvme/missing-field.64]
-user = root
-
-[/opt/nvme-tests/tests/libnvme/ns-disc.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/libnvme/ns-disc.64]
-user = root
-
-[/opt/nvme-tests/tests/libnvme/ns-info.32]
-user = root
-arch = i86pc
-
-[/opt/nvme-tests/tests/libnvme/ns-info.64]
-user = root
+tests = [
+	'bad-req.64',
+	'ctrl-disc.64',
+	'info-roundtrip.64',
+	'missing-field.64',
+	'ns-disc.64',
+	'ns-info.64'
+	]
 
 [/opt/nvme-tests/tests/nvmeadm]
 user = root

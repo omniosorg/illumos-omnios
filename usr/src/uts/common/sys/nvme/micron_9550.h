@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 #ifndef _SYS_NVME_MICRON_9550_H
@@ -22,6 +22,8 @@
  *
  * This covers the Micron 9550 series devices.
  */
+
+#include <sys/nvme/ocp.h>
 
 #ifdef __cplusplus
 extern "C" {

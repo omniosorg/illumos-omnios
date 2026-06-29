@@ -16,6 +16,7 @@
 # Copyright 2021 Tintri by DDN, Inc. All rights reserved.
 # Copyright 2026 Oxide Computer Company
 # Copyright 2022 MNX Cloud, Inc.
+# Copyright 2026 Edgecast Cloud LLC.
 #
 
 [DEFAULT]
@@ -26,9 +27,8 @@ timeout = 60
 post =
 outputdir = /var/tmp/test_results
 
-[/opt/os-tests/tests]
+[/opt/os-tests/tests/epoll_test]
 user = root
-tests = ['poll_test', 'epoll_test']
 
 [/opt/os-tests/tests/32]
 arch = i86pc

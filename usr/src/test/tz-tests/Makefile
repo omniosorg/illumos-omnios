@@ -13,8 +13,11 @@
 # Copyright 2026 Oxide Computer Company
 #
 
+include $(SRC)/Makefile.master
+
 .PARALLEL: $(SUBDIRS)
 
 SUBDIRS = cmd doc runfiles tests
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com

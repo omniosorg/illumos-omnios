@@ -13,8 +13,11 @@
 # Copyright 2020 Tintri by DDN, Inc. All rights reserved.
 #
 
+include $(SRC)/Makefile.master
+
 .PARALLEL: $(SUBDIRS)
 
 SUBDIRS = cfg cmd runfiles tests doc
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com

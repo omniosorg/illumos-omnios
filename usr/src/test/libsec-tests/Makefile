@@ -13,8 +13,11 @@
 # Copyright 2024 RackTop Systems, Inc.
 #
 
+include $(SRC)/Makefile.master
+
 .PARALLEL: $(SUBDIRS)
 
 SUBDIRS = cmd runfiles tests
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com

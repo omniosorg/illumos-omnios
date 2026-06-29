@@ -166,7 +166,6 @@ tests = [
 	'fileno.32',
 	'fmemopentest.32',
 	'ftell_ungetc.32',
-	'ftello_12768.32',
 	'ftello_12768.lfs',
 	'memstream.32',
 	'memstream_reopen.32',

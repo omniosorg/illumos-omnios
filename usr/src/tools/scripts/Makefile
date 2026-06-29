@@ -65,6 +65,7 @@ PERLMODULES= \
 
 PYFILES= \
 	cddlchk \
+	check_test_runfiles \
 	copyrightchk \
 	git-pbchk \
 	hdrchk \
@@ -167,4 +168,3 @@ check:
 	$(ROOTONBLDBINMACH)/mandoc -Tlint -Wwarning $(MAN1ONBLDFILES)
 
 include ../Makefile.targ
-

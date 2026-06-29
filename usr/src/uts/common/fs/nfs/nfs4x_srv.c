@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  *
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright 2017 RackTop Systems.
+ * Copyright 2017-2026 RackTop Systems.
  */
 
 #include <rpc/types.h>
@@ -868,28 +868,6 @@ out:
 }
 
 /*
- * rfs4x_cbcheck: verify callback path to nfs41 client is up
- * called via nfs_serv_instance.deleg_cbcheck
- */
-rfs4_cbstate_t
-rfs4x_cbcheck(rfs4_state_t *sp)
-{
-	rfs4_session_t *sessp;
-	rfs4_cbstate_t cbs = CB_NONE;
-	clientid4 clid;
-
-	clid = sp->rs_owner->ro_client->rc_clientid;
-	if ((sessp = rfs4x_findsession_by_clid(clid)) == NULL)
-		return (CB_UNINIT);
-
-	if (SN_CB_CHAN_EST(sessp) && SN_CB_CHAN_OK(sessp))
-		cbs = CB_OK;
-
-	rfs4x_session_rele(sessp);
-	return (cbs);
-}
-
-/*
  * Find session and validate sequence args.
  * If this function successfully completes the compound state
  * will contain a session pointer.
@@ -1279,7 +1257,7 @@ rfs4x_bc_setup(rfs4_session_t *sp)
 	bcp->cn_dir |= CDFS4_BACK;
 	bsdp = CTOBSD(bcp);
 	ASSERT(bsdp != NULL);
-	slot_table_create(&bsdp->bsd_stok, sp->cn_back_attrs.ca_maxrequests);
+	slot_table_create(&bsdp->bsd_stok, sp->sn_bc.maxreqs);
 	rw_exit(&bcp->cn_lock);
 
 	/*

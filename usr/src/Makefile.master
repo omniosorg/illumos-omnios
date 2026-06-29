@@ -220,6 +220,7 @@ CTFDIFF=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfdiff
 CTFMERGE=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfmerge
 CTFSTABS=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfstabs
 CTFSTRIP=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfstrip
+CHECK_TEST_RUNFILES=	$(ONBLD_TOOLS)/bin/check_test_runfiles
 NDRGEN=		$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ndrgen
 MANLINK=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/manlink
 # XXXARM: Only used by aarch64 right now, should use everywhere
@@ -1169,8 +1170,8 @@ HAVE_CLOSED_BINS=$($(MACH)_HAVE_CLOSED_BINS)
 	$(POST_PROCESS_CC_O)
 .cc.a:
 	$(COMPILE.cc) -o $% $<
-	$(AR) $(ARFLAGS) $@ $%
 	$(PROCESS_COMMENT) $%
+	$(AR) $(ARFLAGS) $@ $%
 	$(RM) $%
 .y:
 	$(YACC.y) $<

@@ -20,7 +20,9 @@ include $(SRC)/boot/Makefile.master
 i386_INSTDIRS = i386
 aarch64_INSTDIRS =
 INSTDIRS = $($(MACH)_INSTDIRS) efi forth
-SUBDIRS = libsa libficl $(INSTDIRS)
+
+i386_SUBDIRS = userboot
+SUBDIRS = libsa libficl $(INSTDIRS) $($(MACH)_SUBDIRS)
 
 all	:=	TARGET = all
 clean	:=	TARGET = clean

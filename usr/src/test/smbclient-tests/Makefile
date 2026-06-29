@@ -13,6 +13,8 @@
 # Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 #
 
+include $(SRC)/Makefile.master
+
 .PARALLEL:	$(SUBDIRS)
 
 SUBDIRS=	cmd	\
@@ -21,5 +23,7 @@ SUBDIRS=	cmd	\
 		include	\
 		runfiles \
 		tests
+
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include		$(SRC)/test/Makefile.com

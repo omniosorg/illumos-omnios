@@ -14,8 +14,11 @@
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
 #
 
+include $(SRC)/Makefile.master
+
 .PARALLEL: $(SUBDIRS)
 
 SUBDIRS = cmd runfiles tests doc
+$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com
