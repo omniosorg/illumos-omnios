@@ -22,7 +22,7 @@
  * Copyright (c) 2009-2010, Intel Corporation.
  * All rights reserved.
  * Copyright (c) 2018, Joyent, Inc.
- * Copyright 2024 Racktop Systems, Inc.
+ * Copyright 2024-2026 RackTop Systems, Inc.
  */
 
 #include <sys/types.h>
@@ -48,6 +48,16 @@ static acpidev_filter_result_t acpidev_device_filter_hyperv(
 static ACPI_STATUS acpidev_device_init(acpidev_walk_info_t *infop);
 
 static uint32_t acpidev_device_unitaddr = 0;
+
+/*
+ * Microsoft apparently cannot decide how it should identify the vmbus
+ * these are currently all the known ids they use.
+ */
+static const char *vmbus_ids[] = {
+	"MSFT1000",
+	"VMBUS",
+	"VMBus",
+};
 
 /*
  * Default class driver for ACPI DEVICE objects.
@@ -244,18 +254,8 @@ acpidev_device_filter_hyperv(acpidev_walk_info_t *infop, ACPI_HANDLE hdl,
 	if (devname == NULL)
 		return (ACPIDEV_FILTER_SKIP);
 
-	/*
-	 * We've encountered devnames (so far) of 'VMBS' and 'VMB8' in
-	 * the field. In all instances, the _HID for the VMBus device has
-	 * been "VMBus", so that appears to be the safer value to use
-	 * to identify if the VMBus is present. Similarly, the _DDN is
-	 * 'VMBUS'. In some instances AcpiGetObjectInfo() seems to set
-	 * HardwareId.String to the _DDN instead of the _HID, so we
-	 * check for either.
-	 */
-	if ((ainfo->Valid & ACPI_VALID_HID) == 0 ||
-	    (strcmp(ainfo->HardwareId.String, "VMBus") != 0 &&
-	    (strcmp(ainfo->HardwareId.String, "VMBUS") != 0)))
+	if (!acpidev_match_device_id(ainfo, (char **)vmbus_ids,
+	    ARRAY_SIZE(vmbus_ids)))
 		return (ACPIDEV_FILTER_SKIP);
 
 	/*
