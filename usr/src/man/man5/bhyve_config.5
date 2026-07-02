@@ -518,6 +518,10 @@ This value is specified as a number of megabits per second
 .Pq Mb/s .
 .El
 .Pp
+A guest which negotiates the VirtIO control queue may install multicast
+address filters on the VNIC, in place of the multicast promiscuity used
+otherwise.
+.Pp
 Viona network devices have the ability to lend out their TX buffers, which
 can occasionally cause issues if they are not returned.
 This will result in the guest not being able to send any network packets,
