@@ -220,7 +220,7 @@ CTFDIFF=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfdiff
 CTFMERGE=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfmerge
 CTFSTABS=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfstabs
 CTFSTRIP=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ctfstrip
-CHECK_TEST_RUNFILES=	$(ONBLD_TOOLS)/bin/check_test_runfiles
+CHECK_TEST_RUNFILES=	$(ONBLD_TOOLS)/bin/check_test_runfiles -m $(MACH)
 NDRGEN=		$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/ndrgen
 MANLINK=	$(ONBLD_TOOLS)/bin/$(NATIVE_MACH)/manlink
 # XXXARM: Only used by aarch64 right now, should use everywhere

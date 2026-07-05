@@ -18,6 +18,6 @@ include $(SRC)/Makefile.master
 .PARALLEL: $(SUBDIRS)
 
 SUBDIRS = cmd doc runfiles tests
-$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
+CHKSUBDIRS = runfiles
 
 include $(SRC)/test/Makefile.com

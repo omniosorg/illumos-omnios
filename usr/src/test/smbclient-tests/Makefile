@@ -24,6 +24,6 @@ SUBDIRS=	cmd	\
 		runfiles \
 		tests
 
-$(NOT_AARCH64_BLD)CHKSUBDIRS = runfiles
+CHKSUBDIRS = runfiles
 
 include		$(SRC)/test/Makefile.com
