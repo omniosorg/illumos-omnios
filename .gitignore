@@ -24,23 +24,6 @@
 /.vscode
 # BEGIN AUTO-GENERATED
 tools/
-usr/src/boot/userboot/libficl/amd64/machine
-usr/src/boot/userboot/libficl/amd64/x86
-usr/src/boot/userboot/libficl/softcore/softcore.c
-usr/src/boot/userboot/libsa/amd64/_infback.c
-usr/src/boot/userboot/libsa/amd64/_inffast.c
-usr/src/boot/userboot/libsa/amd64/_inflate.c
-usr/src/boot/userboot/libsa/amd64/_inftrees.c
-usr/src/boot/userboot/libsa/amd64/_zutil.c
-usr/src/boot/userboot/libsa/amd64/libstand_gzguts.h
-usr/src/boot/userboot/libsa/amd64/libstand_zutil.h
-usr/src/boot/userboot/libsa/amd64/machine
-usr/src/boot/userboot/libsa/amd64/sha1-x86_64.S
-usr/src/boot/userboot/libsa/amd64/x86
-usr/src/boot/userboot/test/test
-usr/src/boot/userboot/userboot/machine
-usr/src/boot/userboot/userboot/vers.c
-usr/src/boot/userboot/userboot/x86
 usr/src/cmd/bhhwcompat/bhhwcompat
 usr/src/cmd/cdpadm/cdpadm
 usr/src/cmd/cmd-inet/usr.lib/in.cdpd/in.cdpd
