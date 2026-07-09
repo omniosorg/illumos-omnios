@@ -255,28 +255,16 @@ lx_sched_getaffinity(l_pid_t pid, unsigned int len, void *maskp)
 		return (set_errno(EINVAL));
 	}
 
-	smask = cpuset_alloc(KM_SLEEP);
 	if ((err = lx_sched_pidlock(pid, &p, &tp, B_FALSE)) != 0) {
-		cpuset_free(smask);
 		return (set_errno(err));
 	}
 
-	mutex_exit(&p->p_lock);
-	mutex_enter(&cpu_lock);
-	mutex_enter(&p->p_lock);
-	/*
-	 * Grab the existing affinity mask and constrain it by the current set
-	 * of active CPUs (which may have changed since it was assigned.
-	 */
 	lwpd = ttolxlwp(tp);
-	cpuset_or(smask, lwpd->br_affinitymask);
-	cpuset_and(smask, &cpu_active_set);
-	sprunlock(p);
-	mutex_exit(&cpu_lock);
-
+	smask = lwpd->br_affinitymask;
 	cpuset_bounds(smask, &pmin, &pmax);
 	stol_cpuset(smask, &lmask);
-	cpuset_free(smask);
+
+	sprunlock(p);
 
 	/*
 	 * It is out of convenience that this check is performed so late.  If
