@@ -134,6 +134,7 @@ cgrp_p_for_wr(pid_t pid, cgrp_wr_type_t typ)
 		/*
 		 * Check all threads in this proc.
 		 */
+		t = p->p_tlist;
 		do {
 			lx_lwp_data_t *plwpd = ttolxlwp(t);
 			if (plwpd != NULL && plwpd->br_pid == pid) {
@@ -159,22 +160,29 @@ cgrp_p_for_wr(pid_t pid, cgrp_wr_type_t typ)
  */
 static boolean_t
 cgrp_thr_move(cgrp_mnt_t *cgm, lx_lwp_data_t *plwpd, cgrp_node_t *ncn,
-    uint_t cg_id, proc_t *p)
+    proc_t *p)
 {
 	cgrp_node_t *ocn;
 
-	ASSERT(MUTEX_HELD(&cgm->cg_contents));
+	ASSERT(RW_WRITE_HELD(&cgm->cg_contents));
 	ASSERT(MUTEX_HELD(&p->p_lock));
 
-	ocn = cgrp_cg_hash_lookup(cgm, plwpd->br_cgroupid);
+	if (ncn->cgn_state != CGRP_NORMAL)
+		return (B_FALSE);
+
+	ocn = plwpd->br_cgroup;
 	VERIFY(ocn != NULL);
 
-	ASSERT(ocn->cgn_task_cnt > 0);
-	atomic_dec_32(&ocn->cgn_task_cnt);
-	atomic_inc_32(&ncn->cgn_task_cnt);
-	plwpd->br_cgroupid = cg_id;
+	ASSERT(!avl_is_empty(&ocn->cgn_lwps));
+	avl_remove(&ocn->cgn_lwps, plwpd);
 
-	if (ocn->cgn_task_cnt == 0 && ocn->cgn_dirents == N_DIRENTS(cgm) &&
+	avl_add(&ncn->cgn_lwps, plwpd);
+	plwpd->br_cgroup = ncn;
+
+	VN_HOLD(ncn->cgn_vnode);
+	VN_RELE_ASYNC(ocn->cgn_vnode, system_taskq);
+
+	if (avl_is_empty(&ocn->cgn_lwps) && ocn->cgn_dirents == N_DIRENTS(cgm) &&
 	    ocn->cgn_notify == 1) {
 		/*
 		 * We want to drop p_lock before queuing the event since
@@ -183,7 +191,7 @@ cgrp_thr_move(cgrp_mnt_t *cgm, lx_lwp_data_t *plwpd, cgrp_node_t *ncn,
 		 */
 		mutex_exit(&p->p_lock);
 		cgrp_rel_agent_event(cgm, ocn, B_FALSE);
-		ASSERT(MUTEX_NOT_HELD(&cgm->cg_contents));
+		ASSERT(!RW_LOCK_HELD(&cgm->cg_contents));
 		return (B_TRUE);
 	}
 
@@ -195,12 +203,11 @@ cgrp_thr_move(cgrp_mnt_t *cgm, lx_lwp_data_t *plwpd, cgrp_node_t *ncn,
  * to the new cgroup. Controlled by the typ argument.
  */
 static int
-cgrp_proc_set_id(cgrp_mnt_t *cgm, uint_t cg_id, pid_t pid, cgrp_wr_type_t typ)
+cgrp_proc_set_id(cgrp_mnt_t *cgm, cgrp_node_t *ncn, pid_t pid, cgrp_wr_type_t typ)
 {
 	proc_t *p;
 	kthread_t *t;
 	int error;
-	cgrp_node_t *ncn;
 
 	if (pid == 1)
 		pid = curproc->p_zone->zone_proc_initpid;
@@ -252,16 +259,13 @@ restart:
 		return (0);
 	}
 
-	mutex_enter(&cgm->cg_contents);
-
-	ncn = cgrp_cg_hash_lookup(cgm, cg_id);
-	VERIFY(ncn != NULL);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 
 	do {
 		lx_lwp_data_t *plwpd = ttolxlwp(t);
-		if (plwpd != NULL && plwpd->br_cgroupid != cg_id) {
+		if (plwpd != NULL && plwpd->br_cgroup != ncn) {
 			if (typ == CG_WR_PROCS) {
-				if (cgrp_thr_move(cgm, plwpd, ncn, cg_id, p)) {
+				if (cgrp_thr_move(cgm, plwpd, ncn, p)) {
 					/*
 					 * We dropped all of the locks so we
 					 * need to start over.
@@ -272,7 +276,7 @@ restart:
 			} else if (plwpd->br_pid == pid) {
 				/* type is CG_WR_TASKS and we found the task */
 				error = 0;
-				if (cgrp_thr_move(cgm, plwpd, ncn, cg_id, p)) {
+				if (cgrp_thr_move(cgm, plwpd, ncn, p)) {
 					goto done;
 				} else {
 					break;
@@ -282,7 +286,7 @@ restart:
 		t = t->t_forw;
 	} while (t != p->p_tlist);
 
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	mutex_exit(&p->p_lock);
 done:
 
@@ -366,7 +370,7 @@ cgrp_wr_rel_agent(cgrp_mnt_t *cgm, struct uio *uio)
 	if (len > MAXPATHLEN)
 		return (EFBIG);
 
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 
 	wrp = &cgm->cg_agent[uio->uio_offset];
 	error = uiomove(wrp, uio->uio_resid, UIO_WRITE, uio);
@@ -374,7 +378,7 @@ cgrp_wr_rel_agent(cgrp_mnt_t *cgm, struct uio *uio)
 	if (len > 1 && cgm->cg_agent[len - 1] == '\n')
 		cgm->cg_agent[len - 1] = '\0';
 
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	return (error);
 }
 
@@ -382,8 +386,6 @@ static int
 cgrp_wr_proc_or_task(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio,
     cgrp_wr_type_t typ)
 {
-	/* the cgroup ID is on the containing dir */
-	uint_t cg_id = cn->cgn_parent->cgn_id;
 	int error;
 	pid_t pidnum;
 
@@ -392,7 +394,7 @@ cgrp_wr_proc_or_task(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio,
 		if (error != 0)
 			return (error);
 
-		error = cgrp_proc_set_id(cgm, cg_id, pidnum, typ);
+		error = cgrp_proc_set_id(cgm, cn->cgn_parent, pidnum, typ);
 		if (error != 0)
 			return (error);
 	}
@@ -482,16 +484,16 @@ cgrp_rd_rel_agent(cgrp_mnt_t *cgm, struct uio *uio)
 	int error = 0;
 	char *rdp;
 
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_READER);
 
 	if (cgm->cg_agent[0] == '\0') {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return (0);
 	}
 
 	len = strlen(cgm->cg_agent);
 	if (uio->uio_offset > len) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return (0);
 	}
 
@@ -501,7 +503,7 @@ cgrp_rd_rel_agent(cgrp_mnt_t *cgm, struct uio *uio)
 
 	error = uiomove(rdp, len, UIO_READ, uio);
 
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	return (error);
 }
@@ -515,78 +517,57 @@ static int
 cgrp_rd_procs(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio)
 {
 	int i;
+	uint_t pid;
 	ssize_t offset = 0;
 	ssize_t uresid;
+	cred_t *cred = CRED();
 	zoneid_t zoneid = curproc->p_zone->zone_id;
 	int error = 0;
 	pid_t initpid = curproc->p_zone->zone_proc_initpid;
 	pid_t schedpid = curproc->p_zone->zone_zsched->p_pid;
-	/* the cgroup ID is on the containing dir */
-	uint_t cg_id = cn->cgn_parent->cgn_id;
+	cgrp_node_t *pcn = cn->cgn_parent;
+	lx_lwp_data_t *lwpd, *nlwpd;
+	char buf[16];
+	size_t len;
+	char *rdp;
 
-	/* Scan all of the process entries */
-	for (i = 1; i < v.v_proc && (uresid = uio->uio_resid) > 0; i++) {
-		proc_t *p;
-		ssize_t len;
-		pid_t pid;
-		char buf[16];
-		char *rdp;
-		kthread_t *t;
-		boolean_t in_cg;
+	rw_enter(&cgm->cg_contents, RW_READER);
 
-		mutex_enter(&pidlock);
-		/*
-		 * Skip indices for which there is no pid_entry, PIDs for
-		 * which there is no corresponding process, system processes,
-		 * a PID of 0, the pid for our zsched process,  anything the
-		 * security policy doesn't allow us to look at, its not an
-		 * lx-branded process and processes that are not in the zone.
-		 */
-		if ((p = pid_entry(i)) == NULL ||
-		    p->p_stat == SIDL ||
-		    (p->p_flag & SSYS) != 0 ||
-		    p->p_pid == 0 ||
-		    p->p_pid == schedpid ||
-		    secpolicy_basic_procinfo(CRED(), p, curproc) != 0 ||
-		    p->p_brand != &lx_brand ||
-		    p->p_zone->zone_id != zoneid) {
-			mutex_exit(&pidlock);
-			continue;
-		}
+	for (lwpd = avl_first(&pcn->cgn_lwps);
+	    lwpd != NULL && (uresid = uio->uio_resid) > 0;
+	    lwpd = AVL_NEXT(&pcn->cgn_lwps, lwpd)) {
 
-		mutex_enter(&p->p_lock);
-		if ((t = p->p_tlist) == NULL) {
-			/* no threads, skip it */
-			mutex_exit(&p->p_lock);
-			mutex_exit(&pidlock);
-			continue;
-		}
+		uint pcnt = 1;
+		proc_t *p = lwpd->br_lwp->lwp_procp;
 
 		/*
-		 * Check if all threads are in this cgroup.
+		 * Count all of the lwps that belong to the same process as
+		 * this one. We'll compare that to the number of lwps in
+		 * the proc_t to see if all of this proc's threads are in the
+		 * cgroup.
 		 */
-		in_cg = B_TRUE;
-		mutex_enter(&cgm->cg_contents);
-		do {
-			lx_lwp_data_t *plwpd = ttolxlwp(t);
-			if (plwpd == NULL || plwpd->br_cgroupid != cg_id) {
-				in_cg = B_FALSE;
+		while ((nlwpd = AVL_NEXT(&pcn->cgn_lwps, lwpd)) != NULL) {
+			if (nlwpd->br_lwp->lwp_procp != p)
 				break;
-			}
-
-			t = t->t_forw;
-		} while (t != p->p_tlist);
-		mutex_exit(&cgm->cg_contents);
-
-		mutex_exit(&p->p_lock);
-		if (!in_cg) {
-			/*
-			 * This proc, or at least one of its threads, is not
-			 * in this cgroup.
-			 */
-			mutex_exit(&pidlock);
-			continue;
+			lwpd = nlwpd;
+			++pcnt;
 		}
+
+		/*
+		 * We read p_lwpcnt without taking the p_lock. This is racey
+		 * by design: systemd calls this at an audible frequency, so
+		 * in order to avoid having to take pidlock here we are a little
+		 * bit best-effort in determining whether *all* of the proc's
+		 * threads are in this cgroup or not.
+		 */
+		if (p->p_lwpcnt != pcnt)
+			continue;
+
+		/*
+		 * Only list processes the caller can actually see
+		 */
+		if (secpolicy_basic_procinfo(cred, p, curproc) != 0)
+			continue;
 
 		/*
 		 * Convert pid to the Linux default of 1 if we're the zone's
@@ -597,8 +578,6 @@ cgrp_rd_procs(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio)
 		} else {
 			pid = p->p_pid;
 		}
-
-		mutex_exit(&pidlock);
 
 		/*
 		 * Generate pid line and write all or part of it if we're
@@ -616,74 +595,15 @@ cgrp_rd_procs(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio)
 				len = uresid;
 
 			error = uiomove(rdp, len, UIO_READ, uio);
-			if (error != 0)
+			if (error != 0) {
+				rw_exit(&cgm->cg_contents);
 				return (error);
+			}
 		}
 		offset += len;
 	}
 
-	return (0);
-}
-
-/*
- * We are given a locked process we know is valid, report on any of its thresds
- * that are in the cgroup.
- */
-static int
-cgrp_rd_proc_tasks(uint_t cg_id, proc_t *p, pid_t initpid, ssize_t *offset,
-    struct uio *uio)
-{
-	int error = 0;
-	uint_t tid;
-	char buf[16];
-	char *rdp;
-	kthread_t *t;
-
-	ASSERT(p->p_proc_flag & P_PR_LOCK);
-
-	/*
-	 * Report all threads in this cgroup.
-	 */
-	t = p->p_tlist;
-	do {
-		lx_lwp_data_t *plwpd = ttolxlwp(t);
-		if (plwpd == NULL) {
-			t = t->t_forw;
-			continue;
-		}
-
-		if (plwpd->br_cgroupid == cg_id) {
-			int len;
-
-			/*
-			 * Convert taskid to the Linux default of 1 if
-			 * we're the zone's init process.
-			 */
-			tid = plwpd->br_pid;
-			if (tid == initpid)
-				tid = 1;
-
-			len = snprintf(buf, sizeof (buf), "%u\n", tid);
-			if ((*offset + len) > uio->uio_offset) {
-				int diff;
-
-				diff = (int)(uio->uio_offset - *offset);
-				ASSERT(diff < len);
-				*offset = *offset + diff;
-				rdp = &buf[diff];
-				len -= diff;
-				if (len > uio->uio_resid)
-					len = uio->uio_resid;
-
-				error = uiomove(rdp, len, UIO_READ, uio);
-				if (error != 0)
-					return (error);
-			}
-			*offset = *offset + len;
-		}
-
-		t = t->t_forw;
-	} while (t != p->p_tlist && uio->uio_resid > 0);
+	rw_exit(&cgm->cg_contents);
 
 	return (0);
 }
@@ -702,90 +622,66 @@ cgrp_rd_proc_tasks(uint_t cg_id, proc_t *p, pid_t initpid, ssize_t *offset,
 static int
 cgrp_rd_tasks(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio)
 {
-	int i;
 	ssize_t offset = 0;
+	ssize_t uresid;
 	zoneid_t zoneid = curproc->p_zone->zone_id;
 	cred_t *cred = CRED();
 	int error = 0;
 	pid_t initpid = curproc->p_zone->zone_proc_initpid;
-	/* the cgroup ID is on the containing dir */
-	uint_t cg_id = cn->cgn_parent->cgn_id;
+	cgrp_node_t *pcn = cn->cgn_parent;
+	char buf[16];
+	uint_t tid;
+	char *rdp;
+	lx_lwp_data_t *lwpd;
+	size_t len;
 
-	/* Scan all of the process entries */
-	for (i = 1; i < v.v_proc && uio->uio_resid > 0; i++) {
-		proc_t *p;
+	rw_enter(&cgm->cg_contents, RW_READER);
 
-		mutex_enter(&pidlock);
-		for (;;) {
-			if ((p = pid_entry(i)) == NULL) {
-				/* Quickly move onto the next slot */
-				if (++i < v.v_proc) {
-					continue;
-				} else {
-					mutex_exit(&pidlock);
-					break;
-				}
-			}
+	for (lwpd = avl_first(&pcn->cgn_lwps);
+	    lwpd != NULL && (uresid = uio->uio_resid) > 0;
+	    lwpd = AVL_NEXT(&pcn->cgn_lwps, lwpd)) {
 
-			/*
-			 * Check if this process would even be of interest to
-			 * cgroupfs before attempting to acquire its PR_LOCK.
-			 */
-			mutex_enter(&p->p_lock);
-			mutex_exit(&pidlock);
-			if (p->p_brand != &lx_brand ||
-			    p->p_zone->zone_id != zoneid) {
-				mutex_exit(&p->p_lock);
-				p = NULL;
-				break;
-			}
+		proc_t *p = lwpd->br_lwp->lwp_procp;
 
-			/* Attempt to grab P_PR_LOCK. */
-			error = sprtrylock_proc(p);
-			if (error == 0) {
-				/* Success */
-				break;
-			} else if (error < 0) {
-				/*
-				 * This process is not in a state where
-				 * P_PR_LOCK can be acquired.  It either
-				 * belongs to the system or is a zombie.
-				 * Regardless, give up and move on.
-				 */
-				mutex_exit(&p->p_lock);
-				p = NULL;
-				break;
-			} else {
-				/*
-				 * Wait until P_PR_LOCK is no longer contended
-				 * and attempt to acquire it again.  Since the
-				 * process may have changed state, the entry
-				 * lookup must be repeated.
-				 */
-				sprwaitlock_proc(p);
-				mutex_enter(&pidlock);
-			}
-		}
+		/*
+		 * Convert pid to the Linux default of 1 if we're the zone's
+		 * init process, otherwise use the value from the proc struct
+		 */
+		tid = lwpd->br_pid;
+		if (tid == initpid)
+			tid = 1;
 
-		if (p == NULL) {
+		/*
+		 * Only list processes the caller can actually see
+		 */
+		if (secpolicy_basic_procinfo(cred, p, curproc) != 0)
 			continue;
-		} else if (secpolicy_basic_procinfo(cred, p, curproc) != 0) {
-			sprunlock(p);
-			continue;
-		}
 
-		/* Shuffle locks and output the entry. */
-		mutex_exit(&p->p_lock);
-		mutex_enter(&cgm->cg_contents);
-		error = cgrp_rd_proc_tasks(cg_id, p, initpid, &offset, uio);
-		mutex_exit(&cgm->cg_contents);
-		mutex_enter(&p->p_lock);
+		/*
+		 * Generate tid line and write all or part of it if we're
+		 * in the right spot within the pseudo file.
+		 */
+		len = snprintf(buf, sizeof (buf), "%u\n", tid);
+		if ((offset + len) > uio->uio_offset) {
+			int diff = (int)(uio->uio_offset - offset);
 
-		sprunlock(p);
-		if (error != 0) {
-			return (error);
+			ASSERT(diff < len);
+			offset += diff;
+			rdp = &buf[diff];
+			len -= diff;
+			if (len > uresid)
+				len = uresid;
+
+			error = uiomove(rdp, len, UIO_READ, uio);
+			if (error != 0) {
+				rw_exit(&cgm->cg_contents);
+				return (error);
+			}
 		}
+		offset += len;
 	}
+
+	rw_exit(&cgm->cg_contents);
 
 	return (0);
 }
@@ -877,7 +773,7 @@ cgrp_getattr(struct vnode *vp, struct vattr *vap, int flags, struct cred *cred,
 	cgrp_mnt_t *cgm;
 
 	cgm = VTOCGM(cn->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_READER);
 	vap->va_type = vp->v_type;
 	vap->va_mode = cn->cgn_mode & MODEMASK;
 	vap->va_uid = cn->cgn_uid;
@@ -894,7 +790,7 @@ cgrp_getattr(struct vnode *vp, struct vattr *vap, int flags, struct cred *cred,
 	vap->va_seq = cn->cgn_seq;
 
 	vap->va_nblocks = (fsblkcnt64_t)btodb(ptob(btopr(vap->va_size)));
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	return (0);
 }
 
@@ -913,11 +809,15 @@ cgrp_setattr(struct vnode *vp, struct vattr *vap, int flags, struct cred *cred,
 	 * Cannot set these attributes
 	 */
 	if ((vap->va_mask & AT_NOSET) || (vap->va_mask & AT_XVATTR) ||
-	    (vap->va_mode & (S_ISUID | S_ISGID)) || (vap->va_mask & AT_SIZE))
+	    (vap->va_mask & AT_SIZE))
+		return (EINVAL);
+
+	/* Cannot modify setuid/setgid */
+	if ((vap->va_mask & AT_MODE) && (vap->va_mode & (S_ISUID | S_ISGID)))
 		return (EINVAL);
 
 	cgm = VTOCGM(cn->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 
 	get = &cn->cgn_attr;
 	/*
@@ -950,7 +850,7 @@ cgrp_setattr(struct vnode *vp, struct vattr *vap, int flags, struct cred *cred,
 		gethrestime(&cn->cgn_ctime);
 
 out:
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	return (error);
 }
 
@@ -964,9 +864,9 @@ cgrp_access(struct vnode *vp, int mode, int flags, struct cred *cred,
 	int error;
 
 	cgm = VTOCGM(cn->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_READER);
 	error = cgrp_taccess(cn, mode, cred);
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	return (error);
 }
 
@@ -996,9 +896,9 @@ cgrp_lookup(struct vnode *dvp, char *nm, struct vnode **vpp,
 	ASSERT(cn);
 
 	cgm = VTOCGM(cn->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_READER);
 	error = cgrp_dirlookup(cn, nm, &ncn, cred);
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	if (error == 0) {
 		ASSERT(ncn);
@@ -1023,12 +923,12 @@ cgrp_create(struct vnode *dvp, char *nm, struct vattr *vap,
 		return (EPERM);
 
 	cgm = VTOCGM(parent->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 	error = cgrp_dirlookup(parent, nm, &cn, cred);
 	if (error == 0) {		/* name found */
 		ASSERT(cn);
 
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		/*
 		 * Creating an existing file, allow it except for the following
 		 * errors.
@@ -1047,7 +947,7 @@ cgrp_create(struct vnode *dvp, char *nm, struct vattr *vap,
 		*vpp = CGNTOV(cn);
 		return (0);
 	}
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	/*
 	 * cgroups doesn't allow creation of additional, non-subsystem specific
@@ -1073,9 +973,9 @@ cgrp_remove(struct vnode *dvp, char *nm, struct cred *cred,
 	 */
 
 	cgm = VTOCGM(parent->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 	error = cgrp_dirlookup(parent, nm, &cn, cred);
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	if (error)
 		return (error);
 
@@ -1124,14 +1024,14 @@ cgrp_rename(
 	/* discourage additional use of toparent */
 	toparent = NULL;
 
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 
 	/*
 	 * Look up cgrp_node of file we're supposed to rename.
 	 */
 	error = cgrp_dirlookup(fromparent, onm, &fromcn, cred);
 	if (error) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return (error);
 	}
 
@@ -1188,7 +1088,7 @@ cgrp_rename(
 	}
 
 done:
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	cgnode_rele(fromcn);
 
 	return (error);
@@ -1211,28 +1111,28 @@ cgrp_mkdir(struct vnode *dvp, char *nm, struct vattr *va, struct vnode **vpp,
 	if (parent->cgn_nlink == 0)
 		return (ENOENT);
 
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 	error = cgrp_dirlookup(parent, nm, &self, cred);
 	if (error == 0) {
 		ASSERT(self != NULL);
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		cgnode_rele(self);
 		return (EEXIST);
 	}
 	if (error != ENOENT) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return (error);
 	}
 
 	error = cgrp_direnter(cgm, parent, nm, DE_MKDIR, (cgrp_node_t *)NULL,
 	    va, &self, cred);
 	if (error) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		if (self != NULL)
 			cgnode_rele(self);
 		return (error);
 	}
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 	*vpp = CGNTOV(self);
 	return (0);
 }
@@ -1243,7 +1143,7 @@ cgrp_rmdir(struct vnode *dvp, char *nm, struct vnode *cdir, struct cred *cred,
     caller_context_t *ct, int flags)
 {
 	cgrp_node_t *parent = VTOCGN(dvp);
-	cgrp_mnt_t *cgm;
+	cgrp_mnt_t *pcgm, *cgm;
 	cgrp_node_t *self = NULL;
 	struct vnode *vp;
 	int error = 0;
@@ -1256,12 +1156,12 @@ cgrp_rmdir(struct vnode *dvp, char *nm, struct vnode *cdir, struct cred *cred,
 	if (strcmp(nm, "..") == 0)
 		return (EEXIST); /* Should be ENOTEMPTY */
 
-	cgm = VTOCGM(parent->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	pcgm = VTOCGM(parent->cgn_vnode);
+	rw_enter(&pcgm->cg_contents, RW_WRITER);
 
 	error = cgrp_dirlookup(parent, nm, &self, cred);
 	if (error) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&pcgm->cg_contents);
 		return (error);
 	}
 
@@ -1276,12 +1176,13 @@ cgrp_rmdir(struct vnode *dvp, char *nm, struct vnode *cdir, struct cred *cred,
 	}
 
 	cgm = (cgrp_mnt_t *)VFSTOCGM(self->cgn_vnode->v_vfsp);
+	VERIFY3P(cgm, ==, pcgm);
 
 	/*
 	 * Check for the existence of any sub-cgroup directories or tasks in
 	 * the cgroup.
 	 */
-	if (self->cgn_task_cnt > 0 || self->cgn_dirents > N_DIRENTS(cgm)) {
+	if (!avl_is_empty(&self->cgn_lwps) || self->cgn_dirents > N_DIRENTS(cgm)) {
 		error = EEXIST;
 		/*
 		 * Update atime because checking cn_dirents is logically
@@ -1298,20 +1199,21 @@ cgrp_rmdir(struct vnode *dvp, char *nm, struct vnode *cdir, struct cred *cred,
 	if (vn_mountedvfs(vp) != NULL) {
 		error = EBUSY;
 	} else {
+		self->cgn_state = CGRP_TEARDOWN;
 		error = cgrp_dirdelete(parent, self, nm, DR_RMDIR, cred);
 	}
 
 	vn_vfsunlock(vp);
 
-	if (parent->cgn_task_cnt == 0 &&
+	if (avl_is_empty(&parent->cgn_lwps) &&
 	    parent->cgn_dirents == N_DIRENTS(cgm) && parent->cgn_notify == 1) {
 		cgrp_rel_agent_event(cgm, parent, B_FALSE);
-		ASSERT(MUTEX_NOT_HELD(&cgm->cg_contents));
+		ASSERT(!RW_LOCK_HELD(&cgm->cg_contents));
 		goto dropped;
 	}
 
 done:
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&pcgm->cg_contents);
 dropped:
 	vnevent_rmdir(CGNTOV(self), dvp, nm, ct);
 	cgnode_rele(self);
@@ -1350,11 +1252,11 @@ cgrp_readdir(struct vnode *vp, struct uio *uiop, struct cred *cred, int *eofp,
 		return (ENOTDIR);
 
 	cgm = VTOCGM(cn->cgn_vnode);
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_READER);
 
 	if (cn->cgn_dir == NULL) {
 		VERIFY(cn->cgn_nlink == 0);
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return (0);
 	}
 
@@ -1416,7 +1318,7 @@ cgrp_readdir(struct vnode *vp, struct uio *uiop, struct cred *cred, int *eofp,
 	}
 	gethrestime(&cn->cgn_atime);
 
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	kmem_free(outbuf, bufsize);
 	return (error);
@@ -1438,7 +1340,7 @@ cgrp_inactive(struct vnode *vp, struct cred *cred, caller_context_t *ct)
 	cgrp_node_t *cn = VTOCGN(vp);
 	cgrp_mnt_t *cgm = VFSTOCGM(vp->v_vfsp);
 
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 	mutex_enter(&vp->v_lock);
 	ASSERT(vp->v_count >= 1);
 
@@ -1449,9 +1351,11 @@ cgrp_inactive(struct vnode *vp, struct cred *cred, caller_context_t *ct)
 	if (vp->v_count > 1 || cn->cgn_nlink != 0) {
 		vp->v_count--;
 		mutex_exit(&vp->v_lock);
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return;
 	}
+
+	VERIFY(avl_is_empty(&cn->cgn_lwps));
 
 	if (cn->cgn_forw == NULL)
 		cgm->cg_rootnode->cgn_back = cn->cgn_back;
@@ -1459,8 +1363,10 @@ cgrp_inactive(struct vnode *vp, struct cred *cred, caller_context_t *ct)
 		cn->cgn_forw->cgn_back = cn->cgn_back;
 	cn->cgn_back->cgn_forw = cn->cgn_forw;
 
+	avl_destroy(&cn->cgn_lwps);
+
 	mutex_exit(&vp->v_lock);
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	/* Here's our chance to send invalid event */
 	vn_invalid(CGNTOV(cn));

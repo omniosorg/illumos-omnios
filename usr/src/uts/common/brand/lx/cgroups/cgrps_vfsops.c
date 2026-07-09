@@ -184,6 +184,7 @@
 #include <sys/fx.h>
 #include <sys/brand.h>
 #include <sys/lx_brand.h>
+#include <sys/ksynch.h>
 
 #include "cgrps.h"
 
@@ -237,8 +238,8 @@ static int cgrp_statvfs(struct vfs *, struct statvfs64 *);
 static void cgrp_freevfs(vfs_t *vfsp);
 
 /* Forward declarations for hooks */
-static void cgrp_lwp_fork_helper(vfs_t *, uint_t, id_t, pid_t);
-static void cgrp_lwp_exit_helper(vfs_t *, uint_t, id_t, pid_t);
+static void cgrp_lwp_fork_helper(vfs_t *, lx_lwp_data_t *, lx_lwp_data_t *);
+static void cgrp_lwp_exit_helper(vfs_t *, lx_lwp_data_t *);
 
 /*
  * Loadable module wrapper
@@ -441,7 +442,7 @@ cgrp_mount(vfs_t *vfsp, vnode_t *mvp, struct mounta *uap, cred_t *cr)
 	cgm = kmem_zalloc(sizeof (*cgm), KM_SLEEP);
 
 	/* Set but don't bother entering the mutex (not on mount list yet) */
-	mutex_init(&cgm->cg_contents, NULL, MUTEX_DEFAULT, NULL);
+	rw_init(&cgm->cg_contents, "lxcgrpfs", RW_DRIVER, NULL);
 
 	cgm->cg_vfsp = lxzdata->lxzd_cgroup = vfsp;
 	mutex_exit(&lxzdata->lxzd_lock);
@@ -458,9 +459,6 @@ cgrp_mount(vfs_t *vfsp, vnode_t *mvp, struct mounta *uap, cred_t *cr)
 	cgm->cg_mntpath = kmem_zalloc(dpn.pn_pathlen + 1, KM_SLEEP);
 	(void) strcpy(cgm->cg_mntpath, dpn.pn_path);
 
-	cgm->cg_grp_hash = kmem_zalloc(sizeof (cgrp_node_t *) * CGRP_HASH_SZ,
-	    KM_SLEEP);
-
 	/* allocate and initialize root cgrp_node structure */
 	bzero(&rattr, sizeof (struct vattr));
 	rattr.va_mode = (mode_t)(S_IFDIR | 0755);
@@ -468,7 +466,7 @@ cgrp_mount(vfs_t *vfsp, vnode_t *mvp, struct mounta *uap, cred_t *cr)
 	rattr.va_rdev = 0;
 	cp = kmem_zalloc(sizeof (struct cgrp_node), KM_SLEEP);
 
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 	cgrp_node_init(cgm, cp, &rattr, cr);
 
 	CGNTOV(cp)->v_flag |= VROOT;
@@ -501,7 +499,7 @@ cgrp_mount(vfs_t *vfsp, vnode_t *mvp, struct mounta *uap, cred_t *cr)
 	 */
 	cgrp_dirinit(cp, cp, cr);
 
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	pn_free(&dpn);
 	error = 0;
@@ -523,12 +521,76 @@ cgrp_unmount(struct vfs *vfsp, int flag, struct cred *cr)
 	int error;
 	uint_t cnt;
 	int retry_cnt = 0;
+	proc_t *p;
+	kthread_t *t;
 
 	if ((error = secpolicy_fs_unmount(cr, vfsp)) != 0)
 		return (error);
 
 retry:
-	mutex_enter(&cgm->cg_contents);
+	/*
+	 * First, we need to orphan all processes that have references to
+	 * cgroups under this mount. Grab pidlock so that no procs go away
+	 * in the middle of iteration here.
+	 *
+	 * Since pidlock and p_lock have to be held before cg_contents, we
+	 * have to do a bit of dancing and re-checking here.
+	 *
+	 * By the time we're being unmounted, there shouldn't be many processes
+	 * left in the zone, so it's ok for this to be a bit slow.
+	 */
+	mutex_enter(&pidlock);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
+
+	for (cgnp = cgm->cg_rootnode; cgnp != NULL; cgnp = cgnp->cgn_forw) {
+		lx_lwp_data_t *lwpd;
+
+		if (avl_is_empty(&cgnp->cgn_lwps))
+			continue;
+
+		lwpd = avl_first(&cgnp->cgn_lwps);
+		p = lwpd->br_lwp->lwp_procp;
+
+		rw_exit(&cgm->cg_contents);
+
+		mutex_enter(&p->p_lock);
+		t = p->p_tlist;
+		do {
+			lwpd = ttolxlwp(t);
+			if (lwpd == NULL)
+				continue;
+			if (lwpd->br_cgroup != cgnp)
+				continue;
+			rw_enter(&cgm->cg_contents, RW_WRITER);
+			lwpd->br_cgroup = NULL;
+			avl_remove(&cgnp->cgn_lwps, lwpd);
+			rw_exit(&cgm->cg_contents);
+
+			VN_RELE(cgnp->cgn_vnode);
+
+			t = t->t_forw;
+		} while ((t = t->t_forw) != p->p_tlist);
+
+		mutex_exit(&p->p_lock);
+		mutex_exit(&pidlock);
+
+		goto retry;
+	}
+
+	rw_exit(&cgm->cg_contents);
+	mutex_exit(&pidlock);
+
+	/* Now re-enter cg_contents without pidlock. */
+	rw_enter(&cgm->cg_contents, RW_WRITER);
+
+	/*
+	 * Double-check all the lwp references are gone, since we let go of
+	 * cg_contents
+	 */
+	for (cgnp = cgm->cg_rootnode; cgnp != NULL; cgnp = cgnp->cgn_forw) {
+		if (!avl_is_empty(&cgnp->cgn_lwps))
+			goto retry;
+	}
 
 	/*
 	 * In the normal unmount case, if there were no open files, only the
@@ -552,7 +614,7 @@ retry:
 
 	if (flag & MS_FORCE) {
 		mutex_exit(&vp->v_lock);
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return (EINVAL);
 	}
 
@@ -560,7 +622,7 @@ retry:
 	cnt = vp->v_count;
 	if (cnt > 1) {
 		mutex_exit(&vp->v_lock);
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		/* Likely because the user-level manager hasn't exited yet */
 		if (retry_cnt++ < UMNT_RETRY_MAX) {
 			delay(UMNT_DELAY_TIME);
@@ -588,7 +650,7 @@ retry:
 				VN_RELE(vp);
 				cancel = cancel->cgn_forw;
 			}
-			mutex_exit(&cgm->cg_contents);
+			rw_exit(&cgm->cg_contents);
 			return (EBUSY);
 		} else {
 			/* directly add a VN_HOLD since we have the lock */
@@ -600,14 +662,13 @@ retry:
 	mutex_enter(&cgm->cg_lxzdata->lxzd_lock);
 	cgm->cg_lxzdata->lxzd_cgroup = NULL;
 	mutex_exit(&cgm->cg_lxzdata->lxzd_lock);
-	kmem_free(cgm->cg_grp_hash, sizeof (cgrp_node_t *) * CGRP_HASH_SZ);
 
 	/*
 	 * We can drop the mutex now because
 	 * no one can find this mount anymore
 	 */
 	vfsp->vfs_flag |= VFS_UNMOUNTED;
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	return (0);
 }
@@ -645,10 +706,53 @@ cgrp_freevfs(vfs_t *vfsp)
 	 * Remove all directory entries
 	 */
 	for (cn = cgm->cg_rootnode; cn; cn = cn->cgn_forw) {
-		mutex_enter(&cgm->cg_contents);
-		if (cn->cgn_type == CG_CGROUP_DIR)
-			cgrp_dirtrunc(cn);
-		mutex_exit(&cgm->cg_contents);
+		lx_lwp_data_t *plwpd;
+		proc_t *p;
+
+		rw_enter(&cgm->cg_contents, RW_READER);
+		if (cn->cgn_type != CG_CGROUP_DIR) {
+			rw_exit(&cgm->cg_contents);
+			continue;
+		}
+		rw_exit(&cgm->cg_contents);
+
+drain_again:
+		/* Drain all the threads from this cgroup */
+		do {
+			mutex_enter(&pidlock);
+			rw_enter(&cgm->cg_contents, RW_READER);
+			if ((plwpd = avl_first(&cn->cgn_lwps)) == NULL) {
+				rw_exit(&cgm->cg_contents);
+				mutex_exit(&pidlock);
+				break;
+			}
+			p = plwpd->br_lwp->lwp_procp;
+			rw_exit(&cgm->cg_contents);
+
+			mutex_enter(&p->p_lock);
+			mutex_exit(&pidlock);
+
+			rw_enter(&cgm->cg_contents, RW_WRITER);
+			if (plwpd->br_cgroup == cn) {
+				avl_remove(&cn->cgn_lwps, plwpd);
+				plwpd->br_cgroup = NULL;
+				VN_RELE_ASYNC(cn->cgn_vnode, system_taskq);
+			}
+			rw_exit(&cgm->cg_contents);
+
+			mutex_exit(&p->p_lock);
+		} while (plwpd == NULL);
+
+		rw_enter(&cgm->cg_contents, RW_WRITER);
+		if (!avl_is_empty(&cn->cgn_lwps)) {
+			rw_exit(&cgm->cg_contents);
+			goto drain_again;
+		}
+
+		/* Now that it's empty, mark it for teardown and delete it */
+		cn->cgn_state = CGRP_TEARDOWN;
+		cgrp_dirtrunc(cn);
+		rw_exit(&cgm->cg_contents);
 	}
 
 	ASSERT(cgm->cg_rootnode);
@@ -664,18 +768,18 @@ cgrp_freevfs(vfs_t *vfsp)
 	 * we have a HOLD on it we know it'll stick around.
 	 *
 	 */
-	mutex_enter(&cgm->cg_contents);
+	rw_enter(&cgm->cg_contents, RW_WRITER);
 
 	/* Remove all the files (except the rootnode) backwards. */
 	while ((cn = cgm->cg_rootnode->cgn_back) != cgm->cg_rootnode) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		/*
 		 * All nodes will be released here. Note we handled the link
 		 * count above.
 		 */
 		vp = CGNTOV(cn);
 		VN_RELE(vp);
-		mutex_enter(&cgm->cg_contents);
+		rw_enter(&cgm->cg_contents, RW_WRITER);
 		/*
 		 * It's still there after the RELE. Someone else like pageout
 		 * has a hold on it so wait a bit and then try again - we know
@@ -683,12 +787,12 @@ cgrp_freevfs(vfs_t *vfsp)
 		 */
 		if (cn == cgm->cg_rootnode->cgn_back) {
 			VN_HOLD(vp);
-			mutex_exit(&cgm->cg_contents);
+			rw_exit(&cgm->cg_contents);
 			delay(hz / 4);
-			mutex_enter(&cgm->cg_contents);
+			rw_enter(&cgm->cg_contents, RW_WRITER);
 		}
 	}
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	VN_RELE(CGNTOV(cgm->cg_rootnode));
 
@@ -696,7 +800,7 @@ cgrp_freevfs(vfs_t *vfsp)
 
 	kmem_free(cgm->cg_mntpath, strlen(cgm->cg_mntpath) + 1);
 
-	mutex_destroy(&cgm->cg_contents);
+	rw_destroy(&cgm->cg_contents);
 	kmem_free(cgm, sizeof (cgrp_mnt_t));
 
 	/* Allow _fini() to succeed now */
@@ -934,18 +1038,18 @@ cgrp_rel_agent_event(cgrp_mnt_t *cgm, cgrp_node_t *cn, boolean_t is_exit)
 	lx_lwp_data_t *plwpd = ttolxlwp(curthread);
 	cgrp_rra_arg_t *rarg;
 
-	ASSERT(MUTEX_HELD(&cgm->cg_contents));
+	ASSERT(RW_WRITE_HELD(&cgm->cg_contents));
 
 	/* Nothing to do if the agent is not set */
 	if (cgm->cg_agent[0] == '\0') {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return;
 	}
 
 	parent = cn->cgn_parent;
 	/* Cannot remove the top-level cgroup (only via unmount) */
 	if (parent == cn) {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 		return;
 	}
 
@@ -991,7 +1095,7 @@ cgrp_rel_agent_event(cgrp_mnt_t *cgm, cgrp_node_t *cn, boolean_t is_exit)
 	rarg->crraa_event_path = argstr;
 
 	DTRACE_PROBE2(cgrp__agent__event, cgrp_rra_arg_t *, rarg,
-	    int, plwpd->br_cgroupid);
+	    int, (plwpd->br_cgroup != NULL) ? plwpd->br_cgroup->cgn_id : 0);
 
 	/*
 	 * When we're exiting, the release agent process cannot belong to our
@@ -999,14 +1103,14 @@ cgrp_rel_agent_event(cgrp_mnt_t *cgm, cgrp_node_t *cn, boolean_t is_exit)
 	 * we do not change our cgroupid.
 	 */
 	if (is_exit) {
-		plwpd->br_cgroupid = 0;
+		VERIFY(plwpd->br_cgroup == NULL);
 	}
 
 	/*
 	 * The cg_contents mutex cannot be held while taking the pool lock
 	 * or calling newproc.
 	 */
-	mutex_exit(&cgm->cg_contents);
+	rw_exit(&cgm->cg_contents);
 
 	if (z->zone_defaultcid > 0) {
 		cid = z->zone_defaultcid;
@@ -1029,43 +1133,63 @@ cgrp_rel_agent_event(cgrp_mnt_t *cgm, cgrp_node_t *cn, boolean_t is_exit)
 
 /*ARGSUSED*/
 static void
-cgrp_lwp_fork_helper(vfs_t *vfsp, uint_t cg_id, id_t tid, pid_t tpid)
+cgrp_lwp_fork_helper(vfs_t *vfsp, lx_lwp_data_t *lwpd, lx_lwp_data_t *plwpd)
 {
 	cgrp_mnt_t *cgm = (cgrp_mnt_t *)VFSTOCGM(vfsp);
 	cgrp_node_t *cn;
 
-	mutex_enter(&cgm->cg_contents);
-	cn = cgrp_cg_hash_lookup(cgm, cg_id);
-	ASSERT(cn != NULL);
-	cn->cgn_task_cnt++;
-	mutex_exit(&cgm->cg_contents);
+	if (plwpd == NULL) {
+		cn = cgm->cg_rootnode;
+	} else {
+		cn = plwpd->br_cgroup;
+		if (cn == NULL || cn->cgn_state == CGRP_TEARDOWN)
+			cn = cgm->cg_rootnode;
+	}
+
+	rw_enter(&cgm->cg_contents, RW_WRITER);
+	/* Re-check this now that we have the lock */
+	if (cn == NULL || cn->cgn_state != CGRP_NORMAL) {
+		rw_exit(&cgm->cg_contents);
+		return;
+	}
+	ASSERT(cn->cgn_vnode->v_vfsp == vfsp);
+
+	lwpd->br_cgroup = cn;
+	avl_add(&cn->cgn_lwps, lwpd);
+	VN_HOLD(cn->cgn_vnode);
+	rw_exit(&cgm->cg_contents);
 
 	DTRACE_PROBE1(cgrp__lwp__fork, void *, cn);
 }
 
 /*ARGSUSED*/
 static void
-cgrp_lwp_exit_helper(vfs_t *vfsp, uint_t cg_id, id_t tid, pid_t tpid)
+cgrp_lwp_exit_helper(vfs_t *vfsp, lx_lwp_data_t *lwpd)
 {
 	cgrp_mnt_t *cgm = (cgrp_mnt_t *)VFSTOCGM(vfsp);
 	cgrp_node_t *cn;
+	vnode_t *vn;
 
-	mutex_enter(&cgm->cg_contents);
-	cn = cgrp_cg_hash_lookup(cgm, cg_id);
-	ASSERT(cn != NULL);
-	if (cn->cgn_task_cnt == 0) {
-		/* top-level cgroup cnt can be 0 during reboot */
-		mutex_exit(&cgm->cg_contents);
+	cn = lwpd->br_cgroup;
+	if (cn == NULL)
 		return;
-	}
-	cn->cgn_task_cnt--;
+	ASSERT(cn->cgn_vnode->v_vfsp == vfsp);
+
+	rw_enter(&cgm->cg_contents, RW_WRITER);
+
+	avl_remove(&cn->cgn_lwps, lwpd);
+	lwpd->br_cgroup = NULL;
+	vn = cn->cgn_vnode;
+
 	DTRACE_PROBE1(cgrp__lwp__exit, void *, cn);
 
-	if (cn->cgn_task_cnt == 0 && cn->cgn_dirents == N_DIRENTS(cgm) &&
+	if (avl_is_empty(&cn->cgn_lwps) && cn->cgn_dirents == N_DIRENTS(cgm) &&
 	    cn->cgn_notify == 1) {
 		cgrp_rel_agent_event(cgm, cn, B_TRUE);
-		ASSERT(MUTEX_NOT_HELD(&cgm->cg_contents));
+		ASSERT(!RW_LOCK_HELD(&cgm->cg_contents));
 	} else {
-		mutex_exit(&cgm->cg_contents);
+		rw_exit(&cgm->cg_contents);
 	}
+
+	VN_RELE(vn);
 }

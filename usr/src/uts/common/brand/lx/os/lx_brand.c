@@ -227,8 +227,8 @@ static int lx_systrace_enabled;
 /*
  * cgroup file system maintenance functions which are set when cgroups loads.
  */
-void (*lx_cgrp_initlwp)(vfs_t *, uint_t, id_t, pid_t);
-void (*lx_cgrp_freelwp)(vfs_t *, uint_t, id_t, pid_t);
+void (*lx_cgrp_initlwp)(vfs_t *, lx_lwp_data_t *, lx_lwp_data_t *);
+void (*lx_cgrp_freelwp)(vfs_t *, lx_lwp_data_t *);
 
 /*
  * While this is effectively mmu.hole_start - PAGESIZE, we don't particularly

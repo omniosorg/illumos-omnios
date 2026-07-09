@@ -89,6 +89,7 @@ extern int prreadenvv(proc_t *, char *, size_t, size_t *);
 extern int prreadbuf(proc_t *, uintptr_t, uint8_t *, size_t, size_t *);
 
 #include "lx_proc.h"
+#include "../cgroups/cgrps.h"
 
 extern pgcnt_t swapfs_minfree;
 
@@ -1550,6 +1551,48 @@ lxpr_read_pid_auxv(lxpr_node_t *lxpnp, lxpr_uiobuf_t *uiobuf)
 #endif /* defined(_SYSCALL32_IMPL) */
 }
 
+static void
+lxpr_print_cgroup(cgrp_node_t *cgn, cgrp_mnt_t *cgm, lxpr_uiobuf_t *uiobuf)
+{
+	cgrp_node_t *dn;
+	cgrp_dirent_t *cdp;
+	/* XXX: is 32 path components enough? should we make this more flexible? */
+	const char *frags[32];
+	size_t nfrags = 0, i;
+
+	rw_enter(&cgm->cg_contents, RW_READER);
+
+	/* Re-check this with the lock held. */
+	if (cgn->cgn_state != CGRP_NORMAL) {
+		rw_exit(&cgm->cg_contents);
+		lxpr_uiobuf_seterr(uiobuf, EINVAL);
+		return;
+	}
+
+	dn = cgn;
+	while (dn->cgn_parent != NULL) {
+		cdp = dn->cgn_parent->cgn_dir;
+		while (cdp != NULL) {
+			if (cdp->cgd_cgrp_node == dn) {
+				if (nfrags < 32 && cdp->cgd_name != NULL)
+					frags[nfrags++] = cdp->cgd_name;
+				break;
+			}
+			cdp = cdp->cgd_next;
+		}
+		dn = dn->cgn_parent;
+	}
+	if (nfrags == 0)
+		frags[nfrags++] = "";
+
+	lxpr_uiobuf_printf(uiobuf, "1:name=systemd:");
+	for (i = nfrags; i > 0; --i)
+		lxpr_uiobuf_printf(uiobuf, "/%s", frags[i - 1]);
+	lxpr_uiobuf_printf(uiobuf, "\n");
+
+	rw_exit(&cgm->cg_contents);
+}
+
 /*
  * lxpr_read_pid_cgroup(): read cgroups for process
  */
@@ -1557,19 +1600,48 @@ static void
 lxpr_read_pid_cgroup(lxpr_node_t *lxpnp, lxpr_uiobuf_t *uiobuf)
 {
 	proc_t *p;
+	lx_lwp_data_t *plwpd;
+	kthread_t *t;
+	cgrp_node_t *pcgn, *cgn = NULL;
+	cgrp_mnt_t *cgm;
 
 	ASSERT(lxpnp->lxpr_type == LXPR_PID_CGROUP ||
 	    lxpnp->lxpr_type == LXPR_PID_TID_CGROUP);
 
-	p = lxpr_lock(lxpnp, ZOMB_OK);
+	p = lxpr_lock(lxpnp, NO_ZOMB);
 	if (p == NULL) {
 		lxpr_uiobuf_seterr(uiobuf, EINVAL);
 		return;
 	}
+	t = p->p_tlist;
+	if (t == NULL) {
+		lxpr_unlock(p);
+		lxpr_uiobuf_seterr(uiobuf, EINVAL);
+		return;
+	}
+	do {
+		plwpd = ttolxlwp(t);
+		if (plwpd != NULL &&
+		    (pcgn = plwpd->br_cgroup) != NULL &&
+		    pcgn->cgn_state == CGRP_NORMAL) {
+			cgn = pcgn;
+			break;
+		}
+		t = t->t_forw;
+	} while (t != p->p_tlist);
+	if (cgn == NULL) {
+		lxpr_unlock(p);
+		lxpr_uiobuf_seterr(uiobuf, EINVAL);
+		return;
+	}
+	cgnode_hold(cgn);
+	cgm = VTOCGM(CGNTOV(cgn));
+	VERIFY(cgm != NULL);
 	lxpr_unlock(p);
 
-	/* basic stub, 3rd field will need to be populated */
-	lxpr_uiobuf_printf(uiobuf, "1:name=systemd:/\n");
+	lxpr_print_cgroup(cgn, cgm, uiobuf);
+
+	cgnode_rele(cgn);
 }
 
 /*

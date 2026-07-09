@@ -330,8 +330,7 @@ lx_freelwp(klwp_t *lwp)
 		VFS_HOLD(cgrp);
 		mutex_exit(&lxzdata->lxzd_lock);
 		ASSERT(lx_cgrp_freelwp != NULL);
-		(*lx_cgrp_freelwp)(cgrp, lwpd->br_cgroupid, lwptot(lwp)->t_tid,
-		    lwpd->br_pid);
+		(*lx_cgrp_freelwp)(cgrp, lwpd);
 		VFS_RELE(cgrp);
 	} else {
 		mutex_exit(&lxzdata->lxzd_lock);
@@ -517,12 +516,6 @@ lx_initlwp(klwp_t *lwp, void *lwpbd)
 	lwp->lwp_brand_syscall = lx_syscall_enter;
 
 	/*
-	 * The new LWP inherits the parent LWP cgroup ID.
-	 */
-	if (plwpd != NULL) {
-		lwpd->br_cgroupid = plwpd->br_cgroupid;
-	}
-	/*
 	 * The new LWP inherits the parent LWP emulated scheduling info.
 	 */
 	if (plwpd != NULL) {
@@ -540,8 +533,7 @@ lx_initlwp(klwp_t *lwp, void *lwpbd)
 		VFS_HOLD(cgrp);
 		mutex_exit(&lxzdata->lxzd_lock);
 		ASSERT(lx_cgrp_initlwp != NULL);
-		(*lx_cgrp_initlwp)(cgrp, lwpd->br_cgroupid, lwptot(lwp)->t_tid,
-		    lwpd->br_pid);
+		(*lx_cgrp_initlwp)(cgrp, lwpd, plwpd);
 		VFS_RELE(cgrp);
 	} else {
 		mutex_exit(&lxzdata->lxzd_lock);
