@@ -47,7 +47,7 @@ extern "C" {
  * that packet headers are 16 bit aligned.
  */
 #define	OK_16PTR(p)	(!((uintptr_t)(p) & 0x1))
-#if defined(__x86)
+#if defined(__x86) || defined(__aarch64__)
 #define	OK_32PTR(p)	OK_16PTR(p)
 #else
 #define	OK_32PTR(p)	(!((uintptr_t)(p) & 0x3))
