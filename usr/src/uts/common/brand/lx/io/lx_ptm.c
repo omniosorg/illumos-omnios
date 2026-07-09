@@ -434,6 +434,25 @@ lx_ptm_read_start(dev_t dev)
 	return (0);
 }
 
+static int
+lx_ptm_read_start_nowait(dev_t dev)
+{
+	lx_ptm_ops_t	*lpo = lx_ptm_lpo_lookup(DEVT_TO_INDEX(dev));
+
+	mutex_enter(&lpo->lpo_rops_lock);
+	ASSERT(lpo->lpo_rops >= 0);
+
+	if (lpo->lpo_rops != 0) {
+		mutex_exit(&lpo->lpo_rops_lock);
+		return (-1);
+	}
+
+	/* Start a read operation */
+	VERIFY(++lpo->lpo_rops == 1);
+	mutex_exit(&lpo->lpo_rops_lock);
+	return (0);
+}
+
 static void
 lx_ptm_read_end(dev_t dev)
 {
@@ -1109,7 +1128,7 @@ lx_ptm_poll(dev_t dev, short events, int anyyet, short *reventsp,
 
 	do {
 		/* Serialize ourself wrt read operations. */
-		if (lx_ptm_read_start(dev) != 0)
+		if (lx_ptm_read_start_nowait(dev) != 0)
 			return (EINTR);
 
 		err = lx_ptm_poll_loop(dev,
