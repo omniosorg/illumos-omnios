@@ -111,6 +111,7 @@ struct inotify_kevent {
 
 struct inotify_state {
 	kmutex_t ins_lock;			/* lock protecting state */
+	uint8_t ins_teardown:1;			/* being torn down */
 	avl_tree_t ins_byvp;			/* watches by vnode */
 	avl_tree_t ins_bywd;			/* watches by descriptor */
 	vmem_t *ins_wds;			/* watch identifier arena */
@@ -123,10 +124,10 @@ struct inotify_state {
 	pollhead_t ins_pollhd;			/* poll head */
 	kcondvar_t ins_cv;			/* condvar for reading */
 	list_t ins_orphans;			/* orphan list */
-	ddi_periodic_t ins_cleaner;		/* cyclic for cleaning */
 	inotify_watch_t *ins_zombies;		/* zombie watch list */
 	cred_t *ins_cred;			/* creator's credentials */
 	inotify_state_t *ins_next;		/* next state on global list */
+	uint64_t ins_cleangen;			/* cleaner generation */
 };
 
 /*
@@ -146,6 +147,16 @@ static vmem_t		*inotify_minor;		/* minor number arena */
 static void		*inotify_softstate;	/* softstate pointer */
 static inotify_state_t	*inotify_state;		/* global list if state */
 static avl_tree_t	inotify_vps;		/* per-vnode containers */
+static ddi_periodic_t	inotify_cleaner;	/* cyclic for cleaning */
+static uint64_t		inotify_cleangen;	/* cleaner generation num */
+
+/*
+ * Lock ordering:
+ *
+ * Most things don't have to take both inotify_lock and an ins_lock at the
+ * same time. If anything does, take inotify_lock then the ins_lock
+ * (inotify_clean_all does this).
+ */
 
 static void inotify_watch_event(inotify_watch_t *, uint64_t, char *);
 static void inotify_watch_insert(inotify_watch_t *, vnode_t *, char *);
@@ -1272,14 +1283,13 @@ inotify_activate(inotify_state_t *state, int32_t wd)
  * Called periodically as a cyclic to process the orphans and zombies.
  */
 static void
-inotify_clean(void *arg)
+inotify_clean(inotify_state_t *state)
 {
-	inotify_state_t *state = arg;
 	inotify_watch_t *watch, *parent, *next, **prev;
 	cred_t *savecred;
 	int err;
 
-	mutex_enter(&state->ins_lock);
+	ASSERT(mutex_owned(&state->ins_lock));
 
 	for (watch = list_head(&state->ins_orphans);
 	    watch != NULL; watch = next) {
@@ -1325,8 +1335,64 @@ inotify_clean(void *arg)
 		prev = &watch->inw_parent;
 		mutex_exit(&watch->inw_lock);
 	}
+}
 
-	mutex_exit(&state->ins_lock);
+/*
+ * Called by the inotify_cleaner ddi_periodic. Walks over all inotify states
+ * and calls inotify_clean() on them.
+ *
+ * We use one global timer rather than a timer per state to avoid using up
+ * lots of ddi_periodics (they're a limited resource, default cap 1024).
+ */
+static void
+inotify_clean_all(void *arg)
+{
+	inotify_state_t *state;
+	uint64_t gen;
+
+	mutex_enter(&inotify_lock);
+
+	gen = ++inotify_cleangen;
+	state = inotify_state;
+
+	while (state != NULL) {
+		/*
+		 * Find the first state that we haven't cleaned
+		 * (ins_cleangen < gen)
+		 *
+		 * ins_cleangen is used only by this function, and ins_teardown
+		 * is protected by the global inotify_lock
+		 */
+		while (state != NULL && (state->ins_cleangen >= gen ||
+		    state->ins_teardown)) {
+			state = state->ins_next;
+		}
+		/* No more uncleaned states, exit. */
+		if (state == NULL)
+			break;
+
+		/*
+		 * Take the state's lock to stop it going away, but drop
+		 * inotify_lock: we don't want to block other threads creating
+		 * or destroying states that aren't this one.
+		 */
+		mutex_enter(&state->ins_lock);
+		mutex_exit(&inotify_lock);
+
+		inotify_clean(state);
+		state->ins_cleangen = gen;
+
+		mutex_exit(&state->ins_lock);
+
+		/*
+		 * Start from the front of the list again (since it could have
+		 * mutated)
+		 */
+		mutex_enter(&inotify_lock);
+		state = inotify_state;
+	}
+
+	mutex_exit(&inotify_lock);
 }
 
 static int
@@ -1391,9 +1457,6 @@ inotify_open(dev_t *devp, int flag __unused, int otyp __unused, cred_t *cred_p)
 	state->ins_maxevents = inotify_maxevents;
 
 	mutex_exit(&inotify_lock);
-
-	state->ins_cleaner = ddi_periodic_add(inotify_clean,
-	    state, NANOSEC, DDI_IPL_0);
 
 	return (0);
 }
@@ -1576,7 +1639,18 @@ inotify_close(dev_t dev, int flag __unused, int otyp __unused,
 		pollhead_clean(&state->ins_pollhd);
 	}
 
+	/*
+	 * Remove this state from our global list, so cleanup can't find it
+	 * any more after this point.
+	 */
+	mutex_enter(&inotify_lock);
+	state->ins_teardown = 1;
+	for (sp = &inotify_state; *sp != state; sp = &((*sp)->ins_next))
+		VERIFY(*sp != NULL);
+	*sp = (*sp)->ins_next;
+
 	mutex_enter(&state->ins_lock);
+	mutex_exit(&inotify_lock);
 
 	/*
 	 * First, destroy all of our watches.
@@ -1611,28 +1685,12 @@ inotify_close(dev_t dev, int flag __unused, int otyp __unused,
 		inotify_watch_destroy(watch);
 	}
 
-	if (state->ins_cleaner != NULL) {
-		ddi_periodic_delete(state->ins_cleaner);
-		state->ins_cleaner = NULL;
-	}
-
-	mutex_enter(&inotify_lock);
-
-	/*
-	 * Remove our state from our global list, and release our hold on
-	 * the cred.
-	 */
-	for (sp = &inotify_state; *sp != state; sp = &((*sp)->ins_next))
-		VERIFY(*sp != NULL);
-
-	*sp = (*sp)->ins_next;
+	/* Release our hold on the cred. */
 	crfree(state->ins_cred);
 	vmem_destroy(state->ins_wds);
 
 	ddi_soft_state_free(inotify_softstate, minor);
 	vmem_free(inotify_minor, (void *)(uintptr_t)minor, 1);
-
-	mutex_exit(&inotify_lock);
 
 	return (0);
 }
@@ -1676,6 +1734,10 @@ inotify_attach(dev_info_t *devi, ddi_attach_cmd_t cmd __unused)
 	avl_create(&inotify_vps, inotify_vp_cmp, sizeof (inotify_vp_t),
 	    offsetof(inotify_vp_t, ivp_avl));
 
+	inotify_cleangen = 0;
+	inotify_cleaner = ddi_periodic_add(inotify_clean_all, NULL, NANOSEC,
+	    DDI_IPL_0);
+
 	mutex_exit(&inotify_lock);
 
 	return (DDI_SUCCESS);
@@ -1696,8 +1758,16 @@ inotify_detach(dev_info_t *dip, __unused ddi_detach_cmd_t cmd)
 	}
 
 	mutex_enter(&inotify_lock);
+
 	VERIFY(avl_is_empty(&inotify_vps));
 	avl_destroy(&inotify_vps);
+
+	if (inotify_cleaner != NULL) {
+		ddi_periodic_delete(inotify_cleaner);
+		inotify_cleaner = NULL;
+		inotify_cleangen = 0;
+	}
+
 	fem_free(inotify_femp);
 	vmem_destroy(inotify_minor);
 
