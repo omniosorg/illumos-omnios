@@ -11,9 +11,11 @@
 
 /*
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <sys/lx_misc.h>
+#include <sys/pgrpsys.h>
 
 #define	LX_INIT_PGID	1
 #define	LX_INIT_SID	1
@@ -27,7 +29,7 @@ lx_getpgrp(void)
 	int pg;
 
 	/* getpgrp() */
-	pg = setpgrp(0, 0, 0);
+	pg = setpgrp(PGRPSYS_GETPGRP, 0, 0);
 
 	/*
 	 * If the pgrp is that of the init process, return the value Linux
@@ -64,7 +66,7 @@ lx_getpgid(int pid)
 
 	/* getpgid() */
 	ttolwp(curthread)->lwp_errno = 0;
-	pg = setpgrp(4, spid, 0);
+	pg = setpgrp(PGRPSYS_GETPGID, spid, 0);
 	if (ttolwp(curthread)->lwp_errno != 0)
 		return (ttolwp(curthread)->lwp_errno);
 
@@ -105,7 +107,7 @@ lx_setpgid(pid_t pid, pid_t pgid)
 	}
 
 	/* setpgid() */
-	ret = setpgrp(5, spid, spgid);
+	ret = setpgrp(PGRPSYS_SETPGID, spid, spgid);
 
 	if (ret == EPERM) {
 		/*
@@ -118,7 +120,7 @@ lx_setpgid(pid_t pid, pid_t pgid)
 
 		/* getpgid() */
 		ttolwp(curthread)->lwp_errno = 0;
-		pg = setpgrp(4, spid, 0);
+		pg = setpgrp(PGRPSYS_GETPGID, spid, 0);
 		if (ttolwp(curthread)->lwp_errno == 0 && spgid == pg)
 			return (0);
 		return (set_errno(EPERM));
@@ -152,7 +154,7 @@ lx_getsid(int pid)
 
 	/* getsid() */
 	ttolwp(curthread)->lwp_errno = 0;
-	sid = setpgrp(2, spid, 0);
+	sid = setpgrp(PGRPSYS_GETSID, spid, 0);
 	if (ttolwp(curthread)->lwp_errno != 0)
 		return (ttolwp(curthread)->lwp_errno);
 
@@ -174,7 +176,7 @@ lx_setsid(void)
 
 	/* setsid() */
 	ttolwp(curthread)->lwp_errno = 0;
-	sid = setpgrp(3, 0, 0);
+	sid = setpgrp(PGRPSYS_SETSID, 0, 0);
 	if (ttolwp(curthread)->lwp_errno != 0)
 		return (ttolwp(curthread)->lwp_errno);
 

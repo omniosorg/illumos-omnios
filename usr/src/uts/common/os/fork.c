@@ -1382,7 +1382,6 @@ getproc(proc_t **cpp, pid_t pid, uint_t flags, kspawn_param_t *ksp)
 		VN_HOLD(PTOU(pp)->u_rdir);
 	if (PTOU(pp)->u_cwd)
 		refstr_hold(PTOU(pp)->u_cwd);
-	mutex_exit(&pp->p_lock);
 
 	/*
 	 * Copy the parent's uarea, signal dispositions and security flags.
