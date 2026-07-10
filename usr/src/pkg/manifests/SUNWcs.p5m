@@ -29,10 +29,8 @@
 # Copyright 2019 Peter Tribble.
 # Copyright 2019 Joyent, Inc.
 # Copyright (c) 2011, 2015 by Delphix. All rights reserved.
-# Copyright 2021 Oxide Computer Company
 # Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2024 Oxide Computer Company
+# Copyright 2026 Oxide Computer Company
 #
 
 <include SUNWcs.man1.inc>
@@ -1190,7 +1188,6 @@ file path=usr/lib/passmgmt group=sys mode=0555
 dir  path=usr/lib/pci
 file path=usr/lib/pci/pcidr mode=0555
 file path=usr/lib/pci/pcidr_plugin.so
-file path=usr/lib/pci/pcieb mode=0555
 file path=usr/lib/pfexecd mode=0555
 file path=usr/lib/platexec mode=0555
 dir  path=usr/lib/rcm

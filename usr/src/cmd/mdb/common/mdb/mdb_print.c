@@ -1487,7 +1487,7 @@ print_hole(printarg_t *pap, int depth, ulong_t off, ulong_t endoff)
 	ASSERT(off < endoff);
 
 	if (bits > NBBY * sizeof (uint64_t)) {
-		ulong_t end;
+		ulong_t end = 0;
 
 		/*
 		 * The hole is larger than the largest integer type.  To
@@ -2727,13 +2727,13 @@ printf_signed(mdb_ctf_id_t id, uintptr_t addr, ulong_t off, char *fmt,
 
 	switch (size) {
 	case sizeof (uint8_t):
-		mdb_printf(fmt, (uint64_t)(sign ? u.i1 : u.ui1));
+		mdb_printf(fmt, (uint64_t)(sign ? (uint64_t)u.i1 : u.ui1));
 		break;
 	case sizeof (uint16_t):
-		mdb_printf(fmt, (uint64_t)(sign ? u.i2 : u.ui2));
+		mdb_printf(fmt, (uint64_t)(sign ? (uint64_t)u.i2 : u.ui2));
 		break;
 	case sizeof (uint32_t):
-		mdb_printf(fmt, (uint64_t)(sign ? u.i4 : u.ui4));
+		mdb_printf(fmt, (uint64_t)(sign ? (uint64_t)u.i4 : u.ui4));
 		break;
 	case sizeof (uint64_t):
 		mdb_printf(fmt, (uint64_t)(sign ? u.i8 : u.ui8));
