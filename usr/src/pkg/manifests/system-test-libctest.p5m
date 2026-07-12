@@ -15,7 +15,7 @@
 # Copyright 2015 Garrett D'Amore <garrett@damore.org>
 # Copyright 2018 Joyent, Inc.
 # Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2023 Bill Sommerfeld <sommerfeld@alum.mit.edu>
+# Copyright 2026 Bill Sommerfeld <sommerfeld@alum.mit.edu>
 # Copyright 2026 Oxide Computer Company
 #
 
@@ -28,38 +28,6 @@ dir  path=opt/libc-tests
 file path=opt/libc-tests/README mode=0444
 dir  path=opt/libc-tests/bin
 file path=opt/libc-tests/bin/libctest mode=0555
-dir  path=opt/libc-tests/cfg
-file path=opt/libc-tests/cfg/README mode=0444
-file path=opt/libc-tests/cfg/compilation.cfg mode=0444
-dir  path=opt/libc-tests/cfg/symbols
-file path=opt/libc-tests/cfg/symbols/README mode=0444
-file path=opt/libc-tests/cfg/symbols/assert_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/ctype_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/dirent_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/fcntl_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/locale_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/math_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/netdb_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/pthread_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/signal_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/stdalign_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/stddef_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/stdio_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/stdlib_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/stdnoreturn_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/string_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/strings_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/sys_atomic_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/sys_mman_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/sys_stat_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/sys_time_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/sys_timeb_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/threads_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/time_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/ucontext_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/unistd_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/wchar_h.cfg mode=0444
-file path=opt/libc-tests/cfg/symbols/wctype_h.cfg mode=0444
 dir  path=opt/libc-tests/runfiles
 file path=opt/libc-tests/runfiles/default.run mode=0444
 dir  path=opt/libc-tests/tests
@@ -75,9 +43,9 @@ $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/closefrom.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/dprintf.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/endian.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/env-7076.32 mode=0555
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/fexecve_test.$(ARCH) mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/fexecve_test.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/fnmatch.32 mode=0555
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/fpround_test.$(ARCH) mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/fpround_test.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/getlocname.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/isatty.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/localeconv.32 mode=0555
@@ -85,10 +53,8 @@ $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/memchr.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/memset_s.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/mutex-16200.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/mutex_attr.32 mode=0555
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/newlocale_test.$(ARCH) \
-    mode=0555
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/nl_langinfo_test.$(ARCH) \
-    mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/newlocale_test.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/nl_langinfo_test.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/posix_memalign.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/printf-15294.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/printf-9511.32 mode=0555
@@ -117,9 +83,8 @@ $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcslcpy.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsncasecmp-7344.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsncasecmp-7350.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsncasecmp.32 mode=0555
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsrtombs_test.$(ARCH) \
-    mode=0555
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wctype_test.$(ARCH) mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsrtombs_test.32 mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wctype_test.32 mode=0555
 dir  path=opt/libc-tests/tests/64
 file path=opt/libc-tests/tests/64/aligned_alloc.64 mode=0555
 file path=opt/libc-tests/tests/64/ascftime.64 mode=0555
@@ -132,9 +97,9 @@ file path=opt/libc-tests/tests/64/closefrom.64 mode=0555
 file path=opt/libc-tests/tests/64/dprintf.64 mode=0555
 file path=opt/libc-tests/tests/64/endian.64 mode=0555
 file path=opt/libc-tests/tests/64/env-7076.64 mode=0555
-file path=opt/libc-tests/tests/64/fexecve_test.$(ARCH64) mode=0555
+file path=opt/libc-tests/tests/64/fexecve_test.64 mode=0555
 file path=opt/libc-tests/tests/64/fnmatch.64 mode=0555
-file path=opt/libc-tests/tests/64/fpround_test.$(ARCH64) mode=0555
+file path=opt/libc-tests/tests/64/fpround_test.64 mode=0555
 file path=opt/libc-tests/tests/64/getlocname.64 mode=0555
 file path=opt/libc-tests/tests/64/isatty.64 mode=0555
 file path=opt/libc-tests/tests/64/localeconv.64 mode=0555
@@ -142,8 +107,8 @@ file path=opt/libc-tests/tests/64/memchr.64 mode=0555
 file path=opt/libc-tests/tests/64/memset_s.64 mode=0555
 file path=opt/libc-tests/tests/64/mutex-16200.64 mode=0555
 file path=opt/libc-tests/tests/64/mutex_attr.64 mode=0555
-file path=opt/libc-tests/tests/64/newlocale_test.$(ARCH64) mode=0555
-file path=opt/libc-tests/tests/64/nl_langinfo_test.$(ARCH64) mode=0555
+file path=opt/libc-tests/tests/64/newlocale_test.64 mode=0555
+file path=opt/libc-tests/tests/64/nl_langinfo_test.64 mode=0555
 file path=opt/libc-tests/tests/64/posix_memalign.64 mode=0555
 file path=opt/libc-tests/tests/64/printf-15294.64 mode=0555
 file path=opt/libc-tests/tests/64/printf-6961.64 mode=0555
@@ -172,8 +137,8 @@ file path=opt/libc-tests/tests/64/wcslcpy.64 mode=0555
 file path=opt/libc-tests/tests/64/wcsncasecmp-7344.64 mode=0555
 file path=opt/libc-tests/tests/64/wcsncasecmp-7350.64 mode=0555
 file path=opt/libc-tests/tests/64/wcsncasecmp.64 mode=0555
-file path=opt/libc-tests/tests/64/wcsrtombs_test.$(ARCH64) mode=0555
-file path=opt/libc-tests/tests/64/wctype_test.$(ARCH64) mode=0555
+file path=opt/libc-tests/tests/64/wcsrtombs_test.64 mode=0555
+file path=opt/libc-tests/tests/64/wctype_test.64 mode=0555
 file path=opt/libc-tests/tests/aligned_alloc mode=0555
 file path=opt/libc-tests/tests/catopen mode=0555
 dir  path=opt/libc-tests/tests/err
@@ -192,17 +157,12 @@ file path=opt/libc-tests/tests/err/data/W.4.11.12 mode=0444
 file path=opt/libc-tests/tests/err/data/W.5.13.14 mode=0444
 file path=opt/libc-tests/tests/err/err mode=0555
 file path=opt/libc-tests/tests/err/err.ksh mode=0555
-file path=opt/libc-tests/tests/fexecve_test mode=0555
-file path=opt/libc-tests/tests/fpround_test mode=0555
 dir  path=opt/libc-tests/tests/i18n
 $(MULTILIB_ONLY)dir path=opt/libc-tests/tests/i18n/32
-$(MULTILIB_ONLY)file \
-    path=opt/libc-tests/tests/i18n/32/bindtextdomain_test.$(ARCH) mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/i18n/32/bindtextdomain_test.32 \
+    mode=0555
 dir  path=opt/libc-tests/tests/i18n/64
-file path=opt/libc-tests/tests/i18n/64/bindtextdomain_test.$(ARCH64) mode=0555
-file path=opt/libc-tests/tests/i18n/bindtextdomain_test mode=0555
-file path=opt/libc-tests/tests/newlocale_test mode=0555
-file path=opt/libc-tests/tests/nl_langinfo_test mode=0555
+file path=opt/libc-tests/tests/i18n/64/bindtextdomain_test.64 mode=0555
 dir  path=opt/libc-tests/tests/posix_spawn
 $(MULTILIB_ONLY)dir path=opt/libc-tests/tests/posix_spawn/32
 $(MULTILIB_ONLY)file \
@@ -212,6 +172,8 @@ $(MULTILIB_ONLY)file \
 $(MULTILIB_ONLY)file \
     path=opt/libc-tests/tests/posix_spawn/32/posix_spawn_child.32 mode=0555
 $(MULTILIB_ONLY)file \
+    path=opt/libc-tests/tests/posix_spawn/32/posix_spawn_defpath.32 mode=0555
+$(MULTILIB_ONLY)file \
     path=opt/libc-tests/tests/posix_spawn/32/posix_spawn_fileactions.32 \
     mode=0555
 $(MULTILIB_ONLY)file \
@@ -220,15 +182,19 @@ $(MULTILIB_ONLY)file \
     path=opt/libc-tests/tests/posix_spawn/32/posix_spawn_pipe_np.32 mode=0555
 $(MULTILIB_ONLY)file \
     path=opt/libc-tests/tests/posix_spawn/32/posix_spawn_priv.32 mode=0555
+$(MULTILIB_ONLY)file \
+    path=opt/libc-tests/tests/posix_spawn/32/posix_spawn_wait.32 mode=0555
 dir  path=opt/libc-tests/tests/posix_spawn/64
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_attr.64 mode=0555
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_chdir.64 mode=0555
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_child.64 mode=0555
+file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_defpath.64 mode=0555
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_fileactions.64 \
     mode=0555
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_path.64 mode=0555
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_pipe_np.64 mode=0555
 file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_priv.64 mode=0555
+file path=opt/libc-tests/tests/posix_spawn/64/posix_spawn_wait.64 mode=0555
 file path=opt/libc-tests/tests/posix_spawn/posix_spawn_noshebang mode=0555
 file path=opt/libc-tests/tests/printf-intmax mode=0555
 file path=opt/libc-tests/tests/priv_gettext mode=0555
@@ -236,11 +202,9 @@ file path=opt/libc-tests/tests/psignal mode=0555
 file path=opt/libc-tests/tests/pthread_attr_get_np mode=0555
 dir  path=opt/libc-tests/tests/qsort
 $(MULTILIB_ONLY)dir path=opt/libc-tests/tests/qsort/32
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/qsort/32/qsort_test.$(ARCH) \
-    mode=0555
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/qsort/32/qsort_test.32 mode=0555
 dir  path=opt/libc-tests/tests/qsort/64
-file path=opt/libc-tests/tests/qsort/64/qsort_test.$(ARCH64) mode=0555
-file path=opt/libc-tests/tests/qsort/qsort_test mode=0555
+file path=opt/libc-tests/tests/qsort/64/qsort_test.64 mode=0555
 file path=opt/libc-tests/tests/quick_exit mode=0555
 dir  path=opt/libc-tests/tests/random
 file path=opt/libc-tests/tests/random/arc4key.ksh mode=0555
@@ -316,43 +280,7 @@ file path=opt/libc-tests/tests/stdio/64/memstream_reopen.64 mode=0555
 file path=opt/libc-tests/tests/stdio/64/open_memstreamtest.64 mode=0555
 file path=opt/libc-tests/tests/stdio/64/orientation_test.64 mode=0555
 file path=opt/libc-tests/tests/stdio/64/test_mbrtowc.64 mode=0555
-dir  path=opt/libc-tests/tests/symbols
-$(MULTILIB_ONLY)dir path=opt/libc-tests/tests/symbols/32
-$(MULTILIB_ONLY)file path=opt/libc-tests/tests/symbols/32/symbols_test.$(ARCH) \
-    mode=0555
-dir  path=opt/libc-tests/tests/symbols/64
-file path=opt/libc-tests/tests/symbols/64/symbols_test.$(ARCH64) mode=0555
-hardlink path=opt/libc-tests/tests/symbols/assert_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/ctype_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/dirent_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/fcntl_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/locale_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/math_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/netdb_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/pthread_h target=setup
-file path=opt/libc-tests/tests/symbols/setup mode=0555
-hardlink path=opt/libc-tests/tests/symbols/signal_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/stdalign_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/stddef_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/stdio_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/stdlib_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/stdnoreturn_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/string_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/strings_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/sys_atomic_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/sys_mman_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/sys_stat_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/sys_time_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/sys_timeb_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/threads_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/time_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/ucontext_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/unistd_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/wchar_h target=setup
-hardlink path=opt/libc-tests/tests/symbols/wctype_h target=setup
 file path=opt/libc-tests/tests/thread_name mode=0555
-file path=opt/libc-tests/tests/wcsrtombs_test mode=0555
-file path=opt/libc-tests/tests/wctype_test mode=0555
 dir  path=usr group=sys
 dir  path=usr/lib
 dir  path=usr/lib/locale

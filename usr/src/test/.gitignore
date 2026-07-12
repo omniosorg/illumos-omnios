@@ -129,6 +129,9 @@ elf-tests/tests/tls/static/initial-exec-with-so
 elf-tests/tests/tls/static/local-dynamic
 elf-tests/tests/tls/static/local-exec
 
+header-tests/tests/c-symbols/setup
+header-tests/tests/cxx-symbols/setup
+
 i2c-tests/i2csimd/i2csimd
 
 i2c-tests/i2csimd/i2csimd

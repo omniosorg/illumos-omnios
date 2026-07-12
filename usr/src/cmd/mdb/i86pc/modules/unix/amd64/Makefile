@@ -45,6 +45,5 @@ CPPFLAGS += -I$(SRC)/uts/common
 
 CERRWARN += -_gcc=-Wno-char-subscripts
 CERRWARN += -_gcc=-Wno-parentheses
-CERRWARN += $(CNOWARN_UNINIT)
 
 CERRWARN += -_gcc=-Wno-unused-function

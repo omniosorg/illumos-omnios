@@ -24,6 +24,7 @@ include $(SRC)/Makefile.master
 SUBDIRS = \
 	crypto-tests \
 	elf-tests \
+	header-tests \
 	i2c-tests \
 	libc-tests \
 	libmlrpc-tests \

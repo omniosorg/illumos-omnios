@@ -14,7 +14,7 @@
 # Copyright 2015 Garrett D'Amore <garrett@damore.org>
 # Copyright 2019 Joyent, Inc.
 # Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2023 Bill Sommerfeld <sommerfeld@alum.mit.edu>
+# Copyright 2026 Bill Sommerfeld <sommerfeld@hamachi.org>
 # Copyright 2026 Oxide Computer Company
 #
 
@@ -25,13 +25,6 @@ quiet = False
 timeout = 120
 post =
 outputdir = /var/tmp/test_results
-
-[/opt/libc-tests/tests/fexecve_test]
-[/opt/libc-tests/tests/fpround_test]
-[/opt/libc-tests/tests/newlocale_test]
-[/opt/libc-tests/tests/nl_langinfo_test]
-[/opt/libc-tests/tests/wcsrtombs_test]
-[/opt/libc-tests/tests/wctype_test]
 
 [/opt/libc-tests/tests/32]
 arch = i86pc
@@ -46,7 +39,9 @@ tests = [
 	'dprintf.32',
 	'endian.32',
 	'env-7076.32',
+	'fexecve_test.32',
 	'fnmatch.32',
+	'fpround_test.32',
 	'getlocname.32',
 	'isatty.32',
 	'localeconv.32',
@@ -54,6 +49,8 @@ tests = [
 	'memset_s.32',
 	'mutex-16200.32',
 	'mutex_attr.32',
+	'newlocale_test.32',
+	'nl_langinfo_test.32',
 	'posix_memalign.32',
 	'printf-15294.32',
 	'printf-9511.32',
@@ -76,6 +73,8 @@ tests = [
 	'wcsncasecmp-7344.32',
 	'wcsncasecmp-7350.32',
 	'wcsncasecmp.32',
+	'wcsrtombs_test.32',
+	'wctype_test.32',
 	]
 
 [/opt/libc-tests/tests/64]
@@ -90,7 +89,9 @@ tests = [
 	'dprintf.64',
 	'endian.64',
 	'env-7076.64',
+	'fexecve_test.64',
 	'fnmatch.64',
+	'fpround_test.64',
 	'getlocname.64',
 	'isatty.64',
 	'localeconv.64',
@@ -98,6 +99,8 @@ tests = [
 	'memset_s.64',
 	'mutex-16200.64',
 	'mutex_attr.64',
+	'newlocale_test.64',
+	'nl_langinfo_test.64',
 	'posix_memalign.64',
 	'printf-15294.64',
 	'printf-9511.64',
@@ -120,10 +123,19 @@ tests = [
 	'wcsncasecmp-7344.64',
 	'wcsncasecmp-7350.64',
 	'wcsncasecmp.64',
+	'wcsrtombs_test.64',
+	'wctype_test.64',
 	]
 
-[/opt/libc-tests/tests/i18n/bindtextdomain_test]
-[/opt/libc-tests/tests/qsort/qsort_test]
+[/opt/libc-tests/tests/i18n/32/bindtextdomain_test.32]
+arch = i86pc
+
+[/opt/libc-tests/tests/i18n/64/bindtextdomain_test.64]
+
+[/opt/libc-tests/tests/qsort/32/qsort_test.32]
+arch = i86pc
+
+[/opt/libc-tests/tests/qsort/64/qsort_test.64]
 
 [/opt/libc-tests/tests/random/getrandom]
 timeout = 240
@@ -211,6 +223,13 @@ tests = [
 	'posix_spawn_pipe_np.64'
 	]
 
+[/opt/libc-tests/tests/posix_spawn/32/posix_spawn_defpath.32]
+user = root
+arch = i86pc
+
+[/opt/libc-tests/tests/posix_spawn/64/posix_spawn_defpath.64]
+user = root
+
 [/opt/libc-tests/tests/posix_spawn/32/posix_spawn_priv.32]
 arch = i86pc
 user = root
@@ -230,36 +249,3 @@ user = root
 #
 [/opt/libc-tests/tests/pthread_attr_get_np]
 user=root
-
-[/opt/libc-tests/tests/symbols]
-pre = setup
-tests = [
-	'assert_h',
-	'ctype_h',
-	'dirent_h',
-	'fcntl_h',
-	'locale_h',
-	'math_h',
-	'netdb_h',
-	'pthread_h',
-	'signal_h',
-	'stdalign_h',
-	'stddef_h',
-	'stdio_h',
-	'stdlib_h',
-	'stdnoreturn_h',
-	'string_h',
-	'strings_h',
-	'sys_atomic_h',
-	'sys_mman_h',
-	'sys_stat_h',
-	'sys_time_h',
-	'sys_timeb_h',
-	'time_h',
-	'threads_h',
-	'ucontext_h',
-	'unistd_h',
-	'wchar_h',
-	'wctype_h'
-	 ]
-timeout = 180

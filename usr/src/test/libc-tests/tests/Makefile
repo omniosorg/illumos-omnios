@@ -37,7 +37,6 @@ SUBDIRS = \
 	regex \
 	select \
 	stdio \
-	symbols \
 	threads \
 	wcsrtombs \
 	wctype

@@ -12,6 +12,7 @@
 #
 # Copyright (c) 2012 by Delphix. All rights reserved.
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
+# Copyright 2026 Bill Sommerfeld <sommerfeld@hamachi.org>
 #
 
 include $(SRC)/Makefile.master
@@ -19,11 +20,11 @@ include $(SRC)/cmd/Makefile.cmd
 include $(SRC)/test/Makefile.com
 
 $(OBJS_OVERRIDE)OBJS = $(PROG).o test_common.o
-$(BUILD32)OBJS32 = $(OBJS:%.o=%.$(MACH).o)
-$(BUILD32)PROG32 = $(PROG).$(MACH)
+$(BUILD32) OBJS32 = $(OBJS:%.o=%.$(MACH).o)
+$(BUILD32) PROG32 = $(PROG).32
 
-$(BUILD64)OBJS64 = $(OBJS:%.o=%.$(MACH64).o)
-$(BUILD64)PROG64= $(PROG).$(MACH64)
+$(BUILD64) OBJS64 = $(OBJS:%.o=%.$(MACH64).o)
+$(BUILD64) PROG64 = $(PROG).64
 
 $(OBJS_OVERRIDE)SRCS = $(PROG).c ../common/test_common.c
 
@@ -34,12 +35,11 @@ ROOTOPTPKG = $(ROOT)/opt/libc-tests
 TESTDIR = $(ROOTOPTPKG)/tests/$(TESTSUBDIR)
 
 CMDS = $(PROG32:%=$(TESTDIR)/32/%) $(PROG64:%=$(TESTDIR)/64/%) \
-	$(KSHPROG:%=$(TESTDIR)/%) $(ARCHPROG:%=$(TESTDIR)/%) \
-	$(EXTRAPROG:%=$(TESTDIR)/%)
+	$(KSHPROG:%=$(TESTDIR)/%) $(EXTRAPROG:%=$(TESTDIR)/%)
 
 $(CMDS) := FILEMODE = 0555
 
-all: $(PROG32) $(PROG64) $(KSHPROG) $(ARCHPROG) $(SUBDIRS)
+all: $(PROG32) $(PROG64) $(KSHPROG) $(SUBDIRS)
 
 $(PROG32): $(OBJS32)
 	$(LINK.c) $(OBJS32) -o $@ $(LDLIBS)
@@ -54,14 +54,8 @@ $(KSHPROG): $(KSHPROG).ksh
 	$(CP) $(KSHPROG).ksh $(@)
 	$(CHMOD) +x $@
 
-$(ARCHPROG): ../common/run_arch_tests.ksh
-	$(RM) $@
-	$(CP) ../common/run_arch_tests.ksh $(@)
-	$(CHMOD) +x $@
-
 # XXXARM: This is kind of horrid for BUILD32/64 but that's what you get for
 # building both platforms in one directory.
-
 $(BUILD32)%.$(MACH).o: %.c
 $(BUILD32)	$(COMPILE.c) -o $@ $(CFLAGS_$(MACH)) -DARCH=\"$(MACH)\" $<
 
@@ -77,12 +71,12 @@ $(BUILD64)	$(COMPILE64.c) -o $@ $(CFLAGS_$(MACH64)) -DARCH=\"$(MACH64)\" $<
 install: $(SUBDIRS) $(CMDS)
 
 clobber: clean
-	-$(RM) $(PROG32) $(PROG64) $(KSHPROG) $(ARCHPROG)
+	-$(RM) $(PROG32) $(PROG64) $(KSHPROG)
 
 clean:
 	-$(RM) $(OBJS32) $(OBJS64)
 
-$(CMDS): $(TESTDIR) $(PROG32) $(PROG64) $(KSHPROG) $(ARCHPROG)
+$(CMDS): $(TESTDIR) $(PROG32) $(PROG64) $(KSHPROG)
 
 $(TESTDIR):
 	$(INS.dir)

@@ -29,6 +29,7 @@
  * Copyright 2017 Hayashi Naoyuki
  * Copyright (c) 2018, Joyent, Inc.
  * Copyright 2022 Michael van der Westhuizen
+ * Copyright 2026 Oxide Computer Company
  */
 
 
@@ -102,6 +103,8 @@ typedef uint_t uf_entry_gen_t;
  * Entry in the per-process list of open files.
  * Note: only certain fields are copied in flist_grow() and flist_fork().
  * This is indicated in brackets in the structure member comments.
+ * flist_spawn() copies uf_file, uf_flag and uf_gen, and rebuilds uf_busy
+ * and uf_alloc through fd_reserve().
  */
 typedef struct uf_entry {
 	kmutex_t	uf_lock;	/* per-fd lock [never copied] */
