@@ -150,9 +150,15 @@ tests = [
 	'posix_spawn_path.32',
 	'posix_spawn_path.64',
 	'posix_spawn_pipe_np.32',
-	'posix_spawn_pipe_np.64'
+	'posix_spawn_pipe_np.64',
+	'posix_spawn_wait.32',
+	'posix_spawn_wait.64'
 	]
 
+[/opt/libc-tests/tests/posix_spawn/posix_spawn_defpath.32]
+user = root
+[/opt/libc-tests/tests/posix_spawn/posix_spawn_defpath.64]
+user = root
 [/opt/libc-tests/tests/posix_spawn/posix_spawn_priv.32]
 user = root
 [/opt/libc-tests/tests/posix_spawn/posix_spawn_priv.64]
@@ -203,36 +209,3 @@ user = root
 #
 [/opt/libc-tests/tests/pthread_attr_get_np]
 user=root
-
-[/opt/libc-tests/tests/symbols]
-pre = setup
-tests = [
-	'assert_h',
-	'ctype_h',
-	'dirent_h',
-	'fcntl_h',
-	'locale_h',
-	'math_h',
-	'netdb_h',
-	'pthread_h',
-	'signal_h',
-	'stdalign_h',
-	'stddef_h',
-	'stdio_h',
-	'stdlib_h',
-	'stdnoreturn_h',
-	'string_h',
-	'strings_h',
-	'sys_atomic_h',
-	'sys_mman_h',
-	'sys_stat_h',
-	'sys_time_h',
-	'sys_timeb_h',
-	'time_h',
-	'threads_h',
-	'ucontext_h',
-	'unistd_h',
-	'wchar_h',
-	'wctype_h'
-	 ]
-timeout = 180

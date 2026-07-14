@@ -428,6 +428,7 @@ usr/src/uts/intel/io/hyperv/vmbus/THIRDPARTYLICENSE
 usr/src/uts/intel/io/hyperv/vmbus/THIRDPARTYLICENSE.descrip
 usr/src/uts/intel/nsmb/ioc_check.ref
 usr/src/uts/intel/os/splashimage.xpm
+usr/src/uts/intel/os/name_to_sysnum
 usr/src/uts/common/gssapi/mechs/krb5/crypto/block_size.c
 usr/src/uts/common/gssapi/mechs/krb5/crypto/checksum_length.c
 usr/src/uts/common/gssapi/mechs/krb5/crypto/des/f_parity.c

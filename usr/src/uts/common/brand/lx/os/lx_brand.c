@@ -29,6 +29,7 @@
  * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  * Copyright 2024 MNX Cloud, Inc.
  * Copyright 2025 Edgecast Cloud LLC.
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -1369,7 +1370,7 @@ lx_brandsys(int cmd, int64_t *rval, uintptr_t arg1, uintptr_t arg2,
 		VERIFY(p->p_zone->zone_brand == &lx_brand);
 		return (exec_common(
 		    (char *)arg1, (const char **)arg2, (const char **)arg3,
-		    NULL, EBA_BRAND));
+		    NULL, EBA_BRAND, UIO_USERSPACE));
 	}
 
 	/* For all other operations this must be a branded process. */
@@ -1504,7 +1505,7 @@ lx_brandsys(int cmd, int64_t *rval, uintptr_t arg1, uintptr_t arg2,
 
 	case B_EXEC_NATIVE:
 		return (exec_common((char *)arg1, (const char **)arg2,
-		    (const char **)arg3, NULL, EBA_NATIVE));
+		    (const char **)arg3, NULL, EBA_NATIVE, UIO_USERSPACE));
 
 	/*
 	 * The B_TRUSS_POINT subcommand is used so that we can make a no-op

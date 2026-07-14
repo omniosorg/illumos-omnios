@@ -28,6 +28,7 @@
 
 /*
  * Copyright 2019 Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <sys/types.h>
@@ -300,7 +301,7 @@ exec_init(const char *initpath, const char *args)
 	}
 again:
 	error = exec_common((const char *)exec_fnamep,
-	    (const char **)uap, NULL, NULL, brand_action);
+	    (const char **)uap, NULL, NULL, brand_action, UIO_USERSPACE);
 
 	/*
 	 * Normally we would just set lwp_argsaved and t_post_sys and
