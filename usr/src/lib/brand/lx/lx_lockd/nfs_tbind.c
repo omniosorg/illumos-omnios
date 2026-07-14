@@ -58,6 +58,7 @@
 #include <tsol/label.h>
 #include <sys/varargs.h>
 #include <rpcsvc/nlm_prot.h>
+#include <stdio.h>
 
 /*
  * Determine valid semantics for most applications.
