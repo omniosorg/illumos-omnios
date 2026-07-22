@@ -51,6 +51,8 @@ usr/src/lib/brand/lx/zone/lx_boot_zone_void
 usr/src/lib/brand/shared/zadump/zadump
 usr/src/lib/libbunyan/amd64/bunyan_provider_impl.h
 usr/src/lib/libbunyan/i386/bunyan_provider_impl.h
+usr/src/test/header-tests/tests/c-symbols/setup
+usr/src/test/header-tests/tests/cxx-symbols/setup
 usr/src/test/util-tests/tests/bunyan/btest
 usr/src/test/zfs-tests/cmd/watch_dir/watch_dir
 usr/src/tools/env/omnios-illumos-gate
