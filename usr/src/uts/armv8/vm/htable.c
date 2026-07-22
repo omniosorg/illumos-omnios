@@ -1670,8 +1670,7 @@ pte_set(htable_t *ht, uint_t entry, pte_t new, void *ptr)
 	do {
 		prev = GET_PTE(ptep);
 		n = new;
-		if (PTE_ISVALID(n) &&
-		    (prev & PTE_PFN_MASK) == (new & PTE_PFN_MASK)) {
+		if (PTE_ISVALID(n) && PTE2ADDR(prev, l) == PTE2ADDR(new, l)) {
 			n |= prev & PTE_AF;
 		}
 
@@ -1788,8 +1787,8 @@ pte_inval(
 	 */
 	do {
 		oldpte = GET_PTE(ptep);
-		if (expect != 0 &&
-		    (oldpte & PTE_PFN_MASK) != (expect & PTE_PFN_MASK)) {
+		if (expect != 0 && PTE2ADDR(oldpte, ht->ht_level) !=
+		    PTE2ADDR(expect, ht->ht_level)) {
 			goto done;
 		}
 		found = CAS_PTE(ptep, oldpte, 0);

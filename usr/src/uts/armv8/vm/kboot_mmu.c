@@ -111,7 +111,7 @@ kbm_map(uintptr_t vaddr, paddr_t paddr, uint_t level)
 			    "level %d (needed a table)\n", __func__, vaddr, l);
 		}
 
-		ptbl = (pte_t *)(ptbl[LEVEL_INDEX(vaddr, l)] & PTE_PFN_MASK);
+		ptbl = (pte_t *)PTE2ADDR(ptbl[LEVEL_INDEX(vaddr, l)], l);
 	}
 
 	if (PTE_ISVALID(ptbl[LEVEL_INDEX(vaddr, level)])) {

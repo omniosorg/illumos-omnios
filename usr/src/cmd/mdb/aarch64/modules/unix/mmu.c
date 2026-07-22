@@ -429,7 +429,7 @@ patova_cb(uintptr_t addr, const void *data, void *cbdata)
 			continue;
 		}
 
-		uintptr_t pfnmaps = pte & PTE_PFN_MASK;
+		uintptr_t pfnmaps = PTE2ADDR(pte, htable.ht_level);
 
 		if ((target >= pfnmaps) &&
 		    (target < (pfnmaps + LEVEL_SIZE(htable.ht_level)))) {

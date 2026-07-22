@@ -137,7 +137,7 @@ count_tables(pte_t *ptbl, uint_t level)
 
 	for (int i = 0; i < NPTEPERPT; i++) {
 		if (PTE_ISTABLE(ptbl[i], level)) {
-			tbls += count_tables((pte_t *)(ptbl[i] & PTE_PFN_MASK),
+			tbls += count_tables((pte_t *)PTE2ADDR(ptbl[i], level),
 			    level - 1);
 		}
 	}
@@ -425,9 +425,9 @@ boot_reserve(void)
 
 		if (PTE_ISTABLE(*ptbl[l], l)) {
 			ASSERT(ptbl[l - 1] == NULL);
-			ptbl[l - 1] = (pte_t *)(*ptbl[l] & PTE_PFN_MASK);
+			ptbl[l - 1] = (pte_t *)PTE2ADDR(*ptbl[l], l);
 
-			ASSERT(is_reserved_memory(*ptbl[l] & PTE_PFN_MASK));
+			ASSERT(is_reserved_memory(PTE2ADDR(*ptbl[l], l)));
 
 			++ptbl[l];
 			if (((uintptr_t)ptbl[l] & MMU_PAGEOFFSET) == 0) {

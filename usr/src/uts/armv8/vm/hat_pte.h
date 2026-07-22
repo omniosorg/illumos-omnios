@@ -150,7 +150,9 @@ LEVEL_INDEX(uintptr_t addr, uint_t level)
 #define	PTE_CLR(p, f)		((p) &= ~(pte_t)(f))
 #define	PTE_GET(p, f)		((p) & (f))
 
-#define	PTE2PFN(p, lvl)		(((p) & PTE_PFN_MASK) >> MMU_PAGESHIFT)
+#define	PTE2ADDR(p, lvl)	PTE_GET(p, PTE_PFN_MASK)
+#define	PTE2PFN(p, lvl)		(PTE2ADDR(p, lvl) >> MMU_PAGESHIFT)
+
 #define	CAS_PTE(ptr, x, y)	atomic_cas_64(ptr, x, y)
 
 #ifdef	__cplusplus

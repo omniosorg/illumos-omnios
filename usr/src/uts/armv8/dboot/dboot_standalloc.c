@@ -286,7 +286,7 @@ map_pages(pte_t pte_attr, uintptr_t vaddr, uint64_t paddr, int level)
 			    "level %d (needed a table)\n", __func__, vaddr, l);
 		}
 
-		ptbl = (pte_t *)(ptbl[LEVEL_INDEX(vaddr, l)] & PTE_PFN_MASK);
+		ptbl = (pte_t *)PTE2ADDR(ptbl[LEVEL_INDEX(vaddr, l)], l);
 	}
 
 	/* XXX: MAKEPTE */
