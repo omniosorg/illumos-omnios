@@ -70,6 +70,7 @@
 #define	NFSCLIENT
 #include <string.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <stdlib.h>

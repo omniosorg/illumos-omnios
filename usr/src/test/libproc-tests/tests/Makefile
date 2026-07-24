@@ -10,11 +10,11 @@
 #
 
 #
-# Copyright 2024 Oxide Computer Company
+# Copyright 2026 Oxide Computer Company
 #
 
 .PARALLEL: $(SUBDIRS)
 
-SUBDIRS = syscall
+SUBDIRS = agent syscall
 
 include $(SRC)/test/Makefile.com
