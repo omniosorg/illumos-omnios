@@ -23,6 +23,7 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2017 Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -45,6 +46,7 @@
 #include <sys/cpuvar.h>
 #include <sys/mman.h>
 #include <sys/timer.h>
+#include <sys/uio.h>
 #include <sys/zone.h>
 #include <sys/vm_usage.h>
 #include <vm/as.h>

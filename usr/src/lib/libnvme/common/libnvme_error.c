@@ -44,6 +44,8 @@ nvme_scttostr(nvme_ctrl_t *ctrl __unused, uint32_t sc)
 		return ("command specific status");
 	case NVME_CQE_SCT_INTEGRITY:
 		return ("media and data integrity errors");
+	case NVME_CQE_SCT_PATH:
+		return ("path related status");
 	case NVME_CQE_SCT_VENDOR:
 		return ("vendor specific");
 	default:
@@ -788,6 +790,48 @@ nvme_errtostr(nvme_t *nvme, nvme_err_t err)
 		return ("NVME_ERR_PCIE_LANE_RANGE");
 	case NVME_ERR_PCIE_EYE_BUF_RANGE:
 		return ("NVME_ERR_PCIE_EYE_BUF_RANGE");
+	case NVME_ERR_SET_FEAT_USER_UNSUP:
+		return ("NVME_ERR_SET_FEAT_USER_UNSUP");
+	case NVME_ERR_FEAT_SAVE_RANGE:
+		return ("NVME_ERR_FEAT_SAVE_RANGE");
+	case NVME_ERR_FEAT_CDW12_RANGE:
+		return ("NVME_ERR_FEAT_CDW12_RANGE");
+	case NVME_ERR_FEAT_CDW13_RANGE:
+		return ("NVME_ERR_FEAT_CDW13_RANGE");
+	case NVME_ERR_FEAT_CDW15_RANGE:
+		return ("NVME_ERR_FEAT_CDW15_RANGE");
+	case NVME_ERR_FEAT_IMPACT_RANGE:
+		return ("NVME_ERR_FEAT_IMPACT_RANGE");
+	case NVME_ERR_FEAT_SAVE_UNSUP:
+		return ("NVME_ERR_FEAT_SAVE_UNSUP");
+	case NVME_ERR_FEAT_CDW12_UNSUP:
+		return ("NVME_ERR_FEAT_CDW12_UNSUP");
+	case NVME_ERR_FEAT_CDW13_UNSUP:
+		return ("NVME_ERR_FEAT_CDW13_UNSUP");
+	case NVME_ERR_FEAT_CDW15_UNSUP:
+		return ("NVME_ERR_FEAT_CDW15_UNSUP");
+	case NVME_ERR_FEAT_CDW12_UNUSE:
+		return ("NVME_ERR_FEAT_CDW12_UNUSE");
+	case NVME_ERR_FEAT_CDW13_UNUSE:
+		return ("NVME_ERR_FEAT_CDW13_UNUSE");
+	case NVME_ERR_FEAT_CDW15_UNUSE:
+		return ("NVME_ERR_FEAT_CDW15_UNUSE");
+	case NVME_ERR_SET_FEAT_REQ_MISSING_FIELDS:
+		return ("NVME_ERR_SET_FEAT_REQ_MISSING_FIELDS");
+	case NVME_ERR_VU_FEAT_UNSUP_BY_DEV:
+		return ("NVME_ERR_VU_FEAT_UNSUP_BY_DEV");
+	case NVME_ERR_OCP_ERRINJ_TYPE_RANGE:
+		return ("NVME_ERR_OCP_ERRINJ_TYPE_RANGE");
+	case NVME_ERR_OCP_ERRINJ_NRTDE_RANGE:
+		return ("NVME_ERR_OCP_ERRINJ_NRTDE_RANGE");
+	case NVME_ERR_OCP_ERRINJ_LD_RANGE:
+		return ("NVME_ERR_OCP_ERRINJ_LD_RANGE");
+	case NVME_ERR_OCP_ERRINJ_LD_UNSUP:
+		return ("NVME_ERR_OCP_ERRINJ_LD_UNSUP");
+	case NVME_ERR_OCP_ERRINJ_LD_UNUSE:
+		return ("NVME_ERR_OCP_ERRINJ_LD_UNUSE");
+	case NVME_ERR_OCP_ERRINJ_REQ_MISSING_FIELDS:
+		return ("NVME_ERR_OCP_ERRINJ_REQ_MISSING_FIELDS");
 	default:
 		return ("unknown error");
 	}
@@ -1004,7 +1048,7 @@ static const nvme_ktolmap_t nvme_ktolmap[] = {
 	{ NVME_IOCTL_E_LOG_LSP_UNSUP, NVME_ERR_LOG_LSP_UNSUP,
 	    "the controller does not support specifying the lsp" },
 	{ NVME_IOCTL_E_LOG_LSI_UNSUP, NVME_ERR_LOG_LSI_UNSUP,
-	    "or controller do not support specifying the lsi" },
+	    "the controller does not support specifying the lsi" },
 	{ NVME_IOCTL_E_LOG_RAE_UNSUP, NVME_ERR_LOG_RAE_UNSUP,
 	    "the controller does not support retaining an asynchronous event" },
 	{ NVME_IOCTL_E_LOG_OFFSET_UNSUP, NVME_ERR_LOG_OFFSET_UNSUP,
@@ -1013,7 +1057,7 @@ static const nvme_ktolmap_t nvme_ktolmap[] = {
 	    "does not allow the lsp to be used" },
 	{ NVME_IOCTL_E_LOG_LSI_UNUSE, NVME_ERR_LOG_LSI_UNUSE, "the log page "
 	    "does not allow the lsi to be used" },
-	{ NVME_IOCTL_E_LOG_RAE_UNUSE, NVME_ERR_LOG_RAE_UNUSE,  "the log page "
+	{ NVME_IOCTL_E_LOG_RAE_UNUSE, NVME_ERR_LOG_RAE_UNUSE, "the log page "
 	    "does not allow rae to be set" },
 	{ NVME_IOCTL_E_NO_DMA_MEM, NVME_ERR_NO_DMA_MEM, "the kernel failed to "
 	    "allocate sufficient DMA resources" },
@@ -1183,6 +1227,41 @@ static const nvme_ktolmap_t nvme_ktolmap[] = {
 	    "driver does not supporting CSIs with that value" },
 	{ NVME_IOCTL_E_CTRL_THIN_PROV_UNSUP, NVME_ERR_THIN_PROV_UNSUP_BY_DEV,
 	    "controller does not support thin provisioning of namespaces" },
+	{ NVME_IOCTL_E_SET_FEAT_USER_UNSUP, NVME_ERR_SET_FEAT_USER_UNSUP,
+	    "feature is not settable from userland" },
+	{ NVME_IOCTL_E_SET_FEAT_SAVE_RANGE, NVME_ERR_FEAT_SAVE_RANGE,
+	    "invalid set feature save value" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW11_RANGE, NVME_ERR_FEAT_CDW11_RANGE,
+	    "invalid feature-specific cdw11 value" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW12_RANGE, NVME_ERR_FEAT_CDW12_RANGE,
+	    "invalid feature-specific cdw12 value" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW13_RANGE, NVME_ERR_FEAT_CDW13_RANGE,
+	    "invalid feature-specific cdw13 value" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW15_RANGE, NVME_ERR_FEAT_CDW15_RANGE,
+	    "invalid feature-specific cdw15 value" },
+	{ NVME_IOCTL_E_SET_FEAT_DATA_RANGE, NVME_ERR_FEAT_DATA_RANGE,
+	    "invalid set feature data and buffer request" },
+	{ NVME_IOCTL_E_SET_FEAT_IMPACT_RANGE, NVME_ERR_FEAT_IMPACT_RANGE,
+	    "invalid set feature impact value" },
+	{ NVME_IOCTL_E_SET_FEAT_SAVE_UNSUP, NVME_ERR_FEAT_SAVE_UNSUP,
+	    "the controller does not support setting the save field" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW12_UNSUP, NVME_ERR_FEAT_CDW12_UNSUP,
+	    "the controller does not support setting cdw12" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW13_UNSUP, NVME_ERR_FEAT_CDW13_UNSUP,
+	    "the controller does not support setting cdw13" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW15_UNSUP, NVME_ERR_FEAT_CDW15_UNSUP,
+	    "the controller does not support setting cdw15" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW11_UNUSE, NVME_ERR_FEAT_CDW11_UNUSE,
+	    "the set feature does not allow cdw11 to be used" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW12_UNUSE, NVME_ERR_FEAT_CDW12_UNUSE,
+	    "the set feature does not allow cdw12 to be used" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW13_UNUSE, NVME_ERR_FEAT_CDW13_UNUSE,
+	    "the set feature does not allow cdw13 to be used" },
+	{ NVME_IOCTL_E_SET_FEAT_CDW15_UNUSE, NVME_ERR_FEAT_CDW15_UNUSE,
+	    "the set feature does not allow cdw15 to be used" },
+	{ NVME_IOCTL_E_SET_FEAT_DATA_UNUSE, NVME_ERR_FEAT_DATA_UNUSE,
+	    "the set feature does not allow data to be used" },
+
 };
 
 /*
@@ -1365,6 +1444,21 @@ nvme_field_check_one(nvme_ctrl_t *ctrl, uint64_t val, const char *req,
 		VERIFY3U(check->chk_field_range, !=, 0);
 		return (nvme_ctrl_error(ctrl, check->chk_field_range, 0, "%s",
 		    msg));
+	}
+
+	return (true);
+}
+
+bool
+nvme_field_valid_impact(nvme_ctrl_t *ctrl, nvme_disc_impact_t impact,
+    nvme_err_t err)
+{
+	const nvme_disc_impact_t all_impact = NVME_DISC_IMPACT_DATA |
+	    NVME_DISC_IMPACT_NS;
+
+	if ((impact & ~all_impact) != 0) {
+		return (nvme_ctrl_error(ctrl, err, 0, "encountered unknown "
+		    "impact flags: 0x%x", impact & ~all_impact));
 	}
 
 	return (true);

@@ -100,8 +100,10 @@ typedef enum {
 	 */
 	OCP_FEAT_DSSD_EOLPLP		= 0xc2,
 	/*
-	 * Clears the PCIe correctable error counters. Added in v1.0. Scoped to
-	 * the controller.
+	 * Clears the PCIe correctable error counters in the OCP_LOG_DSSD_SMART
+	 * log page. It does not impact the PCIe AER registers. There is no
+	 * meaningful GET FEATURE for this. Added in v1.0. Scoped to the
+	 * controller.
 	 */
 	OCP_FEAT_DSSD_CLEAR_PCIE_ERRCOR	= 0xc3,
 	/*
@@ -110,7 +112,8 @@ typedef enum {
 	 */
 	OCP_FEAT_DSSD_IEEE1667		= 0xc4,
 	/*
-	 * Controls the latency monitor feature. Added in v2.0. Scoped to the
+	 * Controls attributes of the latency monitor feature. Paired with the
+	 * OCP_LOG_DSSD_LATENCY log page. Added in v2.0. Scoped to the
 	 * controller.
 	 */
 	OCP_FEAT_DSSD_LATENCY		= 0xc5,
@@ -120,8 +123,8 @@ typedef enum {
 	 */
 	OCP_FEAT_DSSD_PLP_HEALTH	= 0xc6,
 	/*
-	 * Controls the power state that the device is in. Added in v2.0. Scoped
-	 * to the NVM subsystem.
+	 * Controls the OCP version of the device power state. Added in v2.0.
+	 * Scoped to the NVM subsystem.
 	 */
 	OCP_FEAT_DSSD_POWER_STATE	= 0xc7,
 	/*
@@ -131,7 +134,8 @@ typedef enum {
 	OCP_FEAT_DSSD_TEL_PROFILE	= 0xc8,
 	/*
 	 * Controls whether additional spec-specific events should be sent with
-	 * the asynchronous event commands.
+	 * the asynchronous event commands. Added in v2.5. Scoped to the
+	 * controller.
 	 */
 	OCP_FEAT_DSSD_ASYNC_EVENT	= 0xc9
 } ocp_vuf_t;
@@ -232,10 +236,14 @@ typedef struct {
 	/*
 	 * NVMe base spec errata version (2.0).
 	 * NVMe cmd spec errata version (2.5).
+	 * NVMe PCIe spec errata (2.6)
+	 * NVMe-MI spec errata (2.6)
 	 */
 	uint8_t osh_nvme_base_errata;
 	uint8_t osh_nvme_cmd_errata;
-	uint8_t osh_rsvd132[4];
+	uint8_t osh_nvme_pcie_errata;
+	uint8_t osh_nvme_mi_errata;
+	uint8_t osh_rsvd132[2];
 	/*
 	 * Quantity of unaligned I/O
 	 */
@@ -269,9 +277,83 @@ typedef struct {
 	 * Minimum permitted firmware version for rollback purposes.
 	 */
 	uint64_t osh_min_fwrev;
-	uint8_t osh_rsvd216[278];
 	/*
-	 * v1.0: 2, v2.0: 3, v2.5: 4
+	 * Media die information: the total, allowed failures, and offline
+	 * count (2.6).
+	 */
+	uint16_t osh_tmd;
+	uint16_t osh_mdft;
+	uint16_t osh_mdo;
+	/*
+	 * Highest recorded composite temperature in C (2.6).
+	 */
+	uint8_t osh_max_temp;
+	/*
+	 * Form Factor as per NVMe-MI 2.1 and TP6041 for E2 (2.7).
+	 */
+	uint8_t osh_ff;
+	/*
+	 * NAND average erase count across all blocks (2.6).
+	 */
+	uint64_t osh_naec;
+	/*
+	 * Command Timeouts (2.6).
+	 */
+	uint32_t osh_ct;
+	/*
+	 * These next three are the System Area Program Fail Count, System Area
+	 * Uncorrectable Read Count, and System Area Erase Fail Count. These
+	 * track the respective failures as a combination of a raw and
+	 * normalized value (2.6).
+	 */
+	struct {
+		uint32_t safpc_raw;
+		uint8_t safpc_norm;
+		uint8_t safpc_rsvd239[3];
+	} osh_sapfc;
+	struct {
+		uint32_t saurc_raw;
+		uint8_t saurc_norm;
+		uint8_t saurc_rsvd239[3];
+	} osh_saurc;
+	struct {
+		uint32_t saefc_raw;
+		uint8_t saefc_norm;
+		uint8_t saefc_rsvd239[3];
+	} osh_saefc;
+	/*
+	 * Max Power Peak Capability. This measures the number of watts the
+	 * device can pull in a 4us sampling interval (2.6).
+	 */
+	uint16_t osh_mppc;
+	/*
+	 * Current (Max) Average Power. This tracks the max power in watts over
+	 * a 1 second with a 2ms or less sampling window (2.6).
+	 */
+	uint16_t osh_cap;
+	/*
+	 * Lifetime Power Consumed. This is measured in kWh (2.6).
+	 */
+	uint8_t osh_lpc[6];
+	/*
+	 * DSSD Firmware Revision. This is an ASCII string-padded field (2.6).
+	 */
+	uint8_t osh_dfr[8];
+	/*
+	 * DSSD Firmware Build UUID and Label (2.6).
+	 */
+	uint8_t osh_dfbu[16];
+	uint8_t osh_dfbl[64];
+	/*
+	 * Dies in Use Bad NAND Blocks (2.7).
+	 */
+	struct {
+		uint8_t diunb_raw[6];
+		uint16_t diunb_norm;
+	} osh_diubnb;
+	uint8_t osh_rsvd366[494 - 366];
+	/*
+	 * v1.0: 2, v2.0: 3, v2.5: 4, v2.6: 5, v2.7: 6
 	 */
 	uint16_t osh_vers;
 	/*
@@ -510,19 +592,26 @@ typedef struct {
 	uint8_t ol_dbg_units;
 	uint8_t ol_rsvd465[29];
 	/*
-	 * V2.0: 1, V2.5: 4
+	 * V2.0: 1, V2.5: 4, V2.7: 5
 	 */
 	uint16_t ol_vers;
 	/*
 	 * Log page GUID: 85D45E58D4E643709C6C84D08CC07A92h.
 	 */
 	uint8_t ol_guid[16];
+	/*
+	 * V2.7 increased the size of this to 4 KiB. For now there is no data
+	 * in this section so we don't currently increase the size beyond the
+	 * current 512 bytes.
+	 */
 } ocp_vul_lat_t;
 
 typedef enum {
-	OPC_LOG_LAT_F_LFMS_EN		= 1 << 0,
-	OPC_LOG_LAT_F_LFMS_ALC_SUP	= 1 << 1,
-	OPC_LOG_LAT_F_LFMS_AML_SUP	= 1 << 2,
+	OCP_LOG_LAT_F_LFMS_EN		= 1 << 0,
+	OCP_LOG_LAT_F_LFMS_ALC_SUP	= 1 << 1,
+	OCP_LOG_LAT_F_LFMS_AML_SUP	= 1 << 2,
+	/* 2.7 */
+	OCP_LOG_LAT_F_LFMS_HITF_SUP	= 1 << 3
 } ocp_lat_lmfs_t;
 
 typedef enum {
@@ -565,9 +654,10 @@ typedef struct {
 	uint16_t odc_fuse_sup;
 	uint16_t odc_dssd_min_valid;
 	ocp_dssd_ps_t odc_dssd[128];
-	uint8_t odc_rsvd144[3934];
+	uint16_t odc_fips;
+	uint8_t odc_rsvd146[3932];
 	/*
-	 * V2.0: 1, V2.5: 1
+	 * V2.0: 1, V2.5: 1, V2.7: 2
 	 */
 	uint16_t odc_vers;
 	/*
@@ -577,10 +667,12 @@ typedef struct {
 } ocp_vul_devcap_t;
 
 typedef enum {
+	/* MCTP over SMBus supported */
+	OCP_LOG_DEVCAP_F_OOB_SMBUS	= 1 << 0,
 	/* PCIe VDM Supported */
-	OCP_LOG_DEVCAP_F_OOB_VDM	= 1 << 0,
+	OCP_LOG_DEVCAP_F_OOB_VDM	= 1 << 1,
 	/* NVMe Basic Management Command supported */
-	OCP_LOG_DEVCAP_F_OOB_BMC	= 1 << 1,
+	OCP_LOG_DEVCAP_F_OOB_BMC	= 1 << 2,
 	/* Passed compliance testing */
 	OCP_LOG_DEVCAP_F_OOB_COMPLY	= 1 << 15,
 } ocp_devcap_oob_t;
@@ -628,6 +720,14 @@ typedef enum {
 	/* Passed compliance testing */
 	OCP_LOG_DEVCAP_F_FUSE_COMPLY	= 1 << 15
 } ocp_devcap_fuse_t;
+
+typedef enum {
+	OCP_LOG_DEVCAP_FIPS_NONE	= 0,
+	OCP_LOG_DEVCAP_FIPS_INTENDED,
+	OCP_LOG_DEVCAP_FIPS_SUBMITTED,
+	OCP_LOG_DEVCAP_FIPS_INTERIM,
+	OCP_LOG_DEVCAP_FIPS_VALID
+} ocp_devcap_fips_t;
 
 /*
  * Unsupported Requirements log. This log is structured such that each
@@ -793,11 +893,104 @@ typedef struct {
 } ocp_vul_telstr_vuest_t;
 
 /*
+ * OCP Error Injection Feature Data Structure
+ */
+typedef enum {
+	/*
+	 * This flag indicates that the error type is enabled.
+	 */
+	OCP_ERRINJ_F_ENABLE	= 1 << 0,
+	/*
+	 * This flag indicates that this error should be injected on its own as
+	 * a single instance.
+	 */
+	OCP_ERRINJ_F_SINGLE	= 1 << 1
+} ocp_errinj_flags_t;
+
+typedef enum {
+	OCP_ERRINJ_T_RSVD = 0,
+	OCP_ERRINJ_T_CPU_HANG,
+	OCP_ERRINJ_T_NAND_HANG,
+	OCP_ERRINJ_T_PLP_DEFECT,
+	OCP_ERRINJ_T_FW_ERROR,
+	OCP_ERRINJ_T_DRAM_CORRUPT_CRIT,
+	OCP_ERRINJ_T_DRAM_CORRUPT_NONCRIT,
+	OCP_ERRINJ_T_NAND_CORRUPT,
+	OCP_ERRINJ_T_SRAM_CORRUPT,
+	OCP_ERRINJ_T_HW_MALFUNC,
+	OCP_ERRINJ_T_NO_SPARE_NAND,
+	/* Added in v2.5 */
+	OCP_ERRINJ_T_INCOMPLETE_SHUTDOWN,
+	/* Added in v2.6 */
+	OCP_ERRINJ_T_METADATA_CORRUPT,
+	OCP_ERRINJ_T_CRIT_GC,
+	OCP_ERRINJ_T_LATENCY_SPIKE,
+	OCP_ERRINJ_T_IO_FAIL,
+	OCP_ERRINJ_T_IO_TIMEOUT,
+	OCP_ERRINJ_T_ADMIN_FAIL,
+	OCP_ERRINJ_T_ADMIN_TIMEOUT,
+	OCP_ERRINJ_T_THERM_THROT_EN,
+	OCP_ERRINJ_T_THERM_THROT_DIS,
+	OCP_ERRINJ_T_THERM_CRIT_TEMP,
+	OCP_ERRINJ_T_DIE_OFFLINE,
+	/* Added in v2.7 */
+	OCP_ERRINJ_T_SANITIZE_CMD_FAIL,
+	/* 0x18 is reserved */
+	OCP_ERRINJ_T_USER_DATA_ERASE	= 0x19,
+	OCP_ERRINJ_T_PCIE_CE,
+	OCP_ERRINJ_T_PCIE_UE,
+	OCP_ERRINJ_T_PEL_CLEAR,
+	OCP_ERRINJ_T_SANITIZE_OP_FAIL,
+	OCP_ERRINJ_T_RANDOM_LATENCY,
+	OCP_ERRINJ_T_FACTORY_RESET,
+	OCP_ERRINJ_T_VOLTAGE_DROP,
+	OCP_ERRINJ_T_AVAIL_SPARE,
+	OCP_ERRINJ_T_VOL_MEM_BACKUP
+} ocp_errinj_type_t;
+
+/*
+ * This is the maximum number of errors that can be injected or information can
+ * be returned about. The data structure is sized to this + 1. Later versions of
+ * the specification have constrained things so only one event may be injected
+ * per command.
+ */
+#define	OCP_ERRINJ_MAX_INJECT	127
+
+typedef struct {
+	uint8_t oei_flags;
+	uint8_t oei_rsvd;
+	uint16_t oei_type;
+	uint16_t oei_nrtde;
+	uint8_t oei_rsvd6[2];
+	uint32_t oei_lat;
+	uint8_t oei_rsvd10[32 - 12];
+} ocp_vuf_errinj_t;
+
+typedef enum {
+	OCP_PLP_MODE_READ_ONLY	= 1,
+	OCP_PLP_MODE_WRITE_THROUGH,
+	OCP_PLP_MODE_NORMAL
+} ocp_plp_mode_t;
+
+typedef struct {
+	uint32_t opf_mode:3;
+	uint32_t opf_rsvd:29;
+} ocp_vuf_plp_fail_t;
+
+typedef struct {
+	uint16_t oph_hci;
+	uint16_t oph_rsvd;
+} ocp_vuf_plp_health_t;
+
+/*
  * Our current version of smatch cannot handle packed structures.
  */
 #ifndef __CHECKER__
 CTASSERT(sizeof (ocp_vul_smart_t) == 512);
 CTASSERT(offsetof(ocp_vul_smart_t, osh_therm) == 96);
+CTASSERT(offsetof(ocp_vul_smart_t, osh_ct) == 232);
+CTASSERT(offsetof(ocp_vul_smart_t, osh_lpc) == 264);
+CTASSERT(offsetof(ocp_vul_smart_t, osh_rsvd366) == 366);
 CTASSERT(offsetof(ocp_vul_smart_t, osh_vers) == 494);
 CTASSERT(sizeof (ocp_vul_errrec_t) == 512);
 CTASSERT(offsetof(ocp_vul_errrec_t, oer_npanic) == 31);
@@ -815,7 +1008,7 @@ CTASSERT(offsetof(ocp_vul_lat_t, ol_rsvd218) == 218);
 CTASSERT(offsetof(ocp_vul_lat_t, ol_als_sunits) == 424);
 CTASSERT(sizeof (ocp_vul_lat_t) == 512);
 CTASSERT(sizeof (ocp_vul_devcap_t) == 4096);
-CTASSERT(offsetof(ocp_vul_devcap_t, odc_rsvd144) == 144);
+CTASSERT(offsetof(ocp_vul_devcap_t, odc_rsvd146) == 146);
 CTASSERT(sizeof (ocp_req_str_t) == 16);
 CTASSERT(sizeof (ocp_vul_unsup_req_t) == 4096);
 CTASSERT(sizeof (ocp_hw_comp_desc_t) == 44);
@@ -826,6 +1019,9 @@ CTASSERT(offsetof(ocp_vul_telstr_t, ots_rsvd384) == 384);
 CTASSERT(sizeof (ocp_vul_telstr_sit_t) == 16);
 CTASSERT(sizeof (ocp_vul_telstr_est_t) == 16);
 CTASSERT(sizeof (ocp_vul_telstr_vuest_t) == 16);
+CTASSERT(sizeof (ocp_vuf_errinj_t) == 32);
+CTASSERT(sizeof (ocp_vuf_plp_fail_t) == 4);
+CTASSERT(sizeof (ocp_vuf_plp_health_t) == 4);
 #endif
 
 #pragma	pack()	/* pack(1) */
