@@ -2073,12 +2073,12 @@ vm_getusage(uint_t flags, time_t age, vmusage_t *buf, size_t *nres,
 		size_t bufsize;
 		vmusage_t zreq;
 
-		if (ddi_copyin((caddr_t)nres, &bufsize, sizeof (size_t), cpflg))
+		if (uio_copyin(nres, &bufsize, sizeof (size_t), seg) != 0)
 			return (set_errno(EFAULT));
 		/* Requested zone ID is passed in buf, so 0 len not allowed */
 		if (bufsize == 0)
 			return (set_errno(EINVAL));
-		if (ddi_copyin((caddr_t)buf, &zreq, sizeof (vmusage_t), cpflg))
+		if (uio_copyin(buf, &zreq, sizeof (vmusage_t), seg) != 0)
 			return (set_errno(EFAULT));
 		req_zone_id = zreq.vmu_id;
 	}
