@@ -14,7 +14,6 @@
 #
 # Copyright 2025 Oxide Computer Company
 #
-#
 
 #
 # Run destructive user tests after verification that the device is
