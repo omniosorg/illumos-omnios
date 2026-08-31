@@ -924,14 +924,16 @@ memlist(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	}
 
 	if (DCMD_HDRSPEC(flags))
-		mdb_printf("%<u>%?s %16s %16s%</u>\n", "ADDR", "BASE", "SIZE");
+		mdb_printf("%<u>%?s %16s %16s %16s%</u>\n", "ADDR", "BASE",
+		    "LIMIT", "SIZE");
 
 	if (mdb_vread(&ml, sizeof (struct memlist), addr) == -1) {
 		mdb_warn("can't read memlist at %#lx", addr);
 		return (DCMD_ERR);
 	}
 
-	mdb_printf("%0?lx %16llx %16llx\n", addr, ml.ml_address, ml.ml_size);
+	mdb_printf("%0?lx %16llx %16llx %16llx\n", addr, ml.ml_address,
+	    ml.ml_address + ml.ml_size, ml.ml_size);
 
 	return (DCMD_OK);
 }
