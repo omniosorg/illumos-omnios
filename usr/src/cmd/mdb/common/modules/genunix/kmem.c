@@ -3433,9 +3433,13 @@ vmem_walk_step(mdb_walk_state_t *wsp)
 int
 vmem_postfix_walk_step(mdb_walk_state_t *wsp)
 {
+
 	vmem_walk_t *vw = wsp->walk_data;
-	vmem_node_t *vp = vw->vw_current;
+	vmem_node_t *vp;
 	int rval;
+
+	if ((vp = vw->vw_current) == NULL)
+		return (WALK_DONE);
 
 	/*
 	 * If this node is marked, then we know that we have already visited
