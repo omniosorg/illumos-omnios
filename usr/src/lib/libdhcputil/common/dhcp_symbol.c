@@ -21,6 +21,7 @@
 /*
  * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
  */
 
 #include <stdlib.h>
@@ -87,7 +88,8 @@ static dsym_type_t types[] = {
 	{ "SNUMBER64", DSYM_SNUMBER64, B_TRUE },
 	{ "IPV6", DSYM_IPV6, B_TRUE },
 	{ "DUID", DSYM_DUID, B_TRUE },
-	{ "DOMAIN", DSYM_DOMAIN, B_TRUE }
+	{ "DOMAIN", DSYM_DOMAIN, B_TRUE },
+	{ "ROUTE", DSYM_ROUTE, B_TRUE }
 };
 
 /*
@@ -295,7 +297,7 @@ dsym_parse_classes(char *ptr, dhcp_classes_t *classes_ret)
 	}
 
 	if (*ptr == '\0') {
-	    return (DSYM_INVALID_CAT);
+		return (DSYM_INVALID_CAT);
 	}
 
 	if (strlen(ptr) > DSYM_MAX_CLASS_SIZE) {
@@ -511,7 +513,7 @@ dsym_validate_code(dsym_category_t cat, ushort_t code)
 
 /*
  * dsym_validate_granularity(): given a symbol type, validates
- *                       	that the granularity is valid for the type
+ *                              that the granularity is valid for the type
  *
  *  input: dsym_cdtype_t: the symbol type
  *         uchar_t: the symbol granularity
@@ -677,9 +679,7 @@ dsym_init_parser(const char *name, const char *value, char ***fields_ret,
 
 	next = cp;
 	for (i = 0; ret == DSYM_SUCCESS && i < DSYM_NUM_FIELDS; i++) {
-
-		field = dsym_get_token(next, DSYM_FIELD_DEL, &next,
-			B_FALSE);
+		field = dsym_get_token(next, DSYM_FIELD_DEL, &next, B_FALSE);
 
 		if (field == NULL) {
 			ret = DSYM_NULL_FIELD;
@@ -731,7 +731,7 @@ dsym_errcode_t
 dsym_parse_field(int field_num, char **fields, dhcp_symbol_t *sym)
 {
 
-	int 	ret = DSYM_SUCCESS;
+	int	ret = DSYM_SUCCESS;
 	int	intval;
 
 	switch (field_num) {

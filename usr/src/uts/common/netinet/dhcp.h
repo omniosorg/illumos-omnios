@@ -23,6 +23,7 @@
  * Copyright 1996-2003 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright (c) 2016, Chris Fraire <cfraire@me.com>.
+ * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
  */
 
 /*
@@ -170,8 +171,10 @@ extern "C" {
 #define	CD_PXECID		95
 #define	CD_MULTICST		107
 
+#define	CD_CLASSLESS_ROUTES	121
+
 #define	DHCP_FIRST_OPT		CD_SUBNETMASK
-#define	DHCP_LAST_STD		CD_MULTICST
+#define	DHCP_LAST_STD		CD_CLASSLESS_ROUTES
 #define	DHCP_SITE_OPT		128		/* inclusive */
 #define	DHCP_END_SITE		254
 #define	DHCP_LAST_OPT		DHCP_END_SITE	/* last op code */

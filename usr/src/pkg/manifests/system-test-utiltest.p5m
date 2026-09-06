@@ -1622,6 +1622,8 @@ file path=opt/util-tests/tests/iconv_test mode=0555
 dir  path=opt/util-tests/tests/libcustr
 file path=opt/util-tests/tests/libcustr/custr_remove mode=0555
 file path=opt/util-tests/tests/libcustr/custr_trunc mode=0555
+file path=opt/util-tests/tests/libdhcputil.32 mode=0555
+file path=opt/util-tests/tests/libdhcputil.64 mode=0555
 file path=opt/util-tests/tests/libjedec_hex2spd.32 mode=0555
 file path=opt/util-tests/tests/libjedec_hex2spd.64 mode=0555
 file path=opt/util-tests/tests/libjedec_spd.32 mode=0555

@@ -22,6 +22,8 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <sys/types.h>
@@ -42,6 +44,7 @@
 #include <libinetutil.h>
 #include <libdlpi.h>
 #include <netinet/dhcp6.h>
+#include <sys/ilstr.h>
 
 #include "dhcp_symbol.h"
 #include "dhcp_inittab.h"
@@ -52,6 +55,10 @@ static boolean_t	encode_number(uint8_t, uint8_t, boolean_t, uint8_t,
 			    const char *, uint8_t *, int *);
 static boolean_t	decode_number(uint8_t, uint8_t, boolean_t, uint8_t,
 			    const uint8_t *, char *, int *);
+static boolean_t	encode_route(const char *, uint8_t *, size_t,
+			    uint16_t *, int *);
+static char		*decode_route(uint_t *, const uint8_t *, size_t,
+			    int *);
 static dhcp_symbol_t	*inittab_lookup(uchar_t, char, const char *, int32_t,
 			    size_t *);
 static dsym_category_t	itabcode_to_dsymcode(uchar_t);
@@ -96,6 +103,44 @@ static category_map_entry_t category_map[] = {
 	{ DSYM_VENDOR,		"VENDOR",	ITAB_CAT_VENDOR },
 	{ DSYM_SITE,		"SITE",		ITAB_CAT_SITE }
 };
+
+/*
+ * inittab_errstr(): return a symbolic name for this error number.
+ *
+ *   input: int: the error number returned by inittab_encode_e() or
+ *          inittab_decode_e()
+ *  output: const char *: the symbolic name of the error, if one exists
+ *          or NULL if this error number is not recognised
+ */
+
+const char *
+inittab_errstr(int ierrno)
+{
+	switch (ierrno) {
+	case ITAB_SYNTAX_ERROR:
+		return ("SYNTAX_ERROR");
+	case ITAB_BAD_IPADDR:
+		return ("BAD_IPADDR");
+	case ITAB_BAD_STRING:
+		return ("BAD_STRING");
+	case ITAB_BAD_OCTET:
+		return ("BAD_OCTET");
+	case ITAB_BAD_NUMBER:
+		return ("BAD_NUMBER");
+	case ITAB_BAD_BOOLEAN:
+		return ("BAD_BOOLEAN");
+	case ITAB_NOT_ENOUGH_IP:
+		return ("NOT_ENOUGH_IP");
+	case ITAB_BAD_GRAN:
+		return ("BAD_GRAN");
+	case ITAB_NOMEM:
+		return ("NOMEM");
+	case ITAB_BAD_ROUTE:
+		return ("BAD_ROUTE");
+	default:
+		return (NULL);
+	}
+}
 
 /*
  * inittab_load(): returns all inittab entries with the specified criteria
@@ -556,6 +601,7 @@ inittab_encode_e(const dhcp_symbol_t *ie, const char *value, uint16_t *lengthp,
 	uchar_t		*result = NULL;
 	uchar_t		*optstart;
 	unsigned int	i;
+	size_t		l;
 	uint8_t		type_size = inittab_type_to_size(ie);
 	boolean_t	is_signed;
 	uint_t		vallen, reslen;
@@ -594,6 +640,30 @@ inittab_encode_e(const dhcp_symbol_t *ie, const char *value, uint16_t *lengthp,
 		if (n_entries < DLPI_PHYSADDR_MAX)
 			n_entries = DLPI_PHYSADDR_MAX;
 		n_entries += sizeof (duid_llt_t);
+		break;
+
+	case DSYM_ROUTE:
+		/*
+		 * The shortest valid textual representation is
+		 * "0.0.0.0/0:0.0.0.0"; viz., 17 characters, not counting the
+		 * comma that would separate multiple entries.  Get the ceiling
+		 * of the division so that we don't undercount:
+		 */
+		l = strlen(value);
+		l = l / 17 + (l % 17 != 0);
+
+		/*
+		 * The longest possible binary representation of an entry is a
+		 * 32-bit prefix (5 bytes in the variable length encoding)
+		 * followed by a 4-byte next hop address, for a total of 9
+		 * bytes.
+		 */
+		l *= 9;
+		if (l > UINT8_MAX) {
+			*ierrnop = ITAB_SYNTAX_ERROR;
+			return (NULL);
+		}
+		n_entries = l > 0 ? l : 1;
 		break;
 
 	default:
@@ -888,6 +958,21 @@ inittab_encode_e(const dhcp_symbol_t *ie, const char *value, uint16_t *lengthp,
 		}
 		break;
 
+	case DSYM_ROUTE:
+
+		if (optstart == NULL) {
+			free(result);
+			*ierrnop = ITAB_BAD_ROUTE;
+			return (NULL);
+		}
+
+		if (!encode_route(value, optstart, n_entries, &length,
+		    ierrnop)) {
+			free(result);
+			return (NULL);
+		}
+		break;
+
 	case DSYM_IP:
 	case DSYM_IPV6:
 
@@ -1026,6 +1111,10 @@ inittab_decode_e(const dhcp_symbol_t *ie, const uchar_t *payload,
 	}
 
 	if (!just_payload) {
+		/*
+		 * The buffer contains the DHCP option header as well as the
+		 * data payload.  Strip it off:
+		 */
 		if (ie->ds_dhcpv6) {
 			dhcpv6_option_t d6o;
 
@@ -1039,14 +1128,15 @@ inittab_decode_e(const dhcp_symbol_t *ie, const uchar_t *payload,
 	}
 
 	/*
-	 * figure out the number of elements to convert.  note that
+	 * Figure out the number of elements to convert.  Note that
 	 * for ds_type NUMBER, the granularity is really 1 since the
 	 * value of ds_gran is the number of bytes in the number.
 	 */
-	if (ie->ds_type == DSYM_NUMBER)
+	if (ie->ds_type == DSYM_NUMBER) {
 		n_entries = MIN(ie->ds_max, length / type_size);
-	else
+	} else {
 		n_entries = MIN(ie->ds_max * ie->ds_gran, length / type_size);
+	}
 
 	if (n_entries == 0)
 		n_entries = length / type_size;
@@ -1129,6 +1219,10 @@ inittab_decode_e(const dhcp_symbol_t *ie, const uchar_t *payload,
 				*resultp++ = ' ';
 		}
 		*resultp = '\0';
+		break;
+
+	case DSYM_ROUTE:
+		result = decode_route(&n_entries, payload, length, ierrnop);
 		break;
 
 	case DSYM_DUID:
@@ -1416,6 +1510,262 @@ inittab_msg(const char *fmt, ...)
 	}
 }
 
+static boolean_t
+encode_route(const char *from, uint8_t *to, size_t tolen, uint16_t *lenp,
+    int *ierrnop)
+{
+	boolean_t ok = B_FALSE;
+	enum {
+		ERST_REST = 1,
+		ERST_NETWORK,
+		ERST_PREFIX,
+		ERST_NEXTHOP,
+	} state = ERST_REST;
+
+	ilstr_t net, pfx, hop;
+	ilstr_init(&net, 0);
+	ilstr_init(&pfx, 0);
+	ilstr_init(&hop, 0);
+
+	size_t pos = 0, opos = 0;
+	boolean_t done = B_FALSE;
+	for (;;) {
+		if (ilstr_errno(&net) != ILSTR_ERROR_OK ||
+		    ilstr_errno(&hop) != ILSTR_ERROR_OK ||
+		    ilstr_errno(&pfx) != ILSTR_ERROR_OK) {
+			*ierrnop = ITAB_NOMEM;
+			goto end;
+		}
+
+		if (done) {
+			break;
+		}
+
+		char c = from[pos++];
+
+		switch (state) {
+		case ERST_REST:
+			if (c == '\0') {
+				done = B_TRUE;
+			} else if (c >= '0' && c <= '9') {
+				ilstr_append_char(&net, c);
+				state = ERST_NETWORK;
+			} else {
+				*ierrnop = ITAB_BAD_ROUTE;
+				goto end;
+			}
+			break;
+
+		case ERST_NETWORK:
+			if ((c >= '0' && c <= '9') || c == '.') {
+				ilstr_append_char(&net, c);
+			} else if (c == '/') {
+				state = ERST_PREFIX;
+			} else {
+				*ierrnop = ITAB_BAD_ROUTE;
+				goto end;
+			}
+			break;
+
+		case ERST_PREFIX:
+			if (c >= '0' && c <= '9') {
+				ilstr_append_char(&pfx, c);
+			} else if (c == ':') {
+				state = ERST_NEXTHOP;
+			} else {
+				*ierrnop = ITAB_BAD_ROUTE;
+				goto end;
+			}
+			break;
+
+		case ERST_NEXTHOP:
+			if ((c >= '0' && c <= '9') || c == '.') {
+				ilstr_append_char(&hop, c);
+			} else if (c == '/') {
+				state = ERST_PREFIX;
+			} else if (c == ',' || c == '\0') {
+				uint8_t hopb[4], netb[4];
+				long long pfxn;
+				const char *estr = NULL;
+				uint_t o;
+
+				pfxn = strtonum(ilstr_cstr(&pfx), 0, 32, &estr);
+				if (estr != NULL) {
+					*ierrnop = ITAB_BAD_ROUTE;
+					goto end;
+				}
+
+				if (inet_pton(AF_INET, ilstr_cstr(&net),
+				    netb) == 0 ||
+				    inet_pton(AF_INET, ilstr_cstr(&hop),
+				    hopb) == 0) {
+					*ierrnop = ITAB_BAD_ROUTE;
+					goto end;
+				}
+
+				size_t octs = 0;
+				if (pfxn > 24) {
+					octs = 4;
+				} else if (pfxn > 16) {
+					octs = 3;
+				} else if (pfxn > 8) {
+					octs = 2;
+				} else if (pfxn > 0) {
+					octs = 1;
+				}
+
+				size_t need = octs + 5;
+				if (opos >= tolen || tolen - opos < need) {
+					*ierrnop = ITAB_NOMEM;
+					goto end;
+				}
+
+				to[opos++] = pfxn;
+				for (o = 0; o < octs; o++) {
+					to[opos++] = netb[o];
+				}
+				for (o = 0; o < 4; o++) {
+					to[opos++] = hopb[o];
+				}
+
+				if (c == '\0') {
+					done = B_TRUE;
+				} else {
+					ilstr_reset(&net);
+					ilstr_reset(&pfx);
+					ilstr_reset(&hop);
+					state = ERST_REST;
+				}
+			} else {
+				*ierrnop = ITAB_BAD_ROUTE;
+				goto end;
+			}
+			break;
+		}
+	}
+
+	if (opos > UINT16_MAX) {
+		*ierrnop = ITAB_NOMEM;
+		goto end;
+	}
+	*lenp = opos;
+	ok = B_TRUE;
+
+end:
+	ilstr_fini(&net);
+	ilstr_fini(&pfx);
+	ilstr_fini(&hop);
+	return (ok);
+}
+
+static char *
+decode_route(uint_t *n_entries, const uint8_t *from, size_t fromsz,
+    int *ierrnop)
+{
+	struct in_addr ia;
+	char *r;
+	ilstr_t routes;
+	uint8_t nroutes = 0;
+	uint_t pfx;
+	uint8_t ip[4];
+	uint16_t pos = 0;
+	uint_t nsigocts = 0;
+	uint_t c = 0;
+	enum {
+		RPST_REST = 1,
+		RPST_NETWORK,
+		RPST_NEXTHOP,
+	} state = RPST_REST;
+
+	ilstr_init(&routes, 0);
+
+	for (;;) {
+		uint8_t b;
+
+		if (pos >= fromsz) {
+			break;
+		}
+
+		b = from[pos];
+
+		switch (state) {
+		case RPST_REST:
+			if (b == 0) {
+				nsigocts = 0;
+			} else if (b >= 1 && b <= 8) {
+				nsigocts = 1;
+			} else if (b >= 9 && b <= 16) {
+				nsigocts = 2;
+			} else if (b >= 17 && b <= 24) {
+				nsigocts = 3;
+			} else if (b >= 25 && b <= 32) {
+				nsigocts = 4;
+			} else {
+				*ierrnop = ITAB_BAD_ROUTE;
+				goto fail;
+			}
+			pfx = b;
+			(void) memset(ip, 0, sizeof (ip));
+			c = 0;
+			pos++;
+			state = RPST_NETWORK;
+			break;
+
+		case RPST_NETWORK:
+			if (c < nsigocts) {
+				ip[c++] = b;
+				pos++;
+				break;
+			}
+			(void) memset(&ia, 0, sizeof (ia));
+			(void) memcpy(&ia.s_addr, ip, sizeof (ipaddr_t));
+			ilstr_aprintf(&routes, "%s%s/%u:",
+			    nroutes > 0 ? "," : "",
+			    inet_ntoa(ia), pfx);
+			c = 0;
+			state = RPST_NEXTHOP;
+			break;
+
+		case RPST_NEXTHOP:
+			ip[c++] = b;
+			pos++;
+			if (c < 4) {
+				break;
+			}
+			(void) memset(&ia, 0, sizeof (ia));
+			(void) memcpy(&ia.s_addr, ip, sizeof (ipaddr_t));
+			ilstr_append_str(&routes, inet_ntoa(ia));
+			nroutes++;
+			state = RPST_REST;
+			break;
+		}
+	}
+
+	if (state != RPST_REST) {
+		*ierrnop = ITAB_BAD_ROUTE;
+		goto fail;
+	}
+
+	if (ilstr_errno(&routes) != ILSTR_ERROR_OK) {
+		*ierrnop = ITAB_NOMEM;
+		goto fail;
+	}
+
+	if ((r = strndup(ilstr_cstr(&routes), ilstr_len(&routes))) == NULL) {
+		*ierrnop = ITAB_NOMEM;
+		goto fail;
+	}
+
+	ilstr_fini(&routes);
+	*n_entries = nroutes;
+	return (r);
+
+fail:
+	ilstr_fini(&routes);
+	return (NULL);
+}
+
+
 /*
  * decode_number(): decodes a sequence of numbers from binary into ascii;
  *		    binary is coming off of the network, so it is in nbo
@@ -1610,42 +1960,35 @@ uint8_t
 inittab_type_to_size(const dhcp_symbol_t *ie)
 {
 	switch (ie->ds_type) {
-
 	case DSYM_DUID:
+	case DSYM_ROUTE:
 	case DSYM_DOMAIN:
 	case DSYM_ASCII:
 	case DSYM_OCTET:
 	case DSYM_SNUMBER8:
 	case DSYM_UNUMBER8:
-
 		return (1);
 
 	case DSYM_SNUMBER16:
 	case DSYM_UNUMBER16:
-
 		return (2);
 
 	case DSYM_UNUMBER24:
-
 		return (3);
 
 	case DSYM_SNUMBER32:
 	case DSYM_UNUMBER32:
 	case DSYM_IP:
-
 		return (4);
 
 	case DSYM_SNUMBER64:
 	case DSYM_UNUMBER64:
-
 		return (8);
 
 	case DSYM_NUMBER:
-
 		return (ie->ds_gran);
 
 	case DSYM_IPV6:
-
 		return (sizeof (in6_addr_t));
 	}
 

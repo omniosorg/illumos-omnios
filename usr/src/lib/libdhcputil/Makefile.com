@@ -23,13 +23,16 @@
 # Use is subject to license terms.
 #
 # Copyright (c) 2018, Joyent, Inc.
+# Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
 
 LIBRARY =	libdhcputil.a
 VERS =		.1
 LOCOBJS =	dhcp_inittab.o dhcp_symbol.o dhcpmsg.o
 COMDIR =	$(SRC)/common/net/dhcp
 COMOBJS =	scan.o
-OBJECTS =	$(LOCOBJS) $(COMOBJS)
+ILSTRDIR =	$(SRC)/common/ilstr
+ILSTROBJS =	ilstr.o
+OBJECTS =	$(LOCOBJS) $(COMOBJS) $(ILSTROBJS)
 
 include ../../Makefile.lib
 
@@ -41,7 +44,8 @@ LIBS =		$(DYNLIB)
 LDLIBS +=	-lc -lgen -linetutil -ldlpi
 
 SRCDIR =	../common
-SRCS =		$(LOCOBJS:%.o=$(SRCDIR)/%.c) $(COMOBJS:%.o=$(COMDIR)/%.c)
+SRCS =		$(LOCOBJS:%.o=$(SRCDIR)/%.c) $(COMOBJS:%.o=$(COMDIR)/%.c) \
+		$(ILSTROBJS:%.o=$(ILSTRDIR)/%.c)
 
 CFLAGS +=	$(CCVERBOSE)
 CERRWARN +=	-_gcc=-Wno-switch
@@ -56,6 +60,10 @@ SMATCH=off
 all: $(LIBS)
 
 pics/%.o: $(COMDIR)/%.c
+	$(COMPILE.c) -o $@ $<
+	$(POST_PROCESS_O)
+
+pics/%.o: $(ILSTRDIR)/%.c
 	$(COMPILE.c) -o $@ $<
 	$(POST_PROCESS_O)
 

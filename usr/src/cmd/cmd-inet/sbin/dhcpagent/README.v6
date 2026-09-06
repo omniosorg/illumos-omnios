@@ -846,8 +846,7 @@ Field Mappings
   if_t1			dhcp_lease_t.dl_t1
   if_t2			dhcp_lease_t.dl_t2
   if_lease		dhcp_lif_t.lif_expire
-  if_nrouters		dhcp_smach_t.dsm_nrouters
-  if_routers		dhcp_smach_t.dsm_routers
+  if_routers		dhcp_smach_t.dsm_routes
   if_server		dhcp_smach_t.dsm_server
   if_addr		dhcp_lif_t.lif_v6addr
   if_netmask		dhcp_lif_t.lif_v6mask

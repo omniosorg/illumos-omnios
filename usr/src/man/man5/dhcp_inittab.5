@@ -321,6 +321,25 @@ An RFC 3315 Unique Identifier
 An RFC 1035-encoded domain name
 .RE
 
+.sp
+.ne 2
+.na
+\fB\fBRoute\fR\fR
+.ad
+.RS 13n
+A comma-separated list of route prefix and next hop address pairs.
+The route prefix is specified in CIDR notation, separated by a colon
+from the next hop address.
+A next hop address of all zeroes specifies an interface route.
+For example:
+.sp
+.in +2
+.nf
+10.9.8.7/32:0.0.0.0,0.0.0.0/0:10.9.8.7
+.fi
+.in -2
+.RE
+
 .RE
 
 The data type field describes an indivisible unit of the option payload, using
@@ -477,6 +496,7 @@ T}
 \fBAgentOpt\fR	\fB82\fR	Agent circuit ID, OCTET.
 \fBFQDN\fR	\fB89\fR	Fully Qualified Domain Name, OCTET.
 \fBPXEarch\fR	\fB93\fR	Client system architecture, NUMBER.
+\fBClasslessRoute\fR	\fB121\fR	Classless static routes, ROUTE.
 \fBBootFile\fR	\fBN/A\fR	File to Boot, ASCII.
 \fBBootPath\fR	\fBN/A\fR	T{
 Boot path prefix to apply to client's requested boot file, ASCII.
@@ -608,6 +628,11 @@ Droms, R. \fIRFC 3315, Dynamic Host Configuration Protocol for IPv6
 Schulzrinne, H., and B. Volz. \fIRFC 3319, Dynamic Host Configuration Protocol
 (DHCPv6) Options for Session Initiation Protocol (SIP) Servers\fR. Columbia
 University and Ericsson. July 2003.
+.sp
+.LP
+Lemon, T., Cheshire, S., and Volz, B. \fIRFC 3442: RFC 3442: The Classless
+Static Route Option for Dynamic Host Configuration Protocol (DHCP) version
+4\fR. Network Working Group. December 2002.
 .sp
 .LP
 Droms, R. \fIRFC 3646, DNS Configuration options for Dynamic Host Configuration

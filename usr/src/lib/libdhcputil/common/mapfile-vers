@@ -66,6 +66,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	inittab_decode_e;
 	inittab_encode;
 	inittab_encode_e;
+	inittab_errstr;
 	inittab_getbycode;
 	inittab_getbyname;
 	inittab_load;

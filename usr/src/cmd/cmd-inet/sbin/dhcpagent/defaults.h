@@ -59,7 +59,8 @@ enum {
 	DF_V4_DEFAULT_IAID_DUID,	/* IAID/DUID if no DF_CLIENT_ID */
 	DF_DNS_DOMAINNAME,	/* static domain name if not in --reqhost */
 	DF_ADOPT_DOMAINNAME,	/* adopt DHCP domain if not in --reqhost */
-	DF_SET_MTU		/* set interface MTU (option 26) */
+	DF_SET_MTU,		/* set interface MTU (option 26) */
+	DF_CLASSLESS_ROUTES	/* manage additional routes (option 121) */
 };
 
 #define	DHCP_AGENT_DEFAULTS	"/etc/default/dhcpagent"

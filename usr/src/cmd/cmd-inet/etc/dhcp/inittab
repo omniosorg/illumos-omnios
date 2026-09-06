@@ -2,6 +2,7 @@
 # Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 # Copyright (c) 2016, Chris Fraire <cfraire@me.com>.
+# Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
 #
 # CDDL HEADER START
 #
@@ -28,7 +29,7 @@
 # use by DHCP-related programs.  This file should only be modified to
 # add support for SITE options for clients; no existing options should
 # be modified.  Only SITE options will be preserved during an upgrade.
-# If you need to configure the Solaris DHCP server to support the vendor 
+# If you need to configure the Solaris DHCP server to support the vendor
 # options of a different client, see dhcptab(5) for details.
 #
 # Please consult dhcp_inittab(5) for further information.  Note that
@@ -117,6 +118,7 @@ SLP_SS		STANDARD,	79,	OCTET,	   1,	0,	sdmi
 ClientFQDN	STANDARD,	81,	OCTET,	   1,	0,	sdmi
 AgentOpt	STANDARD,	82,	OCTET,	   1,	0,	sdi
 FQDN		STANDARD,	89,	OCTET,	   1,	0,	sdmi
+ClasslessRoute	STANDARD,	121,	ROUTE,	   1,	128,	sdmi
 
 #
 # DHCP packet fields.	Code field is byte offset into DHCP packet.
@@ -152,7 +154,7 @@ BootPath	INTERNAL,	1027,	ASCII,	   1,	128,	dm
 
 #
 # SunOS vendor space -- see the Solaris System Administrator
-# documentation for more information on these options. 
+# documentation for more information on these options.
 #
 
 SrootOpt	VENDOR,		1,	ASCII,	   1,	0,	smi

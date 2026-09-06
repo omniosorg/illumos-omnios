@@ -1350,7 +1350,7 @@ check_lif(dhcp_lif_t *lif, const struct ifa_msghdr *ifam, int msglen)
 			dhcpmsg(MSG_INFO, "%s has been removed; abandoning",
 			    lif->lif_name);
 			if (!isv6)
-				discard_default_routes(lif->lif_smachs);
+				discard_routes(lif->lif_smachs, 0);
 		} else {
 			dhcpmsg(MSG_ERR,
 			    "unable to retrieve interface flags on %s",

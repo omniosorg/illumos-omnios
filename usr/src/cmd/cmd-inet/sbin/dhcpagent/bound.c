@@ -22,12 +22,14 @@
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2017, Chris Fraire <cfraire@me.com>.
  * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
+ * Copyright 2026 Oxide Computer Company
  *
  * BOUND state of the DHCP client state machine.
  */
 
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/debug.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <sys/sockio.h>
@@ -311,6 +313,150 @@ dhcp_bound(dhcp_smach_t *dsmp, PKT_LIST *ack)
 	return (B_TRUE);
 }
 
+static int
+dhcp_route_add(dhcp_smach_t *dsmp, struct in_addr *network, uint8_t prefix,
+    struct in_addr *nexthop, boolean_t interface, dhcp_route_source_t source)
+{
+	dhcp_route_t *dhr, *found;
+	avl_index_t where;
+
+	if ((dhr = calloc(1, sizeof (*dhr))) == NULL) {
+		return (-1);
+	}
+
+	VERIFY3U(prefix, <=, 32);
+	if (prefix != 0) {
+		dhr->dhr_network = *network;
+		dhr->dhr_prefix = prefix;
+	}
+	dhr->dhr_nexthop = *nexthop;
+	dhr->dhr_installed = B_FALSE;
+	dhr->dhr_interface = interface;
+	dhr->dhr_source = source;
+
+	if ((found = avl_find(&dsmp->dsm_routes, dhr, &where)) != NULL) {
+		/*
+		 * The route is already in the list.
+		 */
+		found->dhr_source |= source;
+		free(dhr);
+		return (0);
+	}
+
+	avl_insert(&dsmp->dsm_routes, dhr, where);
+	return (0);
+}
+
+/*
+ * Parse the "Classless Route" option from RFC3442.  The option is formatted as
+ * a sequence of pairs of destination prefix and next hop router address.
+ */
+static int
+dhcp_classless_routes_add(dhcp_smach_t *dsmp, DHCP_OPT *routes, ipaddr_t ifip)
+{
+	uint_t pos = 0;
+	uint_t nsigocts = 0;
+	uint_t c = 0;
+	uint8_t network[4];
+	uint8_t nexthop[4];
+	uint_t pfx = 0;
+	enum {
+		RPST_REST = 1,
+		RPST_NETWORK,
+		RPST_NEXTHOP
+	} state = RPST_REST;
+
+	VERIFY3U(routes->code, ==, CD_CLASSLESS_ROUTES);
+
+	while (pos < routes->len) {
+		uint8_t b = routes->value[pos];
+
+		switch (state) {
+		case RPST_REST:
+			/*
+			 * The first octet of a destination descriptor is the
+			 * number of prefix bits in the subnet mask.  This also
+			 * determines the number of octets of that will follow
+			 * to completely specify the destination prefix.
+			 */
+			if (b == 0) {
+				nsigocts = 0;
+			} else if (b >= 1 && b <= 8) {
+				nsigocts = 1;
+			} else if (b >= 9 && b <= 16) {
+				nsigocts = 2;
+			} else if (b >= 17 && b <= 24) {
+				nsigocts = 3;
+			} else if (b >= 25 && b <= 32) {
+				nsigocts = 4;
+			} else {
+				errno = EPROTO;
+				return (-1);
+			}
+			pfx = b;
+			(void) memset(network, 0, sizeof (network));
+			(void) memset(nexthop, 0, sizeof (nexthop));
+			c = 0;
+			pos++;
+			state = RPST_NETWORK;
+			break;
+
+		case RPST_NETWORK:
+			if (c < nsigocts) {
+				network[c++] = b;
+				pos++;
+				break;
+			}
+			c = 0;
+			state = RPST_NEXTHOP;
+			break;
+
+		case RPST_NEXTHOP:
+			/*
+			 * The next hop router address appears directly after
+			 * the variable length destination descriptor.
+			 */
+			nexthop[c++] = b;
+			pos++;
+			if (c >= 4) {
+				boolean_t iface;
+				struct in_addr ia_net, ia_hop;
+				(void) memcpy(&ia_net.s_addr, network,
+				    sizeof (ipaddr_t));
+				if (nexthop[0] == 0 && nexthop[1] == 0 &&
+				    nexthop[2] == 0 && nexthop[3] == 0) {
+					/*
+					 * A next hop address of all zeroes in
+					 * the option value means this is an
+					 * interface route and we need to use
+					 * the address of the interface.
+					 */
+					iface = B_TRUE;
+					(void) memcpy(&ia_hop.s_addr, &ifip,
+					    sizeof (ipaddr_t));
+				} else {
+					iface = B_FALSE;
+					(void) memcpy(&ia_hop.s_addr, nexthop,
+					    sizeof (ipaddr_t));
+				}
+
+				(void) dhcp_route_add(dsmp, &ia_net, pfx,
+				    &ia_hop, iface, DHR_SRC_CLASSLESS_ROUTES);
+
+				state = RPST_REST;
+			}
+			break;
+		}
+	}
+
+	if (state != RPST_REST) {
+		errno = EPROTO;
+		return (-1);
+	}
+
+	return (0);
+}
+
 /*
  * dhcp_bound_complete(): complete interface configuration after DAD
  *
@@ -321,12 +467,14 @@ dhcp_bound(dhcp_smach_t *dsmp, PKT_LIST *ack)
 void
 dhcp_bound_complete(dhcp_smach_t *dsmp)
 {
-	PKT_LIST	*ack = dsmp->dsm_ack;
-	DHCP_OPT	*router_list;
-	DHCPSTATE	oldstate;
-	dhcp_lif_t	*lif = dsmp->dsm_lif;
-	boolean_t	ignore_mtu = B_FALSE;
-	boolean_t	manage_mtu;
+	PKT_LIST *ack = dsmp->dsm_ack;
+	DHCP_OPT *routes;
+	DHCP_OPT *router_list;
+	DHCPSTATE oldstate;
+	dhcp_lif_t *lif = dsmp->dsm_lif;
+	boolean_t ignore_mtu = B_FALSE;
+	boolean_t ignore_routes = B_FALSE, ignore_router_list = B_FALSE;
+	boolean_t manage_mtu, manage_classless_routes;
 
 	/*
 	 * Do bound state entry processing only if running IPv4.  There's no
@@ -345,19 +493,23 @@ dhcp_bound_complete(dhcp_smach_t *dsmp)
 	}
 
 	manage_mtu = df_get_bool(dsmp->dsm_name, dsmp->dsm_isv6, DF_SET_MTU);
+	manage_classless_routes = df_get_bool(dsmp->dsm_name, dsmp->dsm_isv6,
+	    DF_CLASSLESS_ROUTES);
 
 	/*
-	 * Check to see if the default route or MTU options appear in the
-	 * ignore list.
+	 * Check to see if the default route, classless routes, or MTU options
+	 * appear in the ignore list.
 	 */
-	router_list = ack->opts[CD_ROUTER];
 	for (int i = 0; i < dsmp->dsm_pillen; i++) {
 		switch (dsmp->dsm_pil[i]) {
 		case CD_MTU:
 			ignore_mtu = B_TRUE;
 			break;
 		case CD_ROUTER:
-			router_list = NULL;
+			ignore_router_list = B_TRUE;
+			break;
+		case CD_CLASSLESS_ROUTES:
+			ignore_routes = B_TRUE;
 			break;
 		}
 	}
@@ -385,45 +537,133 @@ dhcp_bound_complete(dhcp_smach_t *dsmp)
 		}
 	}
 
+	VERIFY3U(avl_numnodes(&dsmp->dsm_routes), ==, 0);
+
 	/*
-	 * Add each provided router; we'll clean them up when the
-	 * state machine goes away or when our lease expires.
-	 *
-	 * Note that we do not handle default routers on IPv4 logicals;
-	 * see README for details.
+	 * Process the RFC3442 classless routes option, if present and enabled:
 	 */
-	if (router_list != NULL &&
-	    (router_list->len % sizeof (ipaddr_t)) == 0 &&
-	    strchr(lif->lif_name, ':') == NULL &&
-	    !lif->lif_pif->pif_under_ipmp) {
+	if (!ignore_routes &&
+	    (routes = ack->opts[CD_CLASSLESS_ROUTES]) != NULL &&
+	    dhcp_classless_routes_add(dsmp, routes, lif->lif_addr) != 0) {
+		dhcpmsg(MSG_ERR, "dhcp_bound_complete: cannot read "
+		    "classless route list, ignoring classless routes");
 
-		dsmp->dsm_nrouters = router_list->len / sizeof (ipaddr_t);
-		dsmp->dsm_routers  = malloc(router_list->len);
-		if (dsmp->dsm_routers == NULL) {
-			dhcpmsg(MSG_ERR, "dhcp_bound_complete: cannot allocate "
-			    "default router list, ignoring default routers");
-			dsmp->dsm_nrouters = 0;
-		}
+		/*
+		 * We add routes incrementally while parsing the response.  To
+		 * avoid using a partially valid response from the server,
+		 * remove any classless routes we may have just added:
+		 */
+		discard_routes(dsmp, DHR_SRC_CLASSLESS_ROUTES);
+	}
 
-		for (uint_t i = 0; i < dsmp->dsm_nrouters; i++) {
-			(void) memcpy(&dsmp->dsm_routers[i].s_addr,
+	/*
+	 * Process the traditional default gateway option, if present and
+	 * enabled:
+	 */
+	if (!ignore_router_list &&
+	    (router_list = ack->opts[CD_ROUTER]) != NULL &&
+	    (router_list->len % sizeof (ipaddr_t)) == 0) {
+		for (int i = 0; i < router_list->len / sizeof (ipaddr_t); i++) {
+			struct in_addr gateway;
+			(void) memcpy(&gateway,
 			    router_list->value + (i * sizeof (ipaddr_t)),
 			    sizeof (ipaddr_t));
-
-			if (!add_default_route(lif->lif_pif->pif_index,
-			    &dsmp->dsm_routers[i])) {
-				dhcpmsg(MSG_ERR, "dhcp_bound_complete: cannot "
-				    "add default router %s on %s", inet_ntoa(
-				    dsmp->dsm_routers[i]), dsmp->dsm_name);
-				dsmp->dsm_routers[i].s_addr = htonl(INADDR_ANY);
-				continue;
+			if (dhcp_route_add(dsmp, NULL, 0, &gateway,
+			    B_FALSE, DHR_SRC_DEFAULT_GATEWAY) != 0) {
+				dhcpmsg(MSG_ERR, "dhcp_bound_complete: "
+				    "adding default router to list failed");
 			}
-
-			dhcpmsg(MSG_INFO, "added default router %s on %s",
-			    inet_ntoa(dsmp->dsm_routers[i]), dsmp->dsm_name);
 		}
 	}
 
+	/*
+	 * RFC3442 requires us to ignore the router option if a valid classless
+	 * routes option value is available and we are able to process it.  In
+	 * theory the server should only give us one or the other, but we
+	 * cannot assume that is the case.
+	 */
+	dhcp_route_source_t use_source = DHR_SRC_DEFAULT_GATEWAY;
+	for (dhcp_route_t *dhr = avl_first(&dsmp->dsm_routes);
+	    dhr != NULL; dhr = AVL_NEXT(&dsmp->dsm_routes, dhr)) {
+		if (!(dhr->dhr_source & DHR_SRC_CLASSLESS_ROUTES)) {
+			continue;
+		}
+
+		use_source = DHR_SRC_CLASSLESS_ROUTES;
+		dhcpmsg(MSG_INFO, "classless routes are available; "
+		    "ignoring router option on %s",
+		    dsmp->dsm_name);
+		break;
+	}
+
+	/*
+	 * If management of classless routes is disabled through configuration
+	 * but the option was requested and not explicitly ignored, we will not
+	 * add any routes from any source.  This allows the operator to collect
+	 * the option and perform some site-specific handling.
+	 */
+	if (!manage_classless_routes &&
+	    use_source == DHR_SRC_CLASSLESS_ROUTES) {
+		goto skip_routes;
+	}
+
+	/*
+	 * Add each provided router; we'll clean them up when the state machine
+	 * goes away or when our lease expires.
+	 *
+	 * Note that we do not handle routes on IPv4 logicals; see README for
+	 * details.
+	 */
+	if (strchr(lif->lif_name, ':') == NULL &&
+	    !lif->lif_pif->pif_under_ipmp) {
+		for (dhcp_route_t *dhr = avl_first(&dsmp->dsm_routes);
+		    dhr != NULL; dhr = AVL_NEXT(&dsmp->dsm_routes, dhr)) {
+			char rt[INET_ADDRSTRLEN];
+			const char *verb = "added";
+
+			if ((dhr->dhr_source & use_source) != use_source) {
+				/*
+				 * This route is not from the source we have
+				 * selected.
+				 */
+				continue;
+			}
+
+			(void) strncpy(rt, inet_ntoa(dhr->dhr_network),
+			    sizeof (rt));
+
+			if (!add_route(lif->lif_pif->pif_index, dhr)) {
+				if (errno == EEXIST) {
+					/*
+					 * This route already exists in the
+					 * kernel.  Adopt this route as if we
+					 * were able to add it, just in case
+					 * the DHCP agent crashed and was
+					 * restarted.
+					 */
+					verb = "found";
+				} else {
+					dhcpmsg(MSG_ERR,
+					    "dhcp_bound_complete: cannot "
+					    "add route %s/%u -> %s (%s) on %s",
+					    rt, dhr->dhr_prefix,
+					    inet_ntoa(dhr->dhr_nexthop),
+					    dhr->dhr_interface ? "interface" :
+					    "gateway", dsmp->dsm_name);
+					continue;
+				}
+			}
+
+			dhr->dhr_installed = B_TRUE;
+			dhcpmsg(MSG_INFO, "%s route %s/%u -> %s (%s) on %s",
+			    verb, rt, dhr->dhr_prefix,
+			    inet_ntoa(dhr->dhr_nexthop),
+			    dhr->dhr_interface ? "interface" : "gateway",
+			    dsmp->dsm_name);
+		}
+	}
+
+skip_routes:
 	oldstate = dsmp->dsm_state;
 	if (!set_smach_state(dsmp, BOUND)) {
 		dhcpmsg(MSG_ERR,

@@ -21,6 +21,8 @@
 /*
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2016-2017, Chris Fraire <cfraire@me.com>.
+ * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <unistd.h>
@@ -30,6 +32,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>		/* struct in_addr */
 #include <netinet/dhcp.h>
+#include <inet/ip.h>
 #include <signal.h>
 #include <sys/socket.h>
 #include <net/route.h>
@@ -319,18 +322,17 @@ daemonize(void)
 }
 
 /*
- * update_default_route(): update the interface's default route
+ * update_route(): update a configured route on an interface
  *
- *   input: int: the type of message; either RTM_ADD or RTM_DELETE
- *	    struct in_addr: the default gateway to use
- *	    const char *: the interface associated with the route
+ *   input: uint32_t: index of the interface associated with the route
+ *	    int: the type of message; either RTM_ADD or RTM_DELETE
+ *	    dhcp_route_t *: the route to use
  *	    int: any additional flags (besides RTF_STATIC and RTF_GATEWAY)
  *  output: boolean_t: B_TRUE on success, B_FALSE on failure
  */
 
 static boolean_t
-update_default_route(uint32_t ifindex, int type, struct in_addr *gateway_nbo,
-    int flags)
+update_route(uint32_t ifindex, int type, dhcp_route_t *dhr, int flags)
 {
 	struct {
 		struct rt_msghdr	rm_mh;
@@ -345,53 +347,75 @@ update_default_route(uint32_t ifindex, int type, struct in_addr *gateway_nbo,
 	rtmsg.rm_mh.rtm_msglen	= sizeof (rtmsg);
 	rtmsg.rm_mh.rtm_type	= type;
 	rtmsg.rm_mh.rtm_pid	= getpid();
-	rtmsg.rm_mh.rtm_flags	= RTF_GATEWAY | RTF_STATIC | flags;
+	rtmsg.rm_mh.rtm_flags	= flags;
 	rtmsg.rm_mh.rtm_addrs	= RTA_GATEWAY | RTA_DST | RTA_NETMASK | RTA_IFP;
 
-	rtmsg.rm_gw.sin_family	= AF_INET;
-	rtmsg.rm_gw.sin_addr	= *gateway_nbo;
+	/*
+	 * If this is not an interface route, add the flags for a route with a
+	 * next hop.
+	 */
+	if (!dhr->dhr_interface) {
+		rtmsg.rm_mh.rtm_flags |= RTF_GATEWAY | RTF_STATIC;
+	}
+
+	if (dhr->dhr_prefix == IPV4_ABITS) {
+		rtmsg.rm_mh.rtm_flags |= RTF_HOST;
+	}
+
+	/*
+	 * Note that for an interface route, the next hop address will have
+	 * been set to the interface address when we were processing the option
+	 * list.
+	 */
+	rtmsg.rm_gw.sin_family = AF_INET;
+	rtmsg.rm_gw.sin_addr = dhr->dhr_nexthop;
 
 	rtmsg.rm_dst.sin_family = AF_INET;
-	rtmsg.rm_dst.sin_addr.s_addr = htonl(INADDR_ANY);
+	rtmsg.rm_dst.sin_addr = dhr->dhr_network;
 
 	rtmsg.rm_mask.sin_family = AF_INET;
-	rtmsg.rm_mask.sin_addr.s_addr = htonl(0);
+	rtmsg.rm_mask.sin_addr.s_addr = dhr->dhr_prefix == 0 ? 0 :
+	    htonl(~0U << (IPV4_ABITS - dhr->dhr_prefix));
 
-	rtmsg.rm_ifp.sdl_family	= AF_LINK;
-	rtmsg.rm_ifp.sdl_index	= ifindex;
+	rtmsg.rm_ifp.sdl_family = AF_LINK;
+	rtmsg.rm_ifp.sdl_index = ifindex;
 
 	return (write(rtsock_fd, &rtmsg, sizeof (rtmsg)) == sizeof (rtmsg));
 }
 
 /*
- * add_default_route(): add the default route to the given gateway
+ * add_route(): add a route for given destination prefix and gateway
  *
- *   input: const char *: the name of the interface associated with the route
- *	    struct in_addr: the default gateway to add
+ *   input: uint32_t: index of the interface associated with the route
+ *	    dhcp_route_t: the route to add
  *  output: boolean_t: B_TRUE on success, B_FALSE otherwise
  */
 
 boolean_t
-add_default_route(uint32_t ifindex, struct in_addr *gateway_nbo)
+add_route(uint32_t ifindex, dhcp_route_t *route)
 {
-	return (update_default_route(ifindex, RTM_ADD, gateway_nbo, RTF_UP));
+	return (update_route(ifindex, RTM_ADD, route, RTF_UP));
 }
 
 /*
- * del_default_route(): deletes the default route to the given gateway
+ * del_route(): deletes a route to the given destination prefix and gateway
  *
- *   input: const char *: the name of the interface associated with the route
- *	    struct in_addr: if not INADDR_ANY, the default gateway to remove
+ *   input: uint32_t: the index of the interface associated with the route
+ *	    dhcp_route_t: the route to remove
  *  output: boolean_t: B_TRUE on success, B_FALSE on failure
  */
 
 boolean_t
-del_default_route(uint32_t ifindex, struct in_addr *gateway_nbo)
+del_route(uint32_t ifindex, dhcp_route_t *route)
 {
-	if (gateway_nbo->s_addr == htonl(INADDR_ANY)) /* no router */
+	if (!route->dhr_installed) {
+		/*
+		 * We never installed this route.
+		 */
 		return (B_TRUE);
+	}
 
-	return (update_default_route(ifindex, RTM_DELETE, gateway_nbo, 0));
+	return (update_route(ifindex, RTM_DELETE, route, 0));
 }
 
 /*
@@ -837,7 +861,7 @@ dhcp_add_fqdn_opt(dhcp_pkt_t *dpkt, dhcp_smach_t *dsmp)
 	 *
 	 *  Code   Len    Flags  RCODE1 RCODE2   Domain Name
 	 * +------+------+------+------+------+------+--
-	 * |  81  |   n  |      |      |      |       ...
+	 * |  81  |   n  |      |      |      |      ...
 	 * +------+------+------+------+------+------+--
 	 *
 	 * Code and Len are distinct, and the remainder is in a single buffer,

@@ -37,6 +37,7 @@ SUBDIRS =		\
 	head		\
 	iconv		\
 	libcustr	\
+	libdhcputil	\
 	libjedec	\
 	libnvpair_json	\
 	libsff		\

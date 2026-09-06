@@ -389,7 +389,7 @@ pif_status(dhcp_pif_t *pif, boolean_t isup)
 			if (isup)
 				refresh_smach(dsmp);
 			else
-				remove_default_routes(dsmp);
+				remove_routes(dsmp);
 		}
 	}
 }

@@ -1,11 +1,11 @@
 '\" te
 .\"  Copyright (c) 1992-1996 Competitive Automation, Inc. Copyright (c) 2009 Sun Microsystems, Inc. All Rights Reserved.
 .\"  Copyright (c) 2016-2017, Chris Fraire <cfraire@me.com>.
-.\"  Copyright 2023 Oxide Computer Company
+.\"  Copyright 2026 Oxide Computer Company
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License"). You may not use this file except in compliance with the License. You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.
 .\" See the License for the specific language governing permissions and limitations under the License. When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE. If applicable, add the following below this CDDL HEADER, with the
 .\" fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH DHCPAGENT 8 "Oct 6, 2023"
+.TH DHCPAGENT 8 "Aug 23, 2026"
 .SH NAME
 dhcpagent \- Dynamic Host Configuration Protocol (DHCP) client daemon
 .SH SYNOPSIS
@@ -815,6 +815,30 @@ Default value of this option is \fIyes\fR.
 Indicates that if the DHCP server provides an MTU option, the agent should
 adjust the MTU for the link to reflect the smallest MTU requested for any
 logical interface on the link.
+.sp
+This option works with DHCPv4 only.
+.sp
+Default value of this option is \fIyes\fR.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBCLASSLESS_ROUTES\fR\fR
+.ad
+.sp .6
+.RS 4n
+Indicates that if the DHCP server provides a Classless Routes option (as per
+RFC 3442), the agent should use that option to configure routes on the system
+instead of the classical default router option.
+.sp
+If the value \fIno\fR is specified, but the option is included in the request
+and the server provides a response, no routes of any kind will be added to the
+system.
+This allows the operator to fetch the option and perform site-specific handling.
+.sp
+If no classless routes are provided by the server, the system will continue to
+use the default router option.
 .sp
 This option works with DHCPv4 only.
 .sp

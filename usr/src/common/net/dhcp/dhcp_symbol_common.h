@@ -21,6 +21,7 @@
 /*
  * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
  */
 
 #ifndef _DHCP_SYMBOL_COMMON_H
@@ -74,7 +75,8 @@ typedef enum {
 	DSYM_UNUMBER24	= 14,	/* A 24-bit unsigned integer */
 	DSYM_IPV6	= 15,	/* An IPv6 address */
 	DSYM_DUID	= 16,	/* A DHCP Unique Identifier */
-	DSYM_DOMAIN	= 17	/* An RFC 1035-encoded domain name */
+	DSYM_DOMAIN	= 17,	/* An RFC 1035-encoded domain name */
+	DSYM_ROUTE	= 18	/* A classless route (RFC 3442) */
 } dsym_cdtype_t;
 
 #ifdef __cplusplus

@@ -49,7 +49,7 @@ CSTD = $(CSTD_GNU99)
 SMATCH=off
 CPPFLAGS  += -D_XOPEN_SOURCE=500 -D__EXTENSIONS__
 LDLIBS    += -lxnet -lnvpair -ldhcpagent -ldhcputil -linetutil -ldevinfo \
-	-ldlpi -lresolv -lipadm
+	-ldlpi -lresolv -lipadm -lavl
 
 .KEEP_STATE:
 

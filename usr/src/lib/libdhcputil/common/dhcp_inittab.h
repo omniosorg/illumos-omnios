@@ -21,6 +21,7 @@
 /*
  * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2019 Joshua M. Clulow <josh@sysmgr.org>
  */
 
 #ifndef	_DHCP_INITTAB_H
@@ -46,7 +47,7 @@ extern "C" {
  */
 #define	ITAB_INITTAB_PATH	"/etc/dhcp/inittab"
 #define	ITAB_INITTAB6_PATH	"/etc/dhcp/inittab6"
-#define	ITAB_MAX_LINE_LEN	8192 		/* bytes */
+#define	ITAB_MAX_LINE_LEN	8192		/* bytes */
 #define	ITAB_MAX_NUMBER_LEN	30		/* digits */
 #define	ITAB_COMMENT_CHAR	'#'
 #define	ITAB_CODE_MAX		UCHAR_MAX	/* for now */
@@ -94,6 +95,7 @@ extern "C" {
 #define	ITAB_NOT_ENOUGH_IP	(-7)
 #define	ITAB_BAD_GRAN		(-8)
 #define	ITAB_NOMEM		(-9)
+#define	ITAB_BAD_ROUTE		(-10)
 
 extern uint8_t		inittab_type_to_size(const dhcp_symbol_t *);
 extern int		inittab_verify(const dhcp_symbol_t *, dhcp_symbol_t *);
@@ -108,6 +110,7 @@ extern char		*inittab_decode(const dhcp_symbol_t *, const uchar_t *,
 			    uint16_t, boolean_t);
 extern char		*inittab_decode_e(const dhcp_symbol_t *,
 			    const uchar_t *, uint16_t, boolean_t, int *);
+extern const char	*inittab_errstr(int);
 
 #ifdef	__cplusplus
 }
