@@ -3,7 +3,7 @@
 .\" Copyright 2012 DEY Storage Systems, Inc.  All rights reserved.
 .\" Copyright (c) 2013, Joyent, Inc. All rights reserved.
 .\" Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-.\" Copyright 2024 Oxide Computer Company
+.\" Copyright 2026 Oxide Computer Company
 .\" Copyright 2025 Hans Rosenfeld
 .\" Copyright 2026 Carsten Grzemba
 .\" Copyright 1989 AT&T
@@ -23,7 +23,7 @@
 .\" fields enclosed by brackets "[]" replaced with your own identifying
 .\" information: Portions Copyright [yyyy] [name of copyright owner]
 .\"
-.Dd August 19, 2026
+.Dd September 8, 2026
 .Dt CORE 5
 .Os
 .Sh NAME
@@ -46,7 +46,7 @@ Whatever the cause, the core file itself provides invaluable information to the
 programmer or support engineer to aid in diagnosing the problem.
 The core file can be inspected using a debugger such as
 .Xr mdb 1 ,
-gdb or by applying one of the
+gdb, or by applying one of the
 .Xr proc 1
 tools.
 .Pp
@@ -179,118 +179,20 @@ field will have the
 .Dv PF_SUNW_KILLED
 flag set.
 .Pp
-In earlier versions of illumos the program header of an ELF core file could contain entries for two
+The program headers of an ELF core file also contain an entry for a
 .Sy NOTE
-segments, each containing several note entries as described below.
+segment containing several note entries as described below.
 The note entry header and core file note type
 .Pq Fa n_type
 definitions are contained in
 .In sys/elf.h .
-The content of old
+Core files produced by earlier versions of illumos contain an additional
 .Sy NOTE
-segment is defined in
-.In sys/old_procfs.h .
-Programs should recognize and skip this
-segment, advancing instead to the new
-.Sy NOTE
-segment.
-The old entries can be recognized by the name
-.Sy "CORE"
-and the note types
-.Sy NT_PRPSINFO
-and
-.Sy NT_PRSTATUS
-.
+segment, described under
+.Sx Old NOTE segment
+below.
 .Pp
-The old
-.Sy NOTE
-segment contains the following entries.
-Each has entry name
-.Sy "CORE"
-and presents the contents of a system structure:
-.Bl -tag -width prpsinfo_t
-.It Vt prpsinfo_t
-.Fa n_type :
-.Dv NT_PRPSINFO .
-This entry contains information of interest to the
-.Xr ps 1
-command, such as process status, CPU usage, nice value, controlling terminal,
-user-ID, process-ID, the name of the executable, and so forth.
 The
-.Vt prpsinfo_t
-structure is defined in
-.In sys/old_procfs.h .
-.It Vt char[]
-.Fa n_type :
-.Dv NT_PLATFORM .
-This entry contains a string describing the specific model of the hardware
-platform on which this core file was created.
-This information is the same as provided by
-.Xr sysinfo 2
-when invoked with the command
-.Dv SI_PLATFORM .
-.It Vt auxv_t[]
-.Fa n_type :
-.Dv NT_AUXV .
-This entry contains the array of
-.Vt Bauxv_t
-structures that was passed by the operating system as startup information to
-the dynamic linker.
-Auxiliary vector information is defined in
-.In sys/auxv.h .
-.El
-.Pp
-Following these entries, for each active (non-zombie) light-weight process
-.Pq LWP
-in the process, the old
-.Sy NOTE
-segment contains an entry with a
-.Vt prstatus_t
-structure, plus other optionally-present entries describing the LWP, as follows:
-.Bl -tag -width "prfpregset_t"
-.It Vt prstatus_t
-.Fa n_type :
-.Dv NT_PRSTATUS .
-This structure contains things of interest to a debugger from the operating
-system, such as the general registers, signal dispositions, state, reason for
-stopping, process-ID, and so forth.
-The
-.Vt prstatus_t
-structure is defined in
-.In sys/old_procfs.h .
-.It Vt prfpregset_t
-.Fa n_type :
-.Dv NT_PRFPREG .
-This entry is present only if the
-.Sy LWP
-used the floating-point hardware.
-It contains the floating-point registers.
-The
-.Vt prfpregset_t
-structure is defined in
-.In sys/procfs_isa.h .
-.It Vt gwindows_t
-.Fa n_type :
-.Dv NT_GWINDOWS .
-This entry is present only on a SPARC machine and only if the system was unable
-to flush all of the register windows to the stack.
-It contains all of the unspilled register windows.
-The
-.Vt gwindows_t
-structure is defined in
-.In sys/regset.h .
-.It Vt prxregset_t
-.Fa n_type :
-.Dv NT_PRXREG .
-This entry is no longer included in core files, but is of historical note
-because in the past it was included on SPARC-based systems.
-While since then the
-.Vt prxregset_t
-and extended register sets have been defined on other architectures, they do not
-emit this in the old note section because there is no binary compatibility.
-.El
-.Pp
-The new
 .Sy NOTE
 segment contains the following entries.
 Each has entry name
@@ -307,7 +209,7 @@ user-ID, process-ID, the name of the executable, and so forth.
 The
 .Vt psinfo_t
 structure is defined in
-.In sys/procfs.h
+.In sys/procfs.h .
 .It Vt pstatus_t
 .Fa n_type :
 .Dv NT_PSTATUS .
@@ -395,7 +297,7 @@ structure is defined in
 .It Vt struct ssd[]
 .Fa n_type :
 .Dv NT_LDT .
-This entry is present only on an 32-bit x86 machine and only if the process has
+This entry is present only on a 32-bit x86 machine and only if the process has
 set up a Local Descriptor Table
 .Pq LDT .
 It contains an array of structures of type
@@ -447,7 +349,7 @@ Indicates that
 .Fa pru_data
 member has valid contents and that the process provided a message in the
 .Xr upanic 2
-call .
+call.
 .It Dv PRUPANIC_FLAG_MSG_ERROR
 Indicates that the calling process attempted to include a message; however, the
 provided address of the message did not point to valid memory.
@@ -457,14 +359,14 @@ wanted to provide was larger than the current message length.
 .El
 The
 .Fa pru_data
-array contains binary data that the terminating process used to indicate that
+array contains binary data that the terminating process used to indicate
 the reason why it panicked.
 This member should be ignored if the
 .Dv PRUPANIC_FLAG_MSG_VALID
 flag is not set in
 .Fa pru_flags .
 While it is recommended that processes terminate with an ASCII string, consumers
-of this should not assume that the binary data is made of of printable
+of this should not assume that the binary data is made of printable
 characters.
 .It Vt prcwd_t
 .Fa n_type :
@@ -544,8 +446,7 @@ structure.
 .Pp
 For each active and zombie
 .Sy LWP
-in the process,
-the new
+in the process, the
 .Sy NOTE
 segment contains an entry with an
 .Vt lwpsinfo_t
@@ -643,14 +544,121 @@ DWARF debug information, symbol table, and string table sections.
 The
 .Fa sh_addr
 fields are set to the base address of the first mapping of the load object that
-they came from to.
+they came from.
 This can be used to match those sections with the corresponding load object.
 .Pp
 The size of the core file created by a process can be controlled by the user
 .Po
 see
 .Xr getrlimit 2
-.Pc
+.Pc .
+.Ss Old NOTE segment
+Core files produced by earlier versions of illumos contain two
+.Sy NOTE
+segments.
+The first is provided for binary compatibility with old programs that deal
+with core files and contains structures defined in
+.In sys/old_procfs.h .
+The second is the
+.Sy NOTE
+segment described above.
+Programs reading such core files should recognize and skip the old
+.Sy NOTE
+segment, advancing instead to the second.
+The old segment can also be identified by its note types, as it is the only
+segment to contain
+.Dv NT_PRPSINFO
+and
+.Dv NT_PRSTATUS
+entries.
+.Pp
+The old
+.Sy NOTE
+segment contains the following entries.
+Each has entry name
+.Sy "CORE"
+and presents the contents of a system structure:
+.Bl -tag -width prpsinfo_t
+.It Vt prpsinfo_t
+.Fa n_type :
+.Dv NT_PRPSINFO .
+This entry contains information of interest to the
+.Xr ps 1
+command, such as process status, CPU usage, nice value, controlling terminal,
+user-ID, process-ID, the name of the executable, and so forth.
+The
+.Vt prpsinfo_t
+structure is defined in
+.In sys/old_procfs.h .
+.It Vt char[]
+.Fa n_type :
+.Dv NT_PLATFORM .
+This entry contains a string describing the specific model of the hardware
+platform on which this core file was created.
+This information is the same as provided by
+.Xr sysinfo 2
+when invoked with the command
+.Dv SI_PLATFORM .
+.It Vt auxv_t[]
+.Fa n_type :
+.Dv NT_AUXV .
+This entry contains the array of
+.Vt auxv_t
+structures that was passed by the operating system as startup information to
+the dynamic linker.
+Auxiliary vector information is defined in
+.In sys/auxv.h .
+.El
+.Pp
+Following these entries, for each active (non-zombie) light-weight process
+.Pq LWP
+in the process, the old
+.Sy NOTE
+segment contains an entry with a
+.Vt prstatus_t
+structure, plus other optionally-present entries describing the LWP, as follows:
+.Bl -tag -width "prfpregset_t"
+.It Vt prstatus_t
+.Fa n_type :
+.Dv NT_PRSTATUS .
+This structure contains things of interest to a debugger from the operating
+system, such as the general registers, signal dispositions, state, reason for
+stopping, process-ID, and so forth.
+The
+.Vt prstatus_t
+structure is defined in
+.In sys/old_procfs.h .
+.It Vt prfpregset_t
+.Fa n_type :
+.Dv NT_PRFPREG .
+This entry is present only if the
+.Sy LWP
+used the floating-point hardware.
+It contains the floating-point registers.
+The
+.Vt prfpregset_t
+structure is defined in
+.In sys/procfs_isa.h .
+.It Vt gwindows_t
+.Fa n_type :
+.Dv NT_GWINDOWS .
+This entry is present only on a SPARC machine and only if the system was unable
+to flush all of the register windows to the stack.
+It contains all of the unspilled register windows.
+The
+.Vt gwindows_t
+structure is defined in
+.In sys/regset.h .
+.It Vt prxregset_t
+.Fa n_type :
+.Dv NT_PRXREG .
+This entry is present only in core files produced on a SPARC machine with
+extra register state, and contains that state.
+The
+.Vt prxregset_t
+structure is defined in
+.In sys/procfs_isa.h .
+.El
 .Sh SEE ALSO
 .Xr elfdump 1 ,
 .Xr gcore 1 ,

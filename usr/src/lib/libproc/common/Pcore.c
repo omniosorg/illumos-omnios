@@ -28,7 +28,7 @@
  * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright 2015 Gary Mills
  * Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
- * Copyright 2024 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  * Copyright 2025 Edgecast Cloud LLC.
  */
 
@@ -2505,8 +2505,9 @@ Pfgrab_core(int core_fd, const char *aout_path, int *perr)
 	 * contains a set of saved /proc structures), and PT_LOAD (which
 	 * represents a memory mapping from the process's address space).
 	 * In the case of PT_NOTE, we're interested in the last PT_NOTE
-	 * in the core file; currently the first PT_NOTE (if present)
-	 * contains /proc structs in the pre-2.6 unstructured /proc format.
+	 * in the core file.  Core files from older releases also have a
+	 * leading PT_NOTE that contains /proc structs in the pre-2.6
+	 * unstructured /proc format.
 	 */
 	for (php = phbuf, notes = 0, i = 0; i < core.e_hdr.e_phnum; i++) {
 		if (core.e_hdr.e_ident[EI_CLASS] == ELFCLASS64)
@@ -2540,8 +2541,11 @@ Pfgrab_core(int core_fd, const char *aout_path, int *perr)
 	Psort_mappings(P);
 
 	/*
-	 * If we couldn't find anything of type PT_NOTE, or only one PT_NOTE
-	 * was present, abort.  The core file is either corrupt or too old.
+	 * If we couldn't find anything of type PT_NOTE, abort.  The core file
+	 * is corrupt.  Core files from older releases carried two PT_NOTE
+	 * segments, the first holding the pre-2.6 /proc structures, so a core
+	 * file marked ELFOSABI_SOLARIS with only one PT_NOTE is rejected as
+	 * too old.
 	 */
 	if (notes == 0 || (notes == 1 && core_info->core_osabi ==
 	    ELFOSABI_SOLARIS)) {

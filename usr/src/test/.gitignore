@@ -207,6 +207,7 @@ os-tests/tests/saveargs/functional/small-struct-ret
 os-tests/tests/saveargs/functional/small-struct-ret-and-spill
 os-tests/tests/saveargs/functional/stack-spill
 os-tests/tests/saveargs/testmatch/testmatch
+os-tests/tests/sockopt/v4mapped
 os-tests/tests/sdevfs/sdevfs_eisdir
 os-tests/tests/secflags/addrs-32
 os-tests/tests/secflags/addrs-64

@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2024 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  * Copyright 2026 Edgecast Cloud LLC.
  */
 
@@ -379,7 +379,7 @@ sctp_input_add_ancillary(sctp_t *sctp, mblk_t **mp, sctp_data_hdr_t *dcp,
 	/* If app asked for tclass and it has changed ... */
 	if (connp->conn_recv_ancillary.crb_ipv6_recvtclass &&
 	    ipp->ipp_tclass != sctp->sctp_recvtclass) {
-		optlen += sizeof (struct T_opthdr) + sizeof (uint_t);
+		optlen += sizeof (*cmsg) + sizeof (uint_t);
 		if (hdrlen == 0)
 			hdrlen = sizeof (struct T_unitdata_ind);
 		addflag.crb_ipv6_recvtclass = 1;

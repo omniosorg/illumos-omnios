@@ -106,6 +106,14 @@ typedef struct {
 	uint8_t ps_req_hctl;
 	bool ps_req_done;
 	i2c_ctrl_error_t ps_kill_err;
+	/*
+	 * Stats that could reasonably be kstats in the future (or part of the
+	 * broader framework).
+	 */
+	uint64_t ps_stat_nintr;
+	uint64_t ps_stat_nintr_nosts;
+	uint64_t ps_stat_nintr_noreq;
+	uint64_t ps_stat_nintr_errs;
 } pchsmbus_t;
 
 typedef struct {
@@ -630,6 +638,7 @@ static bool
 pchsmbus_io(pchsmbus_t *pch, pch_smbus_sts_t status)
 {
 	ASSERT(MUTEX_HELD(&pch->ps_mutex));
+	pch->ps_stat_nintr++;
 
 	/*
 	 * Is there actually activity for us to process or not. If not, then
@@ -638,10 +647,24 @@ pchsmbus_io(pchsmbus_t *pch, pch_smbus_sts_t status)
 	 */
 	status &= PCH_HSTS_CLEAR_PRE;
 	if (status == 0) {
+		pch->ps_stat_nintr_nosts++;
 		return (false);
 	}
 
+	/*
+	 * We've seen cases in the wild where Intel hardware will generate an
+	 * interrupt with a device error despite us not having issued any
+	 * request. It's not clear if this was vestigial state that we
+	 * improperly cleared when attaching or something else going on in the
+	 * platform. Guard against this and bump a counter if we do see it.
+	 */
+	if (pch->ps_req == NULL) {
+		pch->ps_stat_nintr_nosts++;
+		goto done;
+	}
+
 	if ((status & PCH_HSTS_ERRORS) != 0) {
+		pch->ps_stat_nintr_errs++;
 		pchsmbus_io_error(pch, status);
 		goto done;
 	}
@@ -1024,11 +1047,16 @@ pchsmbus_ctrl_init(pchsmbus_t *pch)
 	/*
 	 * Save the initial control register to restore later. However, don't
 	 * save the kill bit which stops transactions. At this point, make sure
-	 * interrupts and related activity are all disabled.
+	 * interrupts and related activity are all disabled. Clear the interrupt
+	 * status that someone may have accidentally left behind before we got
+	 * here. This does end up touching some flags that shouldn't be set such
+	 * as HBSY, but given that everything else is disabled, this should
+	 * hopefully be okay.
 	 */
 	pch->ps_init_hctl = pchsmbus_read8(pch, PCH_R_BAR_HCTL);
 	pch->ps_init_hctl = PCH_R_HCTL_SET_KILL(pch->ps_init_hctl, 0);
 	pchsmbus_write8(pch, PCH_R_BAR_HCTL, 0);
+	pchsmbus_write8(pch, PCH_R_BAR_HSTS, PCH_HSTS_ALL);
 
 	uint32_t val = pch->ps_init_hcfg;
 	val = PCH_R_HCFG_SET_EN(val, 1);
