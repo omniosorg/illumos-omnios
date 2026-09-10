@@ -748,7 +748,7 @@ ent_bsearch(struct alts_ent buf[], int cnt, struct alts_ent *key)
 	int	interval;
 	int	mystatus = -1;
 
-	if (!cnt)
+	if (cnt <= 0)
 		return (mystatus);
 
 	for (i = 1; i <= cnt; i <<= 1)

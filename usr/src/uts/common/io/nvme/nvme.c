@@ -2274,7 +2274,16 @@ nvme_check_generic_cmd_status(nvme_cmd_t *cmd)
 		return (0);
 
 	/*
-	 * Errors indicating a bug in the driver should cause a panic.
+	 * Errors indicating a bug in the driver should cause a panic. That
+	 * only holds for commands that the driver originates itself, though.
+	 * A namespace that blkdev has open may be detached or deleted by
+	 * another host at any time, and the controller is then required to
+	 * fail both outstanding and subsequent commands to that NSID as though
+	 * it were inactive: "invalid field in command" for an inactive NSID,
+	 * "invalid namespace or format" for one that is no longer valid at all
+	 * (NVMe 1.4 sections 6.1.5 and 8.12). On the blkdev I/O path
+	 * (nc_xfer != NULL) those two are an operational error, so we fail just
+	 * the individual transfer instead of bringing the system down.
 	 */
 	case NVME_CQE_SC_GEN_INV_OPC:
 		/* Invalid Command Opcode */
@@ -2289,7 +2298,9 @@ nvme_check_generic_cmd_status(nvme_cmd_t *cmd)
 	case NVME_CQE_SC_GEN_INV_FLD:
 		/* Invalid Field in Command */
 		NVME_BUMP_STAT(cmd->nc_nvme, inv_field_err);
-		if ((cmd->nc_flags & NVME_CMD_F_DONTPANIC) == 0) {
+		if (cmd->nc_xfer != NULL) {
+			bd_error(cmd->nc_xfer, BD_ERR_ILLRQ);
+		} else if ((cmd->nc_flags & NVME_CMD_F_DONTPANIC) == 0) {
 			dev_err(cmd->nc_nvme->n_dip, CE_PANIC,
 			    "programming error: invalid field in cmd %p",
 			    (void *)cmd);
@@ -2305,7 +2316,9 @@ nvme_check_generic_cmd_status(nvme_cmd_t *cmd)
 	case NVME_CQE_SC_GEN_INV_NS:
 		/* Invalid Namespace or Format */
 		NVME_BUMP_STAT(cmd->nc_nvme, inv_nsfmt_err);
-		if ((cmd->nc_flags & NVME_CMD_F_DONTPANIC) == 0) {
+		if (cmd->nc_xfer != NULL) {
+			bd_error(cmd->nc_xfer, BD_ERR_ILLRQ);
+		} else if ((cmd->nc_flags & NVME_CMD_F_DONTPANIC) == 0) {
 			dev_err(cmd->nc_nvme->n_dip, CE_PANIC,
 			    "programming error: invalid NS/format in cmd %p",
 			    (void *)cmd);
@@ -3446,7 +3459,7 @@ nvme_get_logpage_int(nvme_t *nvme, boolean_t user, void **buf, size_t *bufsize,
 }
 
 static boolean_t
-nvme_identify(nvme_t *nvme, boolean_t user, nvme_ioctl_identify_t *ioc,
+nvme_identify(nvme_t *nvme, boolean_t dontpanic, nvme_ioctl_identify_t *ioc,
     void **buf)
 {
 	nvme_cmd_t *cmd = nvme_alloc_admin_cmd(nvme, KM_SLEEP);
@@ -3493,7 +3506,7 @@ nvme_identify(nvme_t *nvme, boolean_t user, nvme_ioctl_identify_t *ioc,
 		    cmd->nc_dma->nd_cookie.dmac_laddress;
 	}
 
-	if (user)
+	if (dontpanic)
 		cmd->nc_flags |= NVME_CMD_F_DONTPANIC;
 
 	nvme_admin_cmd(cmd, nvme_admin_cmd_timeout);
@@ -4485,6 +4498,7 @@ nvme_enable_host_behavior(nvme_t *nvme)
 static int
 nvme_init(nvme_t *nvme)
 {
+	nvme_ioctl_identify_t id = { 0 };
 	nvme_reg_cc_t cc = { 0 };
 	nvme_reg_aqa_t aqa = { 0 };
 	nvme_reg_asq_t asq = { 0 };
@@ -4808,11 +4822,29 @@ nvme_init(nvme_t *nvme)
 		nsid = 1;
 	}
 
-	if (!nvme_identify_int(nvme, nsid, NVME_IDENTIFY_NSID,
-	    (void **)&nvme->n_idcomns)) {
-		dev_err(nvme->n_dip, CE_WARN, "!failed to identify common "
-		    "namespace information");
-		goto fail;
+	/*
+	 * Some controllers may advertise namespace management support but still
+	 * reject an Identify Namespace command with the broadcast nsid.  Rather
+	 * than panic or fail we'll try to fall back to the data for nsid 1.
+	 */
+	id.nid_common.nioc_nsid = nsid;
+	id.nid_cns = NVME_IDENTIFY_NSID;
+	if (!nvme_identify(nvme, B_TRUE, &id, (void **)&nvme->n_idcomns)) {
+		if (nsid != NVME_NSID_BCAST) {
+			dev_err(nvme->n_dip, CE_WARN, "!failed to identify "
+			    "common namespace information");
+			goto fail;
+		}
+
+		dev_err(nvme->n_dip, CE_NOTE, "!failed to identify common with "
+		    "broadcast nsid, falling back to nsid 1");
+
+		if (!nvme_identify_int(nvme, 1, NVME_IDENTIFY_NSID,
+		    (void **)&nvme->n_idcomns)) {
+			dev_err(nvme->n_dip, CE_WARN, "!failed to identify "
+			    "common namespace information");
+			goto fail;
+		}
 	}
 
 	if (nvme_get_current_nqueues(nvme, &nq)) {

@@ -27,10 +27,18 @@
  * on the wire, and the IPv6 options must remain unavailable on AF_INET
  * sockets.
  *
- * As well as walking through set/get combinations on TCP and UDP sockets in
- * the various address configurations, this verifies that data still flows
- * once options have been changed, and that a minimum TTL configured through
- * IP_MINTTL on an IPv4-mapped connection is applied to inbound segments.
+ * As well as walking through set/get combinations on TCP, UDP and SCTP
+ * sockets in the various address configurations, this verifies that data
+ * still flows once options have been changed, and that a minimum TTL
+ * configured through IP_MINTTL on an IPv4-mapped connection is applied to
+ * inbound segments.
+ *
+ * SCTP is covered for native IPv4 and IPv6 associations only. An SCTP
+ * association is multihomed and may span both address families at once, so
+ * the per-connection handling of IPv4-mapped peers described above does not
+ * apply to it. The SCTP scenarios check that the IPPROTO_IP options remain
+ * available on AF_INET sockets, since SCTP shares the IP-level option code
+ * with TCP and UDP.
  */
 
 #include <arpa/inet.h>
@@ -77,8 +85,8 @@ typedef struct {
 } probe_t;
 
 typedef enum {
-	CONN_TCP_ACCEPT,	/* test the accepted socket */
-	CONN_TCP_CLIENT,	/* test the connecting socket */
+	CONN_STREAM_ACCEPT,	/* test the accepted socket */
+	CONN_STREAM_CLIENT,	/* test the connecting socket */
 	CONN_UDP,		/* test a connected UDP socket */
 	CONN_NONE		/* test an unconnected socket */
 } conn_kind_t;
@@ -86,6 +94,7 @@ typedef enum {
 typedef struct {
 	const char *sc_desc;
 	conn_kind_t sc_kind;
+	int sc_proto;		/* protocol passed to socket(), 0 for default */
 	int sc_lfam;		/* listener/peer socket family */
 	bool sc_v6only;		/* IPV6_V6ONLY on an AF_INET6 listener */
 	int sc_cfam;		/* client socket family */
@@ -223,12 +232,12 @@ static const probe_t mapped_probes[] = {
 };
 
 /*
- * Probes for a native IPv4 TCP connection. The IPPROTO_IP options must
- * work as they always have, and the three shared-field IPPROTO_IPV6
- * options must be rejected on an AF_INET socket even though the connection
- * uses IPv4 on the wire.
+ * Probes for a native IPv4 stream connection, shared between TCP and SCTP.
+ * The IPPROTO_IP options must work as they always have, and the three
+ * shared-field IPPROTO_IPV6 options must be rejected on an AF_INET socket
+ * even though the connection uses IPv4 on the wire.
  */
-static const probe_t v4_tcp_probes[] = {
+static const probe_t v4_stream_probes[] = {
 	{
 		.p_kind = SOP_SET,
 		.p_desc = "IP_TTL round trip",
@@ -304,12 +313,12 @@ static const probe_t v4_tcp_probes[] = {
 };
 
 /*
- * Probes for a native IPv6 TCP connection. The IPPROTO_IPV6 options must
- * work and the IPPROTO_IP options must be rejected. The minimum hop count
- * is returned to zero at the end so that the subsequent data flow check is
- * not affected by it.
+ * Probes for a native IPv6 stream connection, shared between TCP and SCTP.
+ * The IPPROTO_IPV6 options must work and the IPPROTO_IP options must be
+ * rejected. The minimum hop count is returned to zero at the end so that
+ * the subsequent data flow check is not affected by it.
  */
-static const probe_t v6_tcp_probes[] = {
+static const probe_t v6_stream_probes[] = {
 	{
 		.p_kind = SOP_SET,
 		.p_desc = "IPV6_UNICAST_HOPS round trip",
@@ -588,18 +597,19 @@ addr_port(const struct sockaddr_storage *ss)
 }
 
 /*
- * Establish a TCP connection over loopback according to the scenario and
- * return the socket under test along with its peer.
+ * Establish a stream connection over loopback according to the scenario and
+ * return the socket under test along with its peer. The scenario's protocol
+ * selects between TCP and SCTP.
  */
 static bool
-tcp_pair(const scenario_t *sc, int *testfd, int *peerfd)
+stream_pair(const scenario_t *sc, int *testfd, int *peerfd)
 {
 	struct sockaddr_storage laddr, daddr;
 	int lsock = -1, csock = -1, asock = -1;
 	int v6only = sc->sc_v6only ? 1 : 0;
 	socklen_t llen, dlen;
 
-	lsock = socket(sc->sc_lfam, SOCK_STREAM, 0);
+	lsock = socket(sc->sc_lfam, SOCK_STREAM, sc->sc_proto);
 	if (lsock == -1) {
 		warn("TEST FAILED: %s: failed to create listener",
 		    sc->sc_desc);
@@ -629,7 +639,7 @@ tcp_pair(const scenario_t *sc, int *testfd, int *peerfd)
 		goto fail;
 	}
 
-	csock = socket(sc->sc_cfam, SOCK_STREAM, 0);
+	csock = socket(sc->sc_cfam, SOCK_STREAM, sc->sc_proto);
 	if (csock == -1) {
 		warn("TEST FAILED: %s: failed to create client", sc->sc_desc);
 		goto fail;
@@ -650,7 +660,7 @@ tcp_pair(const scenario_t *sc, int *testfd, int *peerfd)
 
 	(void) close(lsock);
 
-	if (sc->sc_kind == CONN_TCP_ACCEPT) {
+	if (sc->sc_kind == CONN_STREAM_ACCEPT) {
 		*testfd = asock;
 		*peerfd = csock;
 	} else {
@@ -863,7 +873,7 @@ dgram_flow(const char *scen, int csock, int psock)
 static const scenario_t scenarios[] = {
 	{
 		.sc_desc = "TCP mapped accept",
-		.sc_kind = CONN_TCP_ACCEPT,
+		.sc_kind = CONN_STREAM_ACCEPT,
 		.sc_lfam = AF_INET6,
 		.sc_v6only = false,
 		.sc_cfam = AF_INET,
@@ -873,7 +883,7 @@ static const scenario_t scenarios[] = {
 		.sc_dataflow = true
 	}, {
 		.sc_desc = "TCP mapped connect",
-		.sc_kind = CONN_TCP_CLIENT,
+		.sc_kind = CONN_STREAM_CLIENT,
 		.sc_lfam = AF_INET,
 		.sc_cfam = AF_INET6,
 		.sc_dst = "::ffff:127.0.0.1",
@@ -882,26 +892,55 @@ static const scenario_t scenarios[] = {
 		.sc_dataflow = true
 	}, {
 		.sc_desc = "TCP native IPv4 accept",
-		.sc_kind = CONN_TCP_ACCEPT,
+		.sc_kind = CONN_STREAM_ACCEPT,
 		.sc_lfam = AF_INET,
 		.sc_cfam = AF_INET,
 		.sc_dst = "127.0.0.1",
-		.sc_probes = v4_tcp_probes,
-		.sc_nprobes = ARRAY_SIZE(v4_tcp_probes),
+		.sc_probes = v4_stream_probes,
+		.sc_nprobes = ARRAY_SIZE(v4_stream_probes),
 		.sc_dataflow = true
 	}, {
 		.sc_desc = "TCP native IPv6 accept",
-		.sc_kind = CONN_TCP_ACCEPT,
+		.sc_kind = CONN_STREAM_ACCEPT,
 		.sc_lfam = AF_INET6,
 		.sc_v6only = true,
 		.sc_cfam = AF_INET6,
 		.sc_dst = "::1",
-		.sc_probes = v6_tcp_probes,
-		.sc_nprobes = ARRAY_SIZE(v6_tcp_probes),
+		.sc_probes = v6_stream_probes,
+		.sc_nprobes = ARRAY_SIZE(v6_stream_probes),
 		.sc_dataflow = true
 	}, {
 		.sc_desc = "TCP unconnected AF_INET6",
 		.sc_kind = CONN_NONE,
+		.sc_cfam = AF_INET6,
+		.sc_type = SOCK_STREAM,
+		.sc_probes = unconn6_probes,
+		.sc_nprobes = ARRAY_SIZE(unconn6_probes)
+	}, {
+		.sc_desc = "SCTP native IPv4 accept",
+		.sc_kind = CONN_STREAM_ACCEPT,
+		.sc_proto = IPPROTO_SCTP,
+		.sc_lfam = AF_INET,
+		.sc_cfam = AF_INET,
+		.sc_dst = "127.0.0.1",
+		.sc_probes = v4_stream_probes,
+		.sc_nprobes = ARRAY_SIZE(v4_stream_probes),
+		.sc_dataflow = true
+	}, {
+		.sc_desc = "SCTP native IPv6 accept",
+		.sc_kind = CONN_STREAM_ACCEPT,
+		.sc_proto = IPPROTO_SCTP,
+		.sc_lfam = AF_INET6,
+		.sc_v6only = true,
+		.sc_cfam = AF_INET6,
+		.sc_dst = "::1",
+		.sc_probes = v6_stream_probes,
+		.sc_nprobes = ARRAY_SIZE(v6_stream_probes),
+		.sc_dataflow = true
+	}, {
+		.sc_desc = "SCTP unconnected AF_INET6",
+		.sc_kind = CONN_NONE,
+		.sc_proto = IPPROTO_SCTP,
 		.sc_cfam = AF_INET6,
 		.sc_type = SOCK_STREAM,
 		.sc_probes = unconn6_probes,
@@ -941,9 +980,9 @@ scenario_run(const scenario_t *sc)
 	bool ret = true;
 
 	switch (sc->sc_kind) {
-	case CONN_TCP_ACCEPT:
-	case CONN_TCP_CLIENT:
-		if (!tcp_pair(sc, &testfd, &peerfd))
+	case CONN_STREAM_ACCEPT:
+	case CONN_STREAM_CLIENT:
+		if (!stream_pair(sc, &testfd, &peerfd))
 			return (false);
 		break;
 	case CONN_UDP:
@@ -951,7 +990,7 @@ scenario_run(const scenario_t *sc)
 			return (false);
 		break;
 	case CONN_NONE:
-		testfd = socket(sc->sc_cfam, sc->sc_type, 0);
+		testfd = socket(sc->sc_cfam, sc->sc_type, sc->sc_proto);
 		if (testfd == -1) {
 			warn("TEST FAILED: %s: failed to create socket",
 			    sc->sc_desc);
@@ -1004,7 +1043,7 @@ test_mapped_minttl(void)
 	const char *desc = "TCP mapped accept honours IP_MINTTL";
 	const scenario_t sc = {
 		.sc_desc = desc,
-		.sc_kind = CONN_TCP_ACCEPT,
+		.sc_kind = CONN_STREAM_ACCEPT,
 		.sc_lfam = AF_INET6,
 		.sc_v6only = false,
 		.sc_cfam = AF_INET,
@@ -1016,7 +1055,7 @@ test_mapped_minttl(void)
 	bool ret = false;
 	int val, pres;
 
-	if (!tcp_pair(&sc, &asock, &csock))
+	if (!stream_pair(&sc, &asock, &csock))
 		return (false);
 
 	val = 200;

@@ -556,7 +556,7 @@ sup_setdtype(void)
 	int	val, status, i;
 	ulong_t	flags = 0;
 	struct	disk_type *dtype, *type;
-	struct	ctlr_type *ctype;
+	struct	ctlr_type *ctype = NULL;
 	char	*dtype_name, *ptr;
 	struct	mctlr_list	*mlp;
 
@@ -778,6 +778,7 @@ sup_setdtype(void)
 			datafile_error("Unknown keyword '%s'", ident);
 		}
 	}
+
 	/*
 	 * Check to be sure all the necessary attributes have been defined.
 	 * If any are missing, it's an error.  Also, log options for later

@@ -1218,7 +1218,7 @@ smach_count(void)
  *
  *   input: dhcp_smach_t *: the state machine whose default routes need to be
  *			    discarded
- *	    dhcp_route_source_t: remove routes that match this source exactly, 
+ *	    dhcp_route_source_t: remove routes that match this source exactly,
  *				 or all routes if 0 is passed
  *  output: void
  */

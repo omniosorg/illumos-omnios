@@ -75,7 +75,7 @@ struct dk_map2	default_vtoc_map[NDKMAP] = {
 static uint64_t
 maxofN(struct dk_gpt *map)
 {
-	uint64_t	max;
+	uint64_t	max = 0;
 	uint64_t	sec_no[2], start[2], size[2];
 	int		i;
 

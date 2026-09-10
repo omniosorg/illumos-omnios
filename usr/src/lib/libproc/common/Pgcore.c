@@ -28,7 +28,7 @@
  * Copyright 2018 Joyent, Inc.
  * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
- * Copyright 2024 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  * Copyright 2026 Carsten Grzemba
  */
 
@@ -831,8 +831,8 @@ Pfgcore(struct ps_prochandle *P, int fd, core_content_t content)
 	}
 
 	/*
-	 * There are a PT_NOTE program header for ancillary data, and
-	 * one for each mapping.
+	 * There is one PT_NOTE program header for ancillary data, and one
+	 * program header for each mapping.
 	 */
 	nphdrs = NOTES_SECTIONS + P->map_count;
 	nshdrs = count_sections(&pgc);
@@ -983,7 +983,7 @@ Pfgcore(struct ps_prochandle *P, int fd, core_content_t content)
 		goto err;
 
 	/*
-	 * Construct the new-style note header and section.
+	 * Construct the note header and section.
 	 */
 
 	if (P->status.pr_dmodel == PR_MODEL_NATIVE) {

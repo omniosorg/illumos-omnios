@@ -430,6 +430,12 @@ input(int type, char *promptstr, int delim, u_ioparam_t *param, int *deflt,
 	efi_deflt_t	*efi_deflt;
 
 	/*
+	 * set up pointer to partition defaults structure
+	 */
+	part_deflt = (part_deflt_t *)deflt;
+	efi_deflt = (efi_deflt_t *)deflt;
+
+	/*
 	 * Optional integer input has been added as a hack.
 	 * Function result is 1 if user typed anything.
 	 * Whatever they typed is returned in *deflt.
@@ -462,22 +468,15 @@ reprompt:
 	if (deflt != NULL) {
 		switch (type) {
 		case FIO_BN:
-#if !defined(lint)	/* caller has aligned the pointer specifying FIO_BN */
+			/* caller has aligned the pointer specifying FIO_BN */
 			fmt_print("[%llu, ", *(diskaddr_t *)deflt);
 			pr_dblock(fmt_print, *(diskaddr_t *)deflt);
 			fmt_print("]");
-#endif
 			break;
 		case FIO_INT:
 			fmt_print("[%d]", *deflt);
 			break;
 		case FIO_INT64:
-#if defined(lint)
-			/* caller is longlong aligned specifying FIO_INT64 */
-			efi_deflt = NULL;
-#else
-			efi_deflt = (efi_deflt_t *)deflt;
-#endif
 			fmt_print("[%llu]", efi_deflt->start_sector);
 			break;
 		case FIO_CSTR:
@@ -514,12 +513,6 @@ reprompt:
 			    bn2c(blokno), bn2mb(blokno), bn2gb(blokno));
 			break;
 		case FIO_ECYL:
-			/*
-			 * set up pointer to partition defaults
-			 * structure
-			 */
-			part_deflt = (part_deflt_t *)deflt;
-
 			/*
 			 * Build print format specifier.  We use the
 			 * starting cylinder number which was entered
@@ -559,13 +552,6 @@ reprompt:
 
 			break;
 		case FIO_EFI:
-#if defined(lint)
-			/* caller is longlong aligned when specifying FIO_EFI */
-			efi_deflt = NULL;
-#else
-			efi_deflt = (efi_deflt_t *)deflt;
-#endif
-
 			fmt_print("[%llub, %llue, %llumb, %llugb, %llutb]",
 			    efi_deflt->end_sector,
 			    efi_deflt->start_sector + efi_deflt->end_sector - 1,
