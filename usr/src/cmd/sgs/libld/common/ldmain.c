@@ -60,10 +60,9 @@ Target		ld_targ;
  * part of the path processing.
  */
 #if	defined(_ELF64)
-static char	def_Plibpath[] = "$SYSROOT/lib/64:$SYSROOT/usr/lib/64";
+static char	def_Plibpath[] = "/lib/64:/usr/lib/64";
 #else
-static char	def_Plibpath[] = "$SYSROOT/usr/ccs/lib:$SYSROOT/lib:"
-	"$SYSROOT/usr/lib";
+static char	def_Plibpath[] = "/usr/ccs/lib:/lib:/usr/lib";
 #endif
 
 /*
