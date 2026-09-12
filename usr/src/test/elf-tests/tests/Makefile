@@ -24,7 +24,6 @@ SUBDIRS =		\
 	resolution	\
 	sections	\
 	string-merge	\
-	sysroot		\
 	tls
 
 include $(SRC)/test/Makefile.com

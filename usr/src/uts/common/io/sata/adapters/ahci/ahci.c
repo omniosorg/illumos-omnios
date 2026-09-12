@@ -25,6 +25,7 @@
  * Copyright (c) 2018, Joyent, Inc.
  * Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
  * Copyright 2026 RackTop Systems, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -2121,14 +2122,14 @@ ahci_claim_free_slot(ahci_ctl_t *ahci_ctlp, ahci_port_t *ahci_portp,
 	 * for that command must be 5.
 	 */
 	if (command_type == AHCI_NCQ_CMD) {
-		ahci_portp->ahciport_pending_ncq_tags |= (0x1 << slot);
+		SET_BIT(ahci_portp->ahciport_pending_ncq_tags, slot);
 		if (AHCI_ADDR_IS_PMPORT(addrp)) {
 			ASSERT(ahci_portp->ahciport_pmult_info != NULL);
 			AHCIPORT_NCQ_PMPORT(ahci_portp) = addrp->aa_pmport;
 		}
 	}
 
-	ahci_portp->ahciport_pending_tags |= (0x1 << slot);
+	SET_BIT(ahci_portp->ahciport_pending_tags, slot);
 
 out:
 	AHCIDBG(AHCIDBG_VERBOSE, ahci_ctlp,
@@ -8931,7 +8932,7 @@ ahci_mop_commands(ahci_ctl_t *ahci_ctlp,
 		 */
 		if (satapkt->satapkt_cmd.satacmd_flags.sata_special_regs) {
 			CLEAR_BIT(finished_tags, tmp_slot);
-			aborted_tags |= tmp_slot;
+			SET_BIT(aborted_tags, tmp_slot);
 			continue;
 		}
 
@@ -9971,7 +9972,7 @@ ahci_watchdog_handler(ahci_ctl_t *ahci_ctlp)
 					ahci_portp->ahciport_slot_timeout \
 					    [tmp_slot] = spkt->satapkt_time;
 				} else {
-					timeout_tags |= (0x1 << tmp_slot);
+					SET_BIT(timeout_tags, tmp_slot);
 					cmn_err(CE_WARN, "!ahci%d: watchdog "
 					    "port %d satapkt 0x%p timed out\n",
 					    instance, port, (void *)spkt);
