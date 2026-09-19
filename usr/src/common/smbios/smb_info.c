@@ -22,7 +22,7 @@
 /*
  * Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
  * Copyright 2019 Joyent, Inc.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -354,7 +354,7 @@ smbios_info_contains(smbios_hdl_t *shp, id_t id, uint_t idc, id_t *idv)
 {
 	const smb_struct_t *stp = smb_lookup_id(shp, id);
 	const struct smb_infospec *isp;
-	id_t *cp;
+	const void *cp;
 	uint_t size;
 	uint8_t cnt;
 	int i, n;
@@ -370,16 +370,27 @@ smbios_info_contains(smbios_hdl_t *shp, id_t id, uint_t idc, id_t *idv)
 	if (isp->is_type == SMB_TYPE_EOT)
 		return (smb_set_errno(shp, ESMB_TYPE));
 
+	/*
+	 * Not every info type has contained objects. Use the size field as a
+	 * proxy for this being actually present.
+	 */
 	size = isp->is_contsz;
-	cnt = *((uint8_t *)(uintptr_t)stp->smbst_hdr + isp->is_contc);
-	cp = (id_t *)((uintptr_t)stp->smbst_hdr + isp->is_contv);
+	if (size != SMB_CONT_WORD)
+		return (smb_set_errno(shp, ESMB_INVAL));
+
+	if (stp->smbst_hdr->smbh_len <= isp->is_contc)
+		return (smb_set_errno(shp, ESMB_SHORT));
+
+	cnt = *(uint8_t *)((uintptr_t)stp->smbst_hdr + isp->is_contc);
+
+	if (stp->smbst_hdr->smbh_len < isp->is_contv + size * cnt)
+		return (smb_set_errno(shp, ESMB_SHORT));
+
+	cp = (const void *)((uintptr_t)stp->smbst_hdr + isp->is_contv);
 
 	n = MIN(cnt, idc);
 	for (i = 0; i < n; i++) {
-		if (size == SMB_CONT_WORD)
-			idv[i] = *((uint16_t *)(uintptr_t)cp + (i * 2));
-		else
-			return (smb_set_errno(shp, ESMB_INVAL));
+		idv[i] = *((const uint16_t *)cp + i);
 	}
 
 	return (cnt);
@@ -492,8 +503,24 @@ smbios_info_system(smbios_hdl_t *shp, smbios_system_t *sip)
 	smb_info_bcopy(stp->smbst_hdr, &si, sizeof (si));
 	bzero(sip, sizeof (smbios_system_t));
 
-	sip->smbs_uuid = ((smb_system_t *)stp->smbst_hdr)->smbsi_uuid;
-	sip->smbs_uuidlen = sizeof (si.smbsi_uuid);
+	/*
+	 * The UUID field was introduced in SMBIOS 2.1, it wasn't present in
+	 * SMBIOS 2.0. This library was first written against SMBIOS 2.4, which
+	 * required that and the family string. We only set the UUID field if we
+	 * have enough bytes for it.
+	 *
+	 * We really should check for the full spec's minimum lengths; however,
+	 * since this has never enforced this and the system relies on the
+	 * system information a fair bit, we basically instead only include the
+	 * UUID if we have enough bytes to cover it in its entirety.
+	 */
+	if (stp->smbst_hdr->smbh_len >= offsetof(smb_system_t, smbsi_wakeup)) {
+		sip->smbs_uuid = ((smb_system_t *)stp->smbst_hdr)->smbsi_uuid;
+		sip->smbs_uuidlen = sizeof (si.smbsi_uuid);
+	} else {
+		sip->smbs_uuid = NULL;
+		sip->smbs_uuidlen = 0;
+	}
 	sip->smbs_wakeup = si.smbsi_wakeup;
 	sip->smbs_sku = smb_strptr(stp, si.smbsi_sku);
 	sip->smbs_family = smb_strptr(stp, si.smbsi_family);
@@ -512,6 +539,13 @@ smbios_info_bboard(smbios_hdl_t *shp, id_t id, smbios_bboard_t *bbp)
 
 	if (stp->smbst_hdr->smbh_type != SMB_TYPE_BASEBOARD)
 		return (smb_set_errno(shp, ESMB_TYPE));
+
+	/*
+	 * Minimum baseboard size is 0x8, e.g. one has everything ahead of the
+	 * asset tag.
+	 */
+	if (stp->smbst_hdr->smbh_len < offsetof(smb_bboard_t, smbbb_asset))
+		return (smb_set_errno(shp, ESMB_SHORT));
 
 	smb_info_bcopy(stp->smbst_hdr, &bb, sizeof (bb));
 	bzero(bbp, sizeof (smbios_bboard_t));
@@ -1342,6 +1376,9 @@ smbios_info_boot(smbios_hdl_t *shp, smbios_boot_t *bp)
 	if (stp == NULL)
 		return (-1); /* errno is set for us */
 
+	if (stp->smbst_hdr->smbh_len < sizeof (smb_boot_t))
+		return (smb_set_errno(shp, ESMB_SHORT));
+
 	bzero(bp, sizeof (smbios_boot_t));
 
 	b = (smb_boot_t *)(uintptr_t)stp->smbst_hdr;
@@ -1519,13 +1556,24 @@ smbios_info_extprocessor(smbios_hdl_t *shp, id_t id,
 	if (stp->smbst_hdr->smbh_type != SUN_OEM_EXT_PROCESSOR)
 		return (smb_set_errno(shp, ESMB_TYPE));
 
+	if (stp->smbst_hdr->smbh_len < sizeof (smb_processor_ext_t))
+		return (smb_set_errno(shp, ESMB_SHORT));
+
 	exp = (smb_processor_ext_t *)(uintptr_t)stp->smbst_hdr;
 	bzero(epp, sizeof (smbios_processor_ext_t));
 
 	epp->smbpe_processor = exp->smbpre_processor;
 	epp->smbpe_fru = exp->smbpre_fru;
 	epp->smbpe_n = exp->smbpre_n;
-	epp->smbpe_apicid = exp->smbpre_apicid;
+	if (epp->smbpe_n > 0) {
+		if (stp->smbst_hdr->smbh_len < sizeof (smb_processor_ext_t) +
+		    exp->smbpre_n * sizeof (uint16_t)) {
+			return (smb_set_errno(shp, ESMB_SHORT));
+		}
+		epp->smbpe_apicid = exp->smbpre_apicid;
+	} else {
+		epp->smbpe_apicid = NULL;
+	}
 
 	return (0);
 }
@@ -1541,6 +1589,9 @@ smbios_info_extport(smbios_hdl_t *shp, id_t id, smbios_port_ext_t *eportp)
 
 	if (stp->smbst_hdr->smbh_type != SUN_OEM_EXT_PORT)
 		return (smb_set_errno(shp, ESMB_TYPE));
+
+	if (stp->smbst_hdr->smbh_len < sizeof (smb_port_ext_t))
+		return (smb_set_errno(shp, ESMB_SHORT));
 
 	ep = (smb_port_ext_t *)(uintptr_t)stp->smbst_hdr;
 	bzero(eportp, sizeof (smbios_port_ext_t));
