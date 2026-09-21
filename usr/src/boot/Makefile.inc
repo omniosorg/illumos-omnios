@@ -49,7 +49,8 @@ i386_CFLAGS +=	-_gcc=-mno-sse3 -_gcc=-msoft-float
 i386_CFLAGS +=	-_gcc=-mno-avx -_gcc=-mno-aes
 aarch64_CFLAGS=
 CFLAGS=		$($(MACH)_CFLAGS)
-CFLAGS +=	-_gcc=-Os -_gcc=-ffreestanding -_gcc=-fno-builtin
+CFLAGS +=	-_gcc=-Os -_gcc=-fno-omit-frame-pointer
+CFLAGS +=	-_gcc=-ffreestanding -_gcc=-fno-builtin
 CFLAGS +=	-_gcc=-ffunction-sections -_gcc=-fdata-sections
 CFLAGS +=	-_gcc=-Wall -_gcc=-Werror
 CFLAGS +=	$(CCNOAUTOINLINE) $(CCNOREORDER) $(CSTD_GNU99)

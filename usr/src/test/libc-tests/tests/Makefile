@@ -42,6 +42,7 @@ SUBDIRS = \
 	wctype
 
 PROGS = \
+	aio_cancel \
 	aligned_alloc \
 	ascftime \
 	asprintf-14933 \
@@ -97,6 +98,11 @@ $(BUILD32)PROGS32 = $(PROGS:%=%.32)
 PROGS64 = \
 	$(PROGS:%=%.64) \
 	printf-6961.64
+
+aio_cancel.32 :=	CSTD=$(CSTD_GNU17)
+aio_cancel.64 :=	CSTD=$(CSTD_GNU17)
+aio_cancel.32 :=	LDLIBS += -lproc
+aio_cancel.64 :=	LDLIBS64 += -lproc
 
 aligned_alloc.32 :=	CSTD=$(CSTD_GNU17)
 aligned_alloc.64 :=	CSTD=$(CSTD_GNU17)

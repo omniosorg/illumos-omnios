@@ -44,7 +44,6 @@
 #include "label.h"
 #include "startup.h"
 
-/* Function prototypes for ANSI C Compilers */
 static void	cleanup(int sig);
 
 struct	env *current_env = NULL;	/* ptr to current environment */
@@ -800,7 +799,7 @@ match_substr(char *s1, char *s2)
 {
 	while (*s2 != 0) {
 		if (*s1++ != *s2++)
-		return (0);
+			return (0);
 	}
 
 	return (1);

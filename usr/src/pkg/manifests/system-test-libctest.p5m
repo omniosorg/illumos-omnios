@@ -32,6 +32,7 @@ dir  path=opt/libc-tests/runfiles
 file path=opt/libc-tests/runfiles/default.run mode=0444
 dir  path=opt/libc-tests/tests
 $(MULTILIB_ONLY)dir path=opt/libc-tests/tests/32
+$(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/aio_cancel.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/aligned_alloc.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/ascftime.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/asprintf-14933.32 mode=0555
@@ -86,6 +87,7 @@ $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsncasecmp.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wcsrtombs_test.32 mode=0555
 $(MULTILIB_ONLY)file path=opt/libc-tests/tests/32/wctype_test.32 mode=0555
 dir  path=opt/libc-tests/tests/64
+file path=opt/libc-tests/tests/64/aio_cancel.64 mode=0555
 file path=opt/libc-tests/tests/64/aligned_alloc.64 mode=0555
 file path=opt/libc-tests/tests/64/ascftime.64 mode=0555
 file path=opt/libc-tests/tests/64/asprintf-14933.64 mode=0555

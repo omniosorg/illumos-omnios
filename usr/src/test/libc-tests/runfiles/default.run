@@ -29,6 +29,7 @@ outputdir = /var/tmp/test_results
 [/opt/libc-tests/tests/32]
 arch = i86pc
 tests = [
+	'aio_cancel.32',
 	'ascftime.32',
 	'asprintf-14933.32',
 	'c11_threads.32',
@@ -79,6 +80,7 @@ tests = [
 
 [/opt/libc-tests/tests/64]
 tests = [
+	'aio_cancel.64',
 	'ascftime.64',
 	'asprintf-14933.64',
 	'c11_threads.64',
