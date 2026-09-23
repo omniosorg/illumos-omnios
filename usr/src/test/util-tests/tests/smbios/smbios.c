@@ -11,7 +11,7 @@
 
 /*
  * Copyright (c) 2018, Joyent, Inc.
- * Copyright 2025 Oxide Computer Company
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -160,7 +160,19 @@ smbios_test_table_append_eot(smbios_test_table_t *table)
 	    sizeof (endstring));
 	smbios_test_table_append_raw(table, &endstring,
 	    sizeof (endstring));
+}
 
+void
+smbios_test_table_add_sunoem(smbios_test_table_t *table)
+{
+	smb_strtab_t str;
+
+	str.smbtb_hdr.smbh_type = SMB_TYPE_OEMSTR;
+	str.smbtb_hdr.smbh_len = sizeof (str);
+	str.smbtb_count = 1;
+	(void) smbios_test_table_append(table, &str, sizeof (str));
+	smbios_test_table_append_string(table, "SUNW-PRMS-1");
+	smbios_test_table_str_fini(table);
 }
 
 static uint8_t
@@ -714,8 +726,143 @@ static const smbios_test_t smbios_tests[] = {
 	    .st_canopen = B_TRUE,
 	    .st_verify = smbios_test_mgmtcomp_verify,
 	    .st_desc = "management device component - basic"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_boot_mktable,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_boot_verify,
+	    .st_desc = "boot information - basic"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_boot_mktable_nodata,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_boot_verify_nodata,
+	    .st_desc = "boot information - no extended data"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_boot_mktable_short_base,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_boot_verify_short,
+	    .st_desc = "boot information - short (1)"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_boot_mktable_short_data,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_boot_verify_short,
+	    .st_desc = "boot information - short (2)"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_bboard_mktable,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_bboard_verify_noents,
+	    .st_desc = "baseboard - no ents"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_bboard_mktable_ents,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_bboard_verify_ents,
+	    .st_desc = "baseboard - ents"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_bboard_mktable_short,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_bboard_verify_short,
+	    .st_desc = "baseboard - short table"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_bboard_mktable_short_ents,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_bboard_verify_short_ents,
+	    .st_desc = "baseboard - short ents"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_extproc_mktable_noapic,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_extproc_verify_noapic,
+	    .st_desc = "Sun extended processor - no apic ids"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_extproc_mktable_apic,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_extproc_verify_apic,
+	    .st_desc = "Sun extended processor - apic ids"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_extproc_mktable_short,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_extproc_verify_short,
+	    .st_desc = "Sun extended processor - short table"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_extproc_mktable_short_apic,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_extproc_verify_short,
+	    .st_desc = "Sun extended processor - short apic"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_extport_mktable,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_extport_verify,
+	    .st_desc = "Sun extended port - base"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_extport_mktable_short,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_extport_verify_short,
+	    .st_desc = "Sun extended port - short"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_system_mktable,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_system_verify,
+	    .st_desc = "system - basic"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_system_mktable_2p3,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_system_verify_2p3,
+	    .st_desc = "system - basic (2.3)"
+	}, {
+	    .st_entry = SMBIOS_ENTRY_POINT_30,
+	    .st_tvers = SMB_VERSION,
+	    .st_libvers = SMB_VERSION,
+	    .st_mktable = smbios_test_system_mktable_2p0,
+	    .st_canopen = B_TRUE,
+	    .st_verify = smbios_test_system_verify_2p0,
+	    .st_desc = "system - basic (2.0)"
 	}
-
 };
 
 static boolean_t
