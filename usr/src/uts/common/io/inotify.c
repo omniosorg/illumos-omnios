@@ -266,7 +266,15 @@ inotify_fop_read(femarg_t *vf, struct uio *uiop, int ioflag, struct cred *cr,
 {
 	inotify_vp_t *ivp = vf->fa_fnode->fn_available;
 	int rval = vnext_read(vf, uiop, ioflag, cr, ct);
-	inotify_vp_event(ivp, NULL, IN_ACCESS, NULL);
+
+	/*
+	 * Reads and writes on a FIFO do not generate events. They would reveal
+	 * the timing of data passing through the FIFO to anyone able to read
+	 * the directory in which it resides. Opens and closes are still
+	 * reported.
+	 */
+	if (ivp->ivp_vp->v_type != VFIFO)
+		inotify_vp_event(ivp, NULL, IN_ACCESS, NULL);
 
 	return (rval);
 }
@@ -327,7 +335,10 @@ inotify_fop_write(femarg_t *vf, struct uio *uiop, int ioflag, struct cred *cr,
 {
 	inotify_vp_t *ivp = vf->fa_fnode->fn_available;
 	int rval = vnext_write(vf, uiop, ioflag, cr, ct);
-	inotify_vp_event(ivp, NULL, IN_MODIFY, NULL);
+
+	/* Reads and writes on a FIFO do not generate events. */
+	if (ivp->ivp_vp->v_type != VFIFO)
+		inotify_vp_event(ivp, NULL, IN_MODIFY, NULL);
 
 	return (rval);
 }
@@ -740,6 +751,13 @@ inotify_fem_install(vnode_t *vp, inotify_watch_t *watch)
 	 * explicitly in this case, we choose to keep with the Linux behavior
 	 * on unwatchable entities and allow the watch but not generate any
 	 * events for it.
+	 *
+	 * This is also relied upon for security. Access and modification
+	 * events on terminal and input devices would reveal the timing of
+	 * another user's keystrokes to anyone able to read the directory in
+	 * which the device node resides (for example /dev/pts). Any change
+	 * that allows devices to be monitored must continue to suppress at
+	 * least IN_ACCESS and IN_MODIFY for them.
 	 */
 	if (vp->v_type == VCHR || vp->v_type == VBLK)
 		return (0);
@@ -1508,6 +1526,19 @@ inotify_ioctl(dev_t dev, int cmd, intptr_t arg, int md __unused,
 		if ((fp = getf(addwatch.inaw_fd)) == NULL)
 			return (EBADF);
 
+		/*
+		 * Watching a file or directory requires that the caller be
+		 * able to read it, as on Linux. A directory watch reports
+		 * activity on the files within the directory, and without this
+		 * check a descriptor opened with O_SEARCH or O_EXEC would allow
+		 * a caller to watch files in a directory that they cannot
+		 * list, by guessing their names.
+		 */
+		if ((fp->f_flag & FREAD) == 0) {
+			releasef(addwatch.inaw_fd);
+			return (EACCES);
+		}
+
 		rval = inotify_add_watch(state, fp->f_vnode,
 		    addwatch.inaw_mask, rv);
 
@@ -1527,6 +1558,16 @@ inotify_ioctl(dev_t dev, int cmd, intptr_t arg, int md __unused,
 
 		if ((fp = getf(addchild.inac_fd)) == NULL)
 			return (EBADF);
+
+		/*
+		 * As for INOTIFYIOC_ADD_WATCH, the directory must be open for
+		 * reading. The descriptor here need not be the one that was
+		 * used to add the watch.
+		 */
+		if ((fp->f_flag & FREAD) == 0) {
+			releasef(addchild.inac_fd);
+			return (EACCES);
+		}
 
 		rval = inotify_add_child(state, fp->f_vnode, name);
 
