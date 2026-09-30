@@ -4634,6 +4634,14 @@ lx_accept4(int sockfd, void *np, int *nlp, int flags)
 long
 lx_listen(int sockfd, int backlog)
 {
+	/*
+	 * Linux interprets backlog < 0 as "maximum possible length", whereas
+	 * illumos native brand considers it equivalent to 0.
+	 *
+	 * Set it to INT_MAX here to emulate the Linux behaviour.
+	 */
+	if (backlog < 0)
+		backlog = INT_MAX;
 	return (listen(sockfd, backlog, 0));
 }
 
