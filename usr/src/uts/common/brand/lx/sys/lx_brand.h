@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/cpuvar.h>
 #include <sys/zone.h>
+#include <sys/brand.h>
 #include <sys/ksocket.h>
 #include <sys/vfs.h>
 #include <sys/sunddi.h>
@@ -279,12 +280,6 @@ typedef enum lx_proc_flags {
 
 #ifdef	_KERNEL
 
-/*
- * Entry points for cgroup integration.
- */
-extern void (*lx_cgrp_initlwp)(vfs_t *, uint_t, id_t, pid_t);
-extern void (*lx_cgrp_freelwp)(vfs_t *, uint_t, id_t, pid_t);
-
 #define	LX_RLFAKE_LOCKS		0
 #define	LX_RLFAKE_NICE		1
 #define	LX_RLFAKE_RTPRIO	2
@@ -421,6 +416,13 @@ typedef ulong_t lx_affmask_t[LX_AFF_ULONGS];
 #ifdef	_KERNEL
 
 typedef struct lx_lwp_data lx_lwp_data_t;
+
+/*
+ * Entry points for cgroup integration.
+ */
+extern void (*lx_cgrp_initlwp)(vfs_t *, struct lx_lwp_data *,
+    struct lx_lwp_data *);
+extern void (*lx_cgrp_freelwp)(vfs_t *, struct lx_lwp_data *);
 
 /*
  * Flag values for "lxpa_flags" on a ptrace(2) accord.
@@ -600,9 +602,10 @@ struct lx_lwp_data {
 	struct lx_pid *br_lpid;
 
 	/*
-	 * ID of the cgroup this thread belongs to.
+	 * reference to cgroup this thread belongs to
 	 */
-	uint_t br_cgroupid;
+	struct cgrp_node *br_cgroup;
+	avl_node_t br_cgroup_node;
 
 	/*
 	 * When the zone is running under FSS (which is the common case) then

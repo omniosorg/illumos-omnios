@@ -44,6 +44,8 @@ extern "C" {
 #include <sys/uio.h>
 #include <sys/utsname.h>
 #include <sys/atomic.h>
+#include <sys/ksynch.h>
+#include <sys/avl.h>
 #include <vm/anon.h>
 
 /*
@@ -115,12 +117,17 @@ typedef struct cgrp_mnt {
 	dev_t		cg_dev;		/* unique dev # of mounted `device' */
 	uint_t		cg_gen;		/* node ID source for files */
 	uint_t		cg_grp_gen;	/* ID source for cgroups */
-	kmutex_t	cg_contents;	/* global lock for most fs activity */
+	krwlock_t	cg_contents;	/* global lock for most fs activity */
 	char		cg_agent[CGRP_AGENT_LEN]; /* release_agent path */
 	/* ptr to zone data for containing zone */
 	lx_zone_data_t	*cg_lxzdata;
-	struct cgrp_node **cg_grp_hash;	/* hash list of cgroups in the fs */
 } cgrp_mnt_t;
+
+typedef enum {
+	CGRP_SETUP,
+	CGRP_NORMAL,
+	CGRP_TEARDOWN,
+} cgrp_state_t;
 
 /*
  * cgrp_node is the file system dependent node for cgroups.
@@ -144,10 +151,11 @@ typedef struct cgrp_node {
 	uint_t			cgn_dirents;	/* D number of dirents */
 	cgrp_nodetype_t		cgn_type;	/* A type for this node */
 	uint_t			cgn_notify;	/* D notify_on_release value */
-	uint_t			cgn_task_cnt;	/* D number of threads in grp */
 	struct vnode 		*cgn_vnode;	/* A vnode for this cgrp_node */
 	uint_t 			cgn_id;		/* D ID number for the cgroup */
 	struct vattr		cgn_attr;	/* A attributes */
+	avl_tree_t		cgn_lwps;	/* D list of lx_lwp_data */
+	cgrp_state_t		cgn_state;	/* D */
 } cgrp_node_t;
 
 /*
@@ -210,7 +218,6 @@ void cgrp_node_init(cgrp_mnt_t *, cgrp_node_t *, vattr_t *, cred_t *);
 int cgrp_taccess(void *, int, cred_t *);
 ino_t cgrp_inode(cgrp_nodetype_t, unsigned int);
 int cgrp_num_pseudo_ents(cgrp_ssid_t);
-cgrp_node_t *cgrp_cg_hash_lookup(cgrp_mnt_t *, uint_t);
 void cgrp_rel_agent_event(cgrp_mnt_t *, cgrp_node_t *, boolean_t);
 
 #endif /* KERNEL */
