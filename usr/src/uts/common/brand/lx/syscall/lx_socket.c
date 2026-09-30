@@ -617,7 +617,16 @@ stol_sockaddr_copyout(struct sockaddr *inaddr, socklen_t inlen,
 	 */
 	VERIFY(inaddr != NULL || inlen == 0);
 
+	bufaddr = (struct sockaddr *)&buf;
+
 	if (inlen == 0) {
+		/*
+		 * Linux never returns zero length sockaddrs -- it either gives
+		 * an errno, or yields at least the "sa_family" member.
+		 */
+		bufaddr->sa_family = LX_AF_UNSPEC;
+		inlen = sizeof (bufaddr->sa_family);
+		size = inlen;
 		goto finish;
 	}
 
@@ -676,10 +685,10 @@ stol_sockaddr_copyout(struct sockaddr *inaddr, socklen_t inlen,
 	 */
 	VERIFY(inlen <= sizeof (buf));
 
-	bufaddr = (struct sockaddr *)&buf;
 	bcopy(inaddr, bufaddr, inlen);
 	bufaddr->sa_family = STOL_FAMILY(bufaddr->sa_family);
 
+finish:
 	/*
 	 * It is possible that userspace passed us a smaller buffer than we
 	 * hope to output.  When this is the case, we will truncate our output
@@ -692,7 +701,6 @@ stol_sockaddr_copyout(struct sockaddr *inaddr, socklen_t inlen,
 		return (EFAULT);
 	}
 
-finish:
 #if defined(_LP64)
 	if (get_udatamodel() != DATAMODEL_NATIVE) {
 		int32_t len32 = (int32_t)inlen;
