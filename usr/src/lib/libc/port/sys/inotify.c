@@ -11,6 +11,7 @@
 
 /*
  * Copyright (c) 2014, Joyent, Inc.  All rights reserved.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/inotify.h>
@@ -54,6 +55,13 @@ inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 
 	if (mask & IN_DONT_FOLLOW)
 		oflags |= O_NOFOLLOW;
+
+	/*
+	 * We only open the target so we can identify it to the kernel by
+	 * passing a descriptor. Without O_NONBLOCK, opening a FIFO hangs
+	 * waiting for a writer.
+	 */
+	oflags |= O_NONBLOCK;
 
 	if ((dirfd = open(pathname, oflags)) < 0)
 		return (-1);
