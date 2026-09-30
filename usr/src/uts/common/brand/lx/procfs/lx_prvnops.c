@@ -2067,6 +2067,7 @@ lxpr_read_pid_maps(lxpr_node_t *lxpnp, lxpr_uiobuf_t *uiobuf)
 	struct as *as;
 	struct seg *seg;
 	char *buf;
+	vnode_t *pvn = NULL;
 	int buflen = MAXPATHLEN;
 	struct print_data {
 		uintptr_t saddr;
@@ -2080,6 +2081,9 @@ lxpr_read_pid_maps(lxpr_node_t *lxpnp, lxpr_uiobuf_t *uiobuf)
 	} *print_head = NULL;
 	struct print_data **print_tail = &print_head;
 	struct print_data *pbuf;
+	int maj = 0;
+	int min = 0;
+	ino_t inode = 0;
 
 	ASSERT(lxpnp->lxpr_type == LXPR_PID_MAPS ||
 	    lxpnp->lxpr_type == LXPR_PID_TID_MAPS);
@@ -2164,24 +2168,45 @@ lxpr_read_pid_maps(lxpr_node_t *lxpnp, lxpr_uiobuf_t *uiobuf)
 		struct print_data *pbuf_next;
 		vattr_t vattr;
 
-		int maj = 0;
-		int min = 0;
-		ino_t inode = 0;
-
-		*buf = '\0';
 		if (pbuf->name_override != NULL) {
 			(void) strncpy(buf, pbuf->name_override, buflen);
+			maj = (min = 0);
+			inode = 0;
 		} else if (pbuf->vp != NULL) {
-			vattr.va_mask = AT_FSID | AT_NODEID;
-			if (VOP_GETATTR(pbuf->vp, &vattr, 0, CRED(),
-			    NULL) == 0) {
-				maj = getmajor(vattr.va_fsid);
-				min = getminor(vattr.va_fsid);
-				inode = vattr.va_nodeid;
+			/*
+			 * If this is the same vnode we just looked at, don't
+			 * bother doing getattr or vnodetopath again, we
+			 * aleady know what it is.
+			 *
+			 * Most process AS include lots of mappings of the
+			 * same file in a row, so this saves us some work.
+			 */
+			if (pvn != pbuf->vp) {
+				*buf = '\0';
+
+				vattr.va_mask = AT_FSID | AT_NODEID;
+				if (VOP_GETATTR(pbuf->vp, &vattr, 0, CRED(),
+				    NULL) == 0) {
+					maj = getmajor(vattr.va_fsid);
+					min = getminor(vattr.va_fsid);
+					inode = vattr.va_nodeid;
+				} else {
+					maj = (min = 0);
+					inode = 0;
+				}
+				(void) vnodetopath(NULL, pbuf->vp,
+				    buf, buflen, CRED());
+
+				pvn = pbuf->vp;
 			}
-			(void) vnodetopath(NULL, pbuf->vp, buf, buflen, CRED());
-			VN_RELE(pbuf->vp);
+		} else {
+			*buf = '\0';
+			maj = (min = 0);
+			inode = 0;
 		}
+
+		if (pbuf->vp != NULL)
+			VN_RELE(pbuf->vp);
 
 		if (p->p_model == DATAMODEL_LP64) {
 			lxpr_uiobuf_printf(uiobuf,
