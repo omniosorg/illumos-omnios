@@ -516,15 +516,12 @@ cgrp_rd_rel_agent(cgrp_mnt_t *cgm, struct uio *uio)
 static int
 cgrp_rd_procs(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio)
 {
-	int i;
 	uint_t pid;
 	ssize_t offset = 0;
 	ssize_t uresid;
 	cred_t *cred = CRED();
-	zoneid_t zoneid = curproc->p_zone->zone_id;
 	int error = 0;
 	pid_t initpid = curproc->p_zone->zone_proc_initpid;
-	pid_t schedpid = curproc->p_zone->zone_zsched->p_pid;
 	cgrp_node_t *pcn = cn->cgn_parent;
 	lx_lwp_data_t *lwpd, *nlwpd;
 	char buf[16];
@@ -624,7 +621,6 @@ cgrp_rd_tasks(cgrp_mnt_t *cgm, cgrp_node_t *cn, struct uio *uio)
 {
 	ssize_t offset = 0;
 	ssize_t uresid;
-	zoneid_t zoneid = curproc->p_zone->zone_id;
 	cred_t *cred = CRED();
 	int error = 0;
 	pid_t initpid = curproc->p_zone->zone_proc_initpid;
