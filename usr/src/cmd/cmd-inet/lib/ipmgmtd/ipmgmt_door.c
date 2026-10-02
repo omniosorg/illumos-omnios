@@ -135,7 +135,6 @@ ipmgmt_handler(void *cookie, char *argp, size_t argsz, door_desc_t *dp,
 			goto fail;
 		}
 		uid = ucred_getruid(cred);
-		ucred_free(cred);
 		if ((int)uid < 0) {
 			err = errno;
 			ipmgmt_log(LOG_ERR, "Could not get user id.");
@@ -161,6 +160,7 @@ ipmgmt_handler(void *cookie, char *argp, size_t argsz, door_desc_t *dp,
 				goto fail;
 			}
 		}
+		ucred_free(cred);
 	}
 
 	/* individual handlers take care of calling door_return */
