@@ -3415,6 +3415,60 @@ hat_exit(hat_t *hat)
 	mutex_exit(&hat->hat_mutex);
 }
 
+/* arguably this could be boot_mapout() in kvm */
+static void
+free_boot_page(pfn_t page)
+{
+	page_t *pp = page_numtopp_nolock(page);
+
+	ASSERT3P(pp, !=, NULL);
+
+	if (page_tryupgrade(pp) == 0) {
+		panic("%s: couldn't upgrade ttbr0-ish PT "
+		    "lock, pp: %p", __func__, pp);
+	}
+
+	ASSERT(!PP_ISFREE(pp));
+	ASSERT3P(pp->p_vnode, ==, &kvp);
+
+	/*
+	 * boot_mapin() does not do a full page_pp_lock() and
+	 * just sets the lock count.  We do the reverse, this
+	 * is necessary to stop page_destroy() over
+	 * accounting.
+	 */
+	pp->p_lckcnt = 0;
+	page_unresv(1);
+	page_destroy(pp, 0);
+}
+
+static void
+clear_page_table(pte_t *ptbl, uint_t level)
+{
+	ASSERT3P(ptbl, !=, NULL);
+
+	/*
+	 * There are three kinds of pages in the ttbr0 map:
+	 *    - identity mapped from boot, never imported, free
+	 *    - page tables in the tree below ttbr0
+	 *    - identity mapped from boot, imported as page tables below ttbr1,
+	 *	un-free.
+	 *
+	 * We walk the tables and return to the system any page used as a page
+	 * table.  No page or block needs attention as they're either already
+	 * free or should not be freed here.
+	 */
+	for (uint64_t i = 0; i < NPTEPERPT; i++) {
+		if (PTE_ISTABLE(ptbl[i], level)) {
+			caddr_t va = hat_kpm_pfn2va(PTE2PFN(ptbl[i], level));
+
+			clear_page_table((pte_t *)va, level - 1);
+
+			free_boot_page(PTE2PFN(ptbl[i], level));
+		}
+	}
+}
+
 /*
  * The firmware-provided bootstrap identity mappings address.  This is
  * saved by the boot CPU immediately prior to bringing up secondaries.
@@ -3532,8 +3586,18 @@ hat_teardown_ttbr0(void)
  * TTBR0, which is expected to be unreferenced by the time this code runs.
  */
 void
-clear_boot_mappings(uintptr_t low, uintptr_t high)
+clear_user_mappings(void)
 {
+	pfn_t root = btop(TTBR_BADDR48(hat_boot_ttbr0));
+
+	ASSERT3U(root, !=, 0);
+
+	/* Walk the table freeing subordinate pages */
+	clear_page_table((pte_t *)hat_kpm_pfn2va(root), mmu.max_level);
+
+	/* And now we can free the actual root page */
+	free_boot_page(root);
+	hat_boot_ttbr0 = 0;
 }
 
 /*
@@ -3675,6 +3739,7 @@ hat_page_fault(hat_t *hat, caddr_t vaddr)
 			}
 
 			PTE_SET(newpte, PTE_AF);
+
 			if (pte_update(ht, entry, oldpte, newpte)
 			    != oldpte) {
 				hm_exit(pp);

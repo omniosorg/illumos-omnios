@@ -1503,7 +1503,7 @@ release_bootstrap(void)
 	 */
 	PRM_POINT("Unmapping lower boot pages");
 
-	clear_boot_mappings(0, _userlimit);
+	clear_user_mappings();
 
 	/*
 	 * If root isn't on ramdisk, destroy the hardcoded
@@ -1550,9 +1550,6 @@ release_bootstrap(void)
 				rd_pages = pp;
 				continue;
 			}
-
-			pp->p_next = NULL;
-			pp->p_prev = NULL;
 
 			/*
 			 * boot_mapin() does not do a full page_pp_lock() and

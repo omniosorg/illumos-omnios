@@ -190,7 +190,7 @@ extern void hat_cpu_online(struct cpu *);
 extern void hat_cpu_offline(struct cpu *);
 extern void setup_vaddr_for_ppcopy(struct cpu *);
 extern void teardown_vaddr_for_ppcopy(struct cpu *);
-extern void clear_boot_mappings(uintptr_t, uintptr_t);
+extern void clear_user_mappings(void);
 
 /*
  * magic value to indicate that all TLB entries should be demapped.
