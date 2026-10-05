@@ -270,6 +270,8 @@ extern "C" {
 #define	IEEE80211_NODEFAIL	0x40
 
 typedef struct ieee80211_impl {
+	/* WPA callbacks own this object independently of the interface. */
+	struct ieee80211_events	*im_events;
 	struct ieee80211com	*ic;
 	uint8_t			im_chan_avail[IEEE80211_CHAN_BYTES];
 	uint8_t			im_chan_scan[IEEE80211_CHAN_BYTES];
