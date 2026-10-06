@@ -246,6 +246,17 @@ enum iwm_runtime_owner {
 #define	IWM_CONFIG_COMMON	(IWM_CONFIG_CHANNEL | IWM_CONFIG_AUTH | \
 	IWM_CONFIG_BSSTYPE | IWM_CONFIG_ESSID)
 
+/* sc->lock protects snapshots; only the connection worker applies them. */
+struct iwm_wme_state {
+	struct iwm_ac_qos ac[4];
+	uint64_t epoch;
+	uint64_t requested;
+	uint64_t applied;
+	boolean_t accepting;
+	boolean_t valid;
+	int error;
+};
+
 struct iwm_connection {
 	taskq_t *taskq;
 	kcondvar_t cv;
@@ -274,6 +285,7 @@ struct iwm_connection {
 	uint_t channel;
 	uint16_t basic_rates;
 	uint_t configuration;
+	struct iwm_wme_state wme;
 	int error;
 	int cleanup_error;
 	int (*newstate)(ieee80211com_t *, enum ieee80211_state, int);

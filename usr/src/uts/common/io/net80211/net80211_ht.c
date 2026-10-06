@@ -971,10 +971,26 @@ ieee80211_setup_htrates(struct ieee80211_node *in, const uint8_t *ie, int flags)
 {
 	const struct ieee80211_ie_htcap *htcap;
 	struct ieee80211_htrateset *rs;
+	ieee80211_impl_t *im = in->in_ic->ic_private;
 	int i;
 
 	rs = &in->in_htrates;
 	(void) memset(rs, 0, sizeof (*rs));
+	if (im->im_mcs_configured) {
+		/* MCS zero is a rate, not an empty-intersection sentinel. */
+		if (ie == NULL || ie[0] != IEEE80211_ELEMID_HTCAP ||
+		    ie[1] != sizeof (*htcap) - 2)
+			return (IEEE80211_RATE_BASIC);
+		htcap = (const struct ieee80211_ie_htcap *)ie;
+		for (i = 0; i < im->im_mcs.rs_nrates; i++) {
+			uint8_t mcs = im->im_mcs.rs_rates[i];
+
+			if (ieee80211_isset(htcap->hc_mcsset, mcs))
+				rs->rs_rates[rs->rs_nrates++] = mcs;
+		}
+		return (rs->rs_nrates == 0 ? IEEE80211_RATE_BASIC :
+		    rs->rs_rates[rs->rs_nrates - 1]);
+	}
 	if (ie != NULL) {
 		if (ie[0] == IEEE80211_ELEMID_VENDOR)
 			ie += 4;
@@ -1642,12 +1658,11 @@ ieee80211_add_htcap_body(uint8_t *frm, struct ieee80211_node *in)
 
 	/* supported MCS set */
 	/*
-	 * it would better to get the rate set from in_htrates
-	 * so we can restrict it but for sta mode in_htrates isn't
-	 * setup when we're called to form an AssocReq frame so for
-	 * now we're restricted to the default HT rate set.
+	 * Advertise device support, not the peer intersection. In station
+	 * mode in_htrates is not negotiated when forming an AssocReq.
 	 */
-	ieee80211_set_htrates(frm, &ieee80211_rateset_11n);
+	ieee80211_set_htrates(frm,
+	    ieee80211_get_suphtrates(ic, in->in_chan));
 
 	frm += sizeof (struct ieee80211_ie_htcap) -
 	    offsetof(struct ieee80211_ie_htcap, hc_mcsset);
@@ -1896,5 +1911,9 @@ const struct ieee80211_htrateset *
 ieee80211_get_suphtrates(struct ieee80211com *ic,
 	const struct ieee80211_channel *c)
 {
+	ieee80211_impl_t *im = ic->ic_private;
+
+	if (im->im_mcs_configured)
+		return (&im->im_mcs);
 	return (&ieee80211_rateset_11n);
 }

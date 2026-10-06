@@ -867,8 +867,6 @@ iwm_ess_node(void *arg, struct ieee80211_node *node)
 	wl_erp_t *erp;
 	size_t count = list->wl_ess_list_num;
 	uint_t channel, i, nrates, rssi;
-	static const uint8_t rates[] =
-	    { 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108 };
 
 	if (snapshot->error != 0 ||
 	    IEEE80211_ADDR_EQ(node->in_macaddr, sc->identity.mac))
@@ -887,19 +885,7 @@ iwm_ess_node(void *arg, struct ieee80211_node *node)
 		snapshot->error = EPROTO;
 		return;
 	}
-	for (i = 0; i < node->in_rates.ir_nrates; i++) {
-		uint_t j;
-		uint8_t rate = node->in_rates.ir_rates[i] & IEEE80211_RATE_VAL;
-
-		for (j = 0; j < sizeof (rates); j++) {
-			if (rates[j] == rate)
-				break;
-		}
-		if (j == sizeof (rates)) {
-			snapshot->error = EPROTO;
-			return;
-		}
-	}
+	/* Describe the AP's native rates, not this device's TX rate set. */
 	if (snapshot->size < offsetof(wl_ess_list_t, wl_ess_list_ess) ||
 	    count >= (snapshot->size -
 	    offsetof(wl_ess_list_t, wl_ess_list_ess)) / sizeof (*entry)) {

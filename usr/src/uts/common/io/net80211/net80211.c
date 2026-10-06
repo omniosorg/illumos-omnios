@@ -867,8 +867,9 @@ ieee80211_stat(ieee80211com_t *ic, uint_t stat, uint64_t *val)
  * functionss. The parameter "ic" MUST be initialized to tell
  * net80211 about interface's capabilities.
  */
-void
-ieee80211_attach(ieee80211com_t *ic)
+static void
+ieee80211_attach_impl(ieee80211com_t *ic,
+    const struct ieee80211_htrateset *mcs)
 {
 	struct ieee80211_impl		*im;
 	struct ieee80211_channel	*ch;
@@ -882,6 +883,10 @@ ieee80211_attach(ieee80211com_t *ic)
 
 	im = kmem_alloc(sizeof (ieee80211_impl_t), KM_SLEEP);
 	ic->ic_private = im;
+	im->im_mcs_configured = (mcs != NULL);
+	bzero(&im->im_mcs, sizeof (im->im_mcs));
+	if (mcs != NULL)
+		im->im_mcs = *mcs;
 	cv_init(&im->im_scan_cv, NULL, CV_DRIVER, NULL);
 	ieee80211_events_attach(ic);
 
@@ -952,6 +957,37 @@ ieee80211_attach(ieee80211com_t *ic)
 	ieee80211_ht_attach(ic);
 
 	ic->ic_watchdog_timer = 0;
+}
+
+void
+ieee80211_attach(ieee80211com_t *ic)
+{
+	ieee80211_attach_impl(ic, NULL);
+}
+
+/*
+ * Kernel-internal attach variant for a subset of the native HT MCS set.
+ * Copy the profile before any node can inherit rates. The caller must not
+ * already be attached; invalid input leaves the device untouched.
+ */
+int
+ieee80211_attach_mcs(ieee80211com_t *ic,
+    const struct ieee80211_htrateset *mcs)
+{
+	struct ieee80211_htrateset profile = { 0 };
+	uint_t i;
+
+	if (mcs == NULL || mcs->rs_nrates == 0 || mcs->rs_nrates > 16)
+		return (EINVAL);
+	for (i = 0; i < mcs->rs_nrates; i++) {
+		if (mcs->rs_rates[i] >= 16 ||
+		    (i != 0 && mcs->rs_rates[i] <= mcs->rs_rates[i - 1]))
+			return (EINVAL);
+		profile.rs_rates[i] = mcs->rs_rates[i];
+	}
+	profile.rs_nrates = mcs->rs_nrates;
+	ieee80211_attach_impl(ic, &profile);
+	return (0);
 }
 
 /*

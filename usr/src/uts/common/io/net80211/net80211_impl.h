@@ -270,6 +270,8 @@ extern "C" {
 #define	IEEE80211_NODEFAIL	0x40
 
 typedef struct ieee80211_impl {
+	boolean_t		im_mcs_configured;
+	struct ieee80211_htrateset im_mcs;
 	/* WPA callbacks own this object independently of the interface. */
 	struct ieee80211_events	*im_events;
 	struct ieee80211com	*ic;

@@ -659,6 +659,7 @@ CTASSERT(sizeof (struct iwm_rx_packet) == 8);
 #define IWM_NVM_SKU_CAP_BAND_24GHZ	(1 << 0)
 
 #define IWM_NVM_SKU_CAP_BAND_52GHZ	(1 << 1)
+#define IWM_NVM_SKU_CAP_11N_ENABLE	(1 << 2)
 
 #define IWM_NVM_RF_CFG_TX_ANT_MSK_8000(x)	((x >> 24) & 0xF)
 
@@ -954,6 +955,20 @@ struct iwm_rx_phy_info {
 	uint16_t frame_time;
 } __attribute__((__packed__));
 
+/* Pinned donor's API36 receive and HT rate fields. */
+#define	IWM_RX_RES_PHY_FLAGS_AGG		(1 << 7)
+#define	IWM_RX_RES_PHY_FLAGS_OFDM_HT	(1 << 8)
+#define	IWM_RX_RES_PHY_FLAGS_OFDM_GF	(1 << 9)
+#define	IWM_RX_RES_PHY_FLAGS_OFDM_VHT	(1 << 10)
+#define	IWM_RATE_MCS_HT_MSK		(1 << 8)
+#define	IWM_RATE_MCS_CCK_MSK		(1 << 9)
+#define	IWM_RATE_MCS_CHAN_WIDTH_MSK	(3 << 11)
+#define	IWM_RATE_MCS_SGI_MSK		(1 << 13)
+#define	IWM_RATE_MCS_ANT_POS		14
+#define	IWM_RATE_MCS_ANT_MSK		(7 << IWM_RATE_MCS_ANT_POS)
+#define	IWM_RATE_MCS_STBC_MSK		(1 << 17)
+#define	IWM_RATE_MCS_VHT_MSK		(1 << 26)
+
 struct iwm_rx_mpdu_res_start {
 	uint16_t byte_count;
 	uint16_t reserved;
@@ -1077,6 +1092,10 @@ struct iwm_ac_qos {
 
 #define	IWM_MAC_FILTER_DIS_DECRYPT	(1U << 3)
 #define	IWM_MAC_FILTER_DIS_GRP_DECRYPT	(1U << 4)
+#define	IWM_MAC_PROT_FLG_HT_PROT		(1 << 23)
+#define	IWM_MAC_PROT_FLG_FAT_PROT		(1 << 24)
+#define	IWM_MAC_QOS_FLG_UPDATE_EDCA	(1 << 0)
+#define	IWM_MAC_QOS_FLG_TGN		(1 << 1)
 
 struct iwm_mac_ctx_cmd {
 	uint32_t id_and_color;
@@ -1106,7 +1125,12 @@ struct iwm_tx_path_flush_cmd_v1 {
 	uint16_t reserved;
 } __attribute__((__packed__));
 
-/* API36 legacy TX prefix. Offloads, encryption and aggregation stay zero. */
+/* API36 TX prefix. Encryption and aggregation remain host-owned/disabled. */
+#define	IWM_TX_CMD_FLG_BT_DIS		(1 << 12)
+#define	IWM_TX_CMD_FLG_SEQ_CTL		(1 << 13)
+#define	IWM_TX_CMD_FLG_MH_PAD		(1 << 20)
+#define	IWM_TX_CMD_OFFLD_PAD		(1 << 13)
+
 struct iwm_tx_cmd {
 	uint16_t len;
 	uint16_t offload_assist;

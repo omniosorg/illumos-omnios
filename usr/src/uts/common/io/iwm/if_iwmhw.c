@@ -428,6 +428,7 @@ struct iwm_association {
 	uint_t queues;
 	struct iwm_tx_ring tx[4];
 	struct iwm_rx_phy_info rx_phy;
+	uint32_t rx_rate_flags;
 	boolean_t phy_valid;
 	struct iwm_scan_frame frames[IWM_SCAN_RX_LIMIT];
 	uint_t head;
@@ -514,7 +515,8 @@ struct iwm_runtime {
 
 static uint16_t iwm_u16(const uint8_t *);
 static uint32_t iwm_u32(const uint8_t *);
-static int iwm_association_tx(struct iwm_softc *, mblk_t *, boolean_t);
+static int iwm_association_tx(struct iwm_softc *, mblk_t *, boolean_t,
+    boolean_t);
 
 static void
 iwm_proto_report(struct iwm_softc *sc, const struct iwm_proto_diag *d)
@@ -1480,6 +1482,97 @@ iwm_rsn_check(const uint8_t *p, size_t n)
 	return (0);
 }
 
+/* Only the native three-address, normal-ACK data layouts are supported. */
+static int
+iwm_frame_header(const uint8_t *p, size_t n, size_t *header)
+{
+	if (n < sizeof (struct ieee80211_frame) || (p[0] & 3) != 0 ||
+	    (p[1] & 0x84) != 0 || (p[1] & 3) == 3 ||
+	    (iwm_u16(p + 22) & 15) != 0)
+		return (EPROTO);
+	*header = sizeof (struct ieee80211_frame);
+	if ((p[0] & 0x0c) == IEEE80211_FC0_TYPE_DATA) {
+		if (p[0] != 8 && p[0] != 0x88)
+			return (ENOTSUP);
+		if (p[0] == 0x88) {
+			*header = sizeof (struct ieee80211_qosframe);
+			if (n < *header || (p[24] & 0xf8) != 0 || p[25] != 0)
+				return (EPROTO);
+		}
+	} else if ((p[0] & 0x0c) != IEEE80211_FC0_TYPE_MGT) {
+		return (ENOTSUP);
+	}
+	return (0);
+}
+
+/* Limit native ACTION processing to a bounded incoming ADDBA request. */
+static int
+iwm_addba_request_check(const uint8_t *p, size_t n)
+{
+	if (n != 33 || p[24] != IEEE80211_ACTION_CAT_BA ||
+	    p[25] != IEEE80211_ACTION_BA_ADDBA_REQUEST ||
+	    ((iwm_u16(p + 27) >> 2) & 15) >= 8 ||
+	    (iwm_u16(p + 31) & 15) != 0)
+		return (ENOTSUP);
+	return (0);
+}
+
+/* Logical rate policy is separate from this bounded firmware encoding. */
+static int
+iwm_tx_rate_encode(boolean_t ht, uint_t rate, uint8_t antenna,
+    uint32_t *encoded)
+{
+	static const uint8_t rates[] =
+	    { 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108 };
+	static const uint8_t plcp[] =
+	    { 10, 20, 55, 110, 0x0d, 0x0f, 0x05, 0x07,
+	    0x09, 0x0b, 0x01, 0x03 };
+	uint_t i;
+
+	if (antenna == 0 || antenna > 7 || (antenna & (antenna - 1)))
+		return (EINVAL);
+	if (ht) {
+		if (rate > 7)
+			return (ENOTSUP);
+		*encoded = IWM_RATE_MCS_HT_MSK | rate;
+	} else {
+		for (i = 0; i < sizeof (rates); i++) {
+			if (rates[i] == rate)
+				break;
+		}
+		if (i == sizeof (rates))
+			return (ENOTSUP);
+		*encoded = plcp[i] | (i < 4 ? IWM_RATE_MCS_CCK_MSK : 0);
+	}
+	*encoded |= (uint32_t)antenna << IWM_RATE_MCS_ANT_POS;
+	return (0);
+}
+
+/* Observe actual PHY metadata; never infer an RX MCS from the TX policy. */
+static int
+iwm_rx_rate_check(const struct iwm_rx_phy_info *phy, boolean_t ht,
+    uint8_t rx_ant, uint32_t *rate)
+{
+	uint32_t value = LE_32(phy->rate_n_flags);
+	uint16_t flags = LE_16(phy->phy_flags);
+	uint32_t antenna = (value & IWM_RATE_MCS_ANT_MSK) >>
+	    IWM_RATE_MCS_ANT_POS;
+
+	if ((flags & (IWM_RX_RES_PHY_FLAGS_AGG |
+	    IWM_RX_RES_PHY_FLAGS_OFDM_GF | IWM_RX_RES_PHY_FLAGS_OFDM_VHT)) ||
+	    (value & IWM_RATE_MCS_VHT_MSK))
+		return (ENOTSUP);
+	/* API36 rate_n_flags describes HT even without PHY OFDM_HT. */
+	if ((value & IWM_RATE_MCS_HT_MSK) && (!ht || (value & 0xff) > 7 ||
+	    antenna == 0 || (antenna & rx_ant) == 0 ||
+	    (antenna & ~rx_ant) != 0 ||
+	    (value & (IWM_RATE_MCS_CCK_MSK | IWM_RATE_MCS_CHAN_WIDTH_MSK |
+	    IWM_RATE_MCS_SGI_MSK | IWM_RATE_MCS_STBC_MSK))))
+		return (ENOTSUP);
+	*rate = value;
+	return (0);
+}
+
 /* Complete TLVs and native parser field minima, before ieee80211_input. */
 static int
 iwm_scan_frame_check(const uint8_t *p, size_t n, uint_t channel)
@@ -1515,7 +1608,8 @@ iwm_scan_frame_check(const uint8_t *p, size_t n, uint_t channel)
 				return (EPROTO);
 			if (p[off + 2] != channel)
 				return (EXDEV);
-		} else if ((id == 5 && len < 4) ||
+		} else if ((id == 45 && len != 26) ||
+		    (id == 61 && len != 22) || (id == 5 && len < 4) ||
 		    (id == 221 && len < 4)) {
 			return (EPROTO);
 		}
@@ -1587,8 +1681,10 @@ iwm_select_bss(struct iwm_softc *sc, const uint8_t *essid, size_t length,
 			if ((rate & IEEE80211_RATE_VAL) == rates[j])
 				break;
 		}
-		/* Also rejects HT/VHT BSS membership selectors. */
-		if (j == sizeof (rates))
+		/* Native negotiation discards unsupported optional rates. */
+		if ((rate & IEEE80211_RATE_VAL) == 0 ||
+		    (rate & IEEE80211_RATE_VAL) >= 126 ||
+		    (j == sizeof (rates) && (rate & IEEE80211_RATE_BASIC)))
 			goto out;
 		basic |= (rate & IEEE80211_RATE_BASIC) != 0;
 	}
@@ -1608,7 +1704,93 @@ iwm_scan_softc(ieee80211com_t *ic)
 	    offsetof(struct iwm_softc, ic)));
 }
 
-static int iwm_association_tx(struct iwm_softc *, mblk_t *, boolean_t);
+/* Native parameters are stable under ic_genlock, or before public attach. */
+static int
+iwm_wme_encode(const struct ieee80211_wme_state *native,
+    struct iwm_ac_qos *ac)
+{
+	static const uint8_t fifo[] = { 1, 0, 2, 3 };
+	uint_t i;
+
+	bzero(ac, 4 * sizeof (*ac));
+	for (i = 0; i < 4; i++) {
+		const struct wmeParams *p =
+		    &native->wme_chanParams.cap_wmeParams[i];
+		struct iwm_ac_qos *q = &ac[fifo[i]];
+		uint_t txop = p->wmep_txopLimit;
+
+		if (p->wmep_aifsn > 15 || p->wmep_logcwmin > 15 ||
+		    p->wmep_logcwmax > 15 ||
+		    p->wmep_logcwmin > p->wmep_logcwmax ||
+		    txop > UINT16_MAX / 32)
+			return (EINVAL);
+		q->cw_min = LE_16((1U << p->wmep_logcwmin) - 1);
+		q->cw_max = LE_16((1U << p->wmep_logcwmax) - 1);
+		q->aifsn = p->wmep_aifsn;
+		q->fifos_mask = 1U << fifo[i];
+		q->edca_txop = LE_16(txop * 32);
+	}
+	return (0);
+}
+
+/* No queued task or retained native pointer survives an association epoch. */
+static void
+iwm_wme_reset(struct iwm_softc *sc, boolean_t accepting)
+{
+	struct iwm_wme_state *w = &sc->connection.wme;
+	uint64_t epoch = w->epoch + 1;
+
+	ASSERT(MUTEX_HELD(&sc->lock));
+	bzero(w, sizeof (*w));
+	w->epoch = epoch;
+	w->accepting = accepting;
+}
+
+/*
+ * Native join/input holds ic_genlock; attach is not yet publicly reachable.
+ * Lock order is ic_genlock -> sc->lock. Never wait for firmware here.
+ */
+static int
+iwm_wme_update(ieee80211com_t *ic)
+{
+	struct iwm_softc *sc = iwm_scan_softc(ic);
+	struct iwm_connection *c = &sc->connection;
+	struct iwm_wme_state *w = &c->wme;
+	struct iwm_ac_qos ac[4];
+	int error;
+
+	error = iwm_wme_encode(&ic->ic_wme, ac);
+	mutex_enter(&sc->lock);
+	if (!w->accepting || c->cancel ||
+	    (c->pending && ic->ic_bss != c->node)) {
+		mutex_exit(&sc->lock);
+		return (ECANCELED);
+	}
+	if (error == 0 && (!w->valid || bcmp(ac, w->ac,
+	    sizeof (ac)) != 0)) {
+		if (w->requested == UINT64_MAX) {
+			error = EOVERFLOW;
+		} else {
+			bcopy(ac, w->ac, sizeof (ac));
+			w->requested++;
+			w->valid = B_TRUE;
+		}
+	}
+	/* Native ignores this return value; the worker must see errors. */
+	if (error != 0) {
+		if (w->error == 0)
+			w->error = error;
+		if (c->pending && c->error == 0)
+			c->error = error;
+	}
+	if (c->pending && sc->run != NULL)
+		cv_broadcast(&sc->run->cv);
+	mutex_exit(&sc->lock);
+	return (error);
+}
+
+static int iwm_association_tx(struct iwm_softc *, mblk_t *, boolean_t,
+    boolean_t);
 static int iwm_connection_state(struct iwm_softc *, enum ieee80211_state,
     int);
 static int iwm_connection_rollback(struct iwm_softc *);
@@ -1620,7 +1802,7 @@ iwm_scan_xmit(ieee80211com_t *ic, mblk_t *mp, uint8_t type)
 	int error;
 
 	if (sc->connection.pending && type == IEEE80211_FC0_TYPE_MGT) {
-		error = iwm_association_tx(sc, mp, B_TRUE);
+		error = iwm_association_tx(sc, mp, B_TRUE, B_FALSE);
 		if (error != 0) {
 			freemsg(mp);
 			mutex_enter(&sc->lock);
@@ -1679,6 +1861,10 @@ iwm_scan_attach(struct iwm_softc *sc)
 {
 	ieee80211com_t *ic = &sc->ic;
 	uint_t i, count = 0;
+	boolean_t ht;
+	int error;
+	static const struct ieee80211_htrateset mcs =
+	    { 8, { 0, 1, 2, 3, 4, 5, 6, 7 } };
 	static const struct ieee80211_rateset rates_b =
 	    { 4, { 2, 4, 11, 22 } };
 	static const struct ieee80211_rateset rates_g =
@@ -1701,6 +1887,17 @@ iwm_scan_attach(struct iwm_softc *sc)
 	/* AES-CCM hardware capability stays absent: native software crypto. */
 	if (sc->public_enabled)
 		ic->ic_caps = IEEE80211_C_WPA2;
+	ht = sc->public_enabled &&
+	    (sc->identity.sku & IWM_NVM_SKU_CAP_11N_ENABLE) != 0;
+	if (ht) {
+		mutex_enter(&sc->lock);
+		iwm_wme_reset(sc, B_TRUE);
+		mutex_exit(&sc->lock);
+		ic->ic_wme.wme_update = iwm_wme_update;
+		ic->ic_caps |= IEEE80211_C_WME;
+		/* Static SMPS: one stream, long GI, no width40 or STBC. */
+		ic->ic_htcaps = IEEE80211_HTC_HT;
+	}
 	bcopy(sc->identity.mac, ic->ic_macaddr, sizeof (ic->ic_macaddr));
 	ic->ic_sup_rates[IEEE80211_MODE_11B] = rates_b;
 	ic->ic_sup_rates[IEEE80211_MODE_11G] = rates_g;
@@ -1713,10 +1910,23 @@ iwm_scan_attach(struct iwm_softc *sc)
 		ic->ic_sup_channels[i + 1].ich_flags = IEEE80211_CHAN_CCK |
 		    IEEE80211_CHAN_OFDM | IEEE80211_CHAN_DYN |
 		    IEEE80211_CHAN_2GHZ | IEEE80211_CHAN_PASSIVE;
+		if (ht)
+			ic->ic_sup_channels[i + 1].ich_flags |=
+			    IEEE80211_CHAN_HT20;
 	}
 	if (count == 0)
 		return (ENOENT);
-	ieee80211_attach(ic);
+	if (ht) {
+		error = ieee80211_attach_mcs(ic, &mcs);
+		if (error != 0)
+			return (error);
+		/* HT's mandatory AMPDU field is not an aggregation opt-out. */
+		ic->ic_flags_ext &= ~(IEEE80211_FEXT_HTCOMPAT |
+		    IEEE80211_FEXT_AMPDU_RX | IEEE80211_FEXT_AMPDU_TX |
+		    IEEE80211_FEXT_AMSDU_RX | IEEE80211_FEXT_AMSDU_TX);
+	} else {
+		ieee80211_attach(ic);
+	}
 	if (sc->public_enabled)
 		ieee80211_register_door(ic, "iwm", ddi_get_instance(sc->dip));
 	sc->connection.newstate = ic->ic_newstate;
@@ -1754,6 +1964,7 @@ iwm_scan_detach(struct iwm_softc *sc)
 	if (!sc->net_attached)
 		return (0);
 	mutex_enter(&sc->lock);
+	iwm_wme_reset(sc, B_FALSE);
 	if (sc->run != NULL) {
 		ASSERT(!sc->run->scan.outstanding || sc->run->stopped);
 		iwm_scan_drain(sc);
@@ -2021,12 +2232,18 @@ iwm_association_ies(const uint8_t *p, size_t n, size_t off, boolean_t wpa)
 			if (nrates >= IEEE80211_RATE_MAXSIZE)
 				return (EPROTO);
 			for (i = 0; i < len; i++) {
+				uint8_t rate = p[off + 2 + i];
+
 				for (j = 0; j < sizeof (legacy); j++) {
-					if ((p[off + 2 + i] & 0x7f) ==
+					if ((rate & IEEE80211_RATE_VAL) ==
 					    legacy[j])
 						break;
 				}
-				if (j == sizeof (legacy))
+				/* Native negotiation removes optional rates. */
+				if ((rate & IEEE80211_RATE_VAL) == 0 ||
+				    (rate & IEEE80211_RATE_VAL) >= 126 ||
+				    (j == sizeof (legacy) &&
+				    (rate & IEEE80211_RATE_BASIC)))
 					return (ENOTSUP);
 			}
 		} else if ((p[off] == 221 && len < 4) ||
@@ -2057,29 +2274,30 @@ iwm_association_frame_check(const uint8_t *p, size_t n,
     enum ieee80211_state state, boolean_t wpa)
 {
 	uint_t subtype;
+	size_t header;
 	int error;
 
-	if (n < 24 || (p[0] & 3) != 0 || (p[1] & 0x84) != 0 ||
-	    (iwm_u16(p + 22) & 15) != 0 || bcmp(p + 10, bssid, 6))
+	if (iwm_frame_header(p, n, &header) != 0 ||
+	    bcmp(p + 10, bssid, 6))
 		return (EPROTO);
 	if ((p[0] & 0x0c) == 8) {
-		if (state != IEEE80211_S_RUN || p[0] != 8 ||
-		    (p[1] & 3) != 2 || n < 32 ||
+		if (state != IEEE80211_S_RUN ||
+		    (p[1] & 3) != 2 || n < header + 8 ||
 		    (!(p[4] & 1) && bcmp(p + 4, local, 6)))
 			return (ENOTSUP);
 		if (p[1] & IEEE80211_FC1_WEP) {
-			if (!wpa || n < 24 + IEEE80211_WEP_HDRLEN +
+			if (!wpa || n < header + IEEE80211_WEP_HDRLEN +
 			    IEEE80211_WEP_EXTIVLEN + 8 + IEEE80211_WEP_MICLEN ||
-			    p[26] != 0 ||
-			    (p[27] & 0x3f) != IEEE80211_WEP_EXTIV ||
-			    (!(p[4] & 1) && (p[27] >> 6) != 0))
+			    p[header + 2] != 0 ||
+			    (p[header + 3] & 0x3f) != IEEE80211_WEP_EXTIV ||
+			    (!(p[4] & 1) && (p[header + 3] >> 6) != 0))
 				return (EPROTO);
 		} else if (wpa) {
 			static const uint8_t eapol[] =
 			    { 0xaa, 0xaa, 3, 0, 0, 0, 0x88, 0x8e };
 
 			/* Plaintext WPA input is restricted to EAPOL. */
-			if (bcmp(p + 24, eapol, sizeof (eapol)))
+			if (bcmp(p + header, eapol, sizeof (eapol)))
 				return (EACCES);
 		}
 		return (0);
@@ -2100,6 +2318,11 @@ iwm_association_frame_check(const uint8_t *p, size_t n,
 	}
 	if (bcmp(p + 4, local, 6))
 		return (EPROTO);
+	if (subtype == IEEE80211_FC0_SUBTYPE_ACTION) {
+		if (state != IEEE80211_S_RUN)
+			return (ENOTSUP);
+		return (iwm_addba_request_check(p, n));
+	}
 	if (subtype == 0xb0) {
 		if (state != IEEE80211_S_AUTH || n != 30 ||
 		    iwm_u16(p + 24) != 0 || iwm_u16(p + 26) != 2)
@@ -2129,6 +2352,7 @@ iwm_association_rx(struct iwm_softc *sc, uint_t code,
 	struct iwm_connection *c = &sc->connection;
 	struct iwm_scan_frame *frame;
 	size_t length, off;
+	uint32_t rate;
 	uint_t channel;
 	int error;
 
@@ -2150,9 +2374,13 @@ iwm_association_rx(struct iwm_softc *sc, uint_t code,
 	channel = LE_16(a->rx_phy.channel);
 	if (length > n - 8 || channel != c->channel ||
 	    (iwm_u32(p + 4 + length) & 3) != 3 ||
-	    !(LE_16(a->rx_phy.phy_flags) & 1))
+	    !(LE_16(a->rx_phy.phy_flags) & 1) ||
+	    iwm_rx_rate_check(&a->rx_phy,
+	    (c->node->in_flags & IEEE80211_NODE_HT) != 0,
+	    sc->identity.rx_ant, &rate) != 0)
 		goto drop;
 	p += 4;
+	a->rx_rate_flags = rate;
 	error = iwm_association_frame_check(p, length, c->node->in_bssid,
 	    sc->identity.mac, channel, sc->ic.ic_state, c->wpa);
 	if (error != 0) {
@@ -2716,10 +2944,11 @@ static int
 iwm_association_mac(struct iwm_softc *sc, uint_t action, boolean_t assoc)
 {
 	struct iwm_association *a = &sc->run->association;
+	struct iwm_wme_state *w = &sc->connection.wme;
 	ieee80211_node_t *node = sc->connection.node;
 	struct iwm_mac_ctx_cmd cmd;
 	uint32_t cck, ofdm, offset, interval;
-	uint_t i;
+	uint64_t epoch = w->epoch, revision = w->requested;
 	int error;
 
 	if (!iwm_command_version(&sc->fw, 0x28, 3))
@@ -2745,6 +2974,15 @@ iwm_association_mac(struct iwm_softc *sc, uint_t action, boolean_t assoc)
 		cmd.short_slot = LE_32(0x10);
 	if (sc->ic.ic_flags & IEEE80211_F_USEPROT)
 		cmd.protection_flags = LE_32(1U << 3);
+	if (node->in_flags & IEEE80211_NODE_QOS)
+		cmd.qos_flags |= LE_32(IWM_MAC_QOS_FLG_UPDATE_EDCA);
+	if (node->in_flags & IEEE80211_NODE_HT) {
+		cmd.qos_flags |= LE_32(IWM_MAC_QOS_FLG_TGN);
+		if (node->in_htopmode == IEEE80211_HTINFO_OPMODE_PROTOPT ||
+		    node->in_htopmode == IEEE80211_HTINFO_OPMODE_MIXED)
+			cmd.protection_flags |= LE_32(IWM_MAC_PROT_FLG_HT_PROT |
+			    IWM_MAC_PROT_FLG_FAT_PROT);
+	}
 	/* Receive beacons for native ERP/DTIM maintenance; no beacon filter. */
 	cmd.filter_flags = LE_32((1U << 2) | (1U << 6));
 	if (sc->connection.wpa) {
@@ -2752,19 +2990,13 @@ iwm_association_mac(struct iwm_softc *sc, uint_t action, boolean_t assoc)
 		cmd.filter_flags |= LE_32(IWM_MAC_FILTER_DIS_DECRYPT |
 		    IWM_MAC_FILTER_DIS_GRP_DECRYPT);
 	}
-	for (i = 0; i < 4; i++) {
-		static const uint8_t fifo[] = { 1, 0, 2, 3 };
-		struct wmeParams *wme =
-		    &sc->ic.ic_wme.wme_chanParams.cap_wmeParams[i];
-		struct iwm_ac_qos *ac = &cmd.ac[fifo[i]];
-
-		if (wme->wmep_logcwmin > 15 || wme->wmep_logcwmax > 15)
-			return (EINVAL);
-		ac->cw_min = LE_16((1U << wme->wmep_logcwmin) - 1);
-		ac->cw_max = LE_16((1U << wme->wmep_logcwmax) - 1);
-		ac->aifsn = wme->wmep_aifsn;
-		ac->fifos_mask = 1U << fifo[i];
-		ac->edca_txop = LE_16((uint16_t)wme->wmep_txopLimit * 32);
+	if (sc->ic.ic_caps & IEEE80211_C_WME) {
+		if ((action == IWM_FW_CTXT_ACTION_ADD || assoc) &&
+		    (!w->valid || w->error != 0))
+			return (w->error != 0 ? w->error : EINVAL);
+		bcopy(w->ac, cmd.ac, sizeof (w->ac));
+	} else if ((error = iwm_wme_encode(&sc->ic.ic_wme, cmd.ac)) != 0) {
+		return (error);
 	}
 	if (assoc) {
 		interval = (uint32_t)node->in_intval * a->dtim_period;
@@ -2781,8 +3013,40 @@ iwm_association_mac(struct iwm_softc *sc, uint_t action, boolean_t assoc)
 		cmd.sta.assoc_beacon_arrive_time = LE_32(a->beacon_gp2);
 	}
 	error = iwm_control(sc, 0x28, &cmd, sizeof (cmd));
-	if (error == 0)
+	if (error == 0) {
 		a->mac = action != IWM_FW_CTXT_ACTION_REMOVE;
+		if (assoc && w->accepting && w->epoch == epoch)
+			w->applied = revision;
+	}
+	return (error);
+}
+
+/* Sole connection worker, sc->lock held; state transitions share this owner. */
+static int
+iwm_wme_work(struct iwm_softc *sc)
+{
+	struct iwm_connection *c = &sc->connection;
+	struct iwm_wme_state *w = &c->wme;
+	struct iwm_association *a;
+	int error;
+
+	ASSERT(MUTEX_HELD(&sc->lock));
+	ASSERT(curthread == c->thread);
+	if (!c->running || c->cancel || !w->accepting ||
+	    w->requested == w->applied)
+		return (0);
+	if (sc->run == NULL || !w->valid)
+		return (EINVAL);
+	if (w->error != 0)
+		return (w->error);
+	a = &sc->run->association;
+	if (!a->phy || !a->mac || !a->binding || !a->station ||
+	    !a->run_configured)
+		return (EINVAL);
+	if ((error = iwm_nic_lock(sc)) != 0)
+		return (error);
+	error = iwm_association_mac(sc, IWM_FW_CTXT_ACTION_MODIFY, B_TRUE);
+	iwm_nic_unlock(sc);
 	return (error);
 }
 
@@ -2939,7 +3203,7 @@ iwm_tx_unmap(struct iwm_tx_data *slot)
 /* Fixed header stays in the command; map every payload block, without sleep. */
 static int
 iwm_tx_map(struct iwm_softc *sc, struct iwm_tx_data *slot, mblk_t *mp,
-    struct iwm_tfd *tfd)
+    struct iwm_tfd *tfd, size_t header)
 {
 	ddi_dma_attr_t attr = {
 		DMA_ATTR_V0, 0, 0xfffffffffULL, 0xfff, 1, 0x7ff, 1,
@@ -2947,7 +3211,7 @@ iwm_tx_map(struct iwm_softc *sc, struct iwm_tx_data *slot, mblk_t *mp,
 	};
 	ddi_dma_cookie_t cookie;
 	struct iwm_tx_mapping *map;
-	size_t offset = 24, length, total;
+	size_t offset = header, length, total;
 	uint_t count, i;
 	uint64_t address;
 
@@ -3011,7 +3275,7 @@ iwm_tx_frame_check(mblk_t *mp, boolean_t management, size_t *length)
 	mblk_t *block;
 	const uint8_t *frame = mp->b_rptr;
 	uint_t fragments = 0;
-	size_t n;
+	size_t n, header;
 
 	*length = 0;
 	for (block = mp; block != NULL; block = block->b_cont) {
@@ -3023,24 +3287,25 @@ iwm_tx_frame_check(mblk_t *mp, boolean_t management, size_t *length)
 			return (EINVAL);
 		*length += n;
 	}
-	if (MBLKL(mp) < (management ? 24 : 32) || *length <= 24 ||
+	if (iwm_frame_header(frame, MBLKL(mp), &header) != 0 ||
+	    MBLKL(mp) < header + (management ? 0 : 8) ||
+	    *length <= header ||
 	    (frame[0] & 0x0f) != (management ? 0 : 8) ||
-	    (management && (frame[1] & IEEE80211_FC1_WEP)) ||
-	    (frame[0] & 0x80 && !management))
+	    (management && (frame[1] & IEEE80211_FC1_WEP)))
 		return (EINVAL);
 	if (!management) {
 		if ((frame[1] & 3) != 1)
 			return (EINVAL);
 		if (frame[1] & IEEE80211_FC1_WEP) {
 			/* SNAP is encrypted in a protected frame. */
-			if (mp->b_cont != NULL || *length < 24 +
+			if (mp->b_cont != NULL || *length < header +
 			    IEEE80211_WEP_HDRLEN + IEEE80211_WEP_EXTIVLEN +
 			    sizeof (struct ieee80211_llc) +
 			    IEEE80211_WEP_MICLEN ||
-			    frame[26] != 0 ||
-			    (frame[27] & 0x3f) != IEEE80211_WEP_EXTIV)
+			    frame[header + 2] != 0 ||
+			    (frame[header + 3] & 0x3f) != IEEE80211_WEP_EXTIV)
 				return (EINVAL);
-		} else if (bcmp(frame + 24, snap, sizeof (snap)) != 0) {
+		} else if (bcmp(frame + header, snap, sizeof (snap)) != 0) {
 			return (EINVAL);
 		}
 	}
@@ -3049,12 +3314,11 @@ iwm_tx_frame_check(mblk_t *mp, boolean_t management, size_t *length)
 
 /* Caller retains mp on error; the ring owns mp and its node after publish. */
 static int
-iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management)
+iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
+    boolean_t eapol)
 {
 	static const uint8_t rates[] =
 	    { 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108 };
-	static const uint8_t plcp[] =
-	    { 10, 20, 55, 110, 13, 15, 5, 7, 9, 11, 1, 3 };
 	struct iwm_runtime *r;
 	struct iwm_tx_ring *ring;
 	struct iwm_tx_data *slot = NULL;
@@ -3064,7 +3328,8 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management)
 	struct iwm_agn_scd_bc_tbl *bc;
 	ieee80211_node_t *node;
 	const uint8_t *frame = mp->b_rptr;
-	size_t length;
+	size_t length, header, pad;
+	boolean_t ht;
 	uint64_t address, scratch;
 	uint32_t flags, rate_flags;
 	uint_t ac = management ? 3 : 0, i, j, selected = 12;
@@ -3076,8 +3341,15 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management)
 		return (EINVAL);
 	if (management && frame[0] != IEEE80211_FC0_SUBTYPE_AUTH &&
 	    frame[0] != IEEE80211_FC0_SUBTYPE_ASSOC_REQ &&
-	    frame[0] != IEEE80211_FC0_SUBTYPE_REASSOC_REQ)
+	    frame[0] != IEEE80211_FC0_SUBTYPE_REASSOC_REQ &&
+	    (frame[0] != IEEE80211_FC0_SUBTYPE_ACTION || length != 33 ||
+	    frame[24] != IEEE80211_ACTION_CAT_BA ||
+	    frame[25] != IEEE80211_ACTION_BA_ADDBA_RESPONSE ||
+	    iwm_u16(frame + 27) == IEEE80211_STATUS_SUCCESS))
 		return (ENOTSUP);
+	if (iwm_frame_header(frame, MBLKL(mp), &header) != 0)
+		return (EINVAL);
+	pad = (4 - (header & 3)) & 3;
 	mutex_enter(&sc->lock);
 	r = sc->run;
 	node = sc->connection.node;
@@ -3121,18 +3393,28 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management)
 	cmd->hdr.qid = ring->qid;
 	tx = (void *)cmd->data;
 	tx->len = LE_16(length);
-	flags = (1U << 3) | (1U << 12) | (1U << 13);
+	flags = (1U << 3) | IWM_TX_CMD_FLG_BT_DIS;
+	if (header == sizeof (struct ieee80211_frame))
+		flags |= IWM_TX_CMD_FLG_SEQ_CTL;
+	if (pad != 0) {
+		flags |= IWM_TX_CMD_FLG_MH_PAD;
+		tx->offload_assist = LE_16(IWM_TX_CMD_OFFLD_PAD);
+	}
 	if (!management && (sc->ic.ic_flags & IEEE80211_F_USEPROT))
 		flags |= 1;
 	tx->tx_flags = LE_32(flags);
-	rate_flags = (sc->identity.tx_ant & -sc->identity.tx_ant) << 14;
-	if (selected < 4)
-		rate_flags |= 1U << 9;
-	tx->rate_n_flags = LE_32(plcp[selected] | rate_flags);
+	ht = !management && !eapol && !(frame[16] & 1) &&
+	    (node->in_flags & IEEE80211_NODE_HT) != 0;
+	error = iwm_tx_rate_encode(ht, ht ? 0 : rates[selected],
+	    sc->identity.tx_ant & -sc->identity.tx_ant, &rate_flags);
+	if (error != 0)
+		goto out;
+	tx->rate_n_flags = LE_32(rate_flags);
 	tx->life_time = LE_32(UINT32_MAX);
 	tx->rts_retry_limit = 60;
 	tx->data_retry_limit = management ? 60 : 15;
-	tx->tid_tspec = management ? 8 : 0;
+	tx->tid_tspec = management ? 8 :
+	    (header == sizeof (struct ieee80211_qosframe) ? frame[24] & 7 : 0);
 	tx->pm_frame_timeout = LE_16(management ?
 	    ((frame[0] & 0xf0) == 0 ? 3 : 2) : 0);
 	address = iwm_dma_addr(&ring->cmd_dma) +
@@ -3141,9 +3423,9 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management)
 	    offsetof(struct iwm_tx_cmd, scratch);
 	tx->dram_lsb_ptr = LE_32(scratch);
 	tx->dram_msb_ptr = scratch >> 32;
-	bcopy(frame, cmd->data + sizeof (*tx), 24);
+	bcopy(frame, cmd->data + sizeof (*tx), header);
 	if (management)
-		bcopy(frame + 24, slot->dma.vaddr, length - 24);
+		bcopy(frame + header, slot->dma.vaddr, length - header);
 	tfd = &ring->desc[ring->cur];
 	bzero(tfd, sizeof (*tfd));
 	tfd->num_tbs = 3;
@@ -3152,13 +3434,13 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management)
 	address += 16;
 	tfd->tbs[1].lo = LE_32(address);
 	tfd->tbs[1].hi_n_len = LE_16((address >> 32) |
-	    ((sizeof (cmd->hdr) + sizeof (*tx) + 24 - 16) << 4));
+	    ((sizeof (cmd->hdr) + sizeof (*tx) + header + pad - 16) << 4));
 	if (management) {
 		address = iwm_dma_addr(&slot->dma);
 		tfd->tbs[2].lo = LE_32(address);
 		tfd->tbs[2].hi_n_len = LE_16((address >> 32) |
-		    ((length - 24) << 4));
-	} else if ((error = iwm_tx_map(sc, slot, mp, tfd)) != 0) {
+		    ((length - header) << 4));
+	} else if ((error = iwm_tx_map(sc, slot, mp, tfd, header)) != 0) {
 		goto out;
 	}
 	bc = (void *)r->scheduler.vaddr;
@@ -3217,15 +3499,20 @@ iwm_ccmp_prepare(struct iwm_softc *sc, mblk_t *mp, boolean_t reserved)
 	mblk_t *block, *copy;
 	size_t total = 0, size, skip, offset, header;
 	uint_t fragments = 0;
-	boolean_t protected = (mp->b_rptr[1] & IEEE80211_FC1_WEP) != 0;
+	boolean_t protected;
 
 	ASSERT(MUTEX_HELD(&ic->ic_genlock));
 	ASSERT(MUTEX_HELD(&sc->connection.crypto_lock));
+	if (iwm_frame_header(mp->b_rptr, MBLKL(mp), &header) != 0 ||
+	    header != ieee80211_hdrspace(ic, mp->b_rptr))
+		goto failed;
+	protected = (mp->b_rptr[1] & IEEE80211_FC1_WEP) != 0;
 	if (!protected) {
 		/* Native pre-key EAPOL is clear; WPA data requires a key. */
-		if (MBLKL(mp) < 32 || bcmp(mp->b_rptr + 24, snap,
-		    sizeof (snap)) || mp->b_rptr[30] != 0x88 ||
-		    mp->b_rptr[31] != 0x8e)
+		if (MBLKL(mp) < header + sizeof (struct ieee80211_llc) ||
+		    bcmp(mp->b_rptr + header, snap, sizeof (snap)) ||
+		    mp->b_rptr[header + 6] != 0x88 ||
+		    mp->b_rptr[header + 7] != 0x8e)
 			goto failed;
 		return (mp);
 	}
@@ -3238,9 +3525,6 @@ iwm_ccmp_prepare(struct iwm_softc *sc, mblk_t *mp, boolean_t reserved)
 	    !(key->wk_flags & IEEE80211_KEY_SWCRYPT) ||
 	    !(key->wk_flags & IEEE80211_KEY_XMIT) ||
 	    key->wk_keytsc >= 0xffffffffffffULL)
-		goto failed;
-	header = ieee80211_hdrspace(ic, mp->b_rptr);
-	if (header != sizeof (struct ieee80211_frame))
 		goto failed;
 	for (block = mp; block != NULL; block = block->b_cont) {
 		if (++fragments > IWM_RBUF_SIZE ||
@@ -3287,12 +3571,16 @@ failed:
 mblk_t *
 iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
 {
+	static const uint8_t snap[] = { 0xaa, 0xaa, 3, 0, 0, 0 };
 	mblk_t *copy, *next;
 	ieee80211_node_t *node;
-	boolean_t reserved, allowed;
+	boolean_t reserved, allowed, eapol;
+	size_t header, llc;
 	int error;
 
 	while (mp != NULL) {
+		if (iwm_frame_header(mp->b_rptr, MBLKL(mp), &header) != 0)
+			return (mp);
 		mutex_enter(&sc->lock);
 		if (!sc->connection.running || !sc->connection.tx_admission ||
 		    sc->connection.node == NULL) {
@@ -3302,18 +3590,26 @@ iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
 		node = ieee80211_ref_node(sc->connection.node);
 		mutex_exit(&sc->lock);
 		/* Copy the mutable header/LLC, retaining payload blocks. */
-		copy = msgpullup(mp, 32);
+		reserved = (mp->b_rptr[1] & IEEE80211_FC1_WEP) != 0;
+		llc = header + (reserved ? IEEE80211_WEP_HDRLEN +
+		    IEEE80211_WEP_EXTIVLEN : 0);
+		copy = msgpullup(mp, llc + sizeof (struct ieee80211_llc));
 		if (copy == NULL) {
 			ieee80211_free_node(node);
 			return (mp);
 		}
-		reserved = (copy->b_rptr[1] & IEEE80211_FC1_WEP) != 0;
+		eapol = bcmp(copy->b_rptr + llc, snap, sizeof (snap)) == 0 &&
+		    copy->b_rptr[llc + 6] == 0x88 &&
+		    copy->b_rptr[llc + 7] == 0x8e;
 		mutex_enter(&sc->connection.crypto_lock);
 		mutex_enter(&sc->ic.ic_genlock);
 		mutex_enter(&sc->lock);
 		allowed = sc->connection.running &&
 		    sc->connection.tx_admission && !sc->connection.cancel &&
-		    sc->connection.node == node;
+		    sc->connection.node == node &&
+		    (header == sizeof (struct ieee80211_qosframe)) ==
+		    ((node->in_flags & (IEEE80211_NODE_HT |
+		    IEEE80211_NODE_QOS)) != 0);
 		mutex_exit(&sc->lock);
 		if (allowed) {
 			copy = ieee80211_encap(&sc->ic, copy, node);
@@ -3325,7 +3621,7 @@ iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
 		}
 		mutex_exit(&sc->ic.ic_genlock);
 		error = copy == NULL ? ENOMEM :
-		    iwm_association_tx(sc, copy, B_FALSE);
+		    iwm_association_tx(sc, copy, B_FALSE, eapol);
 		mutex_exit(&sc->connection.crypto_lock);
 		ieee80211_free_node(node);
 		if (error != 0) {
@@ -4607,6 +4903,10 @@ iwm_connection_state(struct iwm_softc *sc, enum ieee80211_state state,
 		return (ECANCELED);
 	}
 	old = sc->ic.ic_state;
+	if (c->error != 0) {
+		mutex_exit(&sc->lock);
+		return (c->error);
+	}
 	if (old == IEEE80211_S_RUN && state != old &&
 	    !c->operation_owned) {
 		mutex_exit(&sc->lock);
@@ -4638,6 +4938,7 @@ iwm_connection_state(struct iwm_softc *sc, enum ieee80211_state state,
 			c->error = ETIMEDOUT;
 		c->tx_admission = c->rx_admission = B_FALSE;
 		c->cancel = B_TRUE;
+		c->wme.accepting = B_FALSE;
 		mutex_exit(&sc->lock);
 		error = c->newstate(&sc->ic, state, arg);
 		mutex_enter(&sc->lock);
@@ -4726,9 +5027,34 @@ iwm_connection_state(struct iwm_softc *sc, enum ieee80211_state state,
 			error = ETIMEDOUT;
 			break;
 		}
-		c->node->in_flags &= ~(IEEE80211_NODE_HT |
-		    IEEE80211_NODE_HTCOMPAT | IEEE80211_NODE_QOS |
-		    IEEE80211_NODE_AMPDU_TX);
+		c->node->in_flags &= ~(IEEE80211_NODE_HTCOMPAT |
+		    IEEE80211_NODE_AMPDU);
+		if (c->node->in_flags & IEEE80211_NODE_HT) {
+			uint_t i;
+
+			if (c->node->in_chw != 20 ||
+			    c->node->in_htctlchan != c->channel ||
+			    c->node->in_htrates.rs_nrates == 0 ||
+			    c->node->in_htrates.rs_nrates > 8) {
+				error = ENOTSUP;
+				break;
+			}
+			for (i = 0; i < c->node->in_htrates.rs_nrates; i++) {
+				if ((c->node->in_htrates.rs_rates[i] &
+				    IEEE80211_RATE_VAL) > 7)
+					break;
+			}
+			/* Fixed initial MCS0 policy needs MCS0 negotiated. */
+			if (i != c->node->in_htrates.rs_nrates ||
+			    (c->node->in_htrates.rs_rates[0] &
+			    IEEE80211_RATE_VAL) != 0) {
+				error = ENOTSUP;
+				break;
+			}
+		} else {
+			/* Preserve the accepted non-QoS legacy data path. */
+			c->node->in_flags &= ~IEEE80211_NODE_QOS;
+		}
 		error = iwm_association_run(sc);
 		break;
 	default:
@@ -4737,8 +5063,9 @@ iwm_connection_state(struct iwm_softc *sc, enum ieee80211_state state,
 		break;
 	}
 	iwm_nic_unlock(sc);
-	if (error == 0 && (c->cancel || r->error != 0))
-		error = c->cancel ? ECANCELED : r->error;
+	if (error == 0 && (c->cancel || c->error != 0 || r->error != 0))
+		error = c->cancel ? ECANCELED :
+		    (c->error != 0 ? c->error : r->error);
 failed:
 	if (error != 0) {
 		if (c->error == 0)
@@ -4954,6 +5281,9 @@ iwm_connection_task(void *arg)
 			goto done;
 	}
 	c->node = node;
+	mutex_enter(&sc->lock);
+	iwm_wme_reset(sc, (sc->ic.ic_caps & IEEE80211_C_WME) != 0);
+	mutex_exit(&sc->lock);
 	/* Native ASSOC negotiation overwrites the AP's basic-rate bits. */
 	c->basic_rates = 0;
 	for (i = 0; i < node->in_rates.ir_nrates; i++) {
@@ -5011,6 +5341,8 @@ iwm_connection_task(void *arg)
 			error = ETIMEDOUT;
 		if (error != 0)
 			break;
+		if ((error = iwm_wme_work(sc)) != 0)
+			break;
 		if (c->running && c->operation_owned) {
 			mutex_exit(&sc->lock);
 			iwm_operation_exit(sc);
@@ -5044,6 +5376,7 @@ teardown:
 	mutex_enter(&sc->lock);
 	c->tx_admission = c->rx_admission = B_FALSE;
 	c->running = B_FALSE;
+	c->wme.accepting = B_FALSE;
 	sc->associated_bssid_valid = B_FALSE;
 	bzero(sc->associated_bssid, sizeof (sc->associated_bssid));
 	mutex_exit(&sc->lock);
@@ -5077,6 +5410,7 @@ teardown:
 	}
 done:
 	mutex_enter(&sc->lock);
+	iwm_wme_reset(sc, B_FALSE);
 	c->error = error;
 	c->cleanup_error = cleanup;
 	/* Do not release a node still reachable by unsafe retained TX slots. */
