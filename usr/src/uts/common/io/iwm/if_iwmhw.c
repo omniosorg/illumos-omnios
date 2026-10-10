@@ -1857,15 +1857,17 @@ iwm_tx_rate_encode(boolean_t ht, uint_t rate, uint8_t antenna,
 /* Observe actual PHY metadata; never infer an RX MCS from the TX policy. */
 static int
 iwm_rx_rate_check(const struct iwm_rx_phy_info *phy, boolean_t ht,
-    uint8_t rx_ant, uint32_t *rate)
+    boolean_t ampdu, uint8_t rx_ant, uint32_t *rate)
 {
 	uint32_t value = LE_32(phy->rate_n_flags);
 	uint16_t flags = LE_16(phy->phy_flags);
 	uint32_t antenna = (value & IWM_RATE_MCS_ANT_MSK) >>
 	    IWM_RATE_MCS_ANT_POS;
 
-	if ((flags & (IWM_RX_RES_PHY_FLAGS_AGG |
-	    IWM_RX_RES_PHY_FLAGS_OFDM_GF | IWM_RX_RES_PHY_FLAGS_OFDM_VHT)) ||
+	if (((flags & IWM_RX_RES_PHY_FLAGS_AGG) &&
+	    (!ht || !ampdu || !(value & IWM_RATE_MCS_HT_MSK))) ||
+	    (flags & (IWM_RX_RES_PHY_FLAGS_OFDM_GF |
+	    IWM_RX_RES_PHY_FLAGS_OFDM_VHT)) ||
 	    (value & IWM_RATE_MCS_VHT_MSK))
 		return (ENOTSUP);
 	/* API36 rate_n_flags describes HT even without PHY OFDM_HT. */
@@ -2864,13 +2866,9 @@ iwm_association_rx(struct iwm_softc *sc, uint_t code,
 	channel = LE_16(a->rx_phy.channel);
 	if (length > n - 8 || channel != c->channel ||
 	    (iwm_u32(p + 4 + length) & 3) != 3 ||
-	    !(LE_16(a->rx_phy.phy_flags) & 1) ||
-	    iwm_rx_rate_check(&a->rx_phy,
-	    (c->node->in_flags & IEEE80211_NODE_HT) != 0,
-	    sc->identity.rx_ant, &rate) != 0)
+	    !(LE_16(a->rx_phy.phy_flags) & 1))
 		goto drop;
 	p += 4;
-	a->rx_rate_flags = rate;
 	error = iwm_association_frame_check(p, length, c->node->in_bssid,
 	    sc->identity.mac, channel, sc->ic.ic_state, c->wpa);
 	if (error != 0) {
@@ -2879,6 +2877,16 @@ iwm_association_rx(struct iwm_softc *sc, uint_t code,
 			c->error = error;
 		goto drop;
 	}
+	/* Aggregated input requires this runtime's active TID0 recipient. */
+	if (iwm_rx_rate_check(&a->rx_phy,
+	    (c->node->in_flags & IEEE80211_NODE_HT) != 0,
+	    a->rx_ba.state == IWM_BA_ACTIVE && a->rx_ba.node == c->node &&
+	    a->rx_ba.runtime_generation == r->generation &&
+	    a->rx_ba.generation == a->generation && p[0] == 0x88 &&
+	    (p[24] & IEEE80211_QOS_TID) == 0,
+	    sc->identity.rx_ant, &rate) != 0)
+		goto drop;
+	a->rx_rate_flags = rate;
 	if ((p[0] == 0x84 || (p[0] == 0x88 && (p[24] & 0x60))) &&
 	    (a->rx_ba.state != IWM_BA_ACTIVE ||
 	    (p[0] == 0x88 && (p[24] & IEEE80211_QOS_TID) != 0)))
@@ -3965,6 +3973,9 @@ iwm_ba_retire(struct iwm_softc *sc)
 		}
 	}
 	mutex_exit(&sc->lock);
+	/* Native node cleanup does not retire its HT reorder buffers. */
+	if (node != NULL && (node->in_flags & IEEE80211_NODE_HT))
+		ieee80211_ht_node_cleanup(node);
 	mutex_exit(&sc->ic.ic_genlock);
 	mutex_exit(&sc->connection.crypto_lock);
 }
