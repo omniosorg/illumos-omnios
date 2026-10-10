@@ -237,6 +237,7 @@ iwm_rx_classify(uint_t code, uint_t qid)
 	case 0xb5:	/* UMAC scan iteration */
 	case 0xa2:	/* missed beacons */
 	case 0xa1:	/* card state */
+	case 0xc5:	/* API36 compressed TX BA */
 	case 0x02:	/* firmware error */
 	case 0x4fe:	/* critical temperature */
 		return (unsolicited ? IWM_RX_ASYNC : IWM_RX_INVALID);
@@ -418,7 +419,33 @@ struct iwm_time_event_state {
 	int error;
 };
 
-/* One legacy station topology, independent of the scan AUX station. */
+enum iwm_ba_state {
+	IWM_BA_CLOSED, IWM_BA_STARTING, IWM_BA_ACTIVE,
+	IWM_BA_STOPPING, IWM_BA_DRAINING
+};
+
+/* Borrowed node identity is protected by the connection worker's reference. */
+struct iwm_tx_ba {
+	enum iwm_ba_state state;
+	uint64_t generation;
+	struct ieee80211_node *node;
+	uint_t runtime_generation;
+	uint8_t tid;
+	uint8_t ac;
+	uint8_t token;
+	uint8_t qid;
+	uint16_t ssn;
+	uint16_t next_sequence;
+	uint16_t window;
+	clock_t deadline;
+	boolean_t accepted;
+	boolean_t admission;
+	uint_t responses;
+	uint_t notifications;
+	uint_t rejected;
+};
+
+/* One station topology, independent of the scan AUX station. */
 struct iwm_association {
 	boolean_t phy;
 	boolean_t mac;
@@ -426,7 +453,9 @@ struct iwm_association {
 	boolean_t station;
 	boolean_t run_configured;
 	uint_t queues;
-	struct iwm_tx_ring tx[4];
+	struct iwm_tx_ring tx[IWM_ASSOC_TX_RINGS];
+	struct iwm_tx_ba ba[8];
+	uint64_t generation;
 	struct iwm_rx_phy_info rx_phy;
 	uint32_t rx_rate_flags;
 	boolean_t phy_valid;
@@ -448,6 +477,9 @@ struct iwm_association {
 struct iwm_runtime {
 	/* Disabled scheduler history outlives association storage. */
 	uint_t released_queues;
+	/* API36 has no BA epoch: only full runtime destruction resets this. */
+	boolean_t ba_queue_used;
+	uint64_t ba_generation;
 	struct iwm_scan_state scan;
 	struct iwm_lar_state lar;
 	struct iwm_time_event_state protection;
@@ -515,8 +547,12 @@ struct iwm_runtime {
 
 static uint16_t iwm_u16(const uint8_t *);
 static uint32_t iwm_u32(const uint8_t *);
+static struct iwm_softc *iwm_scan_softc(ieee80211com_t *);
 static int iwm_association_tx(struct iwm_softc *, mblk_t *, boolean_t,
     boolean_t);
+static int iwm_ba_work(struct iwm_softc *);
+static void iwm_ba_retire(struct iwm_softc *);
+static int iwm_association_reclaim(struct iwm_softc *, boolean_t);
 
 static void
 iwm_proto_report(struct iwm_softc *sc, const struct iwm_proto_diag *d)
@@ -799,10 +835,10 @@ static int
 iwm_association_queues_check(struct iwm_runtime *r,
     enum iwm_queue_boundary boundary)
 {
-	static const uint8_t fifo[] = { 1, 0, 2, 3 };
+	static const uint8_t fifo[] = { 1, 0, 2, 3, 1 };
 	uint_t ac, i, mask = 0;
 
-	for (ac = 0; ac < 4; ac++) {
+	for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++) {
 		struct iwm_tx_ring *ring = &r->association.tx[ac];
 		uint_t owned = 0;
 
@@ -872,7 +908,7 @@ iwm_queues_check(struct iwm_softc *sc, const char *boundary)
 		struct iwm_tx_ring *ring = NULL;
 		uint_t ac;
 
-		for (ac = 0; ac < 4; ac++) {
+		for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++) {
 			if (r->association.tx[ac].qid != q)
 				continue;
 			if (r->association.tx[ac].configured)
@@ -1482,7 +1518,7 @@ iwm_rsn_check(const uint8_t *p, size_t n)
 	return (0);
 }
 
-/* Only the native three-address, normal-ACK data layouts are supported. */
+/* Three-address data; BA ACK policy is validated separately at TX admission. */
 static int
 iwm_frame_header(const uint8_t *p, size_t n, size_t *header)
 {
@@ -1496,7 +1532,9 @@ iwm_frame_header(const uint8_t *p, size_t n, size_t *header)
 			return (ENOTSUP);
 		if (p[0] == 0x88) {
 			*header = sizeof (struct ieee80211_qosframe);
-			if (n < *header || (p[24] & 0xf8) != 0 || p[25] != 0)
+			if (n < *header || (p[24] & 0x98) != 0 ||
+			    ((p[24] & 0x60) != 0 && (p[24] & 0x60) != 0x60) ||
+			    p[25] != 0)
 				return (EPROTO);
 		}
 	} else if ((p[0] & 0x0c) != IEEE80211_FC0_TYPE_MGT) {
@@ -1515,6 +1553,208 @@ iwm_addba_request_check(const uint8_t *p, size_t n)
 	    (iwm_u16(p + 31) & 15) != 0)
 		return (ENOTSUP);
 	return (0);
+}
+
+/* Native action handlers assume these complete, unfragmented wire bodies. */
+static int
+iwm_ba_action_check(const uint8_t *p, size_t n, boolean_t tx)
+{
+	uint_t params;
+
+	if (n < 26 || p[24] != IEEE80211_ACTION_CAT_BA)
+		return (ENOTSUP);
+	switch (p[25]) {
+	case IEEE80211_ACTION_BA_ADDBA_REQUEST:
+		if (iwm_addba_request_check(p, n) != 0)
+			return (EPROTO);
+		params = iwm_u16(p + 27);
+		if (tx && (((params >> 2) & 15) != 0 ||
+		    (params >> 6) != IWM_TX_AGG_WINDOW ||
+		    !(params & 2) || iwm_u16(p + 29) != 0))
+			return (ENOTSUP);
+		return (0);
+	case IEEE80211_ACTION_BA_ADDBA_RESPONSE:
+		if (n != 33 || ((iwm_u16(p + 29) >> 2) & 15) >= 8)
+			return (EPROTO);
+		/* RX sessions are never accepted in 8B1. */
+		return (tx && iwm_u16(p + 27) == 0 ? ENOTSUP : 0);
+	case IEEE80211_ACTION_BA_DELBA:
+		if (n != 30 || (iwm_u16(p + 26) >> 12) != 0 ||
+		    (iwm_u16(p + 26) & 0x7ff) != 0)
+			return (EPROTO);
+		return (0);
+	default:
+		return (ENOTSUP);
+	}
+}
+
+/* One bounded native BE stream; no firmware work or new owner in callbacks. */
+static int
+iwm_ba_request(struct ieee80211_node *node, struct ieee80211_tx_ampdu *tap,
+    int token, int params, int timeout)
+{
+	struct iwm_softc *sc = iwm_scan_softc(node->in_ic);
+	struct iwm_runtime *r;
+	struct iwm_tx_ba *ba;
+	int accepted = 0;
+
+	ASSERT(MUTEX_HELD(&sc->ic.ic_genlock));
+	if (tap != &node->in_tx_ampdu[WME_AC_BE] || token < 0 ||
+	    token >= 63 || timeout != 0 || (params & 0x3f) != 2 ||
+	    (params >> 6) != IWM_TX_AGG_WINDOW)
+		return (0);
+	mutex_enter(&sc->lock);
+	r = sc->run;
+	if (r == NULL || r->ba_queue_used || !sc->connection.running ||
+	    !sc->connection.tx_admission || sc->connection.cancel ||
+	    sc->connection.node != node ||
+	    !(node->in_flags & IEEE80211_NODE_HT) ||
+	    !(sc->fw.capa[0] & (1U << IWM_UCODE_TLV_CAPA_DQA_SUPPORT)))
+		goto out;
+	ba = &r->association.ba[0];
+	if (ba->state != IWM_BA_CLOSED)
+		goto out;
+	bzero(ba, sizeof (*ba));
+	ba->state = IWM_BA_STARTING;
+	ba->generation = r->association.generation;
+	ba->runtime_generation = r->generation;
+	ba->node = node;
+	ba->ac = WME_AC_BE;
+	ba->qid = IWM_TX_AGG_QUEUE;
+	ba->token = token;
+	ba->ssn = node->in_txseqs[0] & 0xfff;
+	ba->window = IWM_TX_AGG_WINDOW;
+	ba->deadline = ddi_get_lbolt() + drv_usectohz(250000);
+	tap->txa_token = token;
+	tap->txa_start = tap->txa_seqstart = ba->ssn;
+	tap->txa_wnd = IWM_TX_AGG_WINDOW;
+	tap->txa_timer = NULL;
+	tap->txa_flags |= IEEE80211_AGGR_IMMEDIATE | IEEE80211_AGGR_XCHGPEND;
+	tap->txa_lastrequest = ddi_get_lbolt();
+	accepted = 1;
+	cv_broadcast(&r->cv);
+out:
+	mutex_exit(&sc->lock);
+	return (accepted);
+}
+
+static int
+iwm_ba_response(struct ieee80211_node *node, struct ieee80211_tx_ampdu *tap,
+    int status, int params, int timeout)
+{
+	struct iwm_softc *sc = iwm_scan_softc(node->in_ic);
+	struct iwm_tx_ba *ba;
+	uint_t window = params >> 6;
+
+	ASSERT(MUTEX_HELD(&sc->ic.ic_genlock));
+	mutex_enter(&sc->lock);
+	if (sc->run == NULL || tap != &node->in_tx_ampdu[WME_AC_BE])
+		goto out;
+	ba = &sc->run->association.ba[0];
+	if (ba->state != IWM_BA_STARTING || ba->accepted || ba->node != node ||
+	    ba->generation != sc->run->association.generation ||
+	    ba->runtime_generation != sc->run->generation ||
+	    ddi_get_lbolt() >= ba->deadline)
+		goto out;
+	ba->responses++;
+	tap->txa_flags &= ~IEEE80211_AGGR_XCHGPEND;
+	/* Peer A-MSDU support does not require sending A-MSDUs. */
+	if (status != 0 || (params & IEEE80211_BAPS_TID) != 0 ||
+	    (params & IEEE80211_BAPS_POLICY) !=
+	    IEEE80211_BAPS_POLICY_IMMEDIATE || timeout != 0 ||
+	    (window != 0 && window != IWM_TX_AGG_WINDOW)) {
+		ba->state = IWM_BA_CLOSED;
+		tap->txa_flags |= IEEE80211_AGGR_NAK;
+	} else {
+		ba->accepted = B_TRUE;
+		ba->deadline = ddi_get_lbolt() + drv_usectohz(IWM_WAIT_US);
+	}
+	cv_broadcast(&sc->run->cv);
+out:
+	mutex_exit(&sc->lock);
+	return (1);
+}
+
+static void
+iwm_ba_stop(struct ieee80211_node *node, struct ieee80211_tx_ampdu *tap)
+{
+	struct iwm_softc *sc = iwm_scan_softc(node->in_ic);
+	struct iwm_tx_ba *ba;
+
+	/* Native pre-RUN HT cleanup is serialized by the connection worker. */
+	tap->txa_flags &= ~(IEEE80211_AGGR_RUNNING | IEEE80211_AGGR_XCHGPEND);
+	tap->txa_flags |= IEEE80211_AGGR_NAK;
+	tap->txa_timer = NULL;
+	mutex_enter(&sc->lock);
+	if (sc->run != NULL && sc->connection.node == node &&
+	    tap == &node->in_tx_ampdu[WME_AC_BE]) {
+		ba = &sc->run->association.ba[0];
+		ba->admission = B_FALSE;
+		if (ba->state == IWM_BA_ACTIVE || ba->state == IWM_BA_STARTING)
+			ba->state = IWM_BA_STOPPING;
+		cv_broadcast(&sc->run->cv);
+	}
+	mutex_exit(&sc->lock);
+}
+
+static int
+iwm_ba_send_action(struct ieee80211_node *node, int category, int action,
+    uint16_t args[4])
+{
+	struct iwm_softc *sc = iwm_scan_softc(node->in_ic);
+	uint16_t copy[4];
+
+	bcopy(args, copy, sizeof (copy));
+	if (category != IEEE80211_ACTION_CAT_BA)
+		return (ENOTSUP);
+	if (action == IEEE80211_ACTION_BA_ADDBA_REQUEST) {
+		mutex_enter(&sc->lock);
+		if (sc->run == NULL || sc->connection.node != node ||
+		    sc->run->association.ba[0].state != IWM_BA_STARTING) {
+			mutex_exit(&sc->lock);
+			return (ECANCELED);
+		}
+		copy[3] = sc->run->association.ba[0].ssn << 4;
+		mutex_exit(&sc->lock);
+	} else if (action != IEEE80211_ACTION_BA_ADDBA_RESPONSE &&
+	    action != IEEE80211_ACTION_BA_DELBA) {
+		return (ENOTSUP);
+	}
+	return (sc->connection.send_action(node, category, action, copy));
+}
+
+static void
+iwm_ba_recv_action(struct ieee80211_node *node, const uint8_t *p,
+    const uint8_t *end)
+{
+	struct iwm_softc *sc = iwm_scan_softc(node->in_ic);
+	boolean_t valid;
+
+	/* Native recv_mgmt owns genlock throughout ACTION dispatch. */
+	ASSERT(MUTEX_HELD(&sc->ic.ic_genlock));
+	/* Full management-frame bounds were checked before native input. */
+	if (end < p || end - p < 2 || p[0] != IEEE80211_ACTION_CAT_BA)
+		return;
+	mutex_enter(&sc->lock);
+	valid = sc->run != NULL && sc->connection.running &&
+	    !sc->connection.cancel && sc->connection.node == node;
+	if (valid && p[1] == IEEE80211_ACTION_BA_ADDBA_RESPONSE) {
+		struct iwm_tx_ba *ba = &sc->run->association.ba[0];
+
+		valid = end - p == 9 && ((iwm_u16(p + 5) >> 2) & 15) == 0 &&
+		    ba->state == IWM_BA_STARTING && !ba->accepted &&
+		    ba->node == node && ba->token == p[2] &&
+		    ba->generation == sc->run->association.generation &&
+		    ba->runtime_generation == sc->run->generation &&
+		    ddi_get_lbolt() < ba->deadline;
+	} else if (valid && p[1] == IEEE80211_ACTION_BA_DELBA) {
+		valid = end - p == 6 && (iwm_u16(p + 2) >> 12) == 0;
+	} else if (p[1] != IEEE80211_ACTION_BA_ADDBA_REQUEST) {
+		valid = B_FALSE;
+	}
+	mutex_exit(&sc->lock);
+	if (valid)
+		sc->connection.recv_action(node, p, end);
 }
 
 /* Logical rate policy is separate from this bounded firmware encoding. */
@@ -1927,6 +2167,18 @@ iwm_scan_attach(struct iwm_softc *sc)
 	} else {
 		ieee80211_attach(ic);
 	}
+	if (ht && (sc->fw.capa[0] &
+	    (1U << IWM_UCODE_TLV_CAPA_DQA_SUPPORT))) {
+		ic->ic_htcaps |= IEEE80211_HTC_AMPDU;
+		ic->ic_flags_ext |= IEEE80211_FEXT_AMPDU_TX;
+		sc->connection.recv_action = ic->ic_recv_action;
+		sc->connection.send_action = ic->ic_send_action;
+		ic->ic_recv_action = iwm_ba_recv_action;
+		ic->ic_send_action = iwm_ba_send_action;
+		ic->ic_addba_request = iwm_ba_request;
+		ic->ic_addba_response = iwm_ba_response;
+		ic->ic_addba_stop = iwm_ba_stop;
+	}
 	if (sc->public_enabled)
 		ieee80211_register_door(ic, "iwm", ddi_get_instance(sc->dip));
 	sc->connection.newstate = ic->ic_newstate;
@@ -2171,6 +2423,163 @@ iwm_time_event_notification(struct iwm_time_event_state *t,
 	return (0);
 }
 
+/* A firmware SSN retires a prefix, not each independently ACKed bitmap bit. */
+static int
+iwm_ba_advance(struct iwm_softc *sc, uint_t ssn, boolean_t commit)
+{
+	struct iwm_association *a = &sc->run->association;
+	struct iwm_tx_ba *ba = &a->ba[0];
+	struct iwm_tx_ring *ring = &a->tx[4];
+	uint_t i, count;
+
+	if (ssn >= IEEE80211_SEQ_RANGE ||
+	    IEEE80211_SEQ_BA_BEFORE(ssn, ba->ssn))
+		return (ESTALE);
+	if (IEEE80211_SEQ_SUB(ssn, ba->ssn) > ba->window)
+		return (EPROTO);
+	if (ring->queued == 0)
+		return (ssn == ba->ssn ? 0 : EPROTO);
+	count = IEEE80211_SEQ_SUB(ssn, ring->data[ring->tail].sequence);
+	if (count > ring->queued || count > IWM_TX_AGG_WINDOW)
+		return (EPROTO);
+	for (i = 0; i < count; i++) {
+		struct iwm_tx_data *slot = &ring->data[(ring->tail + i) & 0xff];
+
+		if (!slot->owned || slot->generation != sc->run->generation ||
+		    slot->ba_generation != ba->generation ||
+		    slot->sequence != IEEE80211_SEQ_ADD(
+		    ring->data[ring->tail].sequence, i))
+			return (EPROTO);
+	}
+	if (commit) {
+		for (i = 0; i < count; i++)
+			ring->data[(ring->tail + i) & 0xff].completed = B_TRUE;
+		ba->ssn = ssn;
+		cv_broadcast(&sc->run->cv);
+	}
+	return (0);
+}
+
+static boolean_t
+iwm_ba_owned(struct iwm_softc *sc)
+{
+	struct iwm_association *a = &sc->run->association;
+	struct iwm_tx_ba *ba = &a->ba[0];
+
+	return (a->tx[4].configured && ba->node == sc->connection.node &&
+	    ba->generation == a->generation &&
+	    ba->runtime_generation == sc->run->generation &&
+	    (ba->state == IWM_BA_ACTIVE || ba->state == IWM_BA_STOPPING ||
+	    ba->state == IWM_BA_DRAINING));
+}
+
+/* Validate the whole API3 response before recording any member ownership. */
+static int
+iwm_ba_tx_done(struct iwm_softc *sc, uint_t idx, const uint8_t *p, size_t n)
+{
+	struct iwm_tx_ring *ring = &sc->run->association.tx[4];
+	struct iwm_tx_ba *ba = &sc->run->association.ba[0];
+	uint_t count, i, j, member, ssn;
+	int error;
+
+	if (!iwm_ba_owned(sc))
+		return (ESTALE);
+	if (n < 44 || (count = p[0]) == 0 || count > IWM_TX_AGG_WINDOW ||
+	    n != 40 + count * 4 || p[33] != 0 || idx >= IWM_TX_RING_COUNT)
+		return (EPROTO);
+	ssn = iwm_u32(p + 36 + count * 4) & 0xfff;
+	if ((error = iwm_ba_advance(sc, ssn, B_FALSE)) != 0)
+		return (error);
+	if (count == 1) {
+		if (!ring->data[idx].owned ||
+		    ring->data[idx].sequence != (iwm_u16(p + 28) >> 4) ||
+		    ring->data[idx].ba_generation != ba->generation)
+			return (ESTALE);
+		if ((error = iwm_ba_advance(sc, ssn, B_FALSE)) != 0)
+			return (error);
+		ring->data[idx].status = iwm_u32(p + 36);
+		ring->data[idx].transmitted = B_TRUE;
+		return (iwm_ba_advance(sc, ssn, B_TRUE));
+	}
+	for (i = 0; i < count; i++) {
+		member = p[36 + i * 4 + 2];
+		for (j = 0; j < i; j++) {
+			if (p[36 + j * 4 + 2] == member)
+				return (EPROTO);
+		}
+		if (p[36 + i * 4 + 3] != IWM_TX_AGG_QUEUE ||
+		    !ring->data[member].owned ||
+		    ring->data[member].generation != sc->run->generation ||
+		    IEEE80211_SEQ_SUB(ring->data[member].sequence,
+		    ba->ssn) >= ba->window ||
+		    ring->data[member].ba_generation != ba->generation)
+			return (EPROTO);
+	}
+	for (i = 0; i < count; i++) {
+		member = p[36 + i * 4 + 2];
+		ring->data[member].status = iwm_u16(p + 36 + i * 4);
+		ring->data[member].transmitted =
+		    (ring->data[member].status & 0xfff) == 0;
+	}
+	return (0);
+}
+
+/* No pointer from this notification is retained after the interrupt returns. */
+static int
+iwm_ba_notification(struct iwm_softc *sc, const uint8_t *p, size_t n)
+{
+	struct iwm_tx_ba *ba = &sc->run->association.ba[0];
+	struct iwm_tx_ring *ring = &sc->run->association.tx[4];
+	uint64_t bitmap;
+	uint_t base, ssn, bit, sequence, idx;
+	int error;
+
+	if (!iwm_ba_owned(sc))
+		return (ESTALE);
+	if (n != sizeof (struct iwm_ba_notif) || p[8] != 0 || p[9] != 0 ||
+	    iwm_u16(p + 20) != IWM_TX_AGG_QUEUE ||
+	    (iwm_u16(p + 10) & 15) != 0 ||
+	    p[24] > IWM_TX_AGG_WINDOW || p[25] > p[24] ||
+	    bcmp(p, ba->node->in_bssid, 6))
+		return (EPROTO);
+	base = iwm_u16(p + 10) >> 4;
+	ssn = iwm_u16(p + 22);
+	if ((error = iwm_ba_advance(sc, ssn, B_FALSE)) != 0)
+		return (error);
+	if (IEEE80211_SEQ_SUB(base, ba->ssn) >= ba->window &&
+	    IEEE80211_SEQ_SUB(ba->ssn, base) > ba->window)
+		return (EPROTO);
+	bitmap = iwm_u32(p + 12) | (uint64_t)iwm_u32(p + 16) << 32;
+	for (bit = 0; bit < IWM_TX_AGG_WINDOW; bit++) {
+		if (!(bitmap & (1ULL << bit)))
+			continue;
+		sequence = IEEE80211_SEQ_ADD(base, bit);
+		/* The AP bitmap may also cover frames outside our queue. */
+		if (IEEE80211_SEQ_BA_BEFORE(sequence, ba->ssn) ||
+		    IEEE80211_SEQ_SUB(sequence, ba->ssn) >=
+		    IEEE80211_SEQ_SUB(ba->next_sequence, ba->ssn))
+			continue;
+		idx = sequence & 0xff;
+		if (IEEE80211_SEQ_SUB(sequence, ba->ssn) >= ba->window ||
+		    !ring->data[idx].owned ||
+		    ring->data[idx].sequence != sequence ||
+		    ring->data[idx].generation != sc->run->generation ||
+		    ring->data[idx].ba_generation != ba->generation)
+			return (EPROTO);
+	}
+	/* Validate all identities and slots before recording sparse ACKs. */
+	for (bit = 0; bit < IWM_TX_AGG_WINDOW; bit++) {
+		sequence = IEEE80211_SEQ_ADD(base, bit);
+		if ((bitmap & (1ULL << bit)) &&
+		    !IEEE80211_SEQ_BA_BEFORE(sequence, ba->ssn) &&
+		    IEEE80211_SEQ_SUB(sequence, ba->ssn) <
+		    IEEE80211_SEQ_SUB(ba->next_sequence, ba->ssn))
+			ring->data[sequence & 0xff].acknowledged = B_TRUE;
+	}
+	ba->notifications++;
+	return (iwm_ba_advance(sc, ssn, B_TRUE));
+}
+
 /* Firmware completion only marks slots; thread context releases native refs. */
 static int
 iwm_association_tx_done(struct iwm_softc *sc, uint_t qid, uint_t idx,
@@ -2180,6 +2589,8 @@ iwm_association_tx_done(struct iwm_softc *sc, uint_t qid, uint_t idx,
 	struct iwm_tx_ring *ring;
 	uint_t count, i, next;
 
+	if (qid == IWM_TX_AGG_QUEUE)
+		return (iwm_ba_tx_done(sc, idx, p, n));
 	if (r->image != IWM_FW_REGULAR || r->state != IWM_REGULAR_IDLE ||
 	    qid < 5 || qid > 8 || idx >= IWM_TX_RING_COUNT ||
 	    n != 44 || p[0] != 1 || (p[33] >> 4) != 0)
@@ -2281,6 +2692,10 @@ iwm_association_frame_check(const uint8_t *p, size_t n,
 	    bcmp(p + 10, bssid, 6))
 		return (EPROTO);
 	if ((p[0] & 0x0c) == 8) {
+		/* No RX BA/reorder ownership is exposed in 8B1. */
+		if (header == sizeof (struct ieee80211_qosframe) &&
+		    (p[24] & 0x60) != 0)
+			return (ENOTSUP);
 		if (state != IEEE80211_S_RUN ||
 		    (p[1] & 3) != 2 || n < header + 8 ||
 		    (!(p[4] & 1) && bcmp(p + 4, local, 6)))
@@ -2321,7 +2736,7 @@ iwm_association_frame_check(const uint8_t *p, size_t n,
 	if (subtype == IEEE80211_FC0_SUBTYPE_ACTION) {
 		if (state != IEEE80211_S_RUN)
 			return (ENOTSUP);
-		return (iwm_addba_request_check(p, n));
+		return (iwm_ba_action_check(p, n, B_FALSE));
 	}
 	if (subtype == 0xb0) {
 		if (state != IEEE80211_S_AUTH || n != 30 ||
@@ -2517,9 +2932,16 @@ iwm_notification(struct iwm_softc *sc, const uint8_t *p, size_t length)
 	if (code == 0x1c) {
 		int error = iwm_association_tx_done(sc, qid, idx, data, n);
 
-		if (error != 0 && r->error == 0)
+		if (qid == IWM_TX_AGG_QUEUE && error != 0)
+			r->association.ba[0].rejected++;
+		else if (error != 0 && r->error == 0)
 			r->error = error;
 		cv_broadcast(&r->cv);
+		return;
+	}
+	if (code == 0xc5) {
+		if (iwm_ba_notification(sc, data, n) != 0)
+			r->association.ba[0].rejected++;
 		return;
 	}
 
@@ -3078,22 +3500,36 @@ iwm_association_binding(struct iwm_softc *sc, uint_t action)
 static int
 iwm_association_queue(struct iwm_softc *sc, uint_t ac, boolean_t enable)
 {
-	static const uint8_t fifo[] = { 1, 0, 2, 3 };
+	static const uint8_t fifo[] = { 1, 0, 2, 3, 1 };
 	struct iwm_association *a = &sc->run->association;
 	struct iwm_scd_txq_cfg_cmd cmd;
-	uint_t qid = 5 + ac;
+	uint_t qid = ac == 4 ? IWM_TX_AGG_QUEUE : 5 + ac;
 	int error;
 
-	if (ac >= 4 || !!(a->queues & (1U << qid)) == enable ||
+	if (ac >= IWM_ASSOC_TX_RINGS ||
+	    !!(a->queues & (1U << qid)) == enable ||
 	    (!enable && a->tx[ac].queued != 0))
 		return (EINVAL);
+	if (enable && ac == 4 && sc->run->ba_queue_used)
+		return (EBUSY);
 	bzero(&cmd, sizeof (cmd));
 	cmd.scd_queue = qid;
 	cmd.enable = enable;
 	if (enable) {
 		cmd.tx_fifo = fifo[ac];
-		cmd.window = 64;
-		iwm_wr(sc, IWM_HBUS_TARG_WRPTR, qid << 8);
+		cmd.window = IWM_TX_AGG_WINDOW;
+		if (ac == 4) {
+			uint_t ssn = a->ba[0].ssn;
+
+			cmd.aggregate = 1;
+			/* Pinned 8000 SCD workaround, before admission. */
+			if (((ssn - a->tx[ac].cur) & 0x3f) == 0 &&
+			    ssn != a->tx[ac].cur)
+				ssn = IEEE80211_SEQ_ADD(ssn, 1);
+			cmd.ssn = LE_16(ssn);
+		}
+		iwm_wr(sc, IWM_HBUS_TARG_WRPTR,
+		    qid << 8 | (LE_16(cmd.ssn) & 0xff));
 	}
 	error = iwm_control(sc, 0x1d, &cmd, sizeof (cmd));
 	if (error == 0) {
@@ -3104,6 +3540,13 @@ iwm_association_queue(struct iwm_softc *sc, uint_t ac, boolean_t enable)
 		if (enable) {
 			a->queues |= 1U << qid;
 			sc->run->released_queues &= ~(1U << qid);
+			if (ac == 4) {
+				sc->run->ba_queue_used = B_TRUE;
+				a->ba[0].ssn = LE_16(cmd.ssn);
+				a->ba[0].next_sequence = a->ba[0].ssn;
+				a->tx[ac].cur = a->tx[ac].tail =
+				    a->ba[0].ssn & 0xff;
+			}
 		} else {
 			a->queues &= ~(1U << qid);
 			sc->run->released_queues |= 1U << qid;
@@ -3124,7 +3567,8 @@ iwm_association_station(struct iwm_softc *sc, boolean_t update,
 	struct iwm_add_sta_cmd cmd;
 	int error;
 
-	if (!a->binding || a->station != update || a->queues != 0x1e0)
+	if (!a->binding || a->station != update ||
+	    (a->queues & ~(1U << IWM_TX_AGG_QUEUE)) != 0x1e0)
 		return (EINVAL);
 	bzero(&cmd, sizeof (cmd));
 	cmd.add_modify = update;
@@ -3132,9 +3576,19 @@ iwm_association_station(struct iwm_softc *sc, boolean_t update,
 		cmd.station_flags = LE_32(1U << 12);
 		cmd.station_flags_msk = LE_32(1U << 12);
 	} else {
-		cmd.tid_disable_tx = LE_16(0xffff);
+		cmd.tid_disable_tx = LE_16((a->ba[0].state == IWM_BA_STARTING &&
+		    a->ba[0].accepted) || a->ba[0].admission ? 0xfffe : 0xffff);
 		cmd.tfd_queue_msk = LE_32(a->queues);
-		cmd.station_flags_msk = LE_32((3U << 26) | (3U << 28));
+		cmd.station_flags_msk = LE_32((1U << 12) |
+		    (3U << 26) | (3U << 28));
+		if (sc->connection.node->in_flags & IEEE80211_NODE_HT) {
+			uint_t param = sc->connection.node->in_htparam;
+
+			/* Peer AMPDU limit/density; SISO/width20 stay clear. */
+			cmd.station_flags_msk |= LE_32((7U << 19) | (7U << 23));
+			cmd.station_flags |= LE_32((param & 3) << 19 |
+			    ((param >> 2) & 7) << 23);
+		}
 		if (update)
 			cmd.modify_mask = (1U << 1) | (1U << 7);
 		else
@@ -3157,10 +3611,13 @@ iwm_association_tx_alloc(struct iwm_softc *sc)
 	uint_t ac, i;
 	int error;
 
-	for (ac = 0; ac < 4; ac++) {
+	if (sc->run->ba_generation == UINT64_MAX)
+		return (EOVERFLOW);
+	a->generation = ++sc->run->ba_generation;
+	for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++) {
 		struct iwm_tx_ring *ring = &a->tx[ac];
 
-		ring->qid = 5 + ac;
+		ring->qid = ac == 4 ? IWM_TX_AGG_QUEUE : 5 + ac;
 		ring->desc = (void *)sc->run->tx[ring->qid].vaddr;
 		error = iwm_dma_alloc(sc, &ring->cmd_dma,
 		    IWM_TX_RING_COUNT * sizeof (struct iwm_device_cmd),
@@ -3176,6 +3633,196 @@ iwm_association_tx_alloc(struct iwm_softc *sc)
 		}
 	}
 	return (0);
+}
+
+/* Connection worker only; leave native state inaccessible during FW waits. */
+static void
+iwm_ba_native(struct iwm_softc *sc, boolean_t active)
+{
+	struct iwm_tx_ba *ba = &sc->run->association.ba[0];
+	ieee80211_node_t *node = sc->connection.node;
+	struct ieee80211_tx_ampdu *tap;
+
+	ASSERT(MUTEX_HELD(&sc->lock));
+	mutex_exit(&sc->lock);
+	mutex_enter(&sc->connection.crypto_lock);
+	mutex_enter(&sc->ic.ic_genlock);
+	mutex_enter(&sc->lock);
+	if (node != NULL && node == ba->node) {
+		tap = &node->in_tx_ampdu[WME_AC_BE];
+		tap->txa_flags &= ~(IEEE80211_AGGR_RUNNING |
+		    IEEE80211_AGGR_XCHGPEND);
+		tap->txa_timer = NULL;
+		if (active && ba->state == IWM_BA_STARTING && ba->accepted &&
+		    sc->connection.running && !sc->connection.cancel &&
+		    ba->generation == sc->run->association.generation &&
+		    ba->runtime_generation == sc->run->generation) {
+			node->in_txseqs[0] = ba->next_sequence;
+			tap->txa_start = tap->txa_seqstart = ba->ssn;
+			tap->txa_wnd = ba->window;
+			tap->txa_flags |= IEEE80211_AGGR_RUNNING;
+			ba->state = IWM_BA_ACTIVE;
+			ba->admission = B_TRUE;
+		} else {
+			tap->txa_flags |= IEEE80211_AGGR_NAK;
+			ba->admission = B_FALSE;
+		}
+	}
+	mutex_exit(&sc->lock);
+	mutex_exit(&sc->ic.ic_genlock);
+	mutex_exit(&sc->connection.crypto_lock);
+	mac_tx_update(sc->ic.ic_mach);
+	mutex_enter(&sc->lock);
+}
+
+/* No timer retains a raw tap pointer; the existing worker owns the deadline. */
+static int
+iwm_ba_work(struct iwm_softc *sc)
+{
+	struct iwm_runtime *r = sc->run;
+	struct iwm_association *a = &r->association;
+	struct iwm_tx_ba *ba = &a->ba[0];
+	struct iwm_lq_cmd lq;
+	struct iwm_tx_path_flush_cmd_v1 flush;
+	uint32_t rate;
+	uint_t i, queued;
+	clock_t end;
+	int error;
+	boolean_t admission;
+
+	ASSERT(MUTEX_HELD(&sc->lock));
+	ASSERT(curthread == sc->connection.thread);
+	if (ba->state == IWM_BA_CLOSED || ba->state == IWM_BA_ACTIVE)
+		return (0);
+	if (ba->generation != a->generation ||
+	    ba->node != sc->connection.node ||
+	    ba->runtime_generation != r->generation)
+		return (EPROTO);
+	if (ba->state == IWM_BA_STARTING) {
+		/* A late accepted response cannot reopen retired admission. */
+		if (!sc->connection.running || sc->connection.cancel ||
+		    !sc->connection.tx_admission || ba->tid != 0 ||
+		    ba->ac != WME_AC_BE) {
+			ba->accepted = B_FALSE;
+			ba->state = IWM_BA_CLOSED;
+			iwm_ba_native(sc, B_FALSE);
+			return (0);
+		}
+		if (!ba->accepted) {
+			if (ddi_get_lbolt() < ba->deadline)
+				return (0);
+			ba->state = IWM_BA_CLOSED;
+			iwm_ba_native(sc, B_FALSE);
+			return (0);
+		}
+		/* Drain earlier TID0 traffic before activation. */
+		if (a->tx[0].queued != 0)
+			return (ddi_get_lbolt() >= ba->deadline ?
+			    ETIMEDOUT : 0);
+		if ((error = iwm_nic_lock(sc)) != 0)
+			return (error);
+		error = iwm_association_queue(sc, 4, B_TRUE);
+		if (error == 0)
+			error = iwm_association_station(sc, B_TRUE, B_FALSE);
+		if (error == 0)
+			error = iwm_tx_rate_encode(B_TRUE, 0,
+			    sc->identity.tx_ant & -sc->identity.tx_ant, &rate);
+		if (error == 0) {
+			bzero(&lq, sizeof (lq));
+			lq.flags = (sc->ic.ic_flags &
+			    IEEE80211_F_USEPROT) ? 1 : 0;
+			lq.single_stream_ant_msk =
+			    sc->identity.tx_ant & -sc->identity.tx_ant;
+			lq.dual_stream_ant_msk = sc->identity.tx_ant;
+			lq.agg_time_limit = LE_16(4000);
+			lq.agg_disable_start_th = 3;
+			lq.agg_frame_cnt_limit = 0x3f;
+			for (i = 0; i < 16; i++)
+				lq.rs_table[i] = LE_32(rate);
+			error = iwm_control(sc, 0x4e, &lq, sizeof (lq));
+		}
+		iwm_nic_unlock(sc);
+		if (error == 0) {
+			if (sc->connection.cancel)
+				ba->state = IWM_BA_STOPPING;
+			else
+				iwm_ba_native(sc, B_TRUE);
+		}
+		return (error);
+	}
+	/* DELBA closes admission; q10 survives until RUN departure. */
+	ba->admission = B_FALSE;
+	ba->state = IWM_BA_DRAINING;
+	admission = sc->connection.tx_admission;
+	sc->connection.tx_admission = B_FALSE;
+	iwm_ba_native(sc, B_FALSE);
+	if (a->tx[4].configured) {
+		if ((error = iwm_nic_lock(sc)) != 0)
+			return (error);
+		error = iwm_association_station(sc, B_TRUE, B_TRUE);
+		if (error == 0) {
+			bzero(&flush, sizeof (flush));
+			flush.queues_ctl = LE_32(a->queues);
+			flush.flush_ctl = LE_16(2);
+			error = iwm_control(sc, 0x1e, &flush, sizeof (flush));
+		}
+		iwm_nic_unlock(sc);
+		end = ddi_get_lbolt() + drv_usectohz(IWM_WAIT_US);
+		while (error == 0) {
+			error = iwm_association_reclaim(sc, B_FALSE);
+			queued = 0;
+			for (i = 0; i < IWM_ASSOC_TX_RINGS; i++)
+				queued += a->tx[i].queued;
+			if (error != 0 || queued == 0)
+				break;
+			if (cv_timedwait(&r->cv, &sc->lock, end) == -1)
+				error = ETIMEDOUT;
+		}
+		if (error == 0 && (error = iwm_nic_lock(sc)) == 0) {
+			error = iwm_association_station(sc, B_TRUE, B_FALSE);
+			iwm_nic_unlock(sc);
+		}
+		if (error != 0)
+			return (error);
+	}
+	ba->state = IWM_BA_CLOSED;
+	if (sc->connection.running && !sc->connection.cancel)
+		sc->connection.tx_admission = admission;
+	mutex_exit(&sc->lock);
+	mac_tx_update(sc->ic.ic_mach);
+	mutex_enter(&sc->lock);
+	return (0);
+}
+
+/* Close logical BA admission before native/key retirement; no FW wait here. */
+static void
+iwm_ba_retire(struct iwm_softc *sc)
+{
+	ieee80211_node_t *node;
+	uint_t ac;
+
+	mutex_enter(&sc->connection.crypto_lock);
+	mutex_enter(&sc->ic.ic_genlock);
+	mutex_enter(&sc->lock);
+	node = sc->connection.node;
+	if (sc->run != NULL) {
+		struct iwm_tx_ba *ba = &sc->run->association.ba[0];
+
+		ba->admission = B_FALSE;
+		if (ba->state != IWM_BA_CLOSED)
+			ba->state = IWM_BA_DRAINING;
+	}
+	if (node != NULL) {
+		for (ac = 0; ac < 4; ac++) {
+			ASSERT(node->in_tx_ampdu[ac].txa_timer == NULL);
+			bzero(&node->in_tx_ampdu[ac],
+			    sizeof (node->in_tx_ampdu[ac]));
+			node->in_tx_ampdu[ac].txa_ac = ac;
+		}
+	}
+	mutex_exit(&sc->lock);
+	mutex_exit(&sc->ic.ic_genlock);
+	mutex_exit(&sc->connection.crypto_lock);
 }
 
 /* A failed unbind retains its data-block reference for stopped cleanup. */
@@ -3329,7 +3976,7 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
 	ieee80211_node_t *node;
 	const uint8_t *frame = mp->b_rptr;
 	size_t length, header, pad;
-	boolean_t ht;
+	boolean_t ht, aggregate;
 	uint64_t address, scratch;
 	uint32_t flags, rate_flags;
 	uint_t ac = management ? 3 : 0, i, j, selected = 12;
@@ -3342,10 +3989,8 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
 	if (management && frame[0] != IEEE80211_FC0_SUBTYPE_AUTH &&
 	    frame[0] != IEEE80211_FC0_SUBTYPE_ASSOC_REQ &&
 	    frame[0] != IEEE80211_FC0_SUBTYPE_REASSOC_REQ &&
-	    (frame[0] != IEEE80211_FC0_SUBTYPE_ACTION || length != 33 ||
-	    frame[24] != IEEE80211_ACTION_CAT_BA ||
-	    frame[25] != IEEE80211_ACTION_BA_ADDBA_RESPONSE ||
-	    iwm_u16(frame + 27) == IEEE80211_STATUS_SUCCESS))
+	    (frame[0] != IEEE80211_FC0_SUBTYPE_ACTION ||
+	    iwm_ba_action_check(frame, length, B_TRUE) != 0))
 		return (ENOTSUP);
 	if (iwm_frame_header(frame, MBLKL(mp), &header) != 0)
 		return (EINVAL);
@@ -3363,12 +4008,32 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
 	if (bcmp(frame + 4, node->in_bssid, 6) ||
 	    bcmp(frame + 10, sc->identity.mac, 6))
 		goto out;
+	aggregate = !management && !eapol && !(frame[16] & 1) &&
+	    header == sizeof (struct ieee80211_qosframe) &&
+	    frame[24] == IEEE80211_QOS_ACKPOLICY_BA &&
+	    (node->in_flags & IEEE80211_NODE_HT) != 0;
+	if (header == sizeof (struct ieee80211_qosframe) &&
+	    (frame[24] & IEEE80211_QOS_ACKPOLICY_BA) && !aggregate)
+		goto out;
+	if (aggregate) {
+		struct iwm_tx_ba *ba = &r->association.ba[0];
+
+		if (!ba->admission || ba->state != IWM_BA_ACTIVE ||
+		    ba->node != node ||
+		    ba->generation != r->association.generation ||
+		    ba->runtime_generation != r->generation ||
+		    (ba->next_sequence & 0xff) != r->association.tx[4].cur ||
+		    (iwm_u16(frame + 22) >> 4) != ba->next_sequence)
+			goto out;
+		ac = 4;
+	}
 	ring = &r->association.tx[ac];
 	if (!(r->association.queues & (1U << ring->qid)) ||
 	    !r->association.station)
 		goto out;
 	slot = &ring->data[ring->cur];
-	if (ring->queued >= IWM_TX_RING_COUNT - 1 || slot->owned ||
+	if (ring->queued >= (aggregate ? IWM_TX_AGG_WINDOW :
+	    IWM_TX_RING_COUNT - 1) || slot->owned ||
 	    slot->mapped != 0) {
 		error = EAGAIN;
 		goto out;
@@ -3424,6 +4089,13 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
 	tx->dram_lsb_ptr = LE_32(scratch);
 	tx->dram_msb_ptr = scratch >> 32;
 	bcopy(frame, cmd->data + sizeof (*tx), header);
+	if (aggregate) {
+		struct ieee80211_qosframe *qwh =
+		    (void *)(cmd->data + sizeof (*tx));
+
+		/* Native aggregation marker; HT uses implicit immediate BA. */
+		qwh->i_qos[0] &= ~IEEE80211_QOS_ACKPOLICY_BA;
+	}
 	if (management)
 		bcopy(frame + header, slot->dma.vaddr, length - header);
 	tfd = &ring->desc[ring->cur];
@@ -3465,11 +4137,18 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
 	slot->mp = mp;
 	slot->ni = ieee80211_ref_node(node);
 	slot->generation = r->generation;
+	slot->sequence = iwm_u16(frame + 22) >> 4;
+	slot->ba_generation = aggregate ? r->association.ba[0].generation : 0;
+	slot->transmitted = slot->acknowledged = B_FALSE;
+	slot->status = 0;
 	slot->expires = ddi_get_lbolt() + drv_usectohz(5000000);
 	slot->completed = B_FALSE;
 	slot->owned = B_TRUE;
 	ring->queued++;
 	ring->cur = (ring->cur + 1) % IWM_TX_RING_COUNT;
+	if (aggregate)
+		r->association.ba[0].next_sequence =
+		    IEEE80211_SEQ_ADD(r->association.ba[0].next_sequence, 1);
 	r->association.tx_submitted++;
 	iwm_wr(sc, IWM_HBUS_TARG_WRPTR, ring->qid << 8 | ring->cur);
 	iwm_nic_unlock(sc);
@@ -3567,6 +4246,64 @@ failed:
 	return (NULL);
 }
 
+/* crypto_lock and ic_genlock held; no sequence/PN consumed while starting. */
+static int
+iwm_ba_prepare(struct iwm_softc *sc, ieee80211_node_t *node, mblk_t *copy,
+    boolean_t eapol, boolean_t *aggregate, boolean_t *nonqos)
+{
+	struct ieee80211_tx_ampdu *tap = &node->in_tx_ampdu[WME_AC_BE];
+	struct iwm_tx_ba *ba;
+	boolean_t eligible;
+
+	*aggregate = *nonqos = B_FALSE;
+	if (!(sc->ic.ic_flags_ext & IEEE80211_FEXT_AMPDU_TX) ||
+	    !(node->in_flags & IEEE80211_NODE_HT))
+		return (0);
+	eligible = !eapol && !(copy->b_rptr[16] & 1) &&
+	    ieee80211_classify(&sc->ic, copy, node) == WME_AC_BE;
+	mutex_enter(&sc->lock);
+	if (sc->run == NULL || sc->connection.cancel ||
+	    sc->connection.node != node) {
+		mutex_exit(&sc->lock);
+		return (ENETDOWN);
+	}
+	ba = &sc->run->association.ba[0];
+	*nonqos = (eapol || (copy->b_rptr[16] & 1)) &&
+	    ba->state != IWM_BA_CLOSED;
+	if (!eligible) {
+		mutex_exit(&sc->lock);
+		return (0);
+	}
+	if (sc->connection.wpa &&
+	    (sc->ic.ic_def_txkey >= IEEE80211_WEP_NKID ||
+	    sc->ic.ic_nw_keys[sc->ic.ic_def_txkey].
+	    wk_keylen != 16)) {
+		mutex_exit(&sc->lock);
+		return (EAGAIN);
+	}
+	if (ba->state == IWM_BA_CLOSED && !sc->run->ba_queue_used &&
+	    !IEEE80211_AMPDU_REQUESTED(tap)) {
+		mutex_exit(&sc->lock);
+		(void) ieee80211_ampdu_request(node, tap);
+		mutex_enter(&sc->lock);
+	}
+	if (ba->state == IWM_BA_ACTIVE && ba->admission &&
+	    ba->generation == sc->run->association.generation &&
+	    ba->node == node) {
+		/* Unpublished sequence consumption cannot move the SCD ring. */
+		node->in_txseqs[0] = ba->next_sequence;
+		*aggregate = B_TRUE;
+		mutex_exit(&sc->lock);
+		return (0);
+	}
+	if (ba->state != IWM_BA_CLOSED) {
+		mutex_exit(&sc->lock);
+		return (EAGAIN);
+	}
+	mutex_exit(&sc->lock);
+	return (0);
+}
+
 /* MAC owns the returned suffix. A ring-accepted copy consumes its input. */
 mblk_t *
 iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
@@ -3574,7 +4311,8 @@ iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
 	static const uint8_t snap[] = { 0xaa, 0xaa, 3, 0, 0, 0 };
 	mblk_t *copy, *next;
 	ieee80211_node_t *node;
-	boolean_t reserved, allowed, eapol;
+	boolean_t reserved, allowed, eapol, aggregate, nonqos;
+	uint_t node_flags;
 	size_t header, llc;
 	int error;
 
@@ -3612,7 +4350,30 @@ iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
 		    IEEE80211_NODE_QOS)) != 0);
 		mutex_exit(&sc->lock);
 		if (allowed) {
+			error = iwm_ba_prepare(sc, node, copy, eapol,
+			    &aggregate, &nonqos);
+			if (error != 0) {
+				freemsg(copy);
+				mutex_exit(&sc->ic.ic_genlock);
+				mutex_exit(&sc->connection.crypto_lock);
+				ieee80211_free_node(node);
+				return (mp);
+			}
+			node_flags = node->in_flags;
+			if (!aggregate)
+				node->in_flags &= ~IEEE80211_NODE_AMPDU_TX;
+			if (nonqos && header ==
+			    sizeof (struct ieee80211_qosframe)) {
+				/* Separate group/EAPOL from TID0 sequences. */
+				bcopy(copy->b_rptr + header, copy->b_rptr + 24,
+				    MBLKL(copy) - header);
+				copy->b_wptr -= 2;
+				copy->b_rptr[0] = IEEE80211_FC0_TYPE_DATA;
+				node->in_flags &= ~(IEEE80211_NODE_QOS |
+				    IEEE80211_NODE_HT);
+			}
 			copy = ieee80211_encap(&sc->ic, copy, node);
+			node->in_flags = node_flags;
 			if (copy != NULL && sc->connection.wpa)
 				copy = iwm_ccmp_prepare(sc, copy, reserved);
 		} else {
@@ -3905,7 +4666,7 @@ iwm_association_reclaim(struct iwm_softc *sc, boolean_t stopped)
 
 	ASSERT(MUTEX_HELD(&sc->lock));
 	ASSERT(!stopped || sc->run->stopped);
-	for (ac = 0; ac < 4; ac++) {
+	for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++) {
 		ring = &a->tx[ac];
 		while (ring->queued != 0) {
 			slot = &ring->data[ring->tail];
@@ -3926,11 +4687,15 @@ iwm_association_reclaim(struct iwm_softc *sc, boolean_t stopped)
 			node = slot->ni;
 			if (!stopped && sc->connection.tx_admission &&
 			    (slot->status & 0xff) != 1 &&
-			    (slot->status & 0xff) != 2 && mp->b_rptr[0] != 8)
+			    (slot->status & 0xff) != 2 &&
+			    (mp->b_rptr[0] & IEEE80211_FC0_TYPE_MASK) ==
+			    IEEE80211_FC0_TYPE_MGT)
 				error = EIO;
 			slot->mp = NULL;
 			slot->ni = NULL;
 			slot->owned = slot->completed = B_FALSE;
+			slot->transmitted = slot->acknowledged = B_FALSE;
+			slot->ba_generation = 0;
 			ring->queued--;
 			ring->tail = (ring->tail + 1) % IWM_TX_RING_COUNT;
 			a->tx_completed++;
@@ -3962,7 +4727,7 @@ iwm_association_free(struct iwm_softc *sc)
 	if (iwm_association_queues_check(sc->run,
 	    IWM_QUEUES_RELEASED) != 0)
 		return (EPROTO);
-	for (ac = 0; ac < 4; ac++) {
+	for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++) {
 		ASSERT(a->tx[ac].queued == 0);
 		for (i = 0; i < IWM_TX_RING_COUNT; i++) {
 			if (iwm_dma_free(&a->tx[ac].data[i].dma) != 0)
@@ -4924,6 +5689,11 @@ iwm_connection_state(struct iwm_softc *sc, enum ieee80211_state state,
 		c->tx_admission = c->running = B_FALSE;
 		sc->associated_bssid_valid = B_FALSE;
 		bzero(sc->associated_bssid, sizeof (sc->associated_bssid));
+		mutex_exit(&sc->lock);
+		iwm_ba_retire(sc);
+		mutex_enter(&sc->lock);
+		if ((error = iwm_ba_work(sc)) != 0)
+			goto failed;
 	}
 	if (old == IEEE80211_S_RUN && state != old && c->wpa) {
 		mutex_exit(&sc->lock);
@@ -5028,7 +5798,9 @@ iwm_connection_state(struct iwm_softc *sc, enum ieee80211_state state,
 			break;
 		}
 		c->node->in_flags &= ~(IEEE80211_NODE_HTCOMPAT |
-		    IEEE80211_NODE_AMPDU);
+		    IEEE80211_NODE_AMPDU_RX);
+		if (!(sc->ic.ic_flags_ext & IEEE80211_FEXT_AMPDU_TX))
+			c->node->in_flags &= ~IEEE80211_NODE_AMPDU_TX;
 		if (c->node->in_flags & IEEE80211_NODE_HT) {
 			uint_t i;
 
@@ -5190,7 +5962,7 @@ iwm_connection_rollback(struct iwm_softc *sc)
 		if (error != 0)
 			break;
 		queued = 0;
-		for (ac = 0; ac < 4; ac++)
+		for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++)
 			queued += a->tx[ac].queued;
 		if (queued == 0)
 			break;
@@ -5199,8 +5971,8 @@ iwm_connection_rollback(struct iwm_softc *sc)
 		else if (cv_timedwait(&r->cv, &sc->lock, end) == -1)
 			error = ETIMEDOUT;
 	}
-	for (ac = 0; error == 0 && ac < 4; ac++) {
-		if (a->queues & (1U << (5 + ac)))
+	for (ac = 0; error == 0 && ac < IWM_ASSOC_TX_RINGS; ac++) {
+		if (a->tx[ac].configured)
 			error = iwm_association_queue(sc, ac, B_FALSE);
 	}
 	if (error == 0 && a->station) {
@@ -5229,7 +6001,7 @@ stopped_cleanup:
 		if (iwm_association_reclaim(sc, B_TRUE) != 0)
 			return (EIO);
 		/* Reset ended device ownership, including partial topology. */
-		for (ac = 0; ac < 4; ac++)
+		for (ac = 0; ac < IWM_ASSOC_TX_RINGS; ac++)
 			a->tx[ac].configured = B_FALSE;
 		a->queues = 0;
 		a->station = a->binding = a->mac = a->phy = B_FALSE;
@@ -5341,6 +6113,8 @@ iwm_connection_task(void *arg)
 			error = ETIMEDOUT;
 		if (error != 0)
 			break;
+		if ((error = iwm_ba_work(sc)) != 0)
+			break;
 		if ((error = iwm_wme_work(sc)) != 0)
 			break;
 		if (c->running && c->operation_owned) {
@@ -5363,7 +6137,9 @@ iwm_connection_task(void *arg)
 			mutex_enter(&sc->lock);
 			continue;
 		}
-		(void) cv_timedwait(&r->cv, &sc->lock, tick);
+		(void) cv_timedwait(&r->cv, &sc->lock,
+		    r->association.ba[0].state == IWM_BA_STARTING ?
+		    MIN(tick, r->association.ba[0].deadline) : tick);
 	}
 	mutex_exit(&sc->lock);
 teardown:
@@ -5380,6 +6156,7 @@ teardown:
 	sc->associated_bssid_valid = B_FALSE;
 	bzero(sc->associated_bssid, sizeof (sc->associated_bssid));
 	mutex_exit(&sc->lock);
+	iwm_ba_retire(sc);
 	/* Native INIT publishes DOWN from RUN before resource removal. */
 	if (c->wpa)
 		iwm_connection_keys_clear(sc);
@@ -5471,7 +6248,7 @@ iwm_run_free(struct iwm_softc *sc)
 		}
 	}
 	r->association.queued = 0;
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < IWM_ASSOC_TX_RINGS; i++)
 		r->association.tx[i].configured = B_FALSE;
 	r->association.queues = 0;
 	mutex_exit(&sc->lock);

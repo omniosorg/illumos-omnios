@@ -115,7 +115,8 @@
  * Derived from OpenBSD sys/dev/pci/if_iwmvar.h at
  * 0efabb066d34187a404f31d303b3b97103df1117, BSD licence option.
  * The ring shape and 8000-family limits are retained.  OS-owned resources
- * use illumos types.  No aggregation, radiotap or other device families.
+ * use illumos types.  TX aggregation is limited to TID0; no RX reorder,
+ * radiotap or other device families.
  */
 #ifndef _IF_IWMVAR_H
 #define	_IF_IWMVAR_H
@@ -133,6 +134,9 @@ extern "C" {
 #endif
 
 #define	IWM_TX_RING_COUNT	256
+#define	IWM_ASSOC_TX_RINGS	5
+#define	IWM_TX_AGG_QUEUE	10
+#define	IWM_TX_AGG_WINDOW	64
 #define	IWM_RX_RING_COUNT	256
 #define	IWM_RBUF_SIZE		4096
 #define	IWM_FWDMASEGSZ_8000	(320 * 1024)
@@ -168,6 +172,10 @@ struct iwm_tx_data {
 	boolean_t		owned;
 	boolean_t		completed;
 	uint_t			generation;
+	uint64_t		ba_generation;
+	uint16_t		sequence;
+	boolean_t		transmitted;
+	boolean_t		acknowledged;
 	clock_t			expires;
 	uint32_t		status;
 };
@@ -289,6 +297,9 @@ struct iwm_connection {
 	int error;
 	int cleanup_error;
 	int (*newstate)(ieee80211com_t *, enum ieee80211_state, int);
+	void (*recv_action)(ieee80211_node_t *, const uint8_t *,
+	    const uint8_t *);
+	int (*send_action)(ieee80211_node_t *, int, int, uint16_t[4]);
 };
 
 struct iwm_softc {

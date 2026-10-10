@@ -848,6 +848,40 @@ struct iwm_scd_txq_cfg_cmd {
 	uint16_t reserved;
 } __attribute__((__packed__));
 
+/* API36 compressed TX BA; firmware does not echo a session generation. */
+struct iwm_ba_notif {
+	uint8_t sta_addr[6];
+	uint16_t reserved;
+	uint8_t sta_id;
+	uint8_t tid;
+	uint16_t seq_ctl;
+	uint64_t bitmap;
+	uint16_t scd_flow;
+	uint16_t scd_ssn;
+	uint8_t txed;
+	uint8_t txed_2_done;
+	uint8_t reduced_txp;
+	uint8_t reserved1;
+} __attribute__((__packed__));
+
+/* Pinned donor LINK_QUALITY_CMD_API_S_VER_1; fixed MCS0 in this port. */
+struct iwm_lq_cmd {
+	uint8_t sta_id;
+	uint8_t reserved1;
+	uint16_t control;
+	uint8_t flags;
+	uint8_t mimo_delim;
+	uint8_t single_stream_ant_msk;
+	uint8_t dual_stream_ant_msk;
+	uint8_t initial_rate_index[4];
+	uint16_t agg_time_limit;
+	uint8_t agg_disable_start_th;
+	uint8_t agg_frame_cnt_limit;
+	uint32_t reserved2;
+	uint32_t rs_table[16];
+	uint32_t bf_params;
+} __attribute__((__packed__));
+
 struct iwm_add_sta_cmd {
 	uint8_t add_modify;
 	uint8_t awake_acs;
@@ -1198,6 +1232,8 @@ CTASSERT(sizeof (struct iwm_time_event_notif) == 24);
 CTASSERT(sizeof (struct iwm_scan_v7) == 48);
 CTASSERT(sizeof (struct iwm_add_sta_cmd) == 48);
 CTASSERT(sizeof (struct iwm_scd_txq_cfg_cmd) == 12);
+CTASSERT(sizeof (struct iwm_ba_notif) == 28);
+CTASSERT(sizeof (struct iwm_lq_cmd) == 88);
 CTASSERT(sizeof (struct iwm_rx_phy_info) == 68);
 CTASSERT(sizeof (struct iwm_rx_mpdu_res_start) == 4);
 CTASSERT(sizeof (struct iwm_umac_scan_complete) == 16);
