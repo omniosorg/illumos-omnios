@@ -1520,7 +1520,8 @@ iwm_rsn_check(const uint8_t *p, size_t n)
 
 /* Three-address data; BA ACK policy is validated separately at TX admission. */
 static int
-iwm_frame_header(const uint8_t *p, size_t n, size_t *header)
+iwm_frame_header(const uint8_t *p, size_t n, size_t *header,
+    boolean_t rx_amsdu)
 {
 	if (n < sizeof (struct ieee80211_frame) || (p[0] & 3) != 0 ||
 	    (p[1] & 0x84) != 0 || (p[1] & 3) == 3 ||
@@ -1532,7 +1533,8 @@ iwm_frame_header(const uint8_t *p, size_t n, size_t *header)
 			return (ENOTSUP);
 		if (p[0] == 0x88) {
 			*header = sizeof (struct ieee80211_qosframe);
-			if (n < *header || (p[24] & 0x98) != 0 ||
+			if (n < *header || (p[24] &
+			    (rx_amsdu ? 0x18 : 0x98)) != 0 ||
 			    ((p[24] & 0x60) != 0 && (p[24] & 0x60) != 0x60) ||
 			    p[25] != 0)
 				return (EPROTO);
@@ -2163,7 +2165,7 @@ iwm_scan_attach(struct iwm_softc *sc)
 		/* HT's mandatory AMPDU field is not an aggregation opt-out. */
 		ic->ic_flags_ext &= ~(IEEE80211_FEXT_HTCOMPAT |
 		    IEEE80211_FEXT_AMPDU_RX | IEEE80211_FEXT_AMPDU_TX |
-		    IEEE80211_FEXT_AMSDU_RX | IEEE80211_FEXT_AMSDU_TX);
+		    IEEE80211_FEXT_AMSDU_TX);
 	} else {
 		ieee80211_attach(ic);
 	}
@@ -2688,7 +2690,7 @@ iwm_association_frame_check(const uint8_t *p, size_t n,
 	size_t header;
 	int error;
 
-	if (iwm_frame_header(p, n, &header) != 0 ||
+	if (iwm_frame_header(p, n, &header, B_TRUE) != 0 ||
 	    bcmp(p + 10, bssid, 6))
 		return (EPROTO);
 	if ((p[0] & 0x0c) == 8) {
@@ -2696,6 +2698,11 @@ iwm_association_frame_check(const uint8_t *p, size_t n,
 		if (header == sizeof (struct ieee80211_qosframe) &&
 		    (p[24] & 0x60) != 0)
 			return (ENOTSUP);
+		/* Maximum advertised A-MSDU body plus CCMP envelope. */
+		if (header == sizeof (struct ieee80211_qosframe) &&
+		    (p[24] & IEEE80211_QOS_AMSDU) &&
+		    n > header + 3839 + (wpa ? 16 : 0))
+			return (EPROTO);
 		if (state != IEEE80211_S_RUN ||
 		    (p[1] & 3) != 2 || n < header + 8 ||
 		    (!(p[4] & 1) && bcmp(p + 4, local, 6)))
@@ -3934,7 +3941,7 @@ iwm_tx_frame_check(mblk_t *mp, boolean_t management, size_t *length)
 			return (EINVAL);
 		*length += n;
 	}
-	if (iwm_frame_header(frame, MBLKL(mp), &header) != 0 ||
+	if (iwm_frame_header(frame, MBLKL(mp), &header, B_FALSE) != 0 ||
 	    MBLKL(mp) < header + (management ? 0 : 8) ||
 	    *length <= header ||
 	    (frame[0] & 0x0f) != (management ? 0 : 8) ||
@@ -3992,7 +3999,7 @@ iwm_association_tx(struct iwm_softc *sc, mblk_t *mp, boolean_t management,
 	    (frame[0] != IEEE80211_FC0_SUBTYPE_ACTION ||
 	    iwm_ba_action_check(frame, length, B_TRUE) != 0))
 		return (ENOTSUP);
-	if (iwm_frame_header(frame, MBLKL(mp), &header) != 0)
+	if (iwm_frame_header(frame, MBLKL(mp), &header, B_FALSE) != 0)
 		return (EINVAL);
 	pad = (4 - (header & 3)) & 3;
 	mutex_enter(&sc->lock);
@@ -4182,7 +4189,7 @@ iwm_ccmp_prepare(struct iwm_softc *sc, mblk_t *mp, boolean_t reserved)
 
 	ASSERT(MUTEX_HELD(&ic->ic_genlock));
 	ASSERT(MUTEX_HELD(&sc->connection.crypto_lock));
-	if (iwm_frame_header(mp->b_rptr, MBLKL(mp), &header) != 0 ||
+	if (iwm_frame_header(mp->b_rptr, MBLKL(mp), &header, B_FALSE) != 0 ||
 	    header != ieee80211_hdrspace(ic, mp->b_rptr))
 		goto failed;
 	protected = (mp->b_rptr[1] & IEEE80211_FC1_WEP) != 0;
@@ -4317,7 +4324,8 @@ iwm_connection_tx(struct iwm_softc *sc, mblk_t *mp)
 	int error;
 
 	while (mp != NULL) {
-		if (iwm_frame_header(mp->b_rptr, MBLKL(mp), &header) != 0)
+		if (iwm_frame_header(mp->b_rptr, MBLKL(mp), &header,
+		    B_FALSE) != 0)
 			return (mp);
 		mutex_enter(&sc->lock);
 		if (!sc->connection.running || !sc->connection.tx_admission ||
