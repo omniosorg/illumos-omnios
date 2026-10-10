@@ -345,12 +345,37 @@ ampdu_rx_flush(struct ieee80211_node *in, struct ieee80211_rx_ampdu *rap)
 		rap->rxa_qbytes -= MBLKL(m);
 		rap->rxa_qframes--;
 
+		rap->rxa_start = IEEE80211_SEQ_INC(
+		    LE_16(*(uint16_t *)((struct ieee80211_frame *)
+		    m->b_rptr)->i_seq) >> IEEE80211_SEQ_SEQ_SHIFT);
 		ampdu_dispatch(in, m);
 		if (rap->rxa_qframes == 0)
 			break;
 	}
 }
 #endif /* IEEE80211_AMPDU_AGE */
+
+/*
+ * The driver calls this on its serialized RX delivery thread, with a
+ * referenced node and no net80211 lock held.  Node cleanup must be serialized
+ * with delivery.  A missing MPDU must not hold an idle stream indefinitely.
+ */
+void
+ieee80211_ampdu_rx_age(struct ieee80211_node *in)
+{
+#ifdef IEEE80211_AMPDU_AGE
+	uint_t tid;
+
+	for (tid = 0; tid < WME_NUM_TID; tid++) {
+		struct ieee80211_rx_ampdu *rap = &in->in_rx_ampdu[tid];
+
+		if ((rap->rxa_flags & IEEE80211_AGGR_XCHGPEND) &&
+		    rap->rxa_qframes != 0 && ddi_get_lbolt() - rap->rxa_age >=
+		    drv_usectohz(500000))
+			ampdu_rx_flush(in, rap);
+	}
+#endif
+}
 
 /*
  * Dispatch all frames in the A-MPDU re-order queue
@@ -535,8 +560,7 @@ again:
 				if (rap->rxa_qframes != 0) {
 					ampdu_rx_flush(in, rap);
 				}
-				rap->rxa_start = IEEE80211_SEQ_INC(rxseq);
-				return (PROCESS);
+				goto again;
 			}
 		} else {
 			/*

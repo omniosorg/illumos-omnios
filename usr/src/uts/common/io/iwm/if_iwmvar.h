@@ -115,7 +115,7 @@
  * Derived from OpenBSD sys/dev/pci/if_iwmvar.h at
  * 0efabb066d34187a404f31d303b3b97103df1117, BSD licence option.
  * The ring shape and 8000-family limits are retained.  OS-owned resources
- * use illumos types.  TX aggregation is limited to TID0; no RX reorder,
+ * use illumos types.  TX and RX aggregation are limited to TID0; no
  * radiotap or other device families.
  */
 #ifndef _IF_IWMVAR_H
