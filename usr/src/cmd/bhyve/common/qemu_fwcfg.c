@@ -4,6 +4,18 @@
  * Copyright (c) 2021 Beckhoff Automation GmbH & Co. KG
  * Author: Corvin Köhne <c.koehne@beckhoff.com>
  */
+/*
+ * This file and its contents are supplied under the terms of the
+ * Common Development and Distribution License ("CDDL"), version 1.0.
+ * You may only use this file in accordance with the terms of version
+ * 1.0 of the CDDL.
+ *
+ * A full copy of the text of the CDDL should have accompanied this
+ * source.  A copy of the CDDL is also available via the Internet at
+ * http://www.illumos.org/license/CDDL.
+ *
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
+ */
 
 #include <sys/param.h>
 #ifdef	__FreeBSD__
@@ -11,7 +23,6 @@
 #else
 #include <endian.h>
 #endif
-#include <sys/queue.h>
 #include <sys/stat.h>
 
 #include <machine/vmm.h>
@@ -26,6 +37,7 @@
 
 #include "acpi_device.h"
 #include "bhyverun.h"
+#include "config.h"
 #include "inout.h"
 #include "pci_lpc.h"
 #include "qemu_fwcfg.h"
@@ -106,15 +118,6 @@ struct qemu_fwcfg_softc {
 };
 
 static struct qemu_fwcfg_softc fwcfg_sc;
-
-struct qemu_fwcfg_user_file {
-	STAILQ_ENTRY(qemu_fwcfg_user_file) chain;
-	uint8_t name[QEMU_FWCFG_MAX_NAME];
-	uint32_t size;
-	void *data;
-};
-static STAILQ_HEAD(qemu_fwcfg_user_file_list,
-    qemu_fwcfg_user_file) user_files = STAILQ_HEAD_INITIALIZER(user_files);
 
 static int
 qemu_fwcfg_selector_port_handler(struct vmctx *const ctx __unused, const int in,
@@ -421,25 +424,135 @@ qemu_fwcfg_add_file(const char *name, const uint32_t size, void *const data)
 	return (0);
 }
 
+/*
+ * Add a user defined fw_cfg file described by a "fwcfg.file.<N>" config node.
+ * The node contains the file "name", a "type" and a "value". For a type of
+ * "string", the value including the terminating NUL becomes the file data; for
+ * a type of "file", the value is the path of a file whose content does.
+ */
+static int
+qemu_fwcfg_add_user_file(const char *prefix __unused, const nvlist_t *parent,
+    const char *node, int type, void *arg __unused)
+{
+	const nvlist_t *nvl;
+	const char *ftype, *value;
+	char *name, *path;
+	struct stat sb;
+	ssize_t bytes_read;
+	uint32_t size;
+	void *data;
+	int error, fd;
+
+	if (type != NV_TYPE_NVLIST) {
+		warnx("fw_cfg: invalid user file configuration fwcfg.file.%s",
+		    node);
+		return (EINVAL);
+	}
+	nvl = nvlist_get_nvlist(parent, node);
+
+	/*
+	 * Expanded configuration values are only valid until the next fetch,
+	 * so take copies.
+	 */
+	value = get_config_value_node(nvl, "name");
+	if (value == NULL || strlen(value) >= QEMU_FWCFG_MAX_NAME) {
+		warnx("fw_cfg: missing or invalid name for fwcfg.file.%s",
+		    node);
+		return (EINVAL);
+	}
+	if ((name = strdup(value)) == NULL)
+		return (ENOMEM);
+
+	data = NULL;
+	path = NULL;
+	error = 0;
+
+	ftype = get_config_value_node(nvl, "type");
+	if (ftype == NULL ||
+	    (strcmp(ftype, "string") != 0 && strcmp(ftype, "file") != 0)) {
+		warnx("fw_cfg: missing or invalid type for \"%s\"", name);
+		error = EINVAL;
+		goto done;
+	}
+	/* Fetching value invalidates ftype, so test it first. */
+	if (strcmp(ftype, "string") == 0) {
+		value = get_config_value_node(nvl, "value");
+		if (value == NULL) {
+			warnx("fw_cfg: missing value for \"%s\"", name);
+			error = EINVAL;
+			goto done;
+		}
+		if ((data = strdup(value)) == NULL) {
+			warnx("Can't duplicate fw_cfg_user_file string \"%s\"",
+			    value);
+			error = ENOMEM;
+			goto done;
+		}
+		size = strlen(data) + 1;
+	} else {
+		value = get_config_value_node(nvl, "value");
+		if (value == NULL) {
+			warnx("fw_cfg: missing value for \"%s\"", name);
+			error = EINVAL;
+			goto done;
+		}
+		if ((path = strdup(value)) == NULL) {
+			error = ENOMEM;
+			goto done;
+		}
+
+		fd = open(path, O_RDONLY);
+		if (fd < 0) {
+			warn("Can't open fw_cfg_user_file file \"%s\"", path);
+			error = EINVAL;
+			goto done;
+		}
+
+		if (fstat(fd, &sb) < 0) {
+			warn("Unable to get size of file \"%s\"", path);
+			close(fd);
+			error = -1;
+			goto done;
+		}
+
+		data = malloc(sb.st_size);
+		if (data == NULL) {
+			warnx("Can't allocate fw_cfg_user_file file \"%s\" "
+			    "(size: 0x%16lx)", path, sb.st_size);
+			close(fd);
+			error = ENOMEM;
+			goto done;
+		}
+		bytes_read = read(fd, data, sb.st_size);
+		close(fd);
+		if (bytes_read < 0 || bytes_read != sb.st_size) {
+			warn("Unable to read file \"%s\"", path);
+			error = -1;
+			goto done;
+		}
+		size = bytes_read;
+	}
+
+	error = qemu_fwcfg_add_file(name, size, data);
+
+done:
+	if (error != 0)
+		free(data);
+	free(path);
+	free(name);
+	return (error);
+}
+
 static int
 qemu_fwcfg_add_user_files(void)
 {
-	const struct qemu_fwcfg_user_file *fwcfg_file;
-	int error;
+	const nvlist_t *nvl;
 
-	STAILQ_FOREACH(fwcfg_file, &user_files, chain) {
-#ifdef	__FreeBSD__
-		error = qemu_fwcfg_add_file(fwcfg_file->name, fwcfg_file->size,
-		    fwcfg_file->data);
-#else
-		error = qemu_fwcfg_add_file((char *)fwcfg_file->name,
-		    fwcfg_file->size, fwcfg_file->data);
-#endif
-		if (error)
-			return (error);
-	}
+	nvl = find_config_node("fwcfg.file");
+	if (nvl == NULL)
+		return (0);
 
-	return (0);
+	return (walk_config_nodes("", nvl, NULL, qemu_fwcfg_add_user_file));
 }
 
 static const struct acpi_device_emul qemu_fwcfg_acpi_device_emul = {
@@ -541,26 +654,51 @@ qemu_fwcfg_usage(const char *opt)
 }
 
 /*
+ * Store a value from the command line in the configuration such that it is
+ * returned verbatim, by escaping the characters that configuration value
+ * expansion treats specially.
+ */
+static void
+qemu_fwcfg_set_literal(nvlist_t *nvl, const char *name, const char *value,
+    size_t len)
+{
+	char *buf, *bp;
+
+	buf = malloc(len * 2 + 1);
+	if (buf == NULL)
+		errx(4, "Failed to allocate memory");
+
+	for (bp = buf; len > 0; len--, value++) {
+		if (*value == '%' || *value == '\\')
+			*bp++ = '\\';
+		*bp++ = *value;
+	}
+	*bp = '\0';
+
+	set_config_value_node(nvl, name, buf);
+	free(buf);
+}
+
+/*
  * Parses the cmdline argument for user defined fw_cfg items. The cmdline
  * argument has the format:
  * "-f [name=]<name>,(string|file)=<value>"
  *
  * E.g.: "-f opt/com.page/example,string=Hello"
+ *
+ * Each item is recorded in the configuration as a "fwcfg.file.<N>" node
+ * containing "name", "type" and "value", so that it is preserved when the
+ * configuration is saved with config.dump and later loaded with -k.
+ * The node is processed by qemu_fwcfg_add_user_file() during initialisation.
  */
 int
 qemu_fwcfg_parse_cmdline_arg(const char *opt)
 {
-	struct qemu_fwcfg_user_file *fwcfg_file;
-	struct stat sb;
-	const char *opt_ptr, *opt_end;
-	ssize_t bytes_read;
-	int fd;
-	
-	fwcfg_file = malloc(sizeof(*fwcfg_file));
-	if (fwcfg_file == NULL) {
-		warnx("Unable to allocate fw_cfg_user_file");
-		return (ENOMEM);
-	}
+	const char *opt_ptr, *opt_end, *name;
+	char node_name[32];
+	size_t name_len;
+	nvlist_t *nvl;
+	u_int idx;
 
 	/* get pointer to <name> */
 	opt_ptr = opt;
@@ -573,82 +711,44 @@ qemu_fwcfg_parse_cmdline_arg(const char *opt)
 	opt_end = strchr(opt_ptr, ',');
 	if (opt_end == NULL) {
 		qemu_fwcfg_usage(opt);
-#ifndef	__FreeBSD__
-		free(fwcfg_file);
-#endif
 		return (EINVAL);
 	}
 
 	/* check if <name> is too long */
 	if (opt_end - opt_ptr >= QEMU_FWCFG_MAX_NAME) {
 		warnx("fw_cfg name too long: \"%s\"", opt);
-#ifndef	__FreeBSD__
-		free(fwcfg_file);
-#endif
 		return (EINVAL);
 	}
 
-	/* save <name> */
-#ifdef	__FreeBSD__
-	strncpy(fwcfg_file->name, opt_ptr, opt_end - opt_ptr);
-#else
-	strncpy((char *)fwcfg_file->name, opt_ptr, opt_end - opt_ptr);
-#endif
-	fwcfg_file->name[opt_end - opt_ptr] = '\0';
+	name = opt_ptr;
+	name_len = opt_end - opt_ptr;
 
-	/* set opt_ptr and opt_end to <value> */
+	/* set opt_ptr to <value> */
 	opt_ptr = opt_end + 1;
-	opt_end = opt_ptr + strlen(opt_ptr);
 
-	if (strncmp(opt_ptr, "string=", sizeof("string=") - 1) == 0) {
-		opt_ptr += sizeof("string=") - 1;
-		fwcfg_file->data = strdup(opt_ptr);
-		if (fwcfg_file->data == NULL) {
-			warnx("Can't duplicate fw_cfg_user_file string \"%s\"",
-			    opt_ptr);
-			return (ENOMEM);
-		}
-		fwcfg_file->size = strlen(opt_ptr) + 1;
-	} else if (strncmp(opt_ptr, "file=", sizeof("file=") - 1) == 0) {
-		opt_ptr += sizeof("file=") - 1;
-
-		fd = open(opt_ptr, O_RDONLY);
-		if (fd < 0) {
-			warn("Can't open fw_cfg_user_file file \"%s\"",
-			    opt_ptr);
-			return (EINVAL);
-		}
-
-		if (fstat(fd, &sb) < 0) {
-			warn("Unable to get size of file \"%s\"", opt_ptr);
-			close(fd);
-			return (-1);
-		}
-
-		fwcfg_file->data = malloc(sb.st_size);
-		if (fwcfg_file->data == NULL) {
-			warnx(
-			    "Can't allocate fw_cfg_user_file file \"%s\" (size: 0x%16lx)",
-			    opt_ptr, sb.st_size);
-			close(fd);
-			return (ENOMEM);
-		}
-		bytes_read = read(fd, fwcfg_file->data, sb.st_size);
-		if (bytes_read < 0 || bytes_read != sb.st_size) {
-			warn("Unable to read file \"%s\"", opt_ptr);
-			free(fwcfg_file->data);
-			close(fd);
-			return (-1);
-		}
-		fwcfg_file->size = bytes_read;
-
-		close(fd);
-	} else {
+	if (strncmp(opt_ptr, "string=", sizeof("string=") - 1) != 0 &&
+	    strncmp(opt_ptr, "file=", sizeof("file=") - 1) != 0) {
 		qemu_fwcfg_usage(opt);
 		return (EINVAL);
 	}
 
-	STAILQ_INSERT_TAIL(&user_files, fwcfg_file, chain);
+	/* find the next free fwcfg.file.<N> node */
+	for (idx = 0; ; idx++) {
+		snprintf(node_name, sizeof(node_name), "fwcfg.file.%u", idx);
+		if (find_config_node(node_name) == NULL)
+			break;
+	}
+
+	nvl = create_config_node(node_name);
+	qemu_fwcfg_set_literal(nvl, "name", name, name_len);
+	if (strncmp(opt_ptr, "string=", sizeof("string=") - 1) == 0) {
+		opt_ptr += sizeof("string=") - 1;
+		set_config_value_node(nvl, "type", "string");
+	} else {
+		opt_ptr += sizeof("file=") - 1;
+		set_config_value_node(nvl, "type", "file");
+	}
+	qemu_fwcfg_set_literal(nvl, "value", opt_ptr, strlen(opt_ptr));
 
 	return (0);
 }
