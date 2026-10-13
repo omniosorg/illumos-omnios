@@ -27,7 +27,7 @@
 .\" Portions Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 .\" Portions Copyright 2026 Oxide Computer Company
 .\"
-.Dd February 9, 2026
+.Dd October 12, 2026
 .Dt BHYVE_CONFIG 5
 .Os
 .Sh NAME
@@ -344,6 +344,38 @@ Force a VM exit when a guest CPU executes the
 .Dv PAUSE
 instruction.
 .El
+.Ss fw_cfg File Settings
+Files to be added to the QEMU fw_cfg interface
+.Pq see Va lpc.fwcfg
+are stored under nodes named
+.Va fwcfg.file. Ns Ar N ,
+where
+.Ar N
+is a non-negative integer.
+Each node contains the following variables:
+.Bl -column "value" "Format" "Default"
+.It Sy Name Ta Sy Format Ta Sy Default Ta Sy Description
+.It Va name Ta string Ta Ta
+The name of the fw_cfg file, at most 55 characters.
+.It Va type Ta string Ta Ta
+The source of the fw_cfg file contents, either
+.Dq string
+or
+.Dq file .
+.It Va value Ta string Ta Ta
+If
+.Va type
+is
+.Dq string ,
+the contents of the fw_cfg file, to which a terminating NUL character is
+added.
+If
+.Va type
+is
+.Dq file ,
+the path of a file whose contents become the contents of the fw_cfg file.
+The file is read when the guest is started.
+.El
 .Sh DEVICE SETTINGS
 Device settings are stored under a device node.
 The device node's name is set by the parent bus of the device.
@@ -485,6 +517,10 @@ Specify speed of the virtual network device as advertised to the guest.
 This value is specified as a number of megabits per second
 .Pq Mb/s .
 .El
+.Pp
+A guest which negotiates the VirtIO control queue may install multicast
+address filters on the VNIC, in place of the multicast promiscuity used
+otherwise.
 .Pp
 Viona network devices have the ability to lend out their TX buffers, which
 can occasionally cause issues if they are not returned.

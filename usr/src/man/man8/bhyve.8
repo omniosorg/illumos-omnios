@@ -26,7 +26,7 @@
 .\" Portions Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 .\" Copyright 2026 Oxide Computer Company
 .\"
-.Dd February 9, 2026
+.Dd October 12, 2026
 .Dt BHYVE 8
 .Os
 .Sh NAME
@@ -200,6 +200,10 @@ is specified, the fw_cfg file contains the string as data.
 If a
 .Cm file
 is specified, bhyve reads the file and adds the file content as fw_cfg data.
+The fw_cfg file is recorded in the configuration as described under
+.Va fwcfg.file
+in
+.Xr bhyve_config 5 .
 .It Fl G Xo
 .Sm off
 .Oo Ar w Oc
