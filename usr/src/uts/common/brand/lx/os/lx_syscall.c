@@ -23,7 +23,7 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2019 Joyent, Inc.
- * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/kmem.h>
@@ -354,7 +354,7 @@ lx_syscall_enter(void)
 	 * Check that the system call number is within the bounds we expect.
 	 */
 	syscall_num = lwpd->br_syscall_num;
-	if (syscall_num < 0 || syscall_num > LX_MAX_SYSCALL(lwp)) {
+	if (syscall_num < 0 || syscall_num >= LX_MAX_SYSCALL(lwp)) {
 		lx_syscall_unsup_msg(NULL, syscall_num, 0);
 
 		(void) set_errno(ENOTSUP);
@@ -892,6 +892,84 @@ lx_sysent_t lx_sysent32[] = {
 	{"memfd_create", NULL,			NOSYS_NULL,	0}, /* 356 */
 	{"bpf",		NULL,			NOSYS_NULL,	0}, /* 357 */
 	{"execveat",	NULL,			NOSYS_NULL,	0}, /* 358 */
+	{"socket",	NULL,			NOSYS_NULL,	0}, /* 359 */
+	{"socketpair",	NULL,			NOSYS_NULL,	0}, /* 360 */
+	{"bind",	NULL,			NOSYS_NULL,	0}, /* 361 */
+	{"connect",	NULL,			NOSYS_NULL,	0}, /* 362 */
+	{"listen",	NULL,			NOSYS_NULL,	0}, /* 363 */
+	{"accept4",	NULL,			NOSYS_NULL,	0}, /* 364 */
+	{"getsockopt",	NULL,			NOSYS_NULL,	0}, /* 365 */
+	{"setsockopt",	NULL,			NOSYS_NULL,	0}, /* 366 */
+	{"getsockname",	NULL,			NOSYS_NULL,	0}, /* 367 */
+	{"getpeername",	NULL,			NOSYS_NULL,	0}, /* 368 */
+	{"sendto",	NULL,			NOSYS_NULL,	0}, /* 369 */
+	{"sendmsg",	NULL,			NOSYS_NULL,	0}, /* 370 */
+	{"recvfrom",	NULL,			NOSYS_NULL,	0}, /* 371 */
+	{"recvmsg",	NULL,			NOSYS_NULL,	0}, /* 372 */
+	{"shutdown",	NULL,			NOSYS_NULL,	0}, /* 373 */
+	{"userfaultfd",	NULL,			NOSYS_NULL,	0}, /* 374 */
+	{"membarrier",	NULL,			NOSYS_NULL,	0}, /* 375 */
+	{"mlock2",	NULL,			NOSYS_NULL,	0}, /* 376 */
+	{"copy_file_range", NULL,		NOSYS_NULL,	0}, /* 377 */
+	{"preadv2",	NULL,			NOSYS_NULL,	0}, /* 378 */
+	{"pwritev2",	NULL,			NOSYS_NULL,	0}, /* 379 */
+	{"pkey_mprotect", NULL,			NOSYS_NULL,	0}, /* 380 */
+	{"pkey_alloc",	NULL,			NOSYS_NULL,	0}, /* 381 */
+	{"pkey_free",	NULL,			NOSYS_NULL,	0}, /* 382 */
+	{"statx",	NULL,			NOSYS_NULL,	0}, /* 383 */
+	{"arch_prctl",	NULL,			NOSYS_NULL,	0}, /* 384 */
+	{"io_pgetevents", NULL,			NOSYS_NULL,	0}, /* 385 */
+	{"rseq",	NULL,			NOSYS_NULL,	0}, /* 386 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 387 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 388 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 389 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 390 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 391 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 392 */
+	{"semget",	NULL,			NOSYS_NULL,	0}, /* 393 */
+	{"semctl",	NULL,			NOSYS_NULL,	0}, /* 394 */
+	{"shmget",	NULL,			NOSYS_NULL,	0}, /* 395 */
+	{"shmctl",	NULL,			NOSYS_NULL,	0}, /* 396 */
+	{"shmat",	NULL,			NOSYS_NULL,	0}, /* 397 */
+	{"shmdt",	NULL,			NOSYS_NULL,	0}, /* 398 */
+	{"msgget",	NULL,			NOSYS_NULL,	0}, /* 399 */
+	{"msgsnd",	NULL,			NOSYS_NULL,	0}, /* 400 */
+	{"msgrcv",	NULL,			NOSYS_NULL,	0}, /* 401 */
+	{"msgctl",	NULL,			NOSYS_NULL,	0}, /* 402 */
+	{"clock_gettime64", NULL,		NOSYS_NULL,	0}, /* 403 */
+	{"clock_settime64", NULL,		NOSYS_NULL,	0}, /* 404 */
+	{"clock_adjtime64", NULL,		NOSYS_NULL,	0}, /* 405 */
+	{"clock_getres_time64", NULL,		NOSYS_NULL,	0}, /* 406 */
+	{"clock_nanosleep_time64", NULL,	NOSYS_NULL,	0}, /* 407 */
+	{"timer_gettime64", NULL,		NOSYS_NULL,	0}, /* 408 */
+	{"timer_settime64", NULL,		NOSYS_NULL,	0}, /* 409 */
+	{"timerfd_gettime64", NULL,		NOSYS_NULL,	0}, /* 410 */
+	{"timerfd_settime64", NULL,		NOSYS_NULL,	0}, /* 411 */
+	{"utimensat_time64", NULL,		NOSYS_NULL,	0}, /* 412 */
+	{"pselect6_time64", NULL,		NOSYS_NULL,	0}, /* 413 */
+	{"ppoll_time64", NULL,			NOSYS_NULL,	0}, /* 414 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 415 */
+	{"io_pgetevents_time64", NULL,		NOSYS_NULL,	0}, /* 416 */
+	{"recvmmsg_time64", NULL,		NOSYS_NULL,	0}, /* 417 */
+	{"mq_timedsend_time64", NULL,		NOSYS_NULL,	0}, /* 418 */
+	{"mq_timedreceive_time64", NULL,	NOSYS_NULL,	0}, /* 419 */
+	{"semtimedop_time64", NULL,		NOSYS_NULL,	0}, /* 420 */
+	{"rt_sigtimedwait_time64", NULL,	NOSYS_NULL,	0}, /* 421 */
+	{"futex_time64", NULL,			NOSYS_NULL,	0}, /* 422 */
+	{"sched_rr_get_interval_time64", NULL,	NOSYS_NULL,	0}, /* 423 */
+	{"pidfd_send_signal", NULL,		NOSYS_NULL,	0}, /* 424 */
+	{"io_uring_setup", NULL,		NOSYS_NULL,	0}, /* 425 */
+	{"io_uring_enter", NULL,		NOSYS_NULL,	0}, /* 426 */
+	{"io_uring_register", NULL,		NOSYS_NULL,	0}, /* 427 */
+	{"open_tree",	NULL,			NOSYS_NULL,	0}, /* 428 */
+	{"move_mount",	NULL,			NOSYS_NULL,	0}, /* 429 */
+	{"fsopen",	NULL,			NOSYS_NULL,	0}, /* 430 */
+	{"fsconfig",	NULL,			NOSYS_NULL,	0}, /* 431 */
+	{"fsmount",	NULL,			NOSYS_NULL,	0}, /* 432 */
+	{"fspick",	NULL,			NOSYS_NULL,	0}, /* 433 */
+	{"pidfd_open",	NULL,			NOSYS_NULL,	0}, /* 434 */
+	{"clone3",	NULL,			NOSYS_NULL,	0}, /* 435 */
+	{"close_range",	lx_close_range,		0,		3}, /* 436 */
 };
 
 #if defined(_LP64)
@@ -1208,7 +1286,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"clock_adjtime", NULL,			NOSYS_NULL,	0}, /* 305 */
 	{"syncfs",	lx_syncfs,		0,		1}, /* 306 */
 	{"sendmmsg",	lx_sendmmsg,		0,		4}, /* 307 */
-	{"setns",	NULL,			NOSYS_NULL,	0}, /* 309 */
+	{"setns",	NULL,			NOSYS_NULL,	0}, /* 308 */
 	{"getcpu",	lx_getcpu,		0,		3}, /* 309 */
 	{"process_vm_readv", NULL,		NOSYS_NULL,	0}, /* 310 */
 	{"process_vm_writev", NULL,		NOSYS_NULL,	0}, /* 311 */
@@ -1223,6 +1301,120 @@ lx_sysent_t lx_sysent64[] = {
 	{"kexec_file_load", NULL,		NOSYS_NULL,	0}, /* 320 */
 	{"bpf",		NULL,			NOSYS_NULL,	0}, /* 321 */
 	{"execveat",	NULL,			NOSYS_NULL,	0}, /* 322 */
+	{"userfaultfd",	NULL,			NOSYS_NULL,	0}, /* 323 */
+	{"membarrier",	NULL,			NOSYS_NULL,	0}, /* 324 */
+	{"mlock2",	NULL,			NOSYS_NULL,	0}, /* 325 */
+	{"copy_file_range", NULL,		NOSYS_NULL,	0}, /* 326 */
+	{"preadv2",	NULL,			NOSYS_NULL,	0}, /* 327 */
+	{"pwritev2",	NULL,			NOSYS_NULL,	0}, /* 328 */
+	{"pkey_mprotect", NULL,			NOSYS_NULL,	0}, /* 329 */
+	{"pkey_alloc",	NULL,			NOSYS_NULL,	0}, /* 330 */
+	{"pkey_free",	NULL,			NOSYS_NULL,	0}, /* 331 */
+	{"statx",	NULL,			NOSYS_NULL,	0}, /* 332 */
+	{"io_pgetevents", NULL,			NOSYS_NULL,	0}, /* 333 */
+	{"rseq",	NULL,			NOSYS_NULL,	0}, /* 334 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 335 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 336 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 337 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 338 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 339 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 340 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 341 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 342 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 343 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 344 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 345 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 346 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 347 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 348 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 349 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 350 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 351 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 352 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 353 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 354 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 355 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 356 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 357 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 358 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 359 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 360 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 361 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 362 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 363 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 364 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 365 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 366 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 367 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 368 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 369 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 370 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 371 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 372 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 373 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 374 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 375 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 376 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 377 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 378 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 379 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 380 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 381 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 382 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 383 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 384 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 385 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 386 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 387 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 388 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 389 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 390 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 391 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 392 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 393 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 394 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 395 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 396 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 397 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 398 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 399 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 400 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 401 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 402 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 403 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 404 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 405 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 406 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 407 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 408 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 409 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 410 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 411 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 412 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 413 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 414 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 415 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 416 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 417 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 418 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 419 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 420 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 421 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 422 */
+	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 423 */
+	{"pidfd_send_signal", NULL,		NOSYS_NULL,	0}, /* 424 */
+	{"io_uring_setup", NULL,		NOSYS_NULL,	0}, /* 425 */
+	{"io_uring_enter", NULL,		NOSYS_NULL,	0}, /* 426 */
+	{"io_uring_register", NULL,		NOSYS_NULL,	0}, /* 427 */
+	{"open_tree",	NULL,			NOSYS_NULL,	0}, /* 428 */
+	{"move_mount",	NULL,			NOSYS_NULL,	0}, /* 429 */
+	{"fsopen",	NULL,			NOSYS_NULL,	0}, /* 430 */
+	{"fsconfig",	NULL,			NOSYS_NULL,	0}, /* 431 */
+	{"fsmount",	NULL,			NOSYS_NULL,	0}, /* 432 */
+	{"fspick",	NULL,			NOSYS_NULL,	0}, /* 433 */
+	{"pidfd_open",	NULL,			NOSYS_NULL,	0}, /* 434 */
+	{"clone3",	NULL,			NOSYS_NULL,	0}, /* 435 */
+	{"close_range",	lx_close_range,		0,		3}, /* 436 */
 
 	/* XXX TBD gap then x32 syscalls from 512 - 544 */
 };

@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2018 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -335,8 +336,8 @@ typedef struct lx_audit_state {
 	uint32_t	lxast_rate_limit;
 	uint32_t	lxast_backlog_limit;
 	uint32_t	lxast_backlog_wait_time;
-	lx_audit_rule_ent_t *lxast_sys32_rulep[LX_NSYSCALLS];
-	lx_audit_rule_ent_t *lxast_sys64_rulep[LX_NSYSCALLS];
+	lx_audit_rule_ent_t *lxast_sys32_rulep[LX_NSYSCALLS + 1];
+	lx_audit_rule_ent_t *lxast_sys64_rulep[LX_NSYSCALLS + 1];
 	kcondvar_t	lxast_worker_cv;
 	kmutex_t	lxast_lock;		/* protects members below */
 	pid_t		lxast_pid;		/* auditd pid */
@@ -862,7 +863,7 @@ lx_audit_syscall_exit(int sysnum, long ret)
 	if (lxzd->lxzd_audit_enabled == LXAE_DISABLED)
 		return;
 
-	if (sysnum >= LX_NSYSCALLS)
+	if (sysnum > LX_NSYSCALLS)
 		return;
 
 	asp = lxzd->lxzd_audit_state;
@@ -958,7 +959,7 @@ lx_enable_syscall_rule(lx_audit_state_t *asp, lx_audit_rule_t *rulep,
 
 	ASSERT(MUTEX_HELD(&asp->lxast_lock));
 
-	for (sysnum = 0; sysnum < LX_NSYSCALLS; sysnum++) {
+	for (sysnum = 0; sysnum <= LX_NSYSCALLS; sysnum++) {
 		if (BT_TEST32(rulep->lxar_mask, sysnum)) {
 			if (rp->lxare_is32bit) {
 				if (asp->lxast_sys32_rulep[sysnum] == NULL)
@@ -1059,7 +1060,7 @@ lx_audit_append_rule(void *r, uint_t datalen)
 			return (ENOTSUP);
 		}
 	}
-	for (i = 0; i < LX_NSYSCALLS; i++) {
+	for (i = 0; i <= LX_NSYSCALLS; i++) {
 		if (BT_TEST32(rulep->lxar_mask, i)) {
 			/* At least one syscall enabled in this mask entry */
 			sys_found = B_TRUE;
@@ -1178,7 +1179,7 @@ lx_audit_delete_rule(void *r, uint_t datalen)
 	/*
 	 * Disable each relevant syscall enabling.
 	 */
-	for (sysnum = 0; sysnum < LX_NSYSCALLS; sysnum++) {
+	for (sysnum = 0; sysnum <= LX_NSYSCALLS; sysnum++) {
 		if (BT_TEST32(rulep->lxar_mask, sysnum)) {
 			/*
 			 * If this was the first rule on the list for the

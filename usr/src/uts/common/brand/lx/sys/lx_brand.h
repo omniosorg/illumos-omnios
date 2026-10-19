@@ -26,6 +26,7 @@
 /*
  * Copyright 2019 Joyent, Inc.
  * Copyright 2025 Edgecast Cloud LLC.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #ifndef _LX_BRAND_H
@@ -80,7 +81,7 @@ extern "C" {
 /*
  * This must be large enough for both the 32-bit table and 64-bit table.
  */
-#define	LX_NSYSCALLS		358
+#define	LX_NSYSCALLS		436
 
 /* Highest capability we know about */
 #define	LX_CAP_MAX_VALID	36
