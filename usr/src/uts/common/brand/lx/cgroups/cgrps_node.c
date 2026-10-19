@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2021 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
@@ -180,7 +181,7 @@ cgrp_cg_hash_init(cgrp_node_t *cn)
 	pid_t schedpid = curproc->p_zone->zone_zsched->p_pid;
 	cgrp_mnt_t *cgm = VTOCGM(cn->cgn_vnode);
 
-	ASSERT3S(cn->cgn_state, ==, CGRP_NORMAL);
+	ASSERT3S(cn->cgn_state, ==, CGRP_SETUP);
 	ASSERT(RW_WRITE_HELD(&cgm->cg_contents));
 
 	/* let this go so we can take pidlock */
