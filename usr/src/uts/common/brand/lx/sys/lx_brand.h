@@ -189,6 +189,8 @@ typedef enum lx_ptrace_options {
 #define	AT_CLKTCK	17
 /* Aux vector containing secure boolean */
 #define	AT_SECURE	23
+/* Aux vector containing the i386 vDSO system call entry point */
+#define	AT_SYSINFO	32
 /* Aux vector containing vDSO addr */
 #define	AT_SYSINFO_EHDR	33
 
