@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2018 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -785,7 +786,7 @@ lx_audit_syscall_fmt_rcd(int sysnum, uint32_t arch, long ret,
 	    "ppid=%u pid=%u auid=%u uid=%u gid=%u euid=%u suid=%u "
 	    "fsuid=%u egid=%u sgid=%u fsgid=%u tty=pts%u ses=%u "
 	    "comm=%s exe=%s %s",
-	    (uint64_t)tsp->tv_sec,			/* zone's timestamp */
+	    (uint64_t)tsp->tv_sec,			/* timestamp */
 	    (uint64_t)tsp->tv_nsec / 1000000,
 	    seq,					/* serial number */
 	    arch,					/* arch */
@@ -906,7 +907,6 @@ lx_audit_syscall_exit(int sysnum, long ret)
 	 */
 	seq = asp->lxast_seq++;
 	gethrestime(&ts);
-	ts.tv_sec -= curzone->zone_boot_time;
 
 	/*
 	 * We have to determine if the first rule associated with the syscall,
@@ -1273,11 +1273,10 @@ lx_audit_emit_user_msg(uint_t mtype, uint_t len, char *datap)
 	msg[len] = '\0';
 
 	gethrestime(&ts);
-	ts.tv_sec -= curzone->zone_boot_time;
 
 	(void) snprintf(rp->lxar_msg, LX_AUDIT_MESSAGE_TEXT_MAX,
 	    "audit(%lu.%03lu:%lu): pid=%u uid=%u auid=%u ses=%u msg=\'",
-	    (uint64_t)ts.tv_sec,			/* zone's timestamp */
+	    (uint64_t)ts.tv_sec,			/* timestamp */
 	    (uint64_t)ts.tv_nsec / 1000000,
 	    asp->lxast_seq++,				/* serial number */
 	    (lwpd->br_pid == curzone->zone_proc_initpid ? 1 : lwpd->br_pid),
