@@ -23,7 +23,7 @@
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2018 Joyent, Inc.
- * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #ifndef _SYS_LINUX_SYSCALLS_H
@@ -52,6 +52,7 @@ extern long lx_clock_getres();
 extern long lx_clock_gettime();
 extern long lx_clock_settime();
 extern long lx_close();
+extern long lx_close_range();
 extern long lx_connect();
 extern long lx_creat();
 extern long lx_dup();
