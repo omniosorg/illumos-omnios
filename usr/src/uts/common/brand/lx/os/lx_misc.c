@@ -25,6 +25,7 @@
 
 /*
  * Copyright 2022 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/errno.h>
@@ -456,7 +457,16 @@ lx_initlwp(klwp_t *lwp, void *lwpbd)
 	lwpd->br_set_ctidp = NULL;
 	lwpd->br_signal = 0;
 	lwpd->br_stack_mode = LX_STACK_MODE_PREINIT;
-	cpuset_all(lwpd->br_affinitymask);
+
+	/*
+	 * Start with an affinity mask of the active CPUs. A new process
+	 * replaces this with its parent's mask in lx_affinity_forklwp(), and
+	 * a new thread in an existing process takes its creator's mask below,
+	 * as both do on Linux. See lx_sched_getaffinity() for why cpu_lock is
+	 * not needed to read cpu_active_set.
+	 */
+	cpuset_zero(lwpd->br_affinitymask);
+	cpuset_or(lwpd->br_affinitymask, &cpu_active_set);
 
 	/*
 	 * The first thread in a process has ppid set to the parent
@@ -476,6 +486,16 @@ lx_initlwp(klwp_t *lwp, void *lwpbd)
 		lwpd->br_ntv_fsbase = plwpd->br_ntv_fsbase;
 		lwpd->br_lx_gsbase = plwpd->br_lx_gsbase;
 		lwpd->br_ntv_gsbase = plwpd->br_ntv_gsbase;
+		/*
+		 * The creator's mask is protected by p_lock, held here, unless
+		 * this lwp is being created from outside the process, such as
+		 * a /proc agent lwp.
+		 */
+		if (ttoproc(curthread) == p) {
+			cpuset_zero(lwpd->br_affinitymask);
+			cpuset_or(lwpd->br_affinitymask,
+			    plwpd->br_affinitymask);
+		}
 	} else {
 		/*
 		 * Oddball case: the parent thread isn't a Linux process.
