@@ -26,6 +26,7 @@
 
 /*
  * Copyright 2019 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
@@ -619,6 +620,9 @@ int
 lx_init(int argc, char *argv[], char *envp[])
 {
 	auxv_t		*ap, *oap;
+#if !defined(_LP64)
+	auxv_t		*lxap;
+#endif
 	long		*p;
 	int		err;
 	lx_elf_data_t	edp;
@@ -758,6 +762,9 @@ lx_init(int argc, char *argv[], char *envp[])
 	while (*p == (uintptr_t)NULL)
 		p++;
 	ap = (auxv_t *)p;
+#if !defined(_LP64)
+	lxap = oap;
+#endif
 
 	/*
 	 * Translate auxv entries to Linux equivalents.
@@ -771,6 +778,31 @@ lx_init(int argc, char *argv[], char *envp[])
 			oap++;
 		}
 	}
+
+#if !defined(_LP64)
+	/*
+	 * Linux supplies AT_SYSINFO alongside AT_SYSINFO_EHDR to 32-bit
+	 * processes, and i386 glibc makes its system calls through the
+	 * AT_SYSINFO address whenever a vDSO is present. Without it, the first
+	 * such call jumps to address 0. Point it at the vDSO entry point,
+	 * which is the int $0x80 system call trampoline. There is room for the
+	 * extra entry because some native entries are never passed on.
+	 */
+	for (auxv_t *lap = lxap; lap < oap; lap++) {
+		const Elf32_Ehdr *ehdr;
+
+		if (lap->a_type != AT_SYSINFO_EHDR || lap->a_un.a_val == 0)
+			continue;
+
+		if (oap < ap) {
+			ehdr = lap->a_un.a_ptr;
+			oap->a_type = AT_SYSINFO;
+			oap->a_un.a_val = lap->a_un.a_val + ehdr->e_entry;
+			oap++;
+		}
+		break;
+	}
+#endif
 
 	/* NULL out skipped entries */
 	if (oap < ap) {
