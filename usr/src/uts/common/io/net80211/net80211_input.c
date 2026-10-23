@@ -47,6 +47,35 @@
 static mblk_t *ieee80211_defrag(ieee80211com_t *, ieee80211_node_t *,
     mblk_t *, int);
 
+/* Configured devices negotiate MCS values, independently of legacy rates. */
+static int
+ieee80211_ht_profile_match(ieee80211_node_t *in, const uint8_t *cap,
+    const uint8_t *info)
+{
+	const struct ieee80211_ie_htinfo *htinfo;
+	uint_t i, j;
+
+	if (cap[0] != IEEE80211_ELEMID_HTCAP ||
+	    cap[1] != sizeof (struct ieee80211_ie_htcap) - 2 ||
+	    info[0] != IEEE80211_ELEMID_HTINFO ||
+	    info[1] != sizeof (*htinfo) - 2 ||
+	    (ieee80211_setup_htrates(in, cap,
+	    IEEE80211_F_JOIN | IEEE80211_F_DOBRS) & IEEE80211_RATE_BASIC))
+		return (EINVAL);
+	htinfo = (const struct ieee80211_ie_htinfo *)info;
+	for (i = 0; i < sizeof (htinfo->hi_basicmcsset) * NBBY; i++) {
+		if (ieee80211_isclr(htinfo->hi_basicmcsset, i))
+			continue;
+		for (j = 0; j < in->in_htrates.rs_nrates; j++) {
+			if (in->in_htrates.rs_rates[j] == i)
+				break;
+		}
+		if (j == in->in_htrates.rs_nrates)
+			return (EINVAL);
+	}
+	return (0);
+}
+
 /*
  * Process a received frame.  The node associated with the sender
  * should be supplied.  If nothing was found in the node table then
@@ -1337,6 +1366,11 @@ ieee80211_recv_mgmt(ieee80211com_t *ic, mblk_t *mp, struct ieee80211_node *in,
 
 		rates = xrates = wme = htcap = htinfo = NULL;
 		while (frm < efrm) {
+			ieee80211_impl_t *im = ic->ic_private;
+
+			if (im->im_mcs_configured &&
+			    (efrm - frm < 2 || frm[1] > efrm - frm - 2))
+				goto out;
 			/*
 			 * Do not discard frames containing proprietary Agere
 			 * elements 128 and 129, as the reported element length
@@ -1421,10 +1455,21 @@ ieee80211_recv_mgmt(ieee80211com_t *ic, mblk_t *mp, struct ieee80211_node *in,
 		 */
 		if ((ic->ic_htcaps & IEEE80211_HTC_HT) &&
 		    htcap != NULL && htinfo != NULL) {
+			ieee80211_impl_t *im = ic->ic_private;
+
+			if (im->im_mcs_configured &&
+			    ieee80211_ht_profile_match(in, htcap,
+			    htinfo) != 0) {
+				IEEE80211_UNLOCK(ic);
+				ieee80211_new_state(ic, IEEE80211_S_SCAN, 0);
+				return;
+			}
 			ieee80211_ht_node_init(in, htcap);
 			ieee80211_parse_htinfo(in, htinfo);
-			(void) ieee80211_setup_htrates(in,
-			    htcap, IEEE80211_F_JOIN | IEEE80211_F_DOBRS);
+			if (!im->im_mcs_configured)
+				(void) ieee80211_setup_htrates(in,
+				    htcap, IEEE80211_F_JOIN |
+				    IEEE80211_F_DOBRS);
 			ieee80211_setup_basic_htrates(in, htinfo);
 			if (in->in_chan != ic->ic_curchan) {
 				/*
