@@ -239,6 +239,16 @@ void (*lx_cgrp_freelwp)(vfs_t *, lx_lwp_data_t *);
 
 uint64_t lx_maxstack64 = LX_MAXSTACK64;
 
+/*
+ * Where the heap starts for a position-independent executable. These are
+ * mapped up amongst the other top-down mappings, leaving no room above them
+ * for the heap to grow, so it goes near the bottom of the address space
+ * instead. Linux never maps anything below vm.mmap_min_addr, which defaults
+ * to 64KiB, and some programs treat smaller addresses as invalid. procps-ng 4
+ * rejects any pointer below 0x8000, for example.
+ */
+#define	LX_ET_DYN_BRKBASE	((caddr_t)0x10000)
+
 static int lx_elfexec(struct vnode *vp, struct execa *uap, struct uarg *args,
     struct intpdata *idata, int level, size_t *execsz, int setid,
     caddr_t exec_file, struct cred *cred, int *brand_action);
@@ -2366,11 +2376,10 @@ lx_elfexec(struct vnode *vp, struct execa *uap, struct uarg *args,
 		if (ehdr.e_type == ET_DYN) {
 			/*
 			 * This is a shared object executable, so we need to
-			 * pick a reasonable place to put the heap. Just don't
-			 * use the first page.
+			 * pick a reasonable place to put the heap.
 			 */
-			env.ex_brkbase = (caddr_t)PAGESIZE;
-			env.ex_bssbase = (caddr_t)PAGESIZE;
+			env.ex_brkbase = LX_ET_DYN_BRKBASE;
+			env.ex_bssbase = LX_ET_DYN_BRKBASE;
 		}
 
 		/*
@@ -2476,13 +2485,13 @@ lx_elfexec(struct vnode *vp, struct execa *uap, struct uarg *args,
 			 * misinterpret what we return from brk().
 			 *
 			 * It's probably not great, but we'll just set brkbase
-			 * to PAGESIZE. If there's something down there in the
-			 * way then libc/malloc should fall back to mmap() when
-			 * we fail to extend the brk for them.
+			 * to LX_ET_DYN_BRKBASE. If there's something down
+			 * there in the way then libc/malloc should fall back
+			 * to mmap() when we fail to extend the brk for them.
 			 */
 			if (ehdr.e_type == ET_DYN) {
-				env.ex_bssbase = (caddr_t)PAGESIZE;
-				env.ex_brkbase = (caddr_t)PAGESIZE;
+				env.ex_bssbase = LX_ET_DYN_BRKBASE;
+				env.ex_brkbase = LX_ET_DYN_BRKBASE;
 				env.ex_brksize = 0;
 			}
 		}

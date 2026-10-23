@@ -24,6 +24,7 @@
  */
 /*
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -255,16 +256,30 @@ lx_sched_getaffinity(l_pid_t pid, unsigned int len, void *maskp)
 		return (set_errno(EINVAL));
 	}
 
+	smask = cpuset_alloc(KM_SLEEP);
+	cpuset_zero(smask);
 	if ((err = lx_sched_pidlock(pid, &p, &tp, B_FALSE)) != 0) {
+		cpuset_free(smask);
 		return (set_errno(err));
 	}
 
 	lwpd = ttolxlwp(tp);
-	smask = lwpd->br_affinitymask;
+	cpuset_or(smask, lwpd->br_affinitymask);
+	sprunlock(p);
+
+	/*
+	 * As on Linux, report only the CPUs in the mask which are active. The
+	 * thread's mask can name CPUs which do not exist, for example if the
+	 * process inherited it from one which predates a CPU being removed.
+	 * cpu_active_set only changes with cpu_lock held but it is read here
+	 * without it. The result can therefore be out of date by a CPU coming
+	 * or going, which is no different to that happening just after the
+	 * call returns.
+	 */
+	cpuset_and(smask, &cpu_active_set);
 	cpuset_bounds(smask, &pmin, &pmax);
 	stol_cpuset(smask, &lmask);
-
-	sprunlock(p);
+	cpuset_free(smask);
 
 	/*
 	 * It is out of convenience that this check is performed so late.  If
