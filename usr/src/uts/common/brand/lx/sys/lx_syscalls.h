@@ -133,6 +133,7 @@ extern long lx_io_submit();
 extern long lx_ioctl();
 extern long lx_ioprio_get();
 extern long lx_ioprio_set();
+extern long lx_kcmp();
 extern long lx_kill();
 extern long lx_lchown();
 extern long lx_lchown16();

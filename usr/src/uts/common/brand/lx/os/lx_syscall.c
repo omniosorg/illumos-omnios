@@ -882,7 +882,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"setns",	NULL,			NOSYS_NULL,	0}, /* 346 */
 	{"process_vm_readv", NULL,		NOSYS_NULL,	0}, /* 347 */
 	{"process_vm_writev", NULL,		NOSYS_NULL,	0}, /* 348 */
-	{"kcmp",	NULL,			NOSYS_NULL,	0}, /* 349 */
+	{"kcmp",	lx_kcmp,		0,		5}, /* 349 */
 	{"finit_module", NULL,			NOSYS_NULL,	0}, /* 350 */
 	{"sched_setattr", lx_sched_setattr,	0,		3}, /* 351 */
 	{"sched_getattr", lx_sched_getattr,	0,		4}, /* 352 */
@@ -1295,7 +1295,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"getcpu",	lx_getcpu,		0,		3}, /* 309 */
 	{"process_vm_readv", NULL,		NOSYS_NULL,	0}, /* 310 */
 	{"process_vm_writev", NULL,		NOSYS_NULL,	0}, /* 311 */
-	{"kcmp",	NULL,			NOSYS_NULL,	0}, /* 312 */
+	{"kcmp",	lx_kcmp,		0,		5}, /* 312 */
 	{"finit_module", NULL,			NOSYS_NULL,	0}, /* 313 */
 	{"sched_setattr", lx_sched_setattr,	0,		3}, /* 314 */
 	{"sched_getattr", lx_sched_getattr,	0,		4}, /* 315 */
