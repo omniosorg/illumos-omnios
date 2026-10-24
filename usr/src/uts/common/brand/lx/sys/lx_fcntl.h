@@ -23,6 +23,7 @@
  * Use is subject to license terms.
  * Copyright 2015 Joyent, Inc.
  * Copyright 2024 MNX Cloud, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #ifndef _SYS_LX_FCNTL_H
@@ -117,6 +118,7 @@ extern int lx_vp_at(int, char *, vnode_t **, int);
 #define	LX_AT_SYMLINK_FOLLOW	0x400
 #define	LX_AT_NO_AUTOMOUNT	0x800
 #define	LX_AT_EMPTY_PATH	0x1000
+#define	LX_AT_STATX_SYNC_TYPE	0x6000
 
 typedef struct lx_flock {
 	short		l_type;

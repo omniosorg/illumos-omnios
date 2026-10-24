@@ -916,7 +916,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"pkey_mprotect", NULL,			NOSYS_NULL,	0}, /* 380 */
 	{"pkey_alloc",	NULL,			NOSYS_NULL,	0}, /* 381 */
 	{"pkey_free",	NULL,			NOSYS_NULL,	0}, /* 382 */
-	{"statx",	NULL,			NOSYS_NULL,	0}, /* 383 */
+	{"statx",	lx_statx,		0,		5}, /* 383 */
 	{"arch_prctl",	NULL,			NOSYS_NULL,	0}, /* 384 */
 	{"io_pgetevents", NULL,			NOSYS_NULL,	0}, /* 385 */
 	{"rseq",	NULL,			NOSYS_NULL,	0}, /* 386 */
@@ -1310,7 +1310,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"pkey_mprotect", NULL,			NOSYS_NULL,	0}, /* 329 */
 	{"pkey_alloc",	NULL,			NOSYS_NULL,	0}, /* 330 */
 	{"pkey_free",	NULL,			NOSYS_NULL,	0}, /* 331 */
-	{"statx",	NULL,			NOSYS_NULL,	0}, /* 332 */
+	{"statx",	lx_statx,		0,		5}, /* 332 */
 	{"io_pgetevents", NULL,			NOSYS_NULL,	0}, /* 333 */
 	{"rseq",	NULL,			NOSYS_NULL,	0}, /* 334 */
 	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 335 */

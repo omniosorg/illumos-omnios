@@ -250,6 +250,7 @@ extern long lx_socketpair();
 extern long lx_splice();
 extern long lx_stat32();
 extern long lx_stat64();
+extern long lx_statx();
 extern long lx_stime();
 extern long lx_swapoff();
 extern long lx_swapon();
