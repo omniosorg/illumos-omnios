@@ -433,7 +433,14 @@ lx_mount(const char *sourcep, const char *targetp, const char *fstypep,
 	int			uid = -1;
 	int			gid = -1;
 
-	if ((rv = lx_mnt_copyin_arg(fstypep, fstype, sizeof (fstype))) != 0) {
+	/*
+	 * Linux ignores the file system type for a bind mount, and callers
+	 * such as systemd pass NULL. It is replaced with lofs below.
+	 */
+	if (fstypep == NULL && (flags & LX_MS_BIND) != 0) {
+		fstype[0] = '\0';
+	} else if ((rv = lx_mnt_copyin_arg(fstypep, fstype,
+	    sizeof (fstype))) != 0) {
 		if (rv == ENAMETOOLONG)
 			return (set_errno(ENODEV));
 		return (set_errno(rv));
