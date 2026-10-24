@@ -974,7 +974,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"pidfd_getfd",	NULL,			NOSYS_NULL,	0}, /* 438 */
 	{"faccessat2",	lx_faccessat2,		0,		4}, /* 439 */
 	{"process_madvise", NULL,		NOSYS_NULL,	0}, /* 440 */
-	{"epoll_pwait2", NULL,			NOSYS_NULL,	0}, /* 441 */
+	{"epoll_pwait2", lx_epoll_pwait2,	0,		5}, /* 441 */
 };
 
 #if defined(_LP64)
@@ -1424,7 +1424,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"pidfd_getfd",	NULL,			NOSYS_NULL,	0}, /* 438 */
 	{"faccessat2",	lx_faccessat2,		0,		4}, /* 439 */
 	{"process_madvise", NULL,		NOSYS_NULL,	0}, /* 440 */
-	{"epoll_pwait2", NULL,			NOSYS_NULL,	0}, /* 441 */
+	{"epoll_pwait2", lx_epoll_pwait2,	0,		5}, /* 441 */
 
 	/* XXX TBD gap then x32 syscalls from 512 - 544 */
 };
