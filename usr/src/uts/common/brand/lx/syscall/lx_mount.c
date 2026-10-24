@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/ctype.h>
@@ -69,10 +70,16 @@
 #define	LX_MS_ACTIVE		0x40000000
 #define	LX_MS_NOUSER		0x80000000
 
+/*
+ * LX_MS_NODIRATIME and LX_MS_RELATIME are accepted and ignored. Each only
+ * reduces how often access times are updated, so it is always safe to keep
+ * updating them as normal. Debian's tmp.mount asks for nodiratime.
+ */
 #define	LX_MS_SUPPORTED		(LX_MS_MGC_VAL | \
 				LX_MS_RDONLY | LX_MS_NOSUID | \
 				LX_MS_NODEV | LX_MS_NOEXEC | \
 				LX_MS_REMOUNT | LX_MS_NOATIME | \
+				LX_MS_NODIRATIME | LX_MS_RELATIME | \
 				LX_MS_BIND | LX_MS_SILENT | \
 				LX_MS_STRICTATIME | LX_MS_NOSEC | \
 				LX_MS_BORN | LX_MS_ACTIVE | LX_MS_NOUSER)
