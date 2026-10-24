@@ -81,7 +81,7 @@ extern "C" {
 /*
  * This must be large enough for both the 32-bit table and 64-bit table.
  */
-#define	LX_NSYSCALLS		436
+#define	LX_NSYSCALLS		441
 
 /* Highest capability we know about */
 #define	LX_CAP_MAX_VALID	36

@@ -840,7 +840,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"symlinkat",	lx_symlinkat,		0,		3}, /* 304 */
 	{"readlinkat",	lx_readlinkat,		0,		4}, /* 305 */
 	{"fchmodat",	lx_fchmodat,		0,		3}, /* 306 */
-	{"faccessat",	lx_faccessat,		0,		4}, /* 307 */
+	{"faccessat",	lx_faccessat,		0,		3}, /* 307 */
 	{"pselect6",	lx_pselect,		LX_SYS_EBPARG6,	6}, /* 308 */
 	{"ppoll",	lx_ppoll,		0,		5}, /* 309 */
 	{"unshare",	lx_unshare,		0,		1}, /* 310 */
@@ -970,6 +970,11 @@ lx_sysent_t lx_sysent32[] = {
 	{"pidfd_open",	NULL,			NOSYS_NULL,	0}, /* 434 */
 	{"clone3",	NULL,			NOSYS_NULL,	0}, /* 435 */
 	{"close_range",	lx_close_range,		0,		3}, /* 436 */
+	{"openat2",	NULL,			NOSYS_NULL,	0}, /* 437 */
+	{"pidfd_getfd",	NULL,			NOSYS_NULL,	0}, /* 438 */
+	{"faccessat2",	lx_faccessat2,		0,		4}, /* 439 */
+	{"process_madvise", NULL,		NOSYS_NULL,	0}, /* 440 */
+	{"epoll_pwait2", NULL,			NOSYS_NULL,	0}, /* 441 */
 };
 
 #if defined(_LP64)
@@ -1247,7 +1252,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"symlinkat",	lx_symlinkat,		0,		3}, /* 266 */
 	{"readlinkat",	lx_readlinkat,		0,		4}, /* 267 */
 	{"fchmodat",	lx_fchmodat,		0,		3}, /* 268 */
-	{"faccessat",	lx_faccessat,		0,		4}, /* 269 */
+	{"faccessat",	lx_faccessat,		0,		3}, /* 269 */
 	{"pselect6",	lx_pselect,		0,		6}, /* 270 */
 	{"ppoll",	lx_ppoll,		0,		5}, /* 271 */
 	{"unshare",	lx_unshare,		0,		1}, /* 272 */
@@ -1415,6 +1420,11 @@ lx_sysent_t lx_sysent64[] = {
 	{"pidfd_open",	NULL,			NOSYS_NULL,	0}, /* 434 */
 	{"clone3",	NULL,			NOSYS_NULL,	0}, /* 435 */
 	{"close_range",	lx_close_range,		0,		3}, /* 436 */
+	{"openat2",	NULL,			NOSYS_NULL,	0}, /* 437 */
+	{"pidfd_getfd",	NULL,			NOSYS_NULL,	0}, /* 438 */
+	{"faccessat2",	lx_faccessat2,		0,		4}, /* 439 */
+	{"process_madvise", NULL,		NOSYS_NULL,	0}, /* 440 */
+	{"epoll_pwait2", NULL,			NOSYS_NULL,	0}, /* 441 */
 
 	/* XXX TBD gap then x32 syscalls from 512 - 544 */
 };

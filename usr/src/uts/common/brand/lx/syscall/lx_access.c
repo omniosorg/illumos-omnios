@@ -19,6 +19,7 @@
  * under license from the Regents of the University of California.
  *
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/param.h>
@@ -115,7 +116,8 @@ ltos_at_flag(int lflag, int allow, boolean_t enforce)
  * kernel rev.
  */
 static int
-lx_common_access(char *fname, int fmode, vnode_t *startvp)
+lx_common_access(char *fname, int fmode, vnode_t *startvp, int follow,
+    vnode_t *evp)
 {
 	vnode_t *vp;
 	cred_t *tmpcr;
@@ -145,8 +147,11 @@ lx_common_access(char *fname, int fmode, vnode_t *startvp)
 	}
 
 lookup:
-	if ((error = lookupnameatcred(fname, UIO_USERSPACE, FOLLOW, NULLVPP,
-	    &vp, startvp, tmpcr)) != 0) {
+	if (evp != NULL) {
+		vp = evp;
+		VN_HOLD(vp);
+	} else if ((error = lookupnameatcred(fname, UIO_USERSPACE, follow,
+	    NULLVPP, &vp, startvp, tmpcr)) != 0) {
 		if ((error == ESTALE) && fs_need_estale_retry(estale_retry++))
 			goto lookup;
 		crfree(tmpcr);
@@ -185,33 +190,89 @@ lookup:
 	return (error);
 }
 
-int
-lx_faccessat(int atfd, char *fname, int fmode, int flag)
+#define	LX_FACCESSAT2_ALLOWED	(LX_AT_EACCESS | LX_AT_SYMLINK_NOFOLLOW | \
+    LX_AT_EMPTY_PATH)
+
+static int
+lx_faccessat_common(int atfd, char *fname, int fmode, int flag)
 {
-	vnode_t *startvp;
+	vnode_t *startvp = NULL, *evp = NULL;
+	int follow = FOLLOW;
 	int error;
+	char c;
 
 	if (atfd == LX_AT_FDCWD)
 		atfd = AT_FDCWD;
-
-	if ((flag = ltos_at_flag(flag, AT_EACCESS, B_FALSE)) < 0)
-		return (set_errno(EINVAL));
+	if ((flag & LX_AT_SYMLINK_NOFOLLOW) != 0)
+		follow = NO_FOLLOW;
 
 	if (fname == NULL)
-		return (set_errno(EFAULT));
-	if ((error = fgetstartvp(atfd, fname, &startvp)) != 0)
-		return (set_errno(error));
-	if (AU_AUDITING() && startvp != NULL)
-		audit_setfsat_path(1);
+		return (EFAULT);
+
+	/*
+	 * With AT_EMPTY_PATH and an empty name, check the file that atfd refers
+	 * to, or the current directory.
+	 */
+	if ((flag & LX_AT_EMPTY_PATH) != 0) {
+		if (copyin(fname, &c, sizeof (c)) != 0)
+			return (EFAULT);
+		if (c == '\0' && atfd == AT_FDCWD) {
+			mutex_enter(&curproc->p_lock);
+			evp = PTOU(curproc)->u_cdir;
+			VN_HOLD(evp);
+			mutex_exit(&curproc->p_lock);
+		} else if (c == '\0') {
+			file_t *fp;
+
+			if ((fp = getf(atfd)) == NULL)
+				return (EBADF);
+			evp = fp->f_vnode;
+			VN_HOLD(evp);
+			releasef(atfd);
+		}
+	}
+
+	if (evp == NULL) {
+		if ((error = fgetstartvp(atfd, fname, &startvp)) != 0)
+			return (error);
+		if (AU_AUDITING() && startvp != NULL)
+			audit_setfsat_path(1);
+	}
 
 	/* Do not allow E_OK unless AT_EACCESS flag is set */
-	if ((flag & AT_EACCESS) == 0)
+	if ((flag & LX_AT_EACCESS) == 0)
 		fmode &= ~E_OK;
 
-	error = lx_common_access(fname, fmode, startvp);
+	error = lx_common_access(fname, fmode, startvp, follow, evp);
 	if (startvp != NULL)
 		VN_RELE(startvp);
-	if (error)
+	if (evp != NULL)
+		VN_RELE(evp);
+	return (error);
+}
+
+/*
+ * Unlike faccessat(3C), the Linux faccessat(2) system call has no flags
+ * argument. glibc implements the flags itself or uses faccessat2(2).
+ */
+int
+lx_faccessat(int atfd, char *fname, int fmode)
+{
+	int error;
+
+	if ((error = lx_faccessat_common(atfd, fname, fmode, 0)) != 0)
+		return (set_errno(error));
+	return (0);
+}
+
+int
+lx_faccessat2(int atfd, char *fname, int fmode, int flag)
+{
+	int error;
+
+	if ((flag & ~LX_FACCESSAT2_ALLOWED) != 0)
+		return (set_errno(EINVAL));
+	if ((error = lx_faccessat_common(atfd, fname, fmode, flag)) != 0)
 		return (set_errno(error));
 	return (0);
 }
@@ -219,5 +280,5 @@ lx_faccessat(int atfd, char *fname, int fmode, int flag)
 int
 lx_access(char *fname, int fmode)
 {
-	return (lx_faccessat(LX_AT_FDCWD, fname, fmode, 0));
+	return (lx_faccessat(LX_AT_FDCWD, fname, fmode));
 }
