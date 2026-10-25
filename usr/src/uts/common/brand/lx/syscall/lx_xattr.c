@@ -11,6 +11,7 @@
 
 /*
  * Copyright (c) 2017 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/errno.h>
@@ -136,6 +137,7 @@ lx_setxattr_common(vnode_t *vp, char *name, void *value, size_t sz, int flags)
 		} else if (strcmp(key, LX_XATTR_POSIX_ACL_DEFAULT) == 0) {
 			error = lx_acl_setxattr(vp, LX_ACL_DEFAULT, buf, sz);
 		}
+		break;
 	default:
 		break;
 	}
@@ -206,6 +208,7 @@ lx_listxattr_common(vnode_t *vp, void *value, size_t size, ssize_t *osize)
 {
 	struct uio auio;
 	struct iovec aiov;
+	size_t need = 0;
 	int err = 0;
 
 	aiov.iov_base = value;
@@ -220,12 +223,12 @@ lx_listxattr_common(vnode_t *vp, void *value, size_t size, ssize_t *osize)
 
 	/*
 	 * Call into all the listxattr routines (which may be no-ops) which are
-	 * currently implemented.
+	 * currently implemented. A zero size asks for the space needed.
 	 */
-	err = lx_acl_listxattr(vp, &auio);
+	err = lx_acl_listxattr(vp, &auio, &need);
 
 	if (err == 0) {
-		*osize = size - auio.uio_resid;
+		*osize = (size == 0) ? need : size - auio.uio_resid;
 	}
 
 	return (err);
@@ -258,11 +261,12 @@ lx_removexattr_common(vnode_t *vp, char *name)
 		} else if (strcmp(key, LX_XATTR_POSIX_ACL_DEFAULT) == 0) {
 			error = lx_acl_removexattr(vp, LX_ACL_DEFAULT);
 		}
+		break;
 	default:
 		break;
 	}
 
-	return (EOPNOTSUPP);
+	return (error);
 }
 
 
