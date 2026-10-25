@@ -2065,7 +2065,7 @@ lx_recv_common(int sock, struct nmsghdr *msg, xuio_t *xuiop, int flags,
 		flags = msg->msg_flags & ~MSG_XPG4_2;
 		flags = lx_xlate_sock_flags(flags, SUNOS_TO_LX);
 
-		if (copyout(&flags, flagsp, sizeof (flags) != 0)) {
+		if (copyout(&flags, flagsp, sizeof (flags)) != 0) {
 			error = EFAULT;
 			goto err;
 		}
