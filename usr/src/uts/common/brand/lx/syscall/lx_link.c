@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/fcntl.h>
@@ -18,6 +19,7 @@
 #include <sys/file.h>
 #include <sys/vnode.h>
 #include <sys/systm.h>
+#include <sys/uio.h>
 #include <sys/lx_fcntl.h>
 #include <sys/lx_misc.h>
 
@@ -190,14 +192,78 @@ lx_readlink(char *path, char *buf, size_t bufsize)
 	return (readlinkat(AT_FDCWD, path, buf, bufsize));
 }
 
+/*
+ * Read the symbolic link that a file descriptor refers to, typically one
+ * obtained with open(2) and O_PATH | O_NOFOLLOW.
+ */
+static long
+lx_readlink_fd(int fd, char *buf, size_t bufsize)
+{
+	file_t *fp;
+	vnode_t *vp;
+	vattr_t vattr;
+	struct iovec aiov;
+	struct uio auio;
+	ssize_t cnt;
+	int error;
+
+	if ((cnt = (ssize_t)bufsize) < 0)
+		return (set_errno(EINVAL));
+	if ((fp = getf(fd)) == NULL)
+		return (set_errno(EBADF));
+	vp = fp->f_vnode;
+
+	/*
+	 * As in readlinkat(), allow the file system to present an object as
+	 * a symbolic link, as lx procfs does. Linux reports anything which is
+	 * not a link as ENOENT here.
+	 */
+	if (vp->v_type != VLNK) {
+		vattr.va_mask = AT_TYPE;
+		if (VOP_GETATTR(vp, &vattr, 0, CRED(), NULL) != 0 ||
+		    vattr.va_type != VLNK) {
+			releasef(fd);
+			return (set_errno(ENOENT));
+		}
+	}
+
+	aiov.iov_base = buf;
+	aiov.iov_len = cnt;
+	auio.uio_iov = &aiov;
+	auio.uio_iovcnt = 1;
+	auio.uio_loffset = 0;
+	auio.uio_segflg = UIO_USERSPACE;
+	auio.uio_extflg = UIO_COPY_CACHED;
+	auio.uio_resid = cnt;
+	error = VOP_READLINK(vp, &auio, CRED(), NULL);
+	releasef(fd);
+	if (error != 0)
+		return (set_errno(error));
+	return (cnt - auio.uio_resid);
+}
+
 long
 lx_readlinkat(int atfd, char *path, char *buf, size_t bufsize)
 {
+	char c;
+
 	if (bufsize <= 0)
 		return (set_errno(EINVAL));
 
 	if (atfd == LX_AT_FDCWD)
 		atfd = AT_FDCWD;
+
+	/*
+	 * With an empty path, Linux reads the link that atfd itself refers
+	 * to. The native lookup would fail an empty name with ENOENT, which
+	 * remains the answer for AT_FDCWD.
+	 */
+	if (path != NULL && atfd != AT_FDCWD) {
+		if (copyin(path, &c, sizeof (c)) != 0)
+			return (set_errno(EFAULT));
+		if (c == '\0')
+			return (lx_readlink_fd(atfd, buf, bufsize));
+	}
 
 	return (readlinkat(atfd, path, buf, bufsize));
 }

@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
@@ -104,10 +105,49 @@ struct lx_stat64_64 {
 };
 #endif /* defined(_LP64) */
 
+/*
+ * struct statx has the same layout for 32-bit and 64-bit processes. Fields
+ * after stx_dev_minor are not filled in and are not included in stx_mask.
+ */
+typedef struct lx_statx_timestamp {
+	int64_t		sxt_sec;
+	uint32_t	sxt_nsec;
+	int32_t		sxt_reserved;
+} lx_statx_timestamp_t;
+
+struct lx_statx {
+	uint32_t		stx_mask;
+	uint32_t		stx_blksize;
+	uint64_t		stx_attributes;
+	uint32_t		stx_nlink;
+	uint32_t		stx_uid;
+	uint32_t		stx_gid;
+	uint16_t		stx_mode;
+	uint16_t		stx_spare0;
+	uint64_t		stx_ino;
+	uint64_t		stx_size;
+	uint64_t		stx_blocks;
+	uint64_t		stx_attributes_mask;
+	lx_statx_timestamp_t	stx_atime;
+	lx_statx_timestamp_t	stx_btime;
+	lx_statx_timestamp_t	stx_ctime;
+	lx_statx_timestamp_t	stx_mtime;
+	uint32_t		stx_rdev_major;
+	uint32_t		stx_rdev_minor;
+	uint32_t		stx_dev_major;
+	uint32_t		stx_dev_minor;
+	uint64_t		stx_spare[14];
+};
+CTASSERT(sizeof (struct lx_statx) == 256);
+
+#define	LX_STATX_BASIC_STATS	0x000007ffU
+#define	LX_STATX__RESERVED	0x80000000U
+
 typedef enum lx_stat_fmt {
 	LXF_STAT32,
 	LXF_STAT64_32,
-	LXF_STAT64_64
+	LXF_STAT64_64,
+	LXF_STATX
 } lx_stat_fmt_t;
 
 static void
@@ -281,6 +321,32 @@ lx_stat_common(vnode_t *vp, cred_t *cr, void *outp, lx_stat_fmt_t fmt,
 		/* Invalid output format on 32-bit */
 		VERIFY(0);
 #endif
+	} else if (fmt == LXF_STATX) {
+		struct lx_statx sx;
+
+		bzero(&sx, sizeof (sx));
+		sx.stx_mask = LX_STATX_BASIC_STATS;
+		sx.stx_blksize = vattr.va_blksize;
+		sx.stx_nlink = vattr.va_nlink;
+		sx.stx_uid = vattr.va_uid;
+		sx.stx_gid = vattr.va_gid;
+		sx.stx_mode = mode;
+		sx.stx_ino = vattr.va_nodeid;
+		sx.stx_size = vattr.va_size;
+		sx.stx_blocks = vattr.va_nblocks;
+		sx.stx_atime.sxt_sec = vattr.va_atime.tv_sec;
+		sx.stx_atime.sxt_nsec = vattr.va_atime.tv_nsec;
+		sx.stx_mtime.sxt_sec = vattr.va_mtime.tv_sec;
+		sx.stx_mtime.sxt_nsec = vattr.va_mtime.tv_nsec;
+		sx.stx_ctime.sxt_sec = vattr.va_ctime.tv_sec;
+		sx.stx_ctime.sxt_nsec = vattr.va_ctime.tv_nsec;
+		sx.stx_rdev_major = LX_GETMAJOR(vattr.va_rdev);
+		sx.stx_rdev_minor = LX_GETMINOR(vattr.va_rdev);
+		sx.stx_dev_major = LX_GETMAJOR(vattr.va_fsid);
+		sx.stx_dev_minor = LX_GETMINOR(vattr.va_fsid);
+		if (copyout(&sx, outp, sizeof (sx)) != 0)
+			return (EFAULT);
+		return (0);
 	}
 
 	/* Invalid output format */
@@ -386,6 +452,68 @@ lx_fstat64(int fd, void *outp)
 
 #define	LX_FSTATAT_ALLOWED	(LX_AT_SYMLINK_NOFOLLOW | LX_AT_EMPTY_PATH | \
     LX_AT_NO_AUTOMOUNT)
+#define	LX_STATX_ALLOWED	(LX_FSTATAT_ALLOWED | LX_AT_STATX_SYNC_TYPE)
+
+/*
+ * Find the vnode for an fstatat(2) or statx(2) request. On success, the
+ * caller must release both the vnode and the credential.
+ */
+static int
+lx_statat_getvp(int fd, char *name, int flag, vnode_t **vpp, cred_t **crp,
+    int *followp)
+{
+	int follow = FOLLOW;
+	char c;
+
+	if (fd == LX_AT_FDCWD)
+		fd = AT_FDCWD;
+	if ((flag & LX_AT_SYMLINK_NOFOLLOW) != 0)
+		follow = NO_FOLLOW;
+	if ((flag & LX_AT_NO_AUTOMOUNT) != 0)
+		follow |= __FLXNOAUTO;
+	*followp = follow;
+
+	/*
+	 * Linux accepts a NULL name in place of an empty string when
+	 * AT_EMPTY_PATH is set.
+	 */
+	if (name == NULL && (flag & LX_AT_EMPTY_PATH) != 0)
+		c = '\0';
+	else if (copyin(name, &c, sizeof (c)) != 0)
+		return (EFAULT);
+
+	if (c != '\0')
+		return (cstatat_getvp(fd, name, follow, vpp, crp));
+
+	if ((flag & LX_AT_EMPTY_PATH) == 0)
+		return (ENOENT);
+
+	/*
+	 * When AT_EMPTY_PATH is set and an empty string has been
+	 * passed for the name parameter, direct the lookup against the
+	 * vnode for that fd.
+	 */
+	if (fd == AT_FDCWD) {
+		mutex_enter(&curproc->p_lock);
+		*vpp = PTOU(curproc)->u_cdir;
+		VN_HOLD(*vpp);
+		mutex_exit(&curproc->p_lock);
+		*crp = CRED();
+		crhold(*crp);
+	} else {
+		file_t *fp;
+
+		if ((fp = getf(fd)) == NULL)
+			return (EBADF);
+		*vpp = fp->f_vnode;
+		VN_HOLD(*vpp);
+		*crp = fp->f_cred;
+		crhold(*crp);
+		releasef(fd);
+	}
+
+	return (0);
+}
 
 long
 lx_fstatat64(int fd, char *name, void *outp, int flag)
@@ -393,68 +521,52 @@ lx_fstatat64(int fd, char *name, void *outp, int flag)
 	vnode_t *vp = NULL;
 	cred_t *cr = NULL;
 	model_t model = get_udatamodel();
-	int follow = FOLLOW;
+	int follow;
 	int error;
-	char c;
 
-	if (fd == LX_AT_FDCWD) {
-		fd = AT_FDCWD;
-	}
-	if ((flag & ~LX_FSTATAT_ALLOWED) != 0) {
+	if ((flag & ~LX_FSTATAT_ALLOWED) != 0)
 		return (set_errno(EINVAL));
-	}
-	if ((flag & LX_AT_SYMLINK_NOFOLLOW) != 0) {
-		follow = NO_FOLLOW;
-	}
 
-	if ((flag & LX_AT_NO_AUTOMOUNT) != 0)
-		follow |= __FLXNOAUTO;
-
-	if (copyin(name, &c, sizeof (c)) != 0) {
-		return (set_errno(EFAULT));
-	}
-	if (c == '\0') {
-		if ((flag & LX_AT_EMPTY_PATH) == 0) {
-			return (set_errno(ENOENT));
-		}
-
-		/*
-		 * When AT_EMPTY_PATH is set and and empty string has been
-		 * passed for the name parameter, direct the lookup against the
-		 * vnode for that fd.
-		 */
-		if (fd == AT_FDCWD) {
-			mutex_enter(&curproc->p_lock);
-			vp = PTOU(curproc)->u_cdir;
-			VN_HOLD(vp);
-			mutex_exit(&curproc->p_lock);
-			cr = CRED();
-			crhold(cr);
-		} else {
-			file_t *fp;
-
-			if ((fp = getf(fd)) == NULL) {
-				return (set_errno(EBADF));
-			}
-			vp = fp->f_vnode;
-			VN_HOLD(vp);
-			cr = fp->f_cred;
-			crhold(cr);
-			releasef(fd);
-		}
-	} else {
-		if ((error = cstatat_getvp(fd, name, follow, &vp, &cr)) != 0) {
-			return (set_errno(error));
-		}
-	}
+	error = lx_statat_getvp(fd, name, flag, &vp, &cr, &follow);
+	if (error != 0)
+		return (set_errno(error));
 
 	error = lx_stat_common(vp, cr, outp,
 	    (model == DATAMODEL_LP64) ? LXF_STAT64_64 : LXF_STAT64_32, follow);
 	VN_RELE(vp);
 	crfree(cr);
-	if (error != 0) {
+	if (error != 0)
 		return (set_errno(error));
+	return (0);
+}
+
+/*
+ * The basic stat fields are always returned, whatever was requested in mask,
+ * and the requested synchronisation type is ignored. Linux allows for both.
+ */
+long
+lx_statx(int fd, char *name, int flag, uint_t mask, void *outp)
+{
+	vnode_t *vp = NULL;
+	cred_t *cr = NULL;
+	int follow;
+	int error;
+
+	if ((flag & ~LX_STATX_ALLOWED) != 0 ||
+	    (flag & LX_AT_STATX_SYNC_TYPE) == LX_AT_STATX_SYNC_TYPE ||
+	    (mask & LX_STATX__RESERVED) != 0) {
+		return (set_errno(EINVAL));
 	}
+
+	error = lx_statat_getvp(fd, name, flag, &vp, &cr, &follow);
+	if (error != 0)
+		return (set_errno(error));
+
+	error = lx_stat_common(vp, cr, outp, LXF_STATX, follow);
+	VN_RELE(vp);
+	crfree(cr);
+	if (error != 0)
+		return (set_errno(error));
 	return (0);
 }
 

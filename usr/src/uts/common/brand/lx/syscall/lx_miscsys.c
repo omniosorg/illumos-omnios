@@ -11,12 +11,15 @@
 
 /*
  * Copyright 2019 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/systeminfo.h>
 #include <sys/fcntl.h>
 #include <sys/resource.h>
 #include <sys/uadmin.h>
+#include <sys/priv.h>
+#include <sys/user.h>
 #include <sys/lx_misc.h>
 #include <lx_syscall.h>
 
@@ -492,4 +495,94 @@ lx_swapon(char *path, int flags)
 
 	lxzd->lxzd_swap_disabled = B_FALSE;
 	return (0);
+}
+
+#define	LX_KCMP_FILE		0
+#define	LX_KCMP_VM		1
+#define	LX_KCMP_FILES		2
+#define	LX_KCMP_FS		3
+#define	LX_KCMP_SIGHAND		4
+#define	LX_KCMP_IO		5
+#define	LX_KCMP_SYSVSEM		6
+
+/*
+ * Find the kernel object that kcmp(2) compares for one process. Only
+ * KCMP_FILE names an object that two processes can share here. The file
+ * table, filesystem information, signal handlers, I/O context and SysV
+ * semaphore undo state all belong to the process itself, and only a vfork(2)
+ * child shares its parent's address space.
+ */
+static int
+lx_kcmp_key(pid_t lpid, int type, ulong_t idx, uintptr_t *keyp)
+{
+	proc_t *p;
+	int err = 0;
+
+	if (lx_lpid_lock(lpid, curzone, LXP_PRLOCK, &p, NULL) != 0)
+		return (ESRCH);
+
+	if (curproc != p &&
+	    priv_proc_cred_perm(curproc->p_cred, p, NULL, VREAD) != 0) {
+		sprunlock(p);
+		return (EPERM);
+	}
+
+	switch (type) {
+	case LX_KCMP_FILE: {
+		uf_info_t *fip = P_FINFO(p);
+
+		if ((p->p_flag & SEXITING) != 0) {
+			err = EBADF;
+			break;
+		}
+
+		/*
+		 * Keep the process P_PR_LOCK'd, as lx procfs does, so that the
+		 * file table cannot go away while fi_lock is held.
+		 */
+		mutex_exit(&p->p_lock);
+		mutex_enter(&fip->fi_lock);
+		if (idx < fip->fi_nfiles && fip->fi_list[idx].uf_file != NULL)
+			*keyp = (uintptr_t)fip->fi_list[idx].uf_file;
+		else
+			err = EBADF;
+		mutex_exit(&fip->fi_lock);
+		mutex_enter(&p->p_lock);
+		break;
+	}
+	case LX_KCMP_VM:
+		*keyp = (uintptr_t)p->p_as;
+		break;
+	default:
+		*keyp = (uintptr_t)p;
+		break;
+	}
+
+	sprunlock(p);
+	return (err);
+}
+
+/*
+ * Linux orders unequal objects by an obfuscated kernel address. Reporting
+ * that they differ without ordering them is also permitted.
+ */
+long
+lx_kcmp(pid_t pid1, pid_t pid2, int type, ulong_t idx1, ulong_t idx2)
+{
+	uintptr_t key1, key2;
+	int err;
+
+	if (type < LX_KCMP_FILE || type > LX_KCMP_SYSVSEM)
+		return (set_errno(EINVAL));
+
+	/*
+	 * Each process is looked up and released in turn, so that two
+	 * opposing calls cannot deadlock on each other's P_PR_LOCK.
+	 */
+	if ((err = lx_kcmp_key(pid1, type, idx1, &key1)) != 0)
+		return (set_errno(err));
+	if ((err = lx_kcmp_key(pid2, type, idx2, &key2)) != 0)
+		return (set_errno(err));
+
+	return (key1 == key2 ? 0 : 3);
 }

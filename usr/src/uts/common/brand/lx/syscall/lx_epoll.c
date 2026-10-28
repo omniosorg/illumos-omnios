@@ -11,10 +11,12 @@
 
 /*
  * Copyright 2017 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/types.h>
 #include <sys/systm.h>
+#include <sys/sysmacros.h>
 #include <sys/thread.h>
 #include <sys/proc.h>
 #include <sys/zone.h>
@@ -300,4 +302,38 @@ lx_epoll_pwait(int fd, void *events, int maxevents, int timeout, void *sigmask)
 		return (set_errno(error));
 	}
 	return (rv);
+}
+
+/*
+ * epoll_pwait2(2) takes its timeout as a struct timespec with a 64-bit
+ * tv_sec, for 32-bit and 64-bit processes alike. DP_PPOLL works in
+ * milliseconds so round the timeout up to the next whole millisecond.
+ */
+long
+lx_epoll_pwait2(int fd, void *events, int maxevents, void *timeoutp,
+    void *sigmask)
+{
+	struct {
+		int64_t	tv_sec;
+		int64_t	tv_nsec;
+	} ts;
+	int64_t ms;
+	int timeout = -1;
+
+	if (timeoutp != NULL) {
+		if (copyin(timeoutp, &ts, sizeof (ts)) != 0)
+			return (set_errno(EFAULT));
+		if (ts.tv_sec < 0 || ts.tv_nsec < 0 || ts.tv_nsec >= NANOSEC)
+			return (set_errno(EINVAL));
+		if (ts.tv_sec > INT_MAX / MILLISEC) {
+			timeout = INT_MAX;
+		} else {
+			ms = ts.tv_sec * MILLISEC +
+			    (ts.tv_nsec + (NANOSEC / MILLISEC) - 1) /
+			    (NANOSEC / MILLISEC);
+			timeout = (int)MIN(ms, INT_MAX);
+		}
+	}
+
+	return (lx_epoll_pwait(fd, events, maxevents, timeout, sigmask));
 }

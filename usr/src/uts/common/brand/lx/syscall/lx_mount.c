@@ -11,6 +11,7 @@
 
 /*
  * Copyright 2016 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <sys/ctype.h>
@@ -23,6 +24,7 @@
 #include <sys/lx_brand.h>
 #include <sys/lx_syscalls.h>
 #include <sys/lx_autofs.h>
+#include <sys/lx_impl.h>
 
 #define	tolower(x)	(((x) >= 'A' && (x) <= 'Z') ? (x) - 'A' + 'a' : (x))
 
@@ -69,10 +71,16 @@
 #define	LX_MS_ACTIVE		0x40000000
 #define	LX_MS_NOUSER		0x80000000
 
+/*
+ * LX_MS_NODIRATIME and LX_MS_RELATIME are accepted and ignored. Each only
+ * reduces how often access times are updated, so it is always safe to keep
+ * updating them as normal. Debian's tmp.mount asks for nodiratime.
+ */
 #define	LX_MS_SUPPORTED		(LX_MS_MGC_VAL | \
 				LX_MS_RDONLY | LX_MS_NOSUID | \
 				LX_MS_NODEV | LX_MS_NOEXEC | \
 				LX_MS_REMOUNT | LX_MS_NOATIME | \
+				LX_MS_NODIRATIME | LX_MS_RELATIME | \
 				LX_MS_BIND | LX_MS_SILENT | \
 				LX_MS_STRICTATIME | LX_MS_NOSEC | \
 				LX_MS_BORN | LX_MS_ACTIVE | LX_MS_NOUSER)
@@ -412,6 +420,41 @@ lx_mnt_copyin_arg(const char *from, char *to, size_t len)
 	return (0);
 }
 
+/*
+ * MS_REMOUNT | MS_BIND changes the per-mount flags of an existing mount
+ * without touching file system options. illumos keeps these flags per file
+ * system, sets them only while mounting, and some file systems such as tmpfs
+ * cannot be read-only at all. Accept the request for a mount point without
+ * changing anything, and report any flag which differs through the lx
+ * unsupported probe. systemd makes each unit's credentials directory
+ * read-only this way and treats a failure as fatal.
+ */
+static int
+lx_mnt_bind_remount(char *target, uint_t flags)
+{
+	vnode_t *vp;
+	uint_t vflag;
+	int rv;
+
+	if ((rv = lookupname(target, UIO_SYSSPACE, FOLLOW, NULLVPP, &vp)) != 0)
+		return (rv);
+	if ((vp->v_flag & VROOT) == 0) {
+		VN_RELE(vp);
+		return (EINVAL);
+	}
+	vflag = vp->v_vfsp->vfs_flag;
+	VN_RELE(vp);
+
+	if (((flags & LX_MS_RDONLY) != 0) != ((vflag & VFS_RDONLY) != 0) ||
+	    ((flags & LX_MS_NOSUID) != 0) != ((vflag & VFS_NOSETUID) != 0) ||
+	    ((flags & LX_MS_NODEV) != 0) != ((vflag & VFS_NODEVICES) != 0) ||
+	    ((flags & LX_MS_NOEXEC) != 0) != ((vflag & VFS_NOEXEC) != 0)) {
+		lx_unsupported("mount(2) bind remount flags not applied");
+	}
+
+	return (0);
+}
+
 long
 lx_mount(const char *sourcep, const char *targetp, const char *fstypep,
     uint_t flags, const void *datap)
@@ -426,7 +469,15 @@ lx_mount(const char *sourcep, const char *targetp, const char *fstypep,
 	int			uid = -1;
 	int			gid = -1;
 
-	if ((rv = lx_mnt_copyin_arg(fstypep, fstype, sizeof (fstype))) != 0) {
+	/*
+	 * Linux ignores the file system type for a bind mount, and callers
+	 * such as systemd pass NULL. It is replaced with lofs below, or not
+	 * needed at all for a bind remount.
+	 */
+	if (fstypep == NULL && (flags & LX_MS_BIND) != 0) {
+		fstype[0] = '\0';
+	} else if ((rv = lx_mnt_copyin_arg(fstypep, fstype,
+	    sizeof (fstype))) != 0) {
 		if (rv == ENAMETOOLONG)
 			return (set_errno(ENODEV));
 		return (set_errno(rv));
@@ -467,8 +518,13 @@ lx_mount(const char *sourcep, const char *targetp, const char *fstypep,
 	sflags = MS_SYSSPACE | MS_OPTIONSTR;
 	options[0] = '\0';
 
-	/* Copy in parameters that are always present. */
-	if ((rv = lx_mnt_copyin_arg(sourcep, source, sourcel)) != 0)
+	/*
+	 * Copy in parameters that are always present. Linux ignores the
+	 * source for a remount, and callers may pass NULL.
+	 */
+	if (sourcep == NULL && (flags & LX_MS_REMOUNT) != 0)
+		source[0] = '\0';
+	else if ((rv = lx_mnt_copyin_arg(sourcep, source, sourcel)) != 0)
 		goto out;
 
 	if ((rv = lx_mnt_copyin_arg(targetp, target, targetl)) != 0)
@@ -529,6 +585,12 @@ lx_mount(const char *sourcep, const char *targetp, const char *fstypep,
 			goto out;
 		target[targetl - uio.uio_resid] = '\0';
 		sflags |= MS_OVERLAY;
+	}
+
+	if ((flags & (LX_MS_REMOUNT | LX_MS_BIND)) ==
+	    (LX_MS_REMOUNT | LX_MS_BIND)) {
+		rv = lx_mnt_bind_remount(target, flags);
+		goto out;
 	}
 
 	/* Copy in Linux mount options. */

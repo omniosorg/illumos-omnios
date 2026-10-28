@@ -41,6 +41,7 @@
 #include <sys/un.h>
 #include <sys/sunddi.h>
 #include <sys/cred.h>
+#include <sys/priv_const.h>
 #include <sys/ucred.h>
 #include <sys/model.h>
 #include <sys/brand.h>
@@ -48,6 +49,7 @@
 #include <sys/limits.h>
 #include <sys/fcntl.h>
 #include <sys/sysmacros.h>
+#include <sys/policy.h>
 #include <netpacket/packet.h>
 #include <sockcommon.h>
 #include <socktpi_impl.h>
@@ -844,6 +846,12 @@ ltos_conv_ucred(struct cmsghdr *inmsg, struct cmsghdr *omsg)
 		/* LINTED: alignment */
 		pc = (prcred_t *)((char *)uc + sizeof (struct ucred_s));
 
+		/*
+		 * Credentials which the sender supplied have no uc_size, which
+		 * tells them apart from those which the socket layer attaches.
+		 * See lx_cmsg_filter_ucred().
+		 */
+		uc->uc_size = 0;
 		uc->uc_credoff = sizeof (struct ucred_s);
 
 		lcred = (lx_ucred_t *)CMSG_CONTENT(inmsg);
@@ -930,6 +938,48 @@ lx_xlate_cmsg(struct cmsghdr *inmsg, struct cmsghdr *omsg, lx_xlate_dir_t dir)
 	 * passed flags, EOPNOTSUPP appears to be the next closest choice.
 	 */
 	return (-EOPNOTSUPP);
+}
+
+/*
+ * Check credentials which a process supplies with SCM_CREDENTIALS, as Linux
+ * does. A process may name its own pid and any of its real, effective or
+ * saved uid and gid. Naming another pid needs CAP_SYS_ADMIN, and other ids
+ * need CAP_SETUID or CAP_SETGID.
+ */
+static int
+lx_scm_cred_check(const struct cmsghdr *cmsg)
+{
+	const lx_ucred_t *lcred = (const lx_ucred_t *)CMSG_CONTENT(cmsg);
+	const cred_t *cr = CRED();
+	const pid_t self = curproc->p_pid == curzone->zone_proc_initpid ?
+	    1 : curproc->p_pid;
+	const uid_t uid = lcred->lxu_uid;
+	const gid_t gid = lcred->lxu_gid;
+
+	if (cmsg->cmsg_len != sizeof (struct cmsghdr) + sizeof (lx_ucred_t))
+		return (EINVAL);
+	if (uid == (uid_t)-1 || gid == (gid_t)-1)
+		return (EINVAL);
+
+	if (lcred->lxu_pid != self &&
+	    !PRIV_POLICY_ONLY(cr, PRIV_SYS_ADMIN, B_FALSE)) {
+		return (EPERM);
+	}
+	if (uid != crgetruid(cr) && uid != crgetuid(cr) &&
+	    uid != crgetsuid(cr) &&
+	    secpolicy_allow_setid(cr, uid, B_FALSE) != 0) {
+		return (EPERM);
+	}
+	if (gid != crgetrgid(cr) && gid != crgetgid(cr) &&
+	    gid != crgetsgid(cr) &&
+	    secpolicy_allow_setid(cr, -1, B_FALSE) != 0) {
+		return (EPERM);
+	}
+	if (lcred->lxu_pid != self &&
+	    lx_lpid_to_spair(lcred->lxu_pid, NULL, NULL) != 0) {
+		return (ESRCH);
+	}
+	return (0);
 }
 
 static long
@@ -1021,6 +1071,16 @@ ltos_cmsgs_copyin(void *addr, socklen_t inlen, void **outmsg,
 			/* unsupported msg */
 			kmem_free(inbuf, inlen);
 			return (-sz);
+		}
+
+		if (inmsg->cmsg_level == LX_SOL_SOCKET &&
+		    inmsg->cmsg_type == LX_SCM_CRED) {
+			int error = lx_scm_cred_check(inmsg);
+
+			if (error != 0) {
+				kmem_free(inbuf, inlen);
+				return (error);
+			}
 		}
 
 		slen += ROUNDUP_cmsglen(sz);
@@ -1226,6 +1286,103 @@ lx_cmsg_set_cloexec(void *input, socklen_t inlen)
 			}
 		}
 	}
+}
+
+static boolean_t
+lx_cmsg_is_ucred(const struct cmsghdr *cmsg)
+{
+	return (cmsg->cmsg_level == SOL_SOCKET &&
+	    cmsg->cmsg_type == SCM_UCRED);
+}
+
+static boolean_t
+lx_cmsg_ucred_supplied(const struct cmsghdr *cmsg)
+{
+	const struct ucred_s *uc = (const struct ucred_s *)CMSG_CONTENT(cmsg);
+
+	return (CMSG_CONTENTLEN(cmsg) >= sizeof (struct ucred_s) &&
+	    uc->uc_size == 0);
+}
+
+/*
+ * Whether the receiver on an AF_UNIX socket asked for credentials with
+ * SO_PASSCRED. See lx_setsockopt_socket() for how that is recorded.
+ */
+static boolean_t
+lx_unix_passcred(sonode_t *so)
+{
+	lx_socket_aux_data_t *sad;
+	socklen_t len = sizeof (int);
+	boolean_t passcred;
+	int val = 0;
+
+	if ((so->so_mode & SM_CONNREQUIRED) == 0) {
+		return (socket_getsockopt(so, SOL_SOCKET, SO_RECVUCRED, &val,
+		    &len, 0, CRED()) == 0 && val != 0);
+	}
+
+	sad = lx_sad_acquire(SOTOV(so));
+	passcred = (sad->lxsad_flags & LXSAD_FL_STRCRED) != 0;
+	mutex_exit(&sad->lxsad_lock);
+	return (passcred);
+}
+
+/*
+ * Linux delivers at most one SCM_CREDENTIALS cmsg on an AF_UNIX socket, and
+ * only to a receiver with SO_PASSCRED set. Credentials which the sender
+ * supplied replace its own. The SunOS socket layer instead passes supplied
+ * credentials through to every receiver, alongside any which it attaches
+ * itself for SO_RECVUCRED. Rebuild the control buffer with only the
+ * credentials which Linux would deliver.
+ */
+static void
+lx_cmsg_filter_ucred(struct nmsghdr *msg, boolean_t passcred)
+{
+	const uintptr_t start = (uintptr_t)msg->msg_control;
+	const uintptr_t end = start + msg->msg_controllen;
+	struct cmsghdr *cmsg, *ocmsg, *keep = NULL;
+	socklen_t len = 0;
+	uint_t nucred = 0;
+	void *buf = NULL;
+
+	if (msg->msg_controllen == 0)
+		return;
+
+	for (cmsg = (struct cmsghdr *)start; CMSG_VALID(cmsg, start, end) != 0;
+	    cmsg = CMSG_NEXT(cmsg)) {
+		if (!lx_cmsg_is_ucred(cmsg)) {
+			len += ROUNDUP_cmsglen(cmsg->cmsg_len);
+			continue;
+		}
+		nucred++;
+		if (passcred && (keep == NULL ||
+		    (lx_cmsg_ucred_supplied(cmsg) &&
+		    !lx_cmsg_ucred_supplied(keep)))) {
+			keep = cmsg;
+		}
+	}
+
+	if (nucred == 0 || (nucred == 1 && keep != NULL))
+		return;
+
+	if (keep != NULL)
+		len += ROUNDUP_cmsglen(keep->cmsg_len);
+	if (len > 0) {
+		buf = kmem_zalloc(len, KM_SLEEP);
+		ocmsg = (struct cmsghdr *)buf;
+		for (cmsg = (struct cmsghdr *)start;
+		    CMSG_VALID(cmsg, start, end) != 0;
+		    cmsg = CMSG_NEXT(cmsg)) {
+			if (lx_cmsg_is_ucred(cmsg) && cmsg != keep)
+				continue;
+			bcopy(cmsg, ocmsg, cmsg->cmsg_len);
+			ocmsg = CMSG_NEXT(ocmsg);
+		}
+	}
+
+	kmem_free(msg->msg_control, msg->msg_controllen);
+	msg->msg_control = buf;
+	msg->msg_controllen = len;
 }
 
 static int
@@ -1760,6 +1917,7 @@ lx_recv_common(int sock, struct nmsghdr *msg, xuio_t *xuiop, int flags,
 	int error;
 	boolean_t fd_cloexec;
 	boolean_t is_peek_trunc;
+	boolean_t passcred;
 
 	if ((so = getsonode(sock, &error, &fp)) == NULL) {
 		return (set_errno(error));
@@ -1815,6 +1973,8 @@ lx_recv_common(int sock, struct nmsghdr *msg, xuio_t *xuiop, int flags,
 		return (set_errno(error));
 	}
 	lwp_stat_update(LWP_STAT_MSGRCV, 1);
+	passcred = so->so_family == AF_UNIX && controllen != 0 &&
+	    lx_unix_passcred(so);
 	releasef(sock);
 
 	if (namelen != 0) {
@@ -1858,6 +2018,8 @@ lx_recv_common(int sock, struct nmsghdr *msg, xuio_t *xuiop, int flags,
 				msg->msg_flags |= MSG_CTRUNC;
 			}
 		}
+		if (so->so_family == AF_UNIX)
+			lx_cmsg_filter_ucred(msg, passcred);
 
 		error = stol_cmsgs_copyout(msg->msg_control,
 		    msg->msg_controllen, control, controllenp, controllen);
@@ -1903,7 +2065,7 @@ lx_recv_common(int sock, struct nmsghdr *msg, xuio_t *xuiop, int flags,
 		flags = msg->msg_flags & ~MSG_XPG4_2;
 		flags = lx_xlate_sock_flags(flags, SUNOS_TO_LX);
 
-		if (copyout(&flags, flagsp, sizeof (flags) != 0)) {
+		if (copyout(&flags, flagsp, sizeof (flags)) != 0) {
 			error = EFAULT;
 			goto err;
 		}

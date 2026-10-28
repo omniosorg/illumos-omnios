@@ -840,7 +840,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"symlinkat",	lx_symlinkat,		0,		3}, /* 304 */
 	{"readlinkat",	lx_readlinkat,		0,		4}, /* 305 */
 	{"fchmodat",	lx_fchmodat,		0,		3}, /* 306 */
-	{"faccessat",	lx_faccessat,		0,		4}, /* 307 */
+	{"faccessat",	lx_faccessat,		0,		3}, /* 307 */
 	{"pselect6",	lx_pselect,		LX_SYS_EBPARG6,	6}, /* 308 */
 	{"ppoll",	lx_ppoll,		0,		5}, /* 309 */
 	{"unshare",	lx_unshare,		0,		1}, /* 310 */
@@ -882,7 +882,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"setns",	NULL,			NOSYS_NULL,	0}, /* 346 */
 	{"process_vm_readv", NULL,		NOSYS_NULL,	0}, /* 347 */
 	{"process_vm_writev", NULL,		NOSYS_NULL,	0}, /* 348 */
-	{"kcmp",	NULL,			NOSYS_NULL,	0}, /* 349 */
+	{"kcmp",	lx_kcmp,		0,		5}, /* 349 */
 	{"finit_module", NULL,			NOSYS_NULL,	0}, /* 350 */
 	{"sched_setattr", lx_sched_setattr,	0,		3}, /* 351 */
 	{"sched_getattr", lx_sched_getattr,	0,		4}, /* 352 */
@@ -916,7 +916,7 @@ lx_sysent_t lx_sysent32[] = {
 	{"pkey_mprotect", NULL,			NOSYS_NULL,	0}, /* 380 */
 	{"pkey_alloc",	NULL,			NOSYS_NULL,	0}, /* 381 */
 	{"pkey_free",	NULL,			NOSYS_NULL,	0}, /* 382 */
-	{"statx",	NULL,			NOSYS_NULL,	0}, /* 383 */
+	{"statx",	lx_statx,		0,		5}, /* 383 */
 	{"arch_prctl",	NULL,			NOSYS_NULL,	0}, /* 384 */
 	{"io_pgetevents", NULL,			NOSYS_NULL,	0}, /* 385 */
 	{"rseq",	NULL,			NOSYS_NULL,	0}, /* 386 */
@@ -970,6 +970,11 @@ lx_sysent_t lx_sysent32[] = {
 	{"pidfd_open",	NULL,			NOSYS_NULL,	0}, /* 434 */
 	{"clone3",	NULL,			NOSYS_NULL,	0}, /* 435 */
 	{"close_range",	lx_close_range,		0,		3}, /* 436 */
+	{"openat2",	NULL,			NOSYS_NULL,	0}, /* 437 */
+	{"pidfd_getfd",	NULL,			NOSYS_NULL,	0}, /* 438 */
+	{"faccessat2",	lx_faccessat2,		0,		4}, /* 439 */
+	{"process_madvise", NULL,		NOSYS_NULL,	0}, /* 440 */
+	{"epoll_pwait2", lx_epoll_pwait2,	0,		5}, /* 441 */
 };
 
 #if defined(_LP64)
@@ -1247,7 +1252,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"symlinkat",	lx_symlinkat,		0,		3}, /* 266 */
 	{"readlinkat",	lx_readlinkat,		0,		4}, /* 267 */
 	{"fchmodat",	lx_fchmodat,		0,		3}, /* 268 */
-	{"faccessat",	lx_faccessat,		0,		4}, /* 269 */
+	{"faccessat",	lx_faccessat,		0,		3}, /* 269 */
 	{"pselect6",	lx_pselect,		0,		6}, /* 270 */
 	{"ppoll",	lx_ppoll,		0,		5}, /* 271 */
 	{"unshare",	lx_unshare,		0,		1}, /* 272 */
@@ -1290,7 +1295,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"getcpu",	lx_getcpu,		0,		3}, /* 309 */
 	{"process_vm_readv", NULL,		NOSYS_NULL,	0}, /* 310 */
 	{"process_vm_writev", NULL,		NOSYS_NULL,	0}, /* 311 */
-	{"kcmp",	NULL,			NOSYS_NULL,	0}, /* 312 */
+	{"kcmp",	lx_kcmp,		0,		5}, /* 312 */
 	{"finit_module", NULL,			NOSYS_NULL,	0}, /* 313 */
 	{"sched_setattr", lx_sched_setattr,	0,		3}, /* 314 */
 	{"sched_getattr", lx_sched_getattr,	0,		4}, /* 315 */
@@ -1310,7 +1315,7 @@ lx_sysent_t lx_sysent64[] = {
 	{"pkey_mprotect", NULL,			NOSYS_NULL,	0}, /* 329 */
 	{"pkey_alloc",	NULL,			NOSYS_NULL,	0}, /* 330 */
 	{"pkey_free",	NULL,			NOSYS_NULL,	0}, /* 331 */
-	{"statx",	NULL,			NOSYS_NULL,	0}, /* 332 */
+	{"statx",	lx_statx,		0,		5}, /* 332 */
 	{"io_pgetevents", NULL,			NOSYS_NULL,	0}, /* 333 */
 	{"rseq",	NULL,			NOSYS_NULL,	0}, /* 334 */
 	{"nosys",	NULL,			NOSYS_NONE,	0}, /* 335 */
@@ -1415,6 +1420,11 @@ lx_sysent_t lx_sysent64[] = {
 	{"pidfd_open",	NULL,			NOSYS_NULL,	0}, /* 434 */
 	{"clone3",	NULL,			NOSYS_NULL,	0}, /* 435 */
 	{"close_range",	lx_close_range,		0,		3}, /* 436 */
+	{"openat2",	NULL,			NOSYS_NULL,	0}, /* 437 */
+	{"pidfd_getfd",	NULL,			NOSYS_NULL,	0}, /* 438 */
+	{"faccessat2",	lx_faccessat2,		0,		4}, /* 439 */
+	{"process_madvise", NULL,		NOSYS_NULL,	0}, /* 440 */
+	{"epoll_pwait2", lx_epoll_pwait2,	0,		5}, /* 441 */
 
 	/* XXX TBD gap then x32 syscalls from 512 - 544 */
 };

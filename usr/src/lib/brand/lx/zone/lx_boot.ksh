@@ -22,7 +22,7 @@
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2017 ASS-Einrichtungssysteme GmbH, Inc.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
 # Copyright 2020 Joyent, Inc.
 #
 # lx boot script.
@@ -144,6 +144,31 @@ config_network() {
 		) > $ZONEROOT/etc/resolv.conf
 	fi
 }
+
+#
+# systemd treats an empty or "uninitialized" /etc/machine-id as a first boot.
+# It then generates a transient ID and relies on systemd-machine-id-commit,
+# which needs mount namespaces, to save it later. That cannot work in an lx
+# zone, so every boot would be a first boot. Seed a random ID instead. The
+# zone is not running yet, so nothing can replace the file while we work.
+#
+seed_machine_id() {
+	typeset fnm=$ZONEROOT/etc/machine-id
+	typeset id tmpfile
+
+	safe_dir /etc
+	[[ -f $fnm && ! -h $fnm ]] || return
+	id=$(<$fnm)
+	[[ -z $id || $id == uninitialized ]] || return
+
+	tmpfile=$(mktemp) || return
+	od -An -N16 -tx1 /dev/urandom | tr -d ' \n' > $tmpfile
+	echo >> $tmpfile
+	chmod 0444 $tmpfile
+	mv -f $tmpfile $fnm || rm -f $tmpfile
+}
+
+seed_machine_id
 
 #
 # Perform distro-specific customization.

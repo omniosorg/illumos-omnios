@@ -23,6 +23,7 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  * Copyright 2019 Joyent, Inc.
+ * Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
  */
 
 #include <assert.h>
@@ -342,10 +343,12 @@ lx_clone(uintptr_t p1, uintptr_t p2, uintptr_t p3, uintptr_t p4, uintptr_t p5)
 		lx_unsupported("clone(2) no namespace support "
 		    "(flags:0x%08X)\n", flags);
 		/*
-		 * When the "kernel" does not support namespaces, applications
-		 * (e.g. chromium) expect EINVAL, not ENOTSUP.
+		 * Answer as Linux does for a caller that may not create
+		 * namespaces, which also matches lx_unshare(). Applications
+		 * such as systemd and chromium then carry on without them. They
+		 * do not expect ENOTSUP, and systemd treats EINVAL as fatal.
 		 */
-		return (-EINVAL);
+		return (-EPERM);
 	}
 
 	ucp = lx_syscall_regs();
