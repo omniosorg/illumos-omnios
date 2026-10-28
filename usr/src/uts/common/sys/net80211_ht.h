@@ -110,6 +110,7 @@ void ieee80211_setup_basic_htrates(struct ieee80211_node *,
 mblk_t *ieee80211_decap_amsdu(struct ieee80211_node *, mblk_t *);
 
 int ieee80211_ampdu_reorder(struct ieee80211_node *, mblk_t *);
+void ieee80211_ampdu_rx_age(struct ieee80211_node *);
 void ieee80211_recv_bar(struct ieee80211_node *, mblk_t *);
 void ieee80211_ht_node_init(struct ieee80211_node *, const uint8_t *);
 void ieee80211_ht_node_cleanup(struct ieee80211_node *);

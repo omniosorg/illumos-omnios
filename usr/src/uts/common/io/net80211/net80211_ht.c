@@ -1,6 +1,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2026 lex0de <lex0de@tuta.com>
  */
 
 /*
@@ -81,43 +82,91 @@ struct ieee80211_htrateset ieee80211_rateset_11n =
  */
 
 /*
- * Decap the encapsulated A-MSDU frames and dispatch all but
- * the last for delivery.  The last frame is returned for
- * delivery via the normal path.
+ * Validate and decap A-MSDU subframes after native decryption. All frames
+ * are delivered through MAC; the input message is consumed on every path.
  */
 #define	FF_LLC_SIZE	\
 	(sizeof (struct ether_header) + sizeof (struct ieee80211_llc))
 mblk_t *
 ieee80211_decap_amsdu(struct ieee80211_node *in, mblk_t *mp)
 {
+	static const uint8_t rfc1042[] = { 0xaa, 0xaa, 3, 0, 0, 0 };
 	struct ieee80211com *ic = in->in_ic;
 	struct ether_header *eh;
 	struct ieee80211_frame *wh;
-	int framelen, hdrspace;
+	struct ieee80211_qosframe *qwh;
+	size_t framelen, hdrspace, remaining, step, limit;
+	uint8_t *p, *dhost, *shost;
+	uint_t dir;
 	mblk_t *m0;
 
-	/* all msdu has same ieee80211_frame header */
+	/* Validate the entire aggregate before delivering any subframe. */
+	if (mp->b_cont != NULL ||
+	    MBLKL(mp) < sizeof (struct ieee80211_qosframe))
+		goto out;
 	wh = (struct ieee80211_frame *)mp->b_rptr;
+	if (wh->i_fc[0] != (IEEE80211_FC0_TYPE_DATA |
+	    IEEE80211_FC0_SUBTYPE_QOS))
+		goto out;
+	dir = wh->i_fc[1] & IEEE80211_FC1_DIR_MASK;
+	if (dir == IEEE80211_FC1_DIR_DSTODS)
+		goto out;
 	hdrspace = ieee80211_hdrspace(ic, wh);
-	mp->b_rptr += hdrspace;	/* A-MSDU subframe follows */
+	if (hdrspace > MBLKL(mp))
+		goto out;
+	remaining = MBLKL(mp) - hdrspace;
+	/* The advertised receive limit, not the peer's transmit limit. */
+	limit = (ic->ic_htcaps & IEEE80211_HTCAP_MAXAMSDU) ? 7935 : 3839;
+	if (remaining > limit || remaining < FF_LLC_SIZE)
+		goto out;
+	p = mp->b_rptr + hdrspace;
+	for (;;) {
+		if (remaining < FF_LLC_SIZE)
+			goto out;
+		eh = (struct ether_header *)p;
+		dhost = eh->ether_dhost.ether_addr_octet;
+		shost = eh->ether_shost.ether_addr_octet;
+		framelen = ntohs(eh->ether_type);
+		if (framelen < sizeof (struct ieee80211_llc) ||
+		    framelen > remaining - sizeof (*eh) ||
+		    framelen > IEEE80211_MTU_MAX ||
+		    bcmp(dhost, rfc1042, sizeof (rfc1042)) == 0 ||
+		    IEEE80211_IS_MULTICAST(shost))
+			goto out;
+		if (dir == IEEE80211_FC1_DIR_FROMDS &&
+		    !IEEE80211_IS_MULTICAST(dhost) &&
+		    !IEEE80211_ADDR_EQ(dhost, wh->i_addr1))
+			goto out;
+		if (dir == IEEE80211_FC1_DIR_TODS &&
+		    !IEEE80211_ADDR_EQ(shost, wh->i_addr2))
+			goto out;
+		step = sizeof (*eh) + framelen;
+		if (remaining == step)
+			break;
+		step = roundup(step, 4);
+		if (step > remaining || remaining - step < FF_LLC_SIZE)
+			goto out;
+		p += step;
+		remaining -= step;
+	}
 
+	remaining = MBLKL(mp) - hdrspace;
+	p = mp->b_rptr + hdrspace;
 	for (;;) {
 		/*
 		 * The frame has an 802.3 header followed by an 802.2
 		 * LLC header.  The encapsulated frame length is in the
 		 * first header type field;
 		 */
-		if (MBLKL(mp) < FF_LLC_SIZE) {
-			ieee80211_err("too short, decap failed\n");
-			goto out;
-		}
 		/*
 		 * Decap frames, encapsulate to 802.11 frame then deliver.
 		 * 802.3 header is first (struct ether_header)
 		 * 802.2 header follows (struct ieee80211_llc)
 		 * data, msdu = llc + data
 		 */
-		eh = (struct ether_header *)mp->b_rptr;
+		eh = (struct ether_header *)p;
+		dhost = eh->ether_dhost.ether_addr_octet;
+		shost = eh->ether_shost.ether_addr_octet;
 						/* 802.2 header follows */
 		framelen = ntohs(eh->ether_type);	/* llc + data */
 		m0 = allocb(hdrspace + framelen, BPRI_MED);
@@ -126,9 +175,21 @@ ieee80211_decap_amsdu(struct ieee80211_node *in, mblk_t *mp)
 			goto out;
 		}
 		(void) memcpy(m0->b_wptr, (uint8_t *)wh, hdrspace);
+		qwh = (struct ieee80211_qosframe *)m0->b_wptr;
+		qwh->i_qos[0] &= ~IEEE80211_QOS_AMSDU;
+		if (dir == IEEE80211_FC1_DIR_FROMDS) {
+			IEEE80211_ADDR_COPY(qwh->i_addr1, dhost);
+			IEEE80211_ADDR_COPY(qwh->i_addr3, shost);
+		} else if (dir == IEEE80211_FC1_DIR_TODS) {
+			IEEE80211_ADDR_COPY(qwh->i_addr3, dhost);
+			IEEE80211_ADDR_COPY(qwh->i_addr2, shost);
+		} else {
+			IEEE80211_ADDR_COPY(qwh->i_addr1, dhost);
+			IEEE80211_ADDR_COPY(qwh->i_addr2, shost);
+		}
 		m0->b_wptr += hdrspace;
 		(void) memcpy(m0->b_wptr,
-		    mp->b_rptr + sizeof (struct ether_header), framelen);
+		    p + sizeof (*eh), framelen);
 		m0->b_wptr += framelen;
 
 		ic->ic_stats.is_rx_frags++;
@@ -138,13 +199,15 @@ ieee80211_decap_amsdu(struct ieee80211_node *in, mblk_t *mp)
 		IEEE80211_LOCK(ic);
 
 		framelen += sizeof (struct ether_header);
-		if (MBLKL(mp) == framelen)	/* last, no padding */
+		if (remaining == framelen)	/* last, no padding */
 			goto out;
 		/*
 		 * Remove frame contents; each intermediate frame
 		 * is required to be aligned to a 4-byte boundary.
 		 */
-		mp->b_rptr += roundup(framelen, 4);	/* padding */
+		step = roundup(framelen, 4);
+		p += step;
+		remaining -= step;
 	}
 
 out:
@@ -282,12 +345,37 @@ ampdu_rx_flush(struct ieee80211_node *in, struct ieee80211_rx_ampdu *rap)
 		rap->rxa_qbytes -= MBLKL(m);
 		rap->rxa_qframes--;
 
+		rap->rxa_start = IEEE80211_SEQ_INC(
+		    LE_16(*(uint16_t *)((struct ieee80211_frame *)
+		    m->b_rptr)->i_seq) >> IEEE80211_SEQ_SEQ_SHIFT);
 		ampdu_dispatch(in, m);
 		if (rap->rxa_qframes == 0)
 			break;
 	}
 }
 #endif /* IEEE80211_AMPDU_AGE */
+
+/*
+ * The driver calls this on its serialized RX delivery thread, with a
+ * referenced node and no net80211 lock held.  Node cleanup must be serialized
+ * with delivery.  A missing MPDU must not hold an idle stream indefinitely.
+ */
+void
+ieee80211_ampdu_rx_age(struct ieee80211_node *in)
+{
+#ifdef IEEE80211_AMPDU_AGE
+	uint_t tid;
+
+	for (tid = 0; tid < WME_NUM_TID; tid++) {
+		struct ieee80211_rx_ampdu *rap = &in->in_rx_ampdu[tid];
+
+		if ((rap->rxa_flags & IEEE80211_AGGR_XCHGPEND) &&
+		    rap->rxa_qframes != 0 && ddi_get_lbolt() - rap->rxa_age >=
+		    drv_usectohz(500000))
+			ampdu_rx_flush(in, rap);
+	}
+#endif
+}
 
 /*
  * Dispatch all frames in the A-MPDU re-order queue
@@ -472,8 +560,7 @@ again:
 				if (rap->rxa_qframes != 0) {
 					ampdu_rx_flush(in, rap);
 				}
-				rap->rxa_start = IEEE80211_SEQ_INC(rxseq);
-				return (PROCESS);
+				goto again;
 			}
 		} else {
 			/*
@@ -971,10 +1058,26 @@ ieee80211_setup_htrates(struct ieee80211_node *in, const uint8_t *ie, int flags)
 {
 	const struct ieee80211_ie_htcap *htcap;
 	struct ieee80211_htrateset *rs;
+	ieee80211_impl_t *im = in->in_ic->ic_private;
 	int i;
 
 	rs = &in->in_htrates;
 	(void) memset(rs, 0, sizeof (*rs));
+	if (im->im_mcs_configured) {
+		/* MCS zero is a rate, not an empty-intersection sentinel. */
+		if (ie == NULL || ie[0] != IEEE80211_ELEMID_HTCAP ||
+		    ie[1] != sizeof (*htcap) - 2)
+			return (IEEE80211_RATE_BASIC);
+		htcap = (const struct ieee80211_ie_htcap *)ie;
+		for (i = 0; i < im->im_mcs.rs_nrates; i++) {
+			uint8_t mcs = im->im_mcs.rs_rates[i];
+
+			if (ieee80211_isset(htcap->hc_mcsset, mcs))
+				rs->rs_rates[rs->rs_nrates++] = mcs;
+		}
+		return (rs->rs_nrates == 0 ? IEEE80211_RATE_BASIC :
+		    rs->rs_rates[rs->rs_nrates - 1]);
+	}
 	if (ie != NULL) {
 		if (ie[0] == IEEE80211_ELEMID_VENDOR)
 			ie += 4;
@@ -1642,12 +1745,11 @@ ieee80211_add_htcap_body(uint8_t *frm, struct ieee80211_node *in)
 
 	/* supported MCS set */
 	/*
-	 * it would better to get the rate set from in_htrates
-	 * so we can restrict it but for sta mode in_htrates isn't
-	 * setup when we're called to form an AssocReq frame so for
-	 * now we're restricted to the default HT rate set.
+	 * Advertise device support, not the peer intersection. In station
+	 * mode in_htrates is not negotiated when forming an AssocReq.
 	 */
-	ieee80211_set_htrates(frm, &ieee80211_rateset_11n);
+	ieee80211_set_htrates(frm,
+	    ieee80211_get_suphtrates(ic, in->in_chan));
 
 	frm += sizeof (struct ieee80211_ie_htcap) -
 	    offsetof(struct ieee80211_ie_htcap, hc_mcsset);
@@ -1896,5 +1998,9 @@ const struct ieee80211_htrateset *
 ieee80211_get_suphtrates(struct ieee80211com *ic,
 	const struct ieee80211_channel *c)
 {
+	ieee80211_impl_t *im = ic->ic_private;
+
+	if (im->im_mcs_configured)
+		return (&im->im_mcs);
 	return (&ieee80211_rateset_11n);
 }
