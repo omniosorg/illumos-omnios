@@ -27,6 +27,7 @@
  * Copyright (c) 2012, 2020 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2019 Joyent, Inc.
+ * Copyright 2026 Oxide Computer Company
  */
 
 /*
@@ -412,7 +413,13 @@ zvol_replay_write(void *arg1, void *arg2, boolean_t byteswap)
 	offset = lr->lr_offset;
 	length = lr->lr_length;
 
-	/* If it's a dmu_sync() block, write the whole block */
+	/*
+	 * If it's a dmu_sync() block, write the whole block.  Older software
+	 * dropped the record when dmu_sync() returned EALREADY, leaving that
+	 * write's data only in the block of the TX_WRITE that caused it.  So
+	 * later writes in the block can be replayed even if their own records
+	 * are lost, which a block device allows.
+	 */
 	if (lr->lr_common.lrc_reclen == sizeof (lr_write_t)) {
 		uint64_t blocksize = BP_GET_LSIZE(&lr->lr_blkptr);
 		if (length < blocksize) {
@@ -1103,7 +1110,7 @@ zvol_log_write(zvol_state_t *zv, dmu_tx_t *tx, offset_t off, ssize_t resid,
 		lr->lr_foid = ZVOL_OBJ;
 		lr->lr_offset = off;
 		lr->lr_length = len;
-		lr->lr_blkoff = 0;
+		lr->lr_flags = 0;
 		BP_ZERO(&lr->lr_blkptr);
 
 		itx->itx_private = zv;
