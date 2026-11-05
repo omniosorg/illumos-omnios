@@ -45,7 +45,7 @@ dir  path=usr/kernel group=sys
 dir  path=usr/kernel/drv group=sys
 dir  path=usr/kernel/drv/$(ARCH64) group=sys
 file path=usr/kernel/drv/$(ARCH64)/ipf group=sys
-file path=usr/kernel/drv/ipf.conf group=sys
+file path=usr/kernel/drv/ipf.conf group=sys preserve=true
 dir  path=usr/lib
 dir  path=usr/lib/ipf
 file path=usr/lib/ipf/IPFILTER.LICENCE
