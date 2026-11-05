@@ -659,10 +659,14 @@ typedef void ieee80211_iter_func(void *, ieee80211_node_t *);
 
 /* Initialization */
 void ieee80211_attach(ieee80211com_t *);
+int ieee80211_attach_mcs(ieee80211com_t *,
+    const struct ieee80211_htrateset *);
 void ieee80211_detach(ieee80211com_t *);
 void ieee80211_media_init(ieee80211com_t *);
 int ieee80211_ioctl(ieee80211com_t *, queue_t *, mblk_t *);
 void ieee80211_register_door(ieee80211com_t *, const char *, int);
+/* Exclude event producers first; deadline is absolute lbolt, not a delay. */
+int ieee80211_wpa_quiesce(ieee80211com_t *, clock_t);
 
 /* Protocol Processing */
 int ieee80211_input(ieee80211com_t *, mblk_t *, ieee80211_node_t *,

@@ -3,6 +3,8 @@
  * Use is subject to license terms.
  */
 
+/* Copyright 2026 lex0de <lex0de@tuta.com> */
+
 /*
  * Copyright (c) 2001 Atsushi Onoe
  * Copyright (c) 2002-2005 Sam Leffler, Errno Consulting
@@ -46,9 +48,38 @@
 #include <sys/stropts.h>
 #include <sys/door.h>
 #include <sys/mac_provider.h>
+#include <sys/disp.h>
+#include <sys/taskq.h>
 #include "net80211_impl.h"
 
 uint32_t ieee80211_debug = 0x0;	/* debug msg flags */
+
+/*
+ * A queued worker holds a separate reference; it never retains an ic pointer.
+ * This also permits legacy, void detach callers to retire an interface while
+ * an upcall completes. The module taskq keeps worker code resident until its
+ * final return, including the interval after the last object is freed.
+ */
+struct ieee80211_events {
+	kmutex_t	ie_lock;
+	kcondvar_t	ie_cv;
+	char		ie_door[MAX_IEEE80211STR];
+	wpa_event_type	ie_queue[MAX_EVENT];
+	uint_t		ie_head;
+	uint_t		ie_tail;
+	uint_t		ie_count;
+	uint_t		ie_refs;
+	taskqid_t	ie_task;
+	boolean_t	ie_running;
+	boolean_t	ie_stopping;
+	boolean_t	ie_overflow;
+};
+
+static taskq_t *ieee80211_event_taskq;
+static uint32_t ieee80211_event_objects;
+
+static void ieee80211_events_free(struct ieee80211_events *);
+static void ieee80211_events_detach(ieee80211com_t *);
 
 const char *ieee80211_phymode_name[] = {
 	"auto",		/* IEEE80211_MODE_AUTO */
@@ -144,45 +175,48 @@ ieee80211_mac_update(ieee80211com_t *ic)
 static void
 ieee80211_event_thread(void *arg)
 {
-	ieee80211com_t *ic = arg;
-	door_handle_t event_door = NULL;	/* Door for upcalls */
+	struct ieee80211_events *events = arg;
+	door_handle_t event_door;
+	char door[MAX_IEEE80211STR];
 	wl_events_t ev;
 	door_arg_t darg;
+	boolean_t release;
 
-	mutex_enter(&ic->ic_doorlock);
+	mutex_enter(&events->ie_lock);
+	events->ie_task = TASKQID_INVALID;
+	events->ie_running = B_TRUE;
+	while (!events->ie_stopping && events->ie_count != 0) {
+		ev.event = events->ie_queue[events->ie_head];
+		events->ie_head = (events->ie_head + 1) % MAX_EVENT;
+		events->ie_count--;
+		bcopy(events->ie_door, door, sizeof (door));
+		mutex_exit(&events->ie_lock);
 
-	ev.event = ic->ic_eventq[ic->ic_evq_head];
-	ic->ic_evq_head ++;
-	if (ic->ic_evq_head >= MAX_EVENT)
-		ic->ic_evq_head = 0;
-
-	ieee80211_dbg(IEEE80211_MSG_DEBUG, "ieee80211_event(%d)\n", ev.event);
-	/*
-	 * Locate the door used for upcalls
-	 */
-	if (door_ki_open(ic->ic_wpadoor, &event_door) != 0) {
-		ieee80211_err("ieee80211_event: door_ki_open(%s) failed\n",
-		    ic->ic_wpadoor);
-		goto out;
+		/* No interface lock or interface reference spans the upcall. */
+		event_door = NULL;
+		if (door_ki_open(door, &event_door) != 0) {
+			ieee80211_err("ieee80211_event: "
+			    "door_ki_open(%s) failed\n", door);
+		} else {
+			bzero(&darg, sizeof (darg));
+			darg.data_ptr = (char *)&ev;
+			darg.data_size = sizeof (ev);
+			if (door_ki_upcall_limited(event_door, &darg, NULL,
+			    SIZE_MAX, 0) != 0) {
+				ieee80211_err("ieee80211_event: "
+				    "door_ki_upcall() failed\n");
+			}
+			door_ki_rele(event_door);
+		}
+		mutex_enter(&events->ie_lock);
 	}
-
-	darg.data_ptr = (char *)&ev;
-	darg.data_size = sizeof (wl_events_t);
-	darg.desc_ptr = NULL;
-	darg.desc_num = 0;
-	darg.rbuf = NULL;
-	darg.rsize = 0;
-
-	if (door_ki_upcall_limited(event_door, &darg, NULL, SIZE_MAX, 0) != 0) {
-		ieee80211_err("ieee80211_event: door_ki_upcall() failed\n");
-	}
-
-	if (event_door) {	/* release our hold (if any) */
-		door_ki_rele(event_door);
-	}
-
-out:
-	mutex_exit(&ic->ic_doorlock);
+	events->ie_running = B_FALSE;
+	ASSERT(events->ie_refs != 0);
+	release = (--events->ie_refs == 0);
+	cv_broadcast(&events->ie_cv);
+	mutex_exit(&events->ie_lock);
+	if (release)
+		ieee80211_events_free(events);
 }
 
 /*
@@ -191,15 +225,45 @@ out:
 void
 ieee80211_notify(ieee80211com_t *ic, wpa_event_type event)
 {
+	ieee80211_impl_t *im = ic->ic_private;
+	struct ieee80211_events *events = im->im_events;
+	boolean_t report = B_FALSE;
+
 	if ((ic->ic_flags & IEEE80211_F_WPA) == 0)
 		return;		/* Not running on WPA mode */
 
-	ic->ic_eventq[ic->ic_evq_tail] = event;
-	ic->ic_evq_tail ++;
-	if (ic->ic_evq_tail >= MAX_EVENT) ic->ic_evq_tail = 0;
-
-	/* async */
-	(void) timeout(ieee80211_event_thread, (void *)ic, 0);
+	if (events == NULL)
+		return;
+	mutex_enter(&events->ie_lock);
+	if (events->ie_stopping) {
+		mutex_exit(&events->ie_lock);
+		return;
+	}
+	if (events->ie_count == MAX_EVENT) {
+		report = !events->ie_overflow;
+		events->ie_overflow = B_TRUE;
+	} else {
+		events->ie_queue[events->ie_tail] = event;
+		events->ie_tail = (events->ie_tail + 1) % MAX_EVENT;
+		events->ie_count++;
+		if (!events->ie_running &&
+		    events->ie_task == TASKQID_INVALID) {
+			events->ie_refs++;
+			events->ie_task = taskq_dispatch(ieee80211_event_taskq,
+			    ieee80211_event_thread, events, TQ_NOSLEEP);
+			if (events->ie_task == TASKQID_INVALID) {
+				events->ie_refs--;
+				events->ie_count--;
+				events->ie_tail = (events->ie_tail +
+				    MAX_EVENT - 1) % MAX_EVENT;
+				report = !events->ie_overflow;
+				events->ie_overflow = B_TRUE;
+			}
+		}
+	}
+	mutex_exit(&events->ie_lock);
+	if (report)
+		ieee80211_err("ieee80211_event: event queue unavailable\n");
 }
 
 /*
@@ -208,8 +272,84 @@ ieee80211_notify(ieee80211com_t *ic, wpa_event_type event)
 void
 ieee80211_register_door(ieee80211com_t *ic, const char *drvname, int inst)
 {
+	ieee80211_impl_t *im = ic->ic_private;
+	struct ieee80211_events *events = im->im_events;
+
 	(void) snprintf(ic->ic_wpadoor, MAX_IEEE80211STR, "%s_%s%d",
 	    WPA_DOOR, drvname, inst);
+	mutex_enter(&events->ie_lock);
+	bcopy(ic->ic_wpadoor, events->ie_door, sizeof (events->ie_door));
+	mutex_exit(&events->ie_lock);
+}
+
+static void
+ieee80211_events_free(struct ieee80211_events *events)
+{
+	ASSERT(events->ie_refs == 0);
+	ASSERT(!events->ie_running && events->ie_task == TASKQID_INVALID);
+	cv_destroy(&events->ie_cv);
+	mutex_destroy(&events->ie_lock);
+	kmem_free(events, sizeof (*events));
+	atomic_dec_32(&ieee80211_event_objects);
+}
+
+static void
+ieee80211_events_attach(ieee80211com_t *ic)
+{
+	ieee80211_impl_t *im = ic->ic_private;
+	struct ieee80211_events *events;
+
+	events = kmem_zalloc(sizeof (*events), KM_SLEEP);
+	mutex_init(&events->ie_lock, NULL, MUTEX_DRIVER, NULL);
+	cv_init(&events->ie_cv, NULL, CV_DRIVER, NULL);
+	events->ie_refs = 1;
+	im->im_events = events;
+	atomic_inc_32(&ieee80211_event_objects);
+}
+
+/*
+ * The caller has excluded event producers and must retain ic until return.
+ * deadline is an absolute lbolt deadline. On timeout, the interface remains
+ * owned by the caller and notifications remain stopped; the caller may retry
+ * quiescence, but must not unregister its MAC handle before success.
+ */
+int
+ieee80211_wpa_quiesce(ieee80211com_t *ic, clock_t deadline)
+{
+	ieee80211_impl_t *im = ic->ic_private;
+	struct ieee80211_events *events = im->im_events;
+	int error = 0;
+
+	mutex_enter(&events->ie_lock);
+	events->ie_stopping = B_TRUE;
+	events->ie_count = 0;
+	while (events->ie_task != TASKQID_INVALID || events->ie_running) {
+		if (cv_timedwait(&events->ie_cv, &events->ie_lock,
+		    deadline) == -1) {
+			error = ETIMEDOUT;
+			break;
+		}
+	}
+	mutex_exit(&events->ie_lock);
+	return (error);
+}
+
+static void
+ieee80211_events_detach(ieee80211com_t *ic)
+{
+	ieee80211_impl_t *im = ic->ic_private;
+	struct ieee80211_events *events = im->im_events;
+	boolean_t release;
+
+	mutex_enter(&events->ie_lock);
+	events->ie_stopping = B_TRUE;
+	events->ie_count = 0;
+	ASSERT(events->ie_refs != 0);
+	release = (--events->ie_refs == 0);
+	mutex_exit(&events->ie_lock);
+	im->im_events = NULL;
+	if (release)
+		ieee80211_events_free(events);
 }
 
 /*
@@ -727,8 +867,9 @@ ieee80211_stat(ieee80211com_t *ic, uint_t stat, uint64_t *val)
  * functionss. The parameter "ic" MUST be initialized to tell
  * net80211 about interface's capabilities.
  */
-void
-ieee80211_attach(ieee80211com_t *ic)
+static void
+ieee80211_attach_impl(ieee80211com_t *ic,
+    const struct ieee80211_htrateset *mcs)
 {
 	struct ieee80211_impl		*im;
 	struct ieee80211_channel	*ch;
@@ -742,7 +883,12 @@ ieee80211_attach(ieee80211com_t *ic)
 
 	im = kmem_alloc(sizeof (ieee80211_impl_t), KM_SLEEP);
 	ic->ic_private = im;
+	im->im_mcs_configured = (mcs != NULL);
+	bzero(&im->im_mcs, sizeof (im->im_mcs));
+	if (mcs != NULL)
+		im->im_mcs = *mcs;
 	cv_init(&im->im_scan_cv, NULL, CV_DRIVER, NULL);
+	ieee80211_events_attach(ic);
 
 	/*
 	 * Fill in 802.11 available channel set, mark
@@ -813,6 +959,37 @@ ieee80211_attach(ieee80211com_t *ic)
 	ic->ic_watchdog_timer = 0;
 }
 
+void
+ieee80211_attach(ieee80211com_t *ic)
+{
+	ieee80211_attach_impl(ic, NULL);
+}
+
+/*
+ * Kernel-internal attach variant for a subset of the native HT MCS set.
+ * Copy the profile before any node can inherit rates. The caller must not
+ * already be attached; invalid input leaves the device untouched.
+ */
+int
+ieee80211_attach_mcs(ieee80211com_t *ic,
+    const struct ieee80211_htrateset *mcs)
+{
+	struct ieee80211_htrateset profile = { 0 };
+	uint_t i;
+
+	if (mcs == NULL || mcs->rs_nrates == 0 || mcs->rs_nrates > 16)
+		return (EINVAL);
+	for (i = 0; i < mcs->rs_nrates; i++) {
+		if (mcs->rs_rates[i] >= 16 ||
+		    (i != 0 && mcs->rs_rates[i] <= mcs->rs_rates[i - 1]))
+			return (EINVAL);
+		profile.rs_rates[i] = mcs->rs_rates[i];
+	}
+	profile.rs_nrates = mcs->rs_nrates;
+	ieee80211_attach_impl(ic, &profile);
+	return (0);
+}
+
 /*
  * Free any ieee80211 structures associated with the driver.
  */
@@ -822,6 +999,7 @@ ieee80211_detach(ieee80211com_t *ic)
 	struct ieee80211_impl *im = ic->ic_private;
 
 	ieee80211_stop_watchdog(ic);
+	ieee80211_events_detach(ic);
 	cv_destroy(&im->im_scan_cv);
 	kmem_free(im, sizeof (ieee80211_impl_t));
 
@@ -853,13 +1031,29 @@ static struct modlinkage	i_wifi_modlinkage = {
 int
 _init(void)
 {
-	return (mod_install(&i_wifi_modlinkage));
+	int error;
+
+	ieee80211_event_taskq = taskq_create("net80211_events", ncpus,
+	    MINCLSYSPRI, 1, MAX_EVENT, TASKQ_DYNAMIC | TASKQ_PREPOPULATE);
+	if (ieee80211_event_taskq == NULL)
+		return (ENOMEM);
+	error = mod_install(&i_wifi_modlinkage);
+	if (error != 0)
+		taskq_destroy(ieee80211_event_taskq);
+	return (error);
 }
 
 int
 _fini(void)
 {
-	return (mod_remove(&i_wifi_modlinkage));
+	int error;
+
+	if (atomic_add_32_nv(&ieee80211_event_objects, 0) != 0)
+		return (EBUSY);
+	error = mod_remove(&i_wifi_modlinkage);
+	if (error == 0)
+		taskq_destroy(ieee80211_event_taskq);
+	return (error);
 }
 
 int

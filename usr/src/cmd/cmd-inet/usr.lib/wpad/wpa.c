@@ -1082,14 +1082,19 @@ wpa_supplicant_process_3_of_4_gtk(struct wpa_supplicant *wpa_s,
 		if (wpa_s->driver->set_key(wpa_s->handle, wpa_s->linkid, alg,
 		    (uint8_t *)"\xff\xff\xff\xff\xff\xff",
 		    keyidx, 1, key->key_rsc,
-		    key_rsc_len, gtk, gtk_len) < 0)
+		    key_rsc_len, gtk, gtk_len) < 0) {
 			wpa_printf(MSG_WARNING, "WPA: Failed to set "
 			    "GTK to the driver (Group only).");
+			wpa_supplicant_disassociate(wpa_s, REASON_UNSPECIFIED);
+			return;
+		}
 	} else if (wpa_s->driver->set_key(wpa_s->handle, wpa_s->linkid, alg,
 	    (uint8_t *)"\xff\xff\xff\xff\xff\xff", keyidx, tx,
 	    key->key_rsc, key_rsc_len, gtk, gtk_len) < 0) {
 		wpa_printf(MSG_WARNING, "WPA: Failed to set GTK to "
 		    "the driver.");
+		wpa_supplicant_disassociate(wpa_s, REASON_UNSPECIFIED);
+		return;
 	}
 
 	wpa_printf(MSG_INFO, "WPA: Key negotiation completed with "
@@ -1280,6 +1285,8 @@ wpa_supplicant_process_3_of_4(struct wpa_supplicant *wpa_s,
 		    (uint8_t *)&wpa_s->ptk.tk1, keylen) < 0) {
 			wpa_printf(MSG_WARNING, "WPA: Failed to set PTK to the"
 			    " driver.");
+			wpa_supplicant_disassociate(wpa_s, REASON_UNSPECIFIED);
+			return;
 		}
 	}
 
@@ -1469,9 +1476,12 @@ wpa_supplicant_process_1_of_2(struct wpa_supplicant *wpa_s,
 		if (wpa_s->driver->set_key(wpa_s->handle, wpa_s->linkid, alg,
 		    (uint8_t *)"\xff\xff\xff\xff\xff\xff",
 		    keyidx, 1, key->key_rsc,
-		    key_rsc_len, gtk, keylen) < 0)
+		    key_rsc_len, gtk, keylen) < 0) {
 			wpa_printf(MSG_WARNING, "WPA: Failed to set GTK to the"
 			    " driver (Group only).");
+			wpa_supplicant_disassociate(wpa_s, REASON_UNSPECIFIED);
+			return;
+		}
 	} else if (wpa_s->driver->set_key(wpa_s->handle, wpa_s->linkid, alg,
 	    (uint8_t *)"\xff\xff\xff\xff\xff\xff",
 	    keyidx, tx,
@@ -1479,6 +1489,8 @@ wpa_supplicant_process_1_of_2(struct wpa_supplicant *wpa_s,
 	    gtk, keylen) < 0) {
 		wpa_printf(MSG_WARNING, "WPA: Failed to set GTK to the "
 		    "driver.");
+		wpa_supplicant_disassociate(wpa_s, REASON_UNSPECIFIED);
+		return;
 	}
 
 	rlen = sizeof (*ethhdr) + sizeof (*hdr) + sizeof (*reply);
