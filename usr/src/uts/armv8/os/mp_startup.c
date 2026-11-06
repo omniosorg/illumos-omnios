@@ -606,8 +606,15 @@ mp_startup_boot(void)
 	cpu_add_active(cp);
 	mutex_exit(&cpu_lock);
 
+	unlock_oslock();
+	write_cntkctl(read_cntkctl() | 0x3);
+
 	/* Enable interrupts */
 	(void) spl0();
+
+	cmn_err(CE_CONT, "?cpu%d: %s\n", cp->cpu_id, cp->cpu_brandstr);
+	cmn_err(CE_CONT, "?cpu%d initialization complete - online\n",
+	    cp->cpu_id);
 
 	(void) mach_cpu_create_device_node(cp, NULL);
 
@@ -617,13 +624,6 @@ mp_startup_boot(void)
 	 * it sees this bit set for all active CPUs.
 	 */
 	CPUSET_ATOMIC_ADD(cpu_ready_set, cp->cpu_id);
-
-	cmn_err(CE_CONT, "?cpu%d: %s\n", cp->cpu_id, cp->cpu_brandstr);
-	cmn_err(CE_CONT, "?cpu%d initialization complete - online\n",
-	    cp->cpu_id);
-
-	unlock_oslock();
-	write_cntkctl(read_cntkctl() | 0x3);
 
 	/*
 	 * Now we are done with the startup thread, so free it up.
