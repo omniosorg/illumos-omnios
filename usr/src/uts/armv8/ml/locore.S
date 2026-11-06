@@ -319,6 +319,9 @@ t0:
 	ldr	x1, [x0, #STARTUP_TTBR1]
 	msr	ttbr1_el1, x1
 
+	/* hypervisor stub vector table for later use */
+	ldr	x21, [x0, #STARTUP_VBAR]
+
 	/* system control */
 	ldr	x1, [x0, #STARTUP_SCTLR]
 	isb
@@ -329,9 +332,8 @@ t0:
 
 	/* replace the hypervisor stub if appropriate */
 	cbz	x25, 1f
-	ldr	x1, [x0, #STARTUP_VBAR]
-	cbz	x1, 1f
-	mov	x0, x1
+	cbz	x21, 1f
+	mov	x0, x21
 	hvc	#0
 1:
 
@@ -412,6 +414,8 @@ dcache_invalidate_all:
 	b.gt	0b
 4:	ret
 	.ltorg
+secondary_vec_end:
+	.globl	secondary_vec_end
 SET_SIZE(secondary_vec_start)
 
 /*
