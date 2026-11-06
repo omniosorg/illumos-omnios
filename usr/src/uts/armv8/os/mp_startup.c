@@ -104,6 +104,13 @@ static struct cpu_startup_data cpu_startup_data = {
 static uint64_t secondary_vec_pa = 0xdeadbeefdeadbeef;
 static uint64_t cpu_startup_data_pa = 0xdeadbeefdeadbeef;
 
+/* minimal identity mapping for secondary CPU bringup */
+extern uint64_t hat_boot_ttbr0;
+extern uint64_t hat_alloc_min_ttbr0(void);
+extern void hat_add_min_ttbr0(uint64_t ttbr0, uint64_t entry_pa,
+    uint_t npages, pte_t attr);
+extern void hat_teardown_ttbr0(void);
+
 static void
 mp_startup_wait(cpuset_t *sp, processorid_t cpuid)
 {
@@ -619,6 +626,12 @@ mp_startup_boot(void)
 	(void) mach_cpu_create_device_node(cp, NULL);
 
 	/*
+	 * We're safely running in KVA and no longer need the identity
+	 * mappings used in CPU bringup.
+	 */
+	hat_teardown_ttbr0();
+
+	/*
 	 * Setting the bit in cpu_ready_set must be the last operation in
 	 * processor initialization; the boot CPU will continue to boot once
 	 * it sees this bit set for all active CPUs.
@@ -721,23 +734,18 @@ mach_cpucontext_init(void)
 {
 	pfn_t pfn;
 	uintptr_t va;
+	uintptr_t vec_size;
 	uint64_t pa_hvc_stub;
+	uint64_t start_pa;
+	uint64_t ttbr0;
+	uint64_t tcr;
 	uintptr_t addr;
+	uint_t npages;
 	size_t data_line_size;
+	pte_t attr;
 	extern void secondary_vec_start(void);
+	extern void secondary_vec_end(void);
 	extern void hyp_stub_vectors(void);
-
-	va = (uintptr_t)hyp_stub_vectors;
-	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
-		return (-1);
-	}
-	pa_hvc_stub = ptob(pfn) | (va & MMU_PAGEOFFSET);
-
-	va = (uintptr_t)secondary_vec_start;
-	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
-		return (-1);
-	}
-	secondary_vec_pa = ptob(pfn) | (va & MMU_PAGEOFFSET);
 
 	va = (uintptr_t)&cpu_startup_data;
 	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
@@ -745,9 +753,38 @@ mach_cpucontext_init(void)
 	}
 	cpu_startup_data_pa = ptob(pfn) | (va & MMU_PAGEOFFSET);
 
+	va = (uintptr_t)hyp_stub_vectors;
+	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
+		return (-1);
+	}
+	pa_hvc_stub = ptob(pfn) | (va & MMU_PAGEOFFSET);
+
+	/*
+	 * Grab the physical address of the secondary CPU startup vector, then
+	 * build a minimal identity mapped page table covering only that code,
+	 * used while enabling the MMU and transitioning to KVA.
+	 */
+	va = (uintptr_t)secondary_vec_start;
+	if ((pfn = hat_getpfnum(kas.a_hat, (caddr_t)va)) == PFN_INVALID) {
+		return (-1);
+	}
+	vec_size = (uintptr_t)secondary_vec_end - va;
+	start_pa = ptob(pfn);
+	secondary_vec_pa = start_pa | (va & MMU_PAGEOFFSET);
+	npages = (uint_t)((secondary_vec_pa + vec_size -
+	    start_pa + MMU_PAGESIZE - 1) >> MMU_PAGESHIFT);
+
+	attr = MAKEPTE(0, PAGE_LEVEL) |
+	    PTE_AF | PTE_AP_KROUNA | PTE_ATTR_NORMEM | PTE_UXN;
+
+	ttbr0 = hat_alloc_min_ttbr0();
+	hat_add_min_ttbr0(ttbr0, secondary_vec_pa, npages, attr);
+
+	tcr = read_tcr() & ~(TCR_EPD0 | TCR_EPD1);
+
 	cpu_startup_data.mair = read_mair();
-	cpu_startup_data.tcr = read_tcr();
-	cpu_startup_data.ttbr0 = read_ttbr0();
+	cpu_startup_data.tcr = tcr;
+	cpu_startup_data.ttbr0 = ttbr0;
 	cpu_startup_data.ttbr1 = read_ttbr1();
 	cpu_startup_data.sctlr = read_sctlr();
 	cpu_startup_data.vbar = pa_hvc_stub;
@@ -864,14 +901,24 @@ start_other_cpus(int flag __unused)
 	processorid_t bootcpu = CPU->cpu_id;
 
 	CPUSET_DEL(mp_cpus, bootcpu);
-	CPUSET_ADD(cpu_ready_set, bootcpu);
 
 	cpu_pause_init();
 
 	xc_init_cpu(CPU);
 
-	if (mach_cpucontext_init() != 0)
+	/*
+	 * Save the bootstrap identity mappings for later cleanup, then
+	 * unmap those mappings from the boot CPU, as they are no longer
+	 * needed.
+	 */
+	hat_boot_ttbr0 = read_ttbr0();
+	hat_teardown_ttbr0();
+
+	if (mach_cpucontext_init() != 0) {
 		prom_panic("mach_cpucontext_init fail");
+	}
+
+	CPUSET_ADD(cpu_ready_set, bootcpu);
 
 	affinity_set(CPU_CURRENT);
 
