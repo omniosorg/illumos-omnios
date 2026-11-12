@@ -82,6 +82,10 @@
 #include <vm/hat_pte.h>
 #include <vm/kpm.h>
 
+extern uint64_t hat_alloc_min_ttbr0(void);
+extern void hat_add_min_ttbr0(uint64_t ttbr0, uint64_t entry_pa,
+    uint_t npages, pte_t attr);
+
 /*
  * Convert a physical address to a KPM virtual address, preserving
  * the intra-page offset.  hat_kpm_pfn2va returns the VA for the
@@ -99,7 +103,6 @@ efirt_pa_to_va(uint64_t pa)
  *
  * These variables are set up at initialisation time.
  */
-static pte_t		*efirt_pt;
 static uint64_t		efirt_ttbr0;
 static kmutex_t		efirt_lock;
 static boolean_t	efirt_active = B_FALSE;
@@ -201,48 +204,6 @@ efirt_efi_to_pte_attr(uint32_t type, uint64_t attr)
 	}
 
 	return (pte);
-}
-
-/*
- * Allocate a zeroed page-table page.
- *
- * These are never freed - the UEFI page table must be permanently pinned.
- */
-static pte_t *
-efirt_alloc_ptpage(void)
-{
-	return ((pte_t *)kmem_zalloc(MMU_PAGESIZE, KM_SLEEP));
-}
-
-/*
- * Install a single page mapping in the UEFI page table.
- *
- * Allocates intermediate tables as needed.
- *
- * Level numbering follows the illumos convention.
- */
-static void
-efirt_map_page(pte_t *root, uint64_t pa, pte_t pte_attr)
-{
-	int level;
-	pte_t *table = root;
-
-	for (level = mmu.max_level; level > 0; level--) {
-		uint_t idx = LEVEL_INDEX(pa, level);
-
-		if (!PTE_ISVALID(table[idx])) {
-			pte_t *next = efirt_alloc_ptpage();
-			table[idx] = MAKEPTP(hat_getpfnum(
-			    kas.a_hat, (caddr_t)next), level, 1);
-			table = next;
-		} else {
-			table = (pte_t *)hat_kpm_pfn2va(
-			    PTE2PFN(table[idx], level));
-		}
-	}
-
-	/* Leaf page entry */
-	table[LEVEL_INDEX(pa, 0)] = (pa & PTE_PFN_MASK) | pte_attr;
 }
 
 /*
@@ -526,11 +487,11 @@ efirt_init(void)
 
 	/*
 	 * Allocate the top-level page table and identity-map all
-	 * EFI_MEMORY_RUNTIME regions.  Page table pages are allocated
-	 * via kmem_zalloc and never freed, as runtime services are
-	 * required all the way up to reboot.
+	 * EFI_MEMORY_RUNTIME regions.  Allocated page table pages are
+	 * never freed, as runtime services are required all the way
+	 * up to reboot.
 	 */
-	efirt_pt = efirt_alloc_ptpage();
+	efirt_ttbr0 = hat_alloc_min_ttbr0();
 
 	ndesc = efi_mmap_ndesc(mhdr);
 	desc = efi_mmap_start(mhdr);
@@ -549,31 +510,16 @@ efirt_init(void)
 		pa = desc->PhysicalStart;
 		npages = desc->NumberOfPages;
 		pte_attr = efirt_efi_to_pte_attr(desc->Type, desc->Attribute);
-
-		for (uint64_t p = 0; p < npages; p++) {
-			efirt_map_page(efirt_pt, pa + p * MMU_PAGESIZE,
-			    pte_attr);
-		}
+		hat_add_min_ttbr0(efirt_ttbr0, pa, npages, pte_attr);
 
 		nrt++;
 	}
 
 	/*
-	 * Ensure all page table stores are visible to the translation
-	 * table walker before we switch TTBR0 for the first time.  The
-	 * walker is coherent with the data cache on AArch64, so no cache
-	 * maintenance is needed, but a DSB is required to guarantee that
-	 * the stores have completed before the TTBR0 write in the SVAM
-	 * call below.
-	 */
-	dsb(ish);
-
-	/*
 	 * Precompute the TTBR0 value for EFI context switches.
 	 * ASID 1 is permanently reserved in the ASID bitmap allocator.
 	 */
-	efirt_ttbr0 = ((uint64_t)ASID_RESERVED_FOR_EFI << TTBR_ASID_SHIFT) |
-	    pfn_to_pa(hat_getpfnum(kas.a_hat, (caddr_t)efirt_pt));
+	efirt_ttbr0 |= ((uint64_t)ASID_RESERVED_FOR_EFI << TTBR_ASID_SHIFT);
 
 	/*
 	 * Initialize the RT call serialization lock, FPU state, and
