@@ -2107,10 +2107,11 @@ lx_map_vdso(struct uarg *args, struct cred *cred, uintptr_t *sysinfo)
 		/*
 		 * The i386 vDSO ELF entry is __vsyscall.  Read it from the
 		 * vDSO file rather than assuming a fixed offset.  execmap maps
-		 * this file from offset zero, so e_entry is also the file offset
-		 * of the trampoline.  Only advertise the entry if it contains
-		 * the int 0x80; ret sequence implemented by this vDSO.  A different
-		 * entry sequence suppresses AT_SYSINFO, not the vDSO mapping.
+		 * this file from offset zero, so e_entry is also the file
+		 * offset of the trampoline.  Only advertise the entry if it
+		 * contains the int 0x80; ret sequence implemented by this
+		 * vDSO.  A different entry sequence suppresses AT_SYSINFO, not
+		 * the vDSO mapping.
 		 */
 		if (attr.va_size < (off_t)sizeof (ehdr) ||
 		    vn_rdwr(UIO_READ, vp, (caddr_t)&ehdr, sizeof (ehdr), 0,

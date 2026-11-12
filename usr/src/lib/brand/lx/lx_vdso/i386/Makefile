@@ -19,7 +19,7 @@ TARGET_ARCH=$(MACH)
 include ../Makefile.com
 
 ASFLAGS += -D__$(MACH)
-VDSO_VERIFY =	/bin/sh ./check-vdso-unwind.sh $(DYNLIB) \
+VDSO_VERIFY =	/bin/sh ./check-vdso-unwind $(DYNLIB) \
     $(ELFDUMP) $(ELFEDIT) $(AWK)
 
 SONAME = linux-gate.so.1
