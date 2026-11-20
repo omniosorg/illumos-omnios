@@ -23,7 +23,7 @@
 # All Rights Reserved.
 #
 # Copyright (c) 2018, Joyent, Inc.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
 
 PROG = latencytop
 OBJS = latencytop.o display.o dwrapper.o klog.o stat.o table.o util.o

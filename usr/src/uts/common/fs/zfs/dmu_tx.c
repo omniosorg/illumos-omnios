@@ -24,6 +24,7 @@
  * Copyright 2013 Joyent, Inc. All rights reserved.
  * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright 2026 Oxide Computer Company
  */
 
 #include <sys/dmu.h>
@@ -1016,8 +1017,13 @@ dmu_tx_assign(dmu_tx_t *tx, uint64_t txg_how)
 	ASSERT0(txg_how & ~(TXG_WAIT | TXG_NOTHROTTLE));
 	ASSERT(!dsl_pool_sync_context(tx->tx_pool));
 
-	/* If we might wait, we must not hold the config lock. */
+	/*
+	 * If we might wait, we must not hold the pool config lock, or any spa
+	 * config lock as writer: txg sync needs them.
+	 */
 	IMPLY((txg_how & TXG_WAIT), !dsl_pool_config_held(tx->tx_pool));
+	IMPLY((txg_how & TXG_WAIT),
+	    spa_config_held(tx->tx_pool->dp_spa, SCL_ALL, RW_WRITER) == 0);
 
 	if ((txg_how & TXG_NOTHROTTLE))
 		tx->tx_dirty_delayed = B_TRUE;
