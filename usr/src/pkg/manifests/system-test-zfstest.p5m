@@ -1564,6 +1564,9 @@ file path=opt/zfs-tests/tests/functional/cli_root/zpool_detach/setup mode=0555
 file \
     path=opt/zfs-tests/tests/functional/cli_root/zpool_detach/zpool_detach_001_neg \
     mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zpool_detach/zpool_detach_spare_throttle \
+    mode=0555
 dir  path=opt/zfs-tests/tests/functional/cli_root/zpool_expand
 file path=opt/zfs-tests/tests/functional/cli_root/zpool_expand/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zpool_expand/setup mode=0555
@@ -2444,9 +2447,14 @@ file path=opt/zfs-tests/tests/functional/fault/auto_spare_sorted_001_pos \
 file path=opt/zfs-tests/tests/functional/fault/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/fault/deadlist_read_error mode=0555
 file path=opt/zfs-tests/tests/functional/fault/fault.cfg mode=0444
+file path=opt/zfs-tests/tests/functional/fault/flush_error mode=0555
 file path=opt/zfs-tests/tests/functional/fault/objset_open_prop_error mode=0555
 file path=opt/zfs-tests/tests/functional/fault/setup mode=0555
+file path=opt/zfs-tests/tests/functional/fault/suspend_resume_reexecute \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/fault/write_error_throttle mode=0555
+file path=opt/zfs-tests/tests/functional/fault/write_indirect_read_error \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/fault/zil_get_data_error mode=0555
 file path=opt/zfs-tests/tests/functional/fault/zpool_status_-s mode=0555
 dir  path=opt/zfs-tests/tests/functional/features
@@ -2909,6 +2917,8 @@ file path=opt/zfs-tests/tests/functional/replacement/replacement_002_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/replacement/replacement_003_pos \
     mode=0555
+file path=opt/zfs-tests/tests/functional/replacement/scrub_after_replace \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/replacement/setup mode=0555
 dir  path=opt/zfs-tests/tests/functional/reservation
 file path=opt/zfs-tests/tests/functional/reservation/cleanup mode=0555
@@ -3072,6 +3082,8 @@ file path=opt/zfs-tests/tests/functional/slog/slog_lwb_write_error mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_record_pad mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_replay_fs_001 mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_replay_fs_002 mode=0555
+file path=opt/zfs-tests/tests/functional/slog/slog_replay_fs_reused_object \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_replay_fs_split_truncate \
     mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_replay_fs_split_write \
