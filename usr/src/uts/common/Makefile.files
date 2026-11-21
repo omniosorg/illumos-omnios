@@ -1908,6 +1908,8 @@ IWH_OBJS += iwh.o
 
 IWK_OBJS += iwk2.o
 
+IWM_OBJS += if_iwm.o if_iwmfw.o if_iwmhw.o
+
 IWN_OBJS += if_iwn.o
 
 IWP_OBJS += iwp.o
