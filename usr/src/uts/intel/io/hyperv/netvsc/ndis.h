@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Microsoft Corp.
+ * Copyright (c) 2016-2017 Microsoft Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -412,5 +412,14 @@ struct ndis_offload {
 #define	NDIS_TXCSUM_INFO_IPCS		0x00000010
 #define	NDIS_TXCSUM_INFO_THOFF(thoff)	\
 	(((uint32_t)(thoff) & 0x3ff) << 20)
+
+#define	NDIS_TXCSUM_INFO_MKL4CS(thoff, flag) \
+	((((uint32_t)(thoff)) << 16) | (flag))
+
+#define	NDIS_TXCSUM_INFO_MKTCPCS(thoff) \
+	NDIS_TXCSUM_INFO_MKL4CS((thoff), NDIS_TXCSUM_INFO_TCPCS)
+
+#define	NDIS_TXCSUM_INFO_MKUDPCS(thoff) \
+	NDIS_TXCSUM_INFO_MKL4CS((thoff), NDIS_TXCSUM_INFO_UDPCS)
 
 #endif	/* !_NET_NDIS_H_ */

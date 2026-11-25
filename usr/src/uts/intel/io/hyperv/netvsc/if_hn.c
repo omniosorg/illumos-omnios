@@ -66,6 +66,7 @@
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
  * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2026 RackTop Systems, Inc.
  */
 
 #include <sys/sysmacros.h>
@@ -1109,10 +1110,12 @@ static int
 hn_tx_prepare_rndis_pkt(struct hn_softc *sc, struct rndis_packet_msg *pkt,
     mblk_t *mp, int dlen, int txr_idx)
 {
+	uint32_t *pi_data;
+	mac_ether_offload_info_t meo;
 	uint32_t hck_flags, lso_flag, mss;
 	uint32_t hck_start = 0;
-	uint32_t *pi_data;
 	int pktlen;
+	uint32_t len = 0;
 
 	pkt->rm_type = REMOTE_NDIS_PACKET_MSG;
 	pkt->rm_len = sizeof (*pkt) + dlen;
@@ -1140,131 +1143,100 @@ hn_tx_prepare_rndis_pkt(struct hn_softc *sc, struct rndis_packet_msg *pkt,
 	 */
 	mac_hcksum_get(mp, &hck_start, NULL, NULL, NULL, &hck_flags);
 	mac_lso_get(mp, &mss, &lso_flag);
-
-	unsigned char *ptr = mp->b_rptr;
-	uint32_t sap = ntohs(((struct ether_header *)ptr)->ether_type);
+	mac_ether_offload_info(mp, &meo);
 
 	/*
 	 * If applicable, append vlan info to packet info
 	 */
-	if (sap == ETHERTYPE_VLAN) {
-		struct ether_vlan_header *eth = (void *)ptr;
-		sap = ntohs(eth->ether_type);
+	if ((meo.meoi_flags & MEOI_L2INFO_SET) &&
+	    meo.meoi_l3proto == ETHERTYPE_VLAN) {
+		uint32_t vlan_tci;
 
-		pi_data = hn_rndis_pktinfo_append(pkt, HN_RNDIS_PKT_LEN,
-		    NDIS_VLAN_INFO_SIZE, NDIS_PKTINFO_TYPE_VLAN);
-		*pi_data = NDIS_VLAN_INFO_MAKE(
-		    VLAN_ID(eth->ether_tci),
-		    VLAN_PRI(eth->ether_tci),
-		    VLAN_CFI(eth->ether_tci));
-
-		ptr += sizeof (struct ether_vlan_header);
-	} else {
-		ptr += sizeof (struct ether_header);
-	}
-
-	/*
-	 * Ethernet and IP headers may be in different mblk segments.
-	 */
-	ASSERT3P(ptr, <=, mp->b_wptr);
-	if (ptr == mp->b_wptr) {
-		mp = mp->b_cont;
-		ptr = mp->b_rptr;
+		if (mac_ether_l2_info(mp, NULL, &vlan_tci) &&
+		    vlan_tci != MEOI_VLAN_TCI_INVALID) {
+			pi_data = hn_rndis_pktinfo_append(pkt, HN_RNDIS_PKT_LEN,
+			    NDIS_VLAN_INFO_SIZE, NDIS_PKTINFO_TYPE_VLAN);
+			*pi_data = NDIS_VLAN_INFO_MAKE(
+			    VLAN_ID(vlan_tci),
+			    VLAN_PRI(vlan_tci),
+			    VLAN_CFI(vlan_tci));
+		}
 	}
 
 	HN_DEBUG(sc, 4, "size %u, hck_flags=0x%x, lso_flag=0x%x, hck_start=%d, "
-	    "ether_type=0x%x", dlen, hck_flags, lso_flag, hck_start, sap);
+	    "ether_type=0x%x", dlen, hck_flags, lso_flag, hck_start,
+	    meo.meoi_l3proto);
 
+	/* Note this only gets used as long as the L3 and L4 info is set */
+
+	len = meo.meoi_l2hlen + meo.meoi_l3hlen;
 	if (lso_flag & HW_LSO) {
-		/*
-		 * The only type of LSO that we support is for IPv4.
-		 * We advertise LSO_TX_BASIC_TCP_IPV4 for MAC_CAPAB_LSO.
-		 * IPv6 is not yet supported in the framework.
-		 */
-		ASSERT3U(sap, ==, ETHERTYPE_IP);
+		ASSERT(meo.meoi_flags & (MEOI_L3INFO_SET|MEOI_L4INFO_SET));
 
 		pi_data = hn_rndis_pktinfo_append(pkt, HN_RNDIS_PKT_LEN,
 		    NDIS_LSO2_INFO_SIZE, NDIS_PKTINFO_TYPE_LSO);
 
-		/*
-		 * Some hardware requires this to be 0, otherwise it generates
-		 * improper ip header checksums.
-		 */
-		ipha_t *ipha = (ipha_t *)ptr;
-		ipha->ipha_hdr_checksum = 0;
+		switch (meo.meoi_l3proto) {
+		case ETHERTYPE_IP:
+			*pi_data = NDIS_LSO2_INFO_MAKEIPV4(len, mss);
+			break;
+		case ETHERTYPE_IPV6:
+			*pi_data = NDIS_LSO2_INFO_MAKEIPV6(len, mss);
+			break;
+		default:
+			/*
+			 * This should never happen, but if it does, for
+			 * non-debug, we'll just let the packet drop
+			 * on the floor (it's likely too big to send anyway)
+			 * with a warning.
+			 */
+			HN_WARN(sc, "%s: unexpected L3 protocol for "
+			    "LSO: 0x%04x", __func__, meo.meoi_l3proto);
 
-		/*
-		 * TODO: figure out why it is ok to put 0 for the tcp checksum
-		 * offset.
-		 */
-		*pi_data = NDIS_LSO2_INFO_MAKEIPV4(0, mss);
+			ASSERT(0);
+		}
 	} else if (hck_flags != 0) {
 		/*
 		 * The only checksum offload that we support is
 		 * HCKSUM_INET_PARTIAL as advertised for MAC_CAPAB_HCKSUM.
 		 */
 		ASSERT3U(hck_flags, ==, HCK_PARTIALCKSUM);
+		ASSERT(meo.meoi_flags & (MEOI_L3INFO_SET|MEOI_L4INFO_SET));
 
 		pi_data = hn_rndis_pktinfo_append(pkt, HN_RNDIS_PKT_LEN,
 		    NDIS_TXCSUM_INFO_SIZE, NDIS_PKTINFO_TYPE_CSUM);
 
-		uint8_t l4proto;
-
-		if (sap == ETHERTYPE_IP) {
-			ipha_t *ipha = (ipha_t *)ptr;
-			l4proto = ipha->ipha_protocol;
+		switch (meo.meoi_l3proto) {
+		case ETHERTYPE_IP:
 			*pi_data = NDIS_TXCSUM_INFO_IPV4;
-		} else if (sap == ETHERTYPE_IPV6) {
-			ip6_t *ip6 = (ip6_t *)ptr;
-			l4proto = ip6->ip6_nxt;
-			*pi_data = NDIS_TXCSUM_INFO_IPV6;
-		} else {
-			HN_WARN(sc, "hn_tx_prepare_rndis_pkt: unexpected L3 "
-			    "protocol: 0x%04x", sap);
-			*pi_data = 0;
-			goto skip_cksum;
-		}
-
-		switch (l4proto) {
-		case IPPROTO_TCP:
-			*pi_data |= NDIS_TXCSUM_INFO_TCPCS;
-
-			/*
-			 * TODO: figure out why it is ok to put 0 for
-			 * the tcp checksum offset.
-			 * Normally we'd need to specify what's the
-			 * offset of the TCP checksum field using
-			 * NDIS_TXCSUM_INFO_THOFF() but in practice it
-			 * seems to be fine to leave this field as 0.
-			 */
 			break;
-		case IPPROTO_UDP:
-			/*
-			 * TODO: Investigate / test?
-			 * There seemed to be issues with UDP checksum
-			 * calculation on W2008 hosts and in some cases
-			 * in W2012 hosts. In Linux, they disable UDP
-			 * checksum offload in those case:
-			 * http://lxr.free-electrons.com/source/
-			 *   drivers/net/hyperv/netvsc_drv.c#L486
-			 * It seems like in FreeBSD, they were also
-			 * doing this until commit on 09/20/2016,
-			 * 9dd94538df4fa56fb715d19b93802fe67f5bbf4c
-			 * (https://reviews.freebsd.org/D7948)
-			 * which removed that restriction.
-			 */
-			*pi_data |= NDIS_TXCSUM_INFO_UDPCS;
+		case ETHERTYPE_IPV6:
+			*pi_data = NDIS_TXCSUM_INFO_IPV6;
 			break;
 		default:
 			/*
-			 * FIXME: we can end up here if we have a TCP or UDP
-			 * IPv6 packet with extension headers. As a result,
-			 * proper checksum offload flags will not be set for
-			 * this packet and it has a high chance to be dropped
-			 * by the receiver.
+			 * Somewhat similar to the LSO case, though here we
+			 * can warn and just skip checksum offloading.
 			 */
-			HN_WARN(sc, "hn_tx_prepare_rndis_pkt: unexpected "
-			    "transport protocol: 0x%04x", l4proto);
+			HN_WARN(sc, "%s: unexpected L3 protocol for cksum "
+			    "offloading: 0x%04x", __func__, meo.meoi_l3proto);
+			*pi_data = 0;
+
+			goto skip_cksum;
+		}
+
+		switch (meo.meoi_l4proto) {
+		case IPPROTO_TCP:
+			*pi_data |= NDIS_TXCSUM_INFO_TCPCS;
+			*pi_data |= NDIS_TXCSUM_INFO_MKTCPCS(len);
+			break;
+		case IPPROTO_UDP:
+			*pi_data |= NDIS_TXCSUM_INFO_UDPCS;
+			*pi_data |= NDIS_TXCSUM_INFO_MKUDPCS(len);
+			break;
+		default:
+			HN_WARN(sc, "%s: unexpected L4 protocol: 0x%04x",
+			    __func__, meo.meoi_l4proto);
 		}
 	}
 
