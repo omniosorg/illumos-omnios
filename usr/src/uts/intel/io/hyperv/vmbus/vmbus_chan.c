@@ -660,18 +660,37 @@ vmbus_chan_gpadl_disconnect(struct vmbus_channel *chan, uint32_t gpadl)
 	return (0);
 }
 
-/* Note: takes a refheld chan */
+/*
+ * Consume a caller reference.  A subchannel stays on its primary's list
+ * until the driver has closed it AND the host has rescinded it.  Rescind
+ * alone must not invalidate the driver's channel table or remove entries
+ * which the driver still needs to obtain when closing its channels.
+ */
 void
 vmbus_chan_detach(struct vmbus_channel *chan)
 {
+	uint32_t flags;
+	const uint32_t subchan_done = VMBUS_CHAN_ST_CLOSED |
+	    VMBUS_CHAN_ST_REVOKED;
+
 	ASSERT3U(chan->ch_refs, >, 0);
 
-	/*
-	 * Detach the target channel.
-	 */
+	for (;;) {
+		flags = chan->ch_stflags;
+		if ((flags & VMBUS_CHAN_ST_DETACHING) != 0 ||
+		    (!VMBUS_CHAN_ISPRIMARY(chan) &&
+		    (flags & subchan_done) != subchan_done)) {
+			vmbus_chan_refrele(chan);
+			return;
+		}
+		if (atomic_cas_32(&chan->ch_stflags, flags,
+		    flags | VMBUS_CHAN_ST_DETACHING) == flags)
+			break;
+	}
+
 	VMBUS_DEBUG(chan->ch_vmbus, "?chan%u detached\n", chan->ch_id);
-	(void) ddi_taskq_dispatch(chan->ch_mgmt_tq, chan->ch_detach_task, chan,
-	    DDI_SLEEP);
+	VERIFY0(ddi_taskq_dispatch(chan->ch_mgmt_tq, chan->ch_detach_task,
+	    chan, DDI_SLEEP));
 }
 
 static void
@@ -706,9 +725,10 @@ vmbus_chan_close_internal(struct vmbus_channel *chan)
 	struct vmbus_msghc *mh;
 	struct vmbus_chanmsg_chclose *req;
 	uint32_t old_stflags;
-	int error;
+	int error = 0;
 
 	vmbus_chan_refhold(chan);
+	mutex_enter(&chan->ch_close_lock);
 	/*
 	 * NOTE:
 	 * Sub-channels are closed upon their primary channel closing,
@@ -723,8 +743,7 @@ vmbus_chan_close_internal(struct vmbus_channel *chan)
 	if ((old_stflags & VMBUS_CHAN_ST_OPENED) == 0) {
 		/* Not opened yet; done */
 		VMBUS_DEBUG(sc, "?chan%u not opened\n", chan->ch_id);
-		vmbus_chan_refrele(chan);
-		return (0);
+		goto closed;
 	}
 
 	/*
@@ -801,15 +820,31 @@ disconnect:
 		chan->ch_bufring = NULL;
 	}
 
-	vmbus_chan_refrele(chan);
+closed:
+	/*
+	 * A subchannel borrows its primary's devinfo.  Drop that pointer
+	 * before close returns to driver detach, which may remove the
+	 * devinfo without waiting for this channel's host rescind.  The
+	 * orphan lock also covers the rescind handler's diagnostic.
+	 */
+	if (!VMBUS_CHAN_ISPRIMARY(chan)) {
+		mutex_enter(&chan->ch_orphan_lock);
+		chan->ch_dev = NULL;
+		mutex_exit(&chan->ch_orphan_lock);
+	}
+	/* CLOSED means that callback and ring teardown have both finished. */
+	atomic_or_32(&chan->ch_stflags, VMBUS_CHAN_ST_CLOSED);
+	mutex_exit(&chan->ch_close_lock);
+	if (VMBUS_CHAN_ISPRIMARY(chan))
+		vmbus_chan_refrele(chan);
+	else
+		vmbus_chan_detach(chan);
 	return (error);
 }
 
 int
 vmbus_chan_close_direct(struct vmbus_channel *chan)
 {
-	int error;
-
 	if (VMBUS_CHAN_ISPRIMARY(chan)) {
 		struct vmbus_channel *subchan;
 
@@ -825,15 +860,7 @@ vmbus_chan_close_direct(struct vmbus_channel *chan)
 		mutex_exit(&chan->ch_subchan_lock);
 	}
 
-	error = vmbus_chan_close_internal(chan);
-	if (!VMBUS_CHAN_ISPRIMARY(chan)) {
-		/*
-		 * This sub-channel is referenced, when it is linked to
-		 * the primary channel; drop that reference now.
-		 */
-		vmbus_chan_detach(chan);
-	}
-	return (error);
+	return (vmbus_chan_close_internal(chan));
 }
 
 /*
@@ -863,15 +890,8 @@ vmbus_chan_close(struct vmbus_channel *chan)
 		int i;
 
 		subchan = vmbus_subchan_get(chan, subchan_cnt);
-		for (i = 0; i < subchan_cnt; ++i) {
+		for (i = 0; i < subchan_cnt; ++i)
 			(void) vmbus_chan_close_internal(subchan[i]);
-			/*
-			 * This sub-channel is referenced, when it is
-			 * linked to the primary channel; drop that
-			 * reference now.
-			 */
-			vmbus_chan_detach(subchan[i]);
-		}
 		vmbus_subchan_rel(subchan, subchan_cnt);
 	}
 
@@ -1257,6 +1277,7 @@ vmbus_chan_alloc(struct vmbus_softc *sc)
 	chan->ch_vmbus = sc;
 	mutex_init(&chan->ch_subchan_lock, NULL, MUTEX_DRIVER, NULL);
 	mutex_init(&chan->ch_orphan_lock, NULL, MUTEX_DRIVER, NULL);
+	mutex_init(&chan->ch_close_lock, NULL, MUTEX_DRIVER, NULL);
 	cv_init(&chan->ch_subchan_cv, NULL, CV_DEFAULT, NULL);
 	list_create(&chan->ch_subchans, sizeof (struct vmbus_channel),
 	    offsetof(struct vmbus_channel, ch_sublink));
@@ -1270,7 +1291,9 @@ void
 vmbus_chan_free(void *arg)
 {
 	struct vmbus_channel *chan = arg;
+	struct vmbus_channel *prichan = chan->ch_prichan;
 
+	ASSERT0(chan->ch_refs);
 	ASSERT(list_is_empty(&chan->ch_subchans));
 	ASSERT0(chan->ch_subchan_cnt);
 	    /* ("still owns sub-channels"); */
@@ -1283,10 +1306,15 @@ vmbus_chan_free(void *arg)
 	hyperv_dmamem_free(&chan->ch_monprm_dma);
 	mutex_destroy(&chan->ch_subchan_lock);
 	mutex_destroy(&chan->ch_orphan_lock);
+	mutex_destroy(&chan->ch_close_lock);
 	cv_destroy(&chan->ch_subchan_cv);
 	vmbus_rxbr_deinit(&chan->ch_rxbr);
 	vmbus_txbr_deinit(&chan->ch_txbr);
 	kmem_free(chan, sizeof (*chan));
+
+	/* Snapshot references to a subchannel also keep its primary alive. */
+	if (prichan != NULL)
+		vmbus_chan_refrele(prichan);
 }
 
 static int
@@ -1341,8 +1369,8 @@ vmbus_chan_add(struct vmbus_channel *newchan)
 		}
 
 		/*
-		 * Ref to primary channel is released when the subchannel
-		 * is detached.
+		 * Keep the primary alive until the subchannel's last reference
+		 * is released, including any snapshots held past detach.
 		 */
 		vmbus_chan_refhold(prichan);
 
@@ -1559,9 +1587,9 @@ vmbus_chan_msgproc_chrescind(struct vmbus_softc *sc,
 	mutex_enter(&chan->ch_orphan_lock);
 	if (chan->ch_orphan_xact != NULL)
 		(void) vmbus_xact_ctx_orphan(chan->ch_orphan_xact);
-	mutex_exit(&chan->ch_orphan_lock);
 
 	vmbus_chan_printf(chan, "?chan%u rescinded", note->chm_chanid);
+	mutex_exit(&chan->ch_orphan_lock);
 
 	vmbus_chan_detach(chan);
 }
@@ -1612,8 +1640,7 @@ vmbus_prichan_detach_task(void *xchan)
 	(void) vmbus_chan_release(chan);
 
 	/* Release the ref given to us when dispatched to the taskq */
-	if (atomic_dec_uint_nv(&chan->ch_refs) == 0)
-		(void) vmbus_chan_free(chan);
+	vmbus_chan_refrele(chan);
 }
 
 static void
@@ -1623,7 +1650,12 @@ vmbus_subchan_detach_task(void *xchan)
 	struct vmbus_channel *pri_chan = chan->ch_prichan;
 
 	ASSERT(!VMBUS_CHAN_ISPRIMARY(chan));
-	    /* ("chan%u is primary channel", chan->ch_id); */
+	ASSERT0(chan->ch_stflags & VMBUS_CHAN_ST_OPENED);
+	ASSERT(chan->ch_stflags & VMBUS_CHAN_ST_CLOSED);
+	ASSERT(chan->ch_stflags & VMBUS_CHAN_ST_REVOKED);
+
+	/* Close invalidated the borrowed devinfo before publishing CLOSED. */
+	ASSERT3P(chan->ch_dev, ==, NULL);
 
 	/* Release this channel (back to vmbus). */
 	(void) vmbus_chan_release(chan);
@@ -1631,16 +1663,12 @@ vmbus_subchan_detach_task(void *xchan)
 	/* Unlink from its primary channel's sub-channel list. */
 	mutex_enter(&pri_chan->ch_subchan_lock);
 	vmbus_chan_rem_sublist(pri_chan, chan);
-	mutex_exit(&pri_chan->ch_subchan_lock);
 	/* Notify anyone that is waiting for this sub-channel to vanish. */
 	cv_broadcast(&pri_chan->ch_subchan_cv);
+	mutex_exit(&pri_chan->ch_subchan_lock);
 
-	/* prichan was refheld when subchannel was created */
-	chan->ch_prichan = NULL;
-	vmbus_chan_refrele(pri_chan);
-
-	/* Free this channel's resource. */
-	vmbus_chan_free(chan);
+	/* Drop the task's hold; snapshot references may still exist. */
+	vmbus_chan_refrele(chan);
 }
 
 void
@@ -1657,7 +1685,8 @@ vmbus_chan_destroy_all(struct vmbus_softc *sc)
 	chan = list_head(&sc->vmbus_prichans);
 
 	/* Note: ref is passed to detach taskq function */
-	vmbus_chan_refhold(chan);
+	if (chan != NULL)
+		vmbus_chan_refhold(chan);
 	while (chan != NULL) {
 		next = list_next(&sc->vmbus_prichans, chan);
 		if (next != NULL)
@@ -1668,8 +1697,7 @@ vmbus_chan_destroy_all(struct vmbus_softc *sc)
 		vmbus_chan_rem_list(sc, chan);
 		mutex_exit(&sc->vmbus_chan_lock);
 
-		VERIFY0(ddi_taskq_dispatch(chan->ch_mgmt_tq,
-		    chan->ch_detach_task, chan, DDI_SLEEP));
+		vmbus_chan_detach(chan);
 
 		chan = next;
 	}
@@ -1936,5 +1964,7 @@ vmbus_chan_refhold(struct vmbus_channel *chan)
 void
 vmbus_chan_refrele(struct vmbus_channel *chan)
 {
-	atomic_dec_32(&chan->ch_refs);
+	ASSERT3U(chan->ch_refs, >, 0);
+	if (atomic_dec_32_nv(&chan->ch_refs) == 0)
+		vmbus_chan_free(chan);
 }

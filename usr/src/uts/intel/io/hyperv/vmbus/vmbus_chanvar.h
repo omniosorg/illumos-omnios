@@ -37,7 +37,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
- * Copyright 2023 Racktop Systems, Inc.
+ * Copyright 2023-2026 RackTop Systems Inc.
  */
 
 #ifndef _VMBUS_CHANVAR_H_
@@ -156,6 +156,8 @@ struct vmbus_channel {
 	kmutex_t			ch_orphan_lock;
 	struct vmbus_xact_ctx		*ch_orphan_xact;
 
+	/* Serialize close through ring and callback teardown. */
+	kmutex_t			ch_close_lock;
 	uint32_t			ch_refs;
 } __aligned(64);
 
@@ -178,11 +180,15 @@ struct vmbus_channel {
 #define	VMBUS_CHAN_ST_ONSUBL_SHIFT	2
 #define	VMBUS_CHAN_ST_ONLIST_SHIFT	3
 #define	VMBUS_CHAN_ST_REVOKED_SHIFT	4	/* sticky */
+#define	VMBUS_CHAN_ST_CLOSED_SHIFT	5
+#define	VMBUS_CHAN_ST_DETACHING_SHIFT	6	/* sticky */
 #define	VMBUS_CHAN_ST_OPENED		(1 << VMBUS_CHAN_ST_OPENED_SHIFT)
 #define	VMBUS_CHAN_ST_ONPRIL		(1 << VMBUS_CHAN_ST_ONPRIL_SHIFT)
 #define	VMBUS_CHAN_ST_ONSUBL		(1 << VMBUS_CHAN_ST_ONSUBL_SHIFT)
 #define	VMBUS_CHAN_ST_ONLIST		(1 << VMBUS_CHAN_ST_ONLIST_SHIFT)
 #define	VMBUS_CHAN_ST_REVOKED		(1 << VMBUS_CHAN_ST_REVOKED_SHIFT)
+#define	VMBUS_CHAN_ST_CLOSED		(1 << VMBUS_CHAN_ST_CLOSED_SHIFT)
+#define	VMBUS_CHAN_ST_DETACHING		(1 << VMBUS_CHAN_ST_DETACHING_SHIFT)
 
 struct vmbus_softc;
 struct vmbus_message;
