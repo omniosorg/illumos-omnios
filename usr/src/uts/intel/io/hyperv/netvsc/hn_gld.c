@@ -12,6 +12,7 @@
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
  * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+ * Copyright 2026 RackTop Systems, Inc.
  */
 
 /*
@@ -72,6 +73,23 @@ char *hn_priv_props[] = {
 	NULL
 };
 
+static struct {
+	uint32_t	cap;
+	const char	*capstr;
+} cap_strs[] = {
+	{ HN_CAP_VLAN, "vlan" },
+	{ HN_CAP_MTU, "mtu" },
+	{ HN_CAP_IPCS, "ipcs" },
+	{ HN_CAP_TCP4CS, "tcp4cs" },
+	{ HN_CAP_TCP6CS, "tcp6cs" },
+	{ HN_CAP_UDP4CS, "udp4cs" },
+	{ HN_CAP_UDP6CS, "udp6cs" },
+	{ HN_CAP_TSO4, "tso4" },
+	{ HN_CAP_TSO6, "tso6" },
+	{ HN_CAP_HASHVAL, "hashval" },
+	{ HN_CAP_UDPHASH, "udphash" },
+};
+
 #define	HN_M_CALLBACK_FLAGS \
 	(MC_GETCAPAB | MC_PROPERTIES)
 
@@ -98,7 +116,7 @@ int
 hn_get_priv_prop(struct hn_softc *sc, const char *prop_name,
     uint_t prop_val_size, void *prop_val)
 {
-	int value, error = 0;
+	int value = 0, error = 0;
 
 	HN_LOCK(sc);
 
@@ -117,18 +135,33 @@ hn_get_priv_prop(struct hn_softc *sc, const char *prop_name,
 			error = EOVERFLOW;
 		goto done;
 	} else if (strcmp(prop_name, HN_PROP_HOST_CAPABILITIES) == 0) {
+		char *str = prop_val;
 		uint32_t caps = sc->hn_caps;
-		if (snprintf(prop_val, prop_val_size, "%s%s%s%s%s%s%s%s%s",
-		    (caps & HN_CAP_VLAN) ?	"VLAN " : "",
-		    (caps & HN_CAP_MTU) ?	"MTU " : "",
-		    (caps & HN_CAP_IPCS) ?	"IPCS " : "",
-		    (caps & HN_CAP_TCP4CS) ?	"TCP4CS " : "",
-		    (caps & HN_CAP_TCP6CS) ?	"TCP6CS " : "",
-		    (caps & HN_CAP_UDP4CS) ?	"UDP4CS " : "",
-		    (caps & HN_CAP_UDP6CS) ?	"UDP6CS " : "",
-		    (caps & HN_CAP_TSO4) ?	"TSO4 " : "",
-		    (caps & HN_CAP_TSO6) ?	"TSO6 " : "") >= prop_val_size)
+
+		if (prop_val_size == 0) {
 			error = EOVERFLOW;
+			goto done;
+		}
+		str[0] = '\0';
+
+		for (int i = 0; i < ARRAY_SIZE(cap_strs); i++) {
+			if ((caps & cap_strs[i].cap) == 0)
+				continue;
+
+			if (str[0] != '\0') {
+				if (strlcat(str, ",",
+				    prop_val_size) >= prop_val_size) {
+					error = EOVERFLOW;
+					goto done;
+				}
+			}
+
+			if (strlcat(str, cap_strs[i].capstr,
+			    prop_val_size) >= prop_val_size) {
+				error = EOVERFLOW;
+				goto done;
+			}
+		}
 		goto done;
 	} else if (strcmp(prop_name, HN_PROP_RX_RINGS_USED) == 0) {
 		value = sc->hn_rx_ring_inuse;
