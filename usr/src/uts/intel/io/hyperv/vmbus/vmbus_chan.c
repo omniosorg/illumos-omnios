@@ -39,7 +39,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
- * Copyright 2022 Racktop Systems, Inc.
+ * Copyright 2022-2026 RackTop Systems Inc.
  */
 
 #include <sys/debug.h>
@@ -1607,8 +1607,7 @@ vmbus_prichan_detach_task(void *xchan)
 	ASSERT(VMBUS_CHAN_ISPRIMARY(chan));
 	ASSERT3U(chan->ch_refs, >, 0);
 
-	(void) ndi_devi_offline(chan->ch_dev, NDI_DEVI_REMOVE);
-
+	/* The child may not have been configured; remove it at most once. */
 	(void) vmbus_delete_child(chan);
 	(void) vmbus_chan_release(chan);
 
