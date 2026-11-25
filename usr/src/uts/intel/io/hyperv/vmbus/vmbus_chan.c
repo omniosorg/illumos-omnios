@@ -915,6 +915,11 @@ vmbus_chan_send(struct vmbus_channel *chan, uint16_t type, uint16_t flags,
 	struct iovec iov[3];
 	boolean_t send_evt;
 
+	if (vmbus_chan_is_revoked(chan) ||
+	    (chan->ch_prichan != NULL &&
+	    vmbus_chan_is_revoked(chan->ch_prichan)))
+		return (ENXIO);
+
 	hlen = sizeof (pkt);
 	pktlen = hlen + dlen;
 	pad_pktlen = VMBUS_CHANPKT_TOTLEN(pktlen);
@@ -948,6 +953,11 @@ vmbus_chan_send_sglist(struct vmbus_channel *chan,
 	struct iovec iov[4];
 	boolean_t send_evt;
 	uint64_t pad = 0;
+
+	if (vmbus_chan_is_revoked(chan) ||
+	    (chan->ch_prichan != NULL &&
+	    vmbus_chan_is_revoked(chan->ch_prichan)))
+		return (ENXIO);
 
 	hlen = offsetof(struct vmbus_chanpkt_sglist, cp_gpa[sglen]);
 	pktlen = hlen + dlen;
@@ -987,6 +997,11 @@ vmbus_chan_send_prplist(struct vmbus_channel *chan,
 	struct iovec iov[4];
 	boolean_t send_evt;
 	uint64_t pad = 0;
+
+	if (vmbus_chan_is_revoked(chan) ||
+	    (chan->ch_prichan != NULL &&
+	    vmbus_chan_is_revoked(chan->ch_prichan)))
+		return (ENXIO);
 
 	hlen = offsetof(struct vmbus_chanpkt_prplist,
 	    cp_range[0].gpa_page[prp_cnt]);
@@ -1635,8 +1650,17 @@ vmbus_prichan_detach_task(void *xchan)
 	ASSERT(VMBUS_CHAN_ISPRIMARY(chan));
 	ASSERT3U(chan->ch_refs, >, 0);
 
-	/* The child may not have been configured; remove it at most once. */
-	(void) vmbus_delete_child(chan);
+	if (vmbus_delete_child(chan) != DDI_SUCCESS) {
+		/*
+		 * The child still owns this transport.  Retain the task's
+		 * reference and the host channel rather than release resources
+		 * underneath an attached driver.  In particular, an open MAC
+		 * client can prevent a rescinded network device from detaching.
+		 */
+		vmbus_chan_printf(chan, "chan%u child detach failed; "
+		    "retaining channel", chan->ch_id);
+		return;
+	}
 	(void) vmbus_chan_release(chan);
 
 	/* Release the ref given to us when dispatched to the taskq */
