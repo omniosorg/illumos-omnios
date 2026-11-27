@@ -1620,14 +1620,6 @@ $(i386_ONLY)file path=usr/platform/i86pc/include/vm/hat_pte.h
 $(i386_ONLY)file path=usr/platform/i86pc/include/vm/hment.h
 $(i386_ONLY)file path=usr/platform/i86pc/include/vm/htable.h
 $(i386_ONLY)file path=usr/platform/i86pc/include/vm/kboot_mmu.h
-$(i386_ONLY)dir path=usr/platform/i86xpv group=sys
-$(i386_ONLY)dir path=usr/platform/i86xpv/include
-$(i386_ONLY)dir path=usr/platform/i86xpv/include/sys
-$(i386_ONLY)file path=usr/platform/i86xpv/include/sys/balloon.h
-$(i386_ONLY)file path=usr/platform/i86xpv/include/sys/machprivregs.h
-$(i386_ONLY)file path=usr/platform/i86xpv/include/sys/xpv_impl.h
-$(i386_ONLY)dir path=usr/platform/i86xpv/include/vm
-$(i386_ONLY)file path=usr/platform/i86xpv/include/vm/seg_mf.h
 dir  path=usr/share
 dir  path=usr/share/man
 dir  path=usr/share/man/man3
