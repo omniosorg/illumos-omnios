@@ -20,12 +20,14 @@ PROG =	rdmsr \
 	imul \
 	cpuid \
 	cpuid_guest_state \
+	cpuid_legacy_intel_8000_0008 \
 	inout \
 	rep_instrs
 
 # These should probably go in the `vmm` tests, but since they depend on
 # in-guest payloads, it is easier to build them here.
 PROG +=	triple_fault \
+	reinject_errcode \
 	exit_paging \
 	page_dirty \
 	exit_consistent \
@@ -90,3 +92,6 @@ $(TESTDIR)/%: %
 	$(POST_PROCESS)
 
 $(CPAYLOADS:%=payload_%): payload_utils.o
+
+# Pull in the shared exception handling utilities
+payload_rep_instrs: payload_utils.o

@@ -42,7 +42,8 @@ tests = [
 	'npt_ops',
 	'pause_resume',
 	'self_destruct',
-	'vcpu_alloc'
+	'vcpu_alloc',
+	'vlapic_x2apic_state'
 	]
 
 [/opt/bhyve-tests/tests/kdev]
@@ -54,6 +55,7 @@ tests = [
 	'vlapic_freq_periodic',
 	'vlapic_mmio_access',
 	'vlapic_msr_access',
+	'vlapic_x2apic_mode',
 	'vpmtmr_freq',
 	'vrtc_ops',
 	'wrmsr_tsc',
@@ -65,12 +67,14 @@ user = root
 tests = [
 	'cpuid',
 	'cpuid_guest_state',
+	'cpuid_legacy_intel_8000_0008',
 	'imul',
 	'rdmsr',
 	'wrmsr',
 	'inout',
 	'rep_instrs',
 	'triple_fault',
+	'reinject_errcode',
 	'exit_paging',
 	'page_dirty',
 	'exit_consistent',

@@ -70,6 +70,7 @@ SUBDIRS =       \
 PROGS = \
 	clock_gettime \
 	close_range \
+	door_kernel_only \
 	eventfd \
 	fifo-tvnsec \
 	odirectory \
