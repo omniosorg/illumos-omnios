@@ -39,7 +39,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
- * Copyright 2022 RackTop Systems, Inc.
+ * Copyright 2022-2026 RackTop Systems Inc.
  */
 
 /*
@@ -867,6 +867,7 @@ storvsc_start(struct scsi_address *ap, struct scsi_pkt *pkt)
 	storvsc_dev_t		*dev;
 	struct scsi_device	*sd;
 	int			lun;
+	int			error;
 	boolean_t		poll;
 
 	if (((sd = scsi_address_device(ap)) == NULL) ||
@@ -909,12 +910,18 @@ storvsc_start(struct scsi_address *ap, struct scsi_pkt *pkt)
 	pkt->pkt_state |= (STATE_GOT_BUS | STATE_GOT_TARGET |  STATE_SENT_CMD);
 
 	/*
-	 * If this fails, it will normally be EBUSY, because the
-	 * vmbus is out of entries.
+	 * A full ring is transient, but a revoked channel cannot accept any
+	 * more requests.  Do not retry permanent transport loss as congestion.
 	 */
-	if (storvsc_io_request(sc, req, pkt->pkt_numcookies, pkt->pkt_cookies,
-	    pkt->pkt_dma_flags & (DDI_DMA_READ|DDI_DMA_WRITE)) != 0) {
+	error = storvsc_io_request(sc, req, pkt->pkt_numcookies,
+	    pkt->pkt_cookies,
+	    pkt->pkt_dma_flags & (DDI_DMA_READ|DDI_DMA_WRITE));
+	if (error != 0) {
 		pkt->pkt_state &= ~(STATE_GOT_TARGET | STATE_SENT_CMD);
+		if (error == ENXIO) {
+			pkt->pkt_reason = CMD_DEV_GONE;
+			return (TRAN_FATAL_ERROR);
+		}
 		return (TRAN_BUSY);
 	}
 

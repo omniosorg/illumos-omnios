@@ -39,6 +39,7 @@
 
 /*
  * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright 2026 RackTop Systems Inc.
  */
 
 /*
@@ -485,7 +486,8 @@ hn_nvs_doinit(struct hn_softc *sc, uint32_t nvs_ver)
 }
 
 /*
- * Configure MTU and enable VLAN.
+ * Configure MTU.  Do not advertise VLAN offload while the receive path
+ * does not preserve RNDIS VLAN metadata.
  */
 static int
 hn_nvs_conf_ndis(struct hn_softc *sc, int mtu)
@@ -495,8 +497,8 @@ hn_nvs_conf_ndis(struct hn_softc *sc, int mtu)
 
 	(void) memset(&conf, 0, sizeof (conf));
 	conf.nvs_type = HN_NVS_TYPE_NDIS_CONF;
-	conf.nvs_mtu = mtu;
-	conf.nvs_caps = HN_NVS_NDIS_CONF_VLAN;
+	/* NVS expects the frame size including the Ethernet header, not FCS. */
+	conf.nvs_mtu = mtu + sizeof (struct ether_header);
 
 	/* NOTE: No response. */
 	error = hn_nvs_req_send(sc, &conf, sizeof (conf));
@@ -506,7 +508,7 @@ hn_nvs_conf_ndis(struct hn_softc *sc, int mtu)
 	}
 
 	HN_DEBUG(sc, 1, "nvs ndis conf done");
-	sc->hn_caps |= HN_CAP_MTU | HN_CAP_VLAN;
+	sc->hn_caps |= HN_CAP_MTU;
 	return (0);
 }
 

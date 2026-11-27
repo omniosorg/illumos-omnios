@@ -291,6 +291,7 @@ struct hn_softc {
 #define	HN_CAP_TSO4			0x0080
 #define	HN_CAP_TSO6			0x0100
 #define	HN_CAP_HASHVAL			0x0200
+#define	HN_CAP_UDPHASH			0x0400
 
 #define	HN_CAP_L4CS	(HN_CAP_TCP4CS | HN_CAP_TCP6CS | \
 			HN_CAP_UDP4CS | HN_CAP_UDP6CS)
